@@ -12,6 +12,8 @@ const XML      = join(ROOT, "android/app/src/main/res/xml");
 const MANIFEST = join(ROOT, "android/app/src/main/AndroidManifest.xml");
 const GRADLE   = join(ROOT, "android/app/build.gradle");
 const ROOT_GRADLE = join(ROOT, "android/build.gradle");
+const APP_DIR  = join(ROOT, "android/app");
+const KEYSTORE_SRC = join(ROOT, "debug.keystore");   // the committed, stable signing key
 // Kotlin Gradle plugin version compatible with Capacitor 6.2's AGP 8.2.1 / Gradle 8.2.1.
 const KOTLIN_VERSION = "1.9.25";
 
@@ -162,6 +164,47 @@ if (!kgradle.includes("kotlin.android")) {
   console.log("Patched android/app/build.gradle: applied kotlin.android + jvmTarget 17");
 } else {
   console.log("android/app/build.gradle already has kotlin.android — skipped");
+}
+
+// ── 3c. Sign the debug build with the COMMITTED debug.keystore ──
+// Capacitor's debug build relies on AGP's *default* debug signingConfig, which
+// reads $HOME/.android/debug.keystore — and when AGP doesn't find a keystore at
+// the exact path it expects, it SILENTLY GENERATES A NEW THROWAWAY KEY per build
+// (you can spot it: the signing cert's "valid from" == the build timestamp).
+// On CI that meant every release APK was signed with a *different* random key,
+// so installing/updating over a previously-installed build failed with
+// "the package conflicts with an existing package" — a signature mismatch that
+// no amount of uninstalling fixes for good, because the next build's key differs
+// again. (The workflow's `cp debug.keystore ~/.android/debug.keystore` step was
+// not the keystore AGP actually used.) Fix: pin signing explicitly to the
+// committed keystore, copied into the app module, so every build — local or CI —
+// signs with the SAME stable key and updates install cleanly. Standard debug
+// credentials (storepass/keypass "android", alias "androiddebugkey").
+// IMPORTANT: never regenerate debug.keystore, or installed apps break on update.
+cpSync(KEYSTORE_SRC, join(APP_DIR, "pauta-debug.keystore"));
+console.log("Copied debug.keystore → android/app/pauta-debug.keystore");
+
+let sgradle = readFileSync(GRADLE, "utf8");
+if (!sgradle.includes("pauta-debug.keystore")) {
+  // A further android{} block is legal — Gradle merges it into the same
+  // extension. Reconfiguring the existing `debug` signingConfig is enough: the
+  // implicit debug buildType already points at signingConfigs.debug.
+  sgradle += `
+android {
+    signingConfigs {
+        debug {
+            storeFile file('pauta-debug.keystore')
+            storePassword 'android'
+            keyAlias 'androiddebugkey'
+            keyPassword 'android'
+        }
+    }
+}
+`;
+  writeFileSync(GRADLE, sgradle);
+  console.log("Patched android/app/build.gradle: debug signingConfig → committed keystore");
+} else {
+  console.log("android/app/build.gradle already pins the committed keystore — skipped");
 }
 
 // ── 4. Bump versionCode/versionName in CI ────────────────────
