@@ -195,6 +195,7 @@ function spring(o, target, k, d, ds) {
     r -= s;
   }
 }
+function clamp(v, lo, hi) { return v < lo ? lo : v > hi ? hi : v; }
 
 // Articulated parrot, facing left — a two-tone tropical bird: terracotta body in
 // the live accent, a teal/blue wing + tail flash, a yellow hooked beak and a
@@ -393,6 +394,10 @@ function ParrotCompanion({ store, accentColor, tab }) {
     tilt:  { p: 0, v: 0 },
     tail:  { p: 0, v: 0 },
     crest: { p: 0, v: 0 },
+    head:  { p: 0, v: 0 },     // head nod (crest trails it)
+    squash:{ p: 0, v: 0 },     // smoothed squash/stretch from vertical velocity
+    prevVy: 0,                 // last vertical offset, for that velocity
+    behKind: null, behDir: 1, behDur: 0, behUntil: 0, nextBeh: 0,  // idle behaviours
   }).current;
 
   // Frame size, refreshed on resize so anchors track rotation / window changes.
@@ -465,8 +470,9 @@ function ParrotCompanion({ store, accentColor, tab }) {
     const ro = ("ResizeObserver" in window) ? new ResizeObserver(measure) : null;
     if (ro && fieldRef.current) ro.observe(fieldRef.current);
 
-    let raf = 0, running = true, lastStep = performance.now();
+    let raf = 0, running = true, prev = performance.now();
     const FLIGHT_MS = 820;
+    const HOP_MS = 760;   // hop window — matches the value set in say()
 
     const frame = (now) => {
       raf = requestAnimationFrame(frame);
@@ -480,125 +486,149 @@ function ParrotCompanion({ store, accentColor, tab }) {
         bubbleRefEl.current.style.opacity = bp.toFixed(3);
       }
 
-      const surf = tabRef.current === "mares";
-      const busy = m.flying || now < m.hopUntil;
-      // ── "on twos/threes" ── Pip animates in stepped poses (~11fps idle, ~15fps
-      // in action) instead of smoothly: he HOLDS each pose for a few real frames,
-      // then snaps to the next. That deliberate low-frame-rate cadence is the
-      // Spider-Verse look — punchy and hand-animated, not lag — and it's lighter
-      // than per-frame work. // PT: animação "aos saltos", ao estilo do filme.
-      const stepMs = busy ? 65 : 90;
-      if (now - lastStep < stepMs) return;
-      const dt = Math.min(now - lastStep, 200); lastStep = now;
+      const dt = Math.min((now - prev) / 1000, 0.05); prev = now;   // seconds, capped
       const t = now / 1000;
+      const surf = tabRef.current === "mares";
 
-      // ── position: explicit interpolation while flying, soft easing at rest ──
+      // ── position ── eased flight arc, or a frame-rate-independent ease to the
+      // resting anchor (smooth, no linear slide) ──
       let px, py, arcOff = 0, leanFly = 0;
       if (m.flying) {
-        m.ft += dt / FLIGHT_MS;
+        m.ft += dt * 1000 / FLIGHT_MS;
         if (m.ft >= 1) { m.ft = 1; m.flying = false; }
         const e = easeInOutCubic(m.ft);
+        const arcP = Math.sin(Math.PI * m.ft);
         px = lerp(m.fromX, m.toX, e);
         py = lerp(m.fromY, m.toY, e);
-        arcOff = -Math.sin(Math.PI * m.ft) * m.arc;          // parabolic hop up
-        leanFly = m.dir * 16 * Math.sin(Math.PI * m.ft);     // lean into travel
+        arcOff = -arcP * m.arc;                       // swoops along an arc
+        leanFly = m.dir * 18 * arcP;                  // banks into the travel
         m.x = px; m.y = py;
       } else {
         const dest = anchorPx(anchorRef.current);
-        m.x = lerp(m.x, dest.x, 0.26);                        // ease + track resize
-        m.y = lerp(m.y, dest.y, 0.26);
+        const k = 1 - Math.pow(0.0009, dt);           // ease, independent of fps
+        m.x = lerp(m.x, dest.x, k);
+        m.y = lerp(m.y, dest.y, k);
         px = m.x; py = m.y;
       }
 
-      // ── bob + hop (vertical) ── big enough that each held pose has real travel.
-      let bob, hop = 0;
-      if (surf && !m.flying) bob = Math.sin(t * 2.2) * 7;     // ride the swell
-      else if (!m.flying)    bob = Math.sin(t * 2.0) * 5;     // float
-      else                   bob = 0;
+      // ── idle behaviours ── once settled, Pip occasionally does a little act (a
+      // look, a double-nod, a wing-stretch, a tail-flick, a preen) so the idle
+      // never loops. Each is a short windowed impulse layered onto the springs
+      // below, easing itself in and out. // PT: pequenos gestos espontâneos.
+      const settled = !m.flying && now >= m.hopUntil;
+      if (!m.nextBeh) m.nextBeh = now + 1600 + Math.random() * 2600;
+      if (settled && now > m.nextBeh) {
+        const kinds = surf ? ["look", "nod", "flap", "tail"] : ["look", "nod", "flap", "tail", "preen"];
+        m.behKind = kinds[(Math.random() * kinds.length) | 0];
+        m.behDir  = Math.random() < 0.5 ? -1 : 1;
+        m.behDur  = 520 + Math.random() * 380;
+        m.behUntil = now + m.behDur;
+        m.nextBeh  = m.behUntil + 2600 + Math.random() * 4600;
+      }
+      let bHead = 0, bLean = 0, bWing = 0, bTail = 0, bCrest = 0, bLift = 0;
+      if (now < m.behUntil) {
+        const bp = 1 - (m.behUntil - now) / m.behDur;     // 0..1
+        const e  = Math.sin(Math.PI * bp);                // smooth in/out window
+        if (m.behKind === "look")       { bHead = m.behDir * 8 * e; bLean = m.behDir * 3 * e; bCrest = m.behDir * 5 * e; }
+        else if (m.behKind === "nod")   { bHead = -8 * Math.sin(Math.PI * bp * 2) * (1 - 0.3 * bp); }
+        else if (m.behKind === "flap")  { bWing = 28 * Math.sin(Math.PI * bp * 3) * (1 - bp); bLift = -8 * e; }
+        else if (m.behKind === "tail")  { bTail = 20 * Math.sin(Math.PI * bp * 2.5) * (1 - bp); bLean = -m.behDir * 2 * e; }
+        else if (m.behKind === "preen") { bHead = 12 * Math.sin(Math.PI * Math.min(bp * 1.25, 1)); bCrest = -10 * e; }
+      }
+
+      // ── breath ── two incommensurate sines, so it never visibly repeats ──
+      const breath = 0.6 * Math.sin(t * 1.5) + 0.4 * Math.sin(t * 2.27 + 1.0);
+
+      // ── vertical: layered bob + an anticipated, weighty hop (crouch → leap → land) ──
+      let bob;
+      if (m.flying)  bob = 0;
+      else if (surf) bob = Math.sin(t * 2.0) * 4.5 + Math.sin(t * 1.13 + 0.6) * 2.2;
+      else           bob = Math.sin(t * 1.7) * 3.4 + Math.sin(t * 1.07 + 0.4) * 1.8;
+      let hop = 0;
       if (now < m.hopUntil) {
-        const hp = 1 - (m.hopUntil - now) / 760;
-        hop = -Math.sin(Math.PI * hp) * 22;
+        const hp = 1 - (m.hopUntil - now) / HOP_MS;
+        if (hp < 0.18) hop = 9 * (hp / 0.18);                                          // crouch (anticipation)
+        else { const j = (hp - 0.18) / 0.82; hop = 9 * (1 - j) - 30 * Math.sin(Math.PI * j); }   // leap + land
       }
+      const vy = bob + hop + bLift;
 
-      const ds = dt / 1000;   // seconds, for the springs
+      // ── squash & stretch ── from vertical velocity: stretch tall on the way up,
+      // squash wide on the landing (weight). Volume-roughly-conserved and
+      // spring-smoothed so it tracks without jitter. ──
+      const vVel = (vy - m.prevVy) / dt; m.prevVy = vy;
+      spring(m.squash, clamp(-vVel * 0.0016, -0.14, 0.12), 220, 22, dt);
+      const sq = m.squash.p;
+      const breathSy = 1 + 0.05 * breath + sq;
+      const breathSx = 1 - 0.025 * breath - sq * 0.85;
 
-      // ── breathing ── a bold squash-and-stretch chest (Y up ~9% / X in ~5%) so
-      // Pip visibly breathes even in a held pose; the head rides up with it.
-      const breath = Math.sin(t * 1.8);
-      const breathSx = 1 - 0.05 * breath;
-      const breathSy = 1 + 0.09 * breath;
-      const headY = -1.6 * breath;
+      // ── board carve (Marés only) ──
+      const boardTilt = surf ? (Math.sin(t * 1.4) * 8 + Math.sin(t * 0.63 + 1.1) * 3) : 0;
 
-      // ── board carve (Marés only) ── a big swell carve (~±12°) so the wave reads.
-      const boardTilt = surf ? (Math.sin(t * 1.5) * 9 + Math.sin(t * 0.66 + 1.1) * 3.5) : 0;
-
-      // ── body lean ── spring-driven (never linear) and UNDER-damped, so Pip
-      // counter-balances the board a beat late and OVERSHOOTS — the lag plus the
-      // bounce is the life. Off the wave it's a bigger idle sway. Flight and hop
-      // keep their deliberate lean and re-seed the spring so there's no jump.
-      let lean;
-      if (m.flying) { m.tilt.p = leanFly; m.tilt.v = 0; lean = leanFly; }
-      else if (now < m.hopUntil) {
-        const hl = Math.sin((now - (m.hopUntil - 760)) / 55) * 11;
-        m.tilt.p = hl; m.tilt.v = 0; lean = hl;
-      } else {
-        const tiltTarget = surf ? -0.85 * boardTilt : Math.sin(t * 0.95) * 5.5;
-        spring(m.tilt, tiltTarget, 80, 7, ds);   // ζ≈0.39 → clear, lively overshoot
+      // ── body lean ── spring; on the wave it counter-balances the carve (a beat
+      // late, with overshoot), else a gentle layered sway. A small sideways
+      // weight-shift rides along. Flight hands it the bank and re-seeds the spring.
+      let lean, swayX;
+      if (m.flying) { m.tilt.p = leanFly; m.tilt.v = 0; lean = leanFly; swayX = 0; }
+      else {
+        const swayIdle = Math.sin(t * 0.9) * 4 + Math.sin(t * 0.53) * 2;
+        const tiltTarget = (surf ? -0.8 * boardTilt : swayIdle) + bLean;
+        spring(m.tilt, tiltTarget, now < m.hopUntil ? 150 : 90, 12, dt);
         lean = m.tilt.p;
+        swayX = Math.sin(t * 0.8) * 2 + (surf ? boardTilt * -0.06 : 0);
       }
 
-      // ── wing flap ── strong in flight/hop; at rest a big primary beat plus a
-      // faster flutter (a second harmonic) so it never reads as one rigid sine.
+      // ── head ── spring toward a layered nod + behaviour; the crest trails it ──
+      spring(m.head, Math.sin(t * 1.3 + 0.5) * 3.2 + Math.sin(t * 0.8) * 1.6 + bHead, 120, 13, dt);
+      const headRot = m.head.p;
+      const headY = -1.5 * breath;
+
+      // ── wing ── strong flaps in flight/hop, a lively layered flutter at rest ──
       let wing;
-      if (m.flying || now < m.hopUntil) wing = Math.sin(t * 22) * 36;
-      else if (surf)                     wing = -4 + Math.sin(t * 4.4) * 16 + Math.sin(t * 9.0) * 4;
-      else                               wing = 6 + Math.sin(t * 3.1) * 20 + Math.sin(t * 6.6) * 5;
+      if (m.flying)              wing = 8 + Math.sin(t * 24) * 34;
+      else if (now < m.hopUntil) wing = 6 + Math.sin(t * 26) * 30;
+      else if (surf)             wing = -3 + Math.sin(t * 4.0) * 12 + Math.sin(t * 8.3) * 3;
+      else                       wing =  5 + Math.sin(t * 2.7) * 14 + Math.sin(t * 5.9) * 4;
+      wing += bWing;
 
-      // ── head nod ── a bold compound nod on its own cadence.
-      const head = Math.sin(t * 1.7 + 0.5) * 5.5 + Math.sin(t * 0.85) * 2;
-
-      // ── overlapping / secondary motion ── tail and crest TRAIL the lean and the
-      // head through their own UNDER-damped springs, each at a different cadence,
-      // so the motion whips through Pip (follow-through) a beat behind the body.
-      spring(m.tail,  -0.9 * lean, 110, 9, ds);   // tail whips behind the lean
-      spring(m.crest,  1.3 * head, 130, 9, ds);   // crest flicks after the head
-      const tailA  = m.tail.p  + Math.sin(t * 1.95 + 0.6) * 6;
-      const crestA = m.crest.p + Math.sin(t * 1.3 + 1.3) * 4;
+      // ── secondary / follow-through ── crest trails the head, tail trails the
+      // lean, each through its own under-damped spring at its own cadence ──
+      spring(m.crest, 1.25 * m.head.p + bCrest, 140, 10, dt);
+      spring(m.tail, -0.85 * m.tilt.p + bTail, 120, 10, dt);
+      const crestA = m.crest.p + Math.sin(t * 1.6 + 1.3) * 2.4;
+      const tailA  = m.tail.p  + Math.sin(t * 1.9 + 0.6) * 3.5;
 
       // ── blink ── brief eye squash on a randomised cadence ──
-      if (!m.nextBlink) m.nextBlink = now + 2500 + Math.random() * 3000;
-      if (now > m.nextBlink && !m.blinkUntil) { m.blinkUntil = now + 130; }
+      if (!m.nextBlink) m.nextBlink = now + 2000 + Math.random() * 3000;
+      if (now > m.nextBlink && !m.blinkUntil) m.blinkUntil = now + 120;
       let eyeSy = 1;
       if (m.blinkUntil) {
-        if (now > m.blinkUntil) { m.blinkUntil = 0; m.nextBlink = now + 2500 + Math.random() * 3500; }
-        else { const bp = 1 - (m.blinkUntil - now) / 130; eyeSy = 1 - Math.sin(Math.PI * bp) * 0.9; }
+        if (now > m.blinkUntil) { m.blinkUntil = 0; m.nextBlink = now + 2200 + Math.random() * 3600; }
+        else { const bp = 1 - (m.blinkUntil - now) / 120; eyeSy = 1 - Math.sin(Math.PI * bp) * 0.92; }
       }
 
       // ── write transforms (HTML via style, SVG parts via the transform attr) ──
       const mover = moverRef.current;
       if (mover) {
-        mover.style.transform =
-          "translate(" + px + "px," + (py + arcOff) + "px) translate(-50%,-50%)";
-        // Reveal once positioned (it starts at opacity 0 to avoid a one-frame
-        // flash at the corner before the first transform is written).
+        mover.style.transform = "translate(" + px + "px," + (py + arcOff) + "px) translate(-50%,-50%)";
+        // Reveal once positioned (starts at opacity 0 to avoid a corner flash).
         if (mover.style.opacity !== "1") mover.style.opacity = "1";
       }
-      if (bobRef.current)  bobRef.current.style.transform  = "translateY(" + (bob + hop) + "px)";
-      if (tiltRef.current) tiltRef.current.style.transform = "rotate(" + lean + "deg)";
-      // body: breathe — scale about the chest (sub-1px, reads as an inhale)
+      if (bobRef.current)  bobRef.current.style.transform  = "translateY(" + vy.toFixed(2) + "px)";
+      if (tiltRef.current) tiltRef.current.style.transform = "translateX(" + swayX.toFixed(2) + "px) rotate(" + lean.toFixed(2) + "deg)";
+      // body: breathe + squash/stretch, scaled about the chest
       if (bodyRef.current) bodyRef.current.setAttribute("transform",
         "translate(" + BODY_PIVOT[0] + " " + BODY_PIVOT[1] + ") scale(" +
         breathSx.toFixed(4) + " " + breathSy.toFixed(4) + ") translate(" +
         (-BODY_PIVOT[0]) + " " + (-BODY_PIVOT[1]) + ")");
       if (wingRef.current) wingRef.current.setAttribute("transform",
-        "rotate(" + wing + " " + WING_PIVOT[0] + " " + WING_PIVOT[1] + ")");
-      // head: tiny breath-coupled lift, then the nod
+        "rotate(" + wing.toFixed(2) + " " + WING_PIVOT[0] + " " + WING_PIVOT[1] + ")");
+      // head: breath-coupled lift, then the nod
       if (headRef.current) headRef.current.setAttribute("transform",
-        "translate(0 " + headY.toFixed(2) + ") rotate(" + head + " " + HEAD_PIVOT[0] + " " + HEAD_PIVOT[1] + ")");
+        "translate(0 " + headY.toFixed(2) + ") rotate(" + headRot.toFixed(2) + " " + HEAD_PIVOT[0] + " " + HEAD_PIVOT[1] + ")");
       if (crestRef.current) crestRef.current.setAttribute("transform",
-        "rotate(" + crestA + " " + CREST_PIVOT[0] + " " + CREST_PIVOT[1] + ")");
+        "rotate(" + crestA.toFixed(2) + " " + CREST_PIVOT[0] + " " + CREST_PIVOT[1] + ")");
       if (tailRef.current) tailRef.current.setAttribute("transform",
-        "rotate(" + tailA + " " + TAIL_PIVOT[0] + " " + TAIL_PIVOT[1] + ")");
+        "rotate(" + tailA.toFixed(2) + " " + TAIL_PIVOT[0] + " " + TAIL_PIVOT[1] + ")");
       if (eyeRef.current) eyeRef.current.setAttribute("transform",
         "matrix(1 0 0 " + eyeSy.toFixed(3) + " 0 " + (EYE_CY * (1 - eyeSy)).toFixed(2) + ")");
       // board: carve under Pip's feet — he counter-balances it (Marés only)
@@ -611,7 +641,7 @@ function ParrotCompanion({ store, accentColor, tab }) {
     // Park entirely while the tab/app is hidden; resume cleanly when back.
     const onVis = () => {
       if (document.hidden) { running = false; cancelAnimationFrame(raf); }
-      else if (!running) { running = true; lastStep = performance.now(); raf = requestAnimationFrame(frame); }
+      else if (!running) { running = true; prev = performance.now(); raf = requestAnimationFrame(frame); }
     };
     document.addEventListener("visibilitychange", onVis);
 
