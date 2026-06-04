@@ -1,0 +1,601 @@
+// Tab: HOJE — intenções do dia + reflexão noturna
+
+function TabHoje({ store, accentColor, onJumpToPauta }) {
+  const { state, addIntention, updateIntention, toggleIntention, removeIntention, reorderIntentions, setReflection, carryOverIntentions } = store;
+  const { today, blocks } = state;
+
+  // Unfinished intentions from the most recent archived day — offered as a
+  // one-tap carry-over so momentum survives the midnight rollover.
+  const carry = useMemo(() => {
+    const days = state.days || {};
+    const keys = Object.keys(days).filter(k => k < today.dayKey).sort();
+    for (let i = keys.length - 1; i >= 0; i--) {
+      const items = (days[keys[i]].intentions || []).filter(it => !it.done && (it.text || "").trim());
+      if (items.length) return { key: keys[i], items };
+    }
+    return null;
+  }, [state.days, today.dayKey]);
+  const [adding, setAdding] = useState(false);
+  const [newText, setNewText] = useState("");
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyDayKey, setHistoryDayKey] = useState(null);
+
+  const totalFocusToday = useMemo(() => {
+    const key = dayKeyOf(Date.now());
+    return blocks
+      .filter(b => dayKeyOf(b.createdAt) === key)
+      .reduce((acc, b) => acc + blockFocusMs(b), 0);
+  }, [blocks]);
+
+  const focusByIntention = useMemo(() => {
+    const map = {};
+    for (const b of blocks) {
+      if (b.linkedToId) {
+        map[b.linkedToId] = (map[b.linkedToId] || 0) + blockFocusMs(b);
+      }
+    }
+    return map;
+  }, [blocks]);
+
+  const pastKeys = useMemo(() => pastDayKeys(state), [state.days]);
+
+  const [sortByPriority, setSortByPriority] = useState(false);
+
+  const PRIO_ORDER = { principal: 0, importante: 1 };
+  const displayIntentions = useMemo(() => {
+    if (!sortByPriority) return today.intentions;
+    return [...today.intentions].sort((a, b) =>
+      (PRIO_ORDER[a.priority] ?? 2) - (PRIO_ORDER[b.priority] ?? 2)
+    );
+  }, [today.intentions, sortByPriority]);
+
+  const intentionIds = displayIntentions.map(i => i.id);
+  const { dragId, start } = useDragReorder(intentionIds, reorderIntentions);
+
+  // Render today's summary as a shareable PNG (Web Share, else download).
+  const shareDay = () => {
+    const done = today.intentions.filter(i => i.done).length;
+    window.shareDayCard({
+      dateLabel: fmtDateLong(Date.now()),
+      focusValue: totalFocusToday > 0 ? fmtDuration(totalFocusToday) : "—",
+      focusCaption: tr("em foco hoje"),
+      ratioValue: done + " / " + today.intentions.length,
+      ratioCaption: tr("intenções concluídas"),
+      tagline: tr("escrito à mão, todos os dias"),
+      accent: accentColor,
+    });
+    if (window.haptic) window.haptic(8);
+  };
+
+  const commitNew = () => {
+    if (newText.trim()) addIntention(newText);
+    setNewText("");
+    setAdding(false);
+  };
+
+  return (
+    <div className="scroll" style={{ flex: 1, overflowY: "auto", padding: "8px 24px 40px", position: "relative", zIndex: 1 }}>
+      {/* Header */}
+      <div style={{ paddingTop: 16, paddingBottom: 24, display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 14 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontFamily: "var(--mono)", fontSize: 10, letterSpacing: "0.18em", textTransform: "uppercase", color: "var(--ink-3)", marginBottom: 6 }}>
+            {fmtDateLong(Date.now())}
+          </div>
+          <h1 style={{ fontFamily: "var(--serif)", fontSize: 44, lineHeight: 1.0, margin: 0, fontWeight: 400, letterSpacing: "-0.015em" }}>
+            {tr("O que importa")} <em style={{ color: accentColor }}>{tr("hoje")}</em>?
+          </h1>
+          {totalFocusToday > 0 && (
+            <div style={{ marginTop: 10, fontFamily: "var(--mono)", fontSize: 11, color: "var(--ink-3)" }}>
+              {trf("{d} em foco até agora", { d: fmtDuration(totalFocusToday) })}
+            </div>
+          )}
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8, flexShrink: 0, marginTop: 2 }}>
+          <button onClick={() => setHistoryOpen(true)} className="tap" title={tr("ver dias anteriores")}
+            style={{
+              border: "1px solid var(--rule)", background: "transparent",
+              borderRadius: 8, padding: "6px 10px",
+              fontFamily: "var(--mono)", fontSize: 9, letterSpacing: "0.14em",
+              textTransform: "uppercase", color: "var(--ink-3)", cursor: "pointer",
+            }}>
+            {tr("dias anteriores")} ↗
+          </button>
+          <button onClick={shareDay} className="tap" title={tr("partilhar o dia")} aria-label={tr("partilhar o dia")}
+            style={{
+              border: "1px solid var(--rule)", background: "transparent",
+              borderRadius: 8, padding: "6px 9px", color: "var(--ink-3)", cursor: "pointer",
+              display: "inline-flex", alignItems: "center", gap: 6,
+              fontFamily: "var(--mono)", fontSize: 9, letterSpacing: "0.14em", textTransform: "uppercase",
+            }}>
+            <Icon.Upload size={12}/> {tr("partilhar")}
+          </button>
+        </div>
+      </div>
+
+      {/* Intentions */}
+      {today.intentions.length === 0 && !adding && (
+        <div style={{ padding: "24px 0", textAlign: "left" }}>
+          <div style={{
+            fontFamily: "var(--serif)", fontStyle: "italic", fontSize: 18,
+            color: "var(--ink-3)", lineHeight: 1.4,
+          }}>
+            {tr("Comece por listar 1 a 4 coisas que importam hoje.")}<br/>
+            {tr("Não tarefas de rotina — coisas que")} <em>{tr("movem")}</em> {tr("o seu dia.")}
+          </div>
+          {carry && (
+            <button onClick={() => carryOverIntentions(carry.items)} className="tap"
+              style={{
+                marginTop: 16, width: "100%", textAlign: "left", cursor: "pointer",
+                display: "flex", alignItems: "center", gap: 12,
+                background: "var(--paper-2)", border: "1px solid var(--rule)",
+                borderRadius: 12, padding: "12px 14px", color: "var(--ink)",
+              }}>
+              <span style={{ flexShrink: 0, color: accentColor, display: "inline-flex" }}><Icon.Plus size={16}/></span>
+              <span style={{ flex: 1, minWidth: 0 }}>
+                <span style={{ display: "block", fontSize: 14, fontWeight: 500 }}>
+                  {carry.items.length === 1
+                    ? tr("Trazer 1 intenção de ontem")
+                    : trf("Trazer {n} intenções de ontem", { n: carry.items.length })}
+                </span>
+                <span style={{ display: "block", fontSize: 12.5, color: "var(--ink-3)", marginTop: 2, fontStyle: "italic", fontFamily: "var(--serif)" }}>
+                  {carry.items.slice(0, 2).map(i => i.text).join(" · ")}{carry.items.length > 2 ? "…" : ""}
+                </span>
+              </span>
+            </button>
+          )}
+          <StarterChips
+            label={tr("Para começar")}
+            accentColor={accentColor}
+            items={["Ler 20 minutos", "Caminhar 30 min", "Escrever 3 ideias", "Uma conversa importante"]}
+            onPick={(text) => addIntention(text)}
+          />
+        </div>
+      )}
+
+      {/* Sort controls */}
+      {today.intentions.length > 1 && (
+        <div style={{ marginBottom: 4, display: "flex", justifyContent: "flex-end" }}>
+          <button onClick={() => setSortByPriority(s => !s)} className="tap"
+            style={{
+              border: "none", background: "transparent",
+              fontFamily: "var(--mono)", fontSize: 9, letterSpacing: "0.12em",
+              textTransform: "uppercase",
+              color: sortByPriority ? accentColor : "var(--ink-4)",
+              cursor: "pointer", padding: "2px 0",
+            }}>
+            {sortByPriority ? tr("ordem manual") : tr("ordenar por prioridade")}
+          </button>
+        </div>
+      )}
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+        {displayIntentions.map((it) => (
+          <IntentionRow
+            key={it.id}
+            intention={it}
+            focusMs={focusByIntention[it.id] || 0}
+            dragging={dragId === it.id}
+            onToggle={() => toggleIntention(it.id)}
+            onChange={text => updateIntention(it.id, { text })}
+            onRemove={() => removeIntention(it.id)}
+            onCyclePriority={() => updateIntention(it.id, { priority: nextPriority(it.priority) })}
+            onDragStart={(e) => start(e, it.id)}
+            onStart={() => onJumpToPauta && onJumpToPauta({ intention: it })}
+            accentColor={accentColor}
+          />
+        ))}
+      </div>
+
+      {/* Add new */}
+      {adding ? (
+        <div style={{
+          marginTop: 8, padding: "14px 0 14px 34px",
+          borderBottom: "1px solid var(--rule)",
+          display: "flex", alignItems: "center", gap: 12,
+        }}>
+          <input autoFocus value={newText}
+            onChange={e => setNewText(e.target.value)}
+            onBlur={commitNew}
+            onKeyDown={e => { if (e.key === "Enter") commitNew(); if (e.key === "Escape") { setNewText(""); setAdding(false); } }}
+            placeholder={tr("Nova intenção…")}
+            style={{
+              flex: 1, border: "none", background: "transparent", padding: 0,
+              fontSize: 16, color: "var(--ink)", lineHeight: 1.35,
+            }}/>
+        </div>
+      ) : (
+        <button onClick={() => setAdding(true)} className="tap"
+          data-tour="add-intention"
+          style={{
+            marginTop: 12, background: "transparent", border: "none",
+            padding: "10px 0", display: "flex", alignItems: "center", gap: 10,
+            color: "var(--ink-3)", fontSize: 14, cursor: "pointer",
+          }}>
+          <div style={{
+            width: 22, height: 22, borderRadius: "50%",
+            border: "1.5px dashed var(--ink-3)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}>
+            <Icon.Plus size={12}/>
+          </div>
+          {tr("adicionar intenção")}
+        </button>
+      )}
+
+      {/* Evening reflection */}
+      <div style={{ marginTop: 40, padding: "24px 22px", background: "var(--paper-2)", borderRadius: 14, border: "1px solid var(--rule)" }}>
+        <div style={{ fontFamily: "var(--mono)", fontSize: 9, letterSpacing: "0.2em", textTransform: "uppercase", color: "var(--ink-3)", marginBottom: 8 }}>
+          {tr("Reflexão da noite")}
+        </div>
+        <div style={{ fontFamily: "var(--serif)", fontStyle: "italic", fontSize: 18, color: "var(--ink-2)", marginBottom: 12 }}>
+          "{tr("O que valeu hoje?")}"
+        </div>
+        <AutoTextarea
+          value={today.reflection}
+          onChange={setReflection}
+          placeholder={tr("Escreva quando quiser. Não precisa de ser longo.")}
+          minRows={2}
+          style={{
+            fontSize: 15, lineHeight: 1.5, color: "var(--ink)",
+            fontFamily: "var(--serif)",
+          }}
+        />
+      </div>
+
+      {/* Quarterly goals */}
+      <GoalsSection store={store} accentColor={accentColor}/>
+
+      <div style={{
+        marginTop: 32, fontFamily: "var(--mono)", fontSize: 10,
+        color: "var(--ink-4)", letterSpacing: "0.04em", textAlign: "center",
+      }}>
+        {tr("amanhã, recomeça.")}
+      </div>
+
+      {/* History sheet */}
+      <HojeHistorySheet
+        open={historyOpen}
+        onClose={() => { setHistoryOpen(false); setHistoryDayKey(null); }}
+        days={state.days || {}}
+        blocks={blocks}
+        keys={pastKeys}
+        openedDayKey={historyDayKey}
+        onOpenDay={setHistoryDayKey}
+        accentColor={accentColor}
+      />
+    </div>
+  );
+}
+
+// ─── History sheet (past days) ─────────────────────────────
+function HojeHistorySheet({ open, onClose, days, blocks, keys, openedDayKey, onOpenDay, accentColor }) {
+  const [query, setQuery] = useState("");
+  useEffect(() => { if (!open) setQuery(""); }, [open]);
+  if (!open) return null;
+  const opened = openedDayKey && days[openedDayKey];
+
+  const q = query.trim().toLowerCase();
+  const filteredKeys = q ? keys.filter(k => {
+    const d = days[k];
+    const inIntentions = (d.intentions || []).some(i => (i.text || "").toLowerCase().includes(q));
+    const inReflection = (d.reflection || "").toLowerCase().includes(q);
+    return inIntentions || inReflection;
+  }) : keys;
+
+  return (
+    <Sheet open={open} onClose={onClose} title={tr("Dias anteriores")}>
+      <div style={{ padding: "8px 24px 24px" }}>
+        {opened ? (
+          <HojeHistoryDetail
+            dayKey={openedDayKey}
+            day={opened}
+            blocks={blocks}
+            accentColor={accentColor}
+            onBack={() => onOpenDay(null)}
+          />
+        ) : (
+          <>
+            <div style={{
+              fontFamily: "var(--serif)", fontSize: 20, lineHeight: 1.25,
+              color: "var(--ink)", marginBottom: 4, letterSpacing: "-0.01em",
+            }}>
+              {tr("O que importou nos dias anteriores.")}
+            </div>
+            <div style={{
+              fontFamily: "var(--serif)", fontStyle: "italic", fontSize: 13,
+              color: "var(--ink-3)", marginBottom: 14,
+            }}>
+              {tr("As intenções e a reflexão de cada dia ficam guardadas. Toque para reler.")}
+            </div>
+            {keys.length > 0 && (
+              <input value={query} onChange={e => setQuery(e.target.value)}
+                placeholder={tr("procurar nas reflexões e intenções…")}
+                style={{
+                  width: "100%", border: "1px solid var(--rule)", background: "var(--paper-2)",
+                  borderRadius: 10, padding: "10px 14px", fontSize: 14, color: "var(--ink)",
+                  marginBottom: 16, fontFamily: "var(--sans)",
+                }}/>
+            )}
+            {keys.length === 0 ? (
+              <div style={{
+                padding: "32px 0", textAlign: "center",
+                fontFamily: "var(--serif)", fontStyle: "italic", fontSize: 14,
+                color: "var(--ink-3)",
+              }}>
+                {tr("Ainda não há dias arquivados.")}<br/>
+                {tr("Volte aqui amanhã.")}
+              </div>
+            ) : filteredKeys.length === 0 ? (
+              <div style={{
+                padding: "28px 0", textAlign: "center",
+                fontFamily: "var(--serif)", fontStyle: "italic", fontSize: 14,
+                color: "var(--ink-3)",
+              }}>
+                {trf('Nada encontrado para "{q}".', { q: query.trim() })}
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {filteredKeys.map(k => {
+                  const d = days[k];
+                  const total = d.intentions.length;
+                  const done = d.intentions.filter(i => i.done).length;
+                  const focusMs = dailyFocusMs(blocks, k);
+                  return (
+                    <button key={k} onClick={() => onOpenDay(k)} className="tap"
+                      style={{
+                        textAlign: "left", border: "1px solid var(--rule)",
+                        background: "var(--paper)", borderRadius: 10,
+                        padding: "12px 14px", cursor: "pointer",
+                        display: "flex", flexDirection: "column", gap: 6,
+                      }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10 }}>
+                        <div style={{
+                          fontFamily: "var(--serif)", fontSize: 18, color: "var(--ink)",
+                          letterSpacing: "-0.01em",
+                        }}>
+                          {fmtDateLong(tsFromDayKey(k))}
+                        </div>
+                        <div style={{
+                          fontFamily: "var(--mono)", fontSize: 10, color: "var(--ink-3)",
+                          letterSpacing: "0.06em", flexShrink: 0,
+                        }}>
+                          {total > 0 && <>{done === 1 ? trf("{done}/{total} feito", { done, total }) : trf("{done}/{total} feitos", { done, total })}</>}
+                          {focusMs > 0 && total > 0 && " · "}
+                          {focusMs > 0 && trf("{d} foco", { d: fmtDuration(focusMs) })}
+                        </div>
+                      </div>
+                      {d.reflection && d.reflection.trim() && (
+                        <div style={{
+                          fontFamily: "var(--serif)", fontStyle: "italic", fontSize: 13,
+                          color: "var(--ink-2)", lineHeight: 1.4,
+                          overflow: "hidden", display: "-webkit-box",
+                          WebkitLineClamp: 2, WebkitBoxOrient: "vertical",
+                        }}>
+                          "{d.reflection.trim()}"
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </Sheet>
+  );
+}
+
+function HojeHistoryDetail({ dayKey, day, blocks, accentColor, onBack }) {
+  const focusMs = dailyFocusMs(blocks, dayKey);
+  const blocksDay = blocks.filter(b => b.sessions.some(s => dayKeyOf(s.startedAt) === dayKey));
+  return (
+    <div>
+      <button onClick={onBack} className="tap"
+        style={{
+          display: "inline-flex", alignItems: "center", gap: 7,
+          border: "1px solid var(--rule)", background: "var(--paper-2)",
+          borderRadius: 999, padding: "9px 15px 9px 11px",
+          fontFamily: "var(--mono)", fontSize: 12, letterSpacing: "0.08em",
+          color: "var(--ink-2)", textTransform: "uppercase", cursor: "pointer",
+          marginBottom: 16,
+        }}>
+        <span style={{ fontSize: 17, lineHeight: 1, marginTop: -2 }}>‹</span>
+        {tr("dias")}
+      </button>
+      <div style={{
+        fontFamily: "var(--mono)", fontSize: 9, letterSpacing: "0.16em",
+        textTransform: "uppercase", color: "var(--ink-3)", marginBottom: 4,
+      }}>
+        {fmtDateLong(tsFromDayKey(dayKey))}
+      </div>
+      <div style={{
+        fontFamily: "var(--serif)", fontSize: 24, lineHeight: 1.15,
+        color: "var(--ink)", letterSpacing: "-0.01em", marginBottom: 18,
+      }}>
+        {tr("O que importou nesse dia.")}
+      </div>
+
+      {day.intentions.length === 0 ? (
+        <div style={{
+          fontFamily: "var(--serif)", fontStyle: "italic", fontSize: 14,
+          color: "var(--ink-3)", marginBottom: 18,
+        }}>
+          {tr("Sem intenções registadas.")}
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", marginBottom: 18 }}>
+          {day.intentions.map((it, i) => (
+            <div key={it.id} style={{
+              display: "flex", alignItems: "flex-start", gap: 12,
+              padding: "10px 0", borderBottom: i < day.intentions.length - 1 ? "1px solid var(--rule)" : "none",
+            }}>
+              <div style={{
+                width: 18, height: 18, borderRadius: "50%",
+                border: `1.5px solid ${it.done ? accentColor : "var(--ink-3)"}`,
+                background: it.done ? accentColor : "transparent",
+                flexShrink: 0, marginTop: 2,
+                display: "flex", alignItems: "center", justifyContent: "center",
+              }}>
+                {it.done && (
+                  <svg width="9" height="9" viewBox="0 0 10 10" fill="none">
+                    <path d="M2 5.5L4 7.5L8 3" stroke="var(--paper)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                )}
+              </div>
+              <div style={{
+                flex: 1, fontSize: i === 0 ? 18 : 15,
+                fontFamily: i === 0 ? "var(--serif)" : "var(--sans)",
+                color: it.done ? "var(--ink-3)" : "var(--ink)",
+                textDecoration: it.done ? "line-through" : "none",
+                lineHeight: 1.3,
+              }}>
+                {it.text || <em style={{ color: "var(--ink-3)" }}>{tr("(intenção sem texto)")}</em>}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {day.reflection && day.reflection.trim() && (
+        <div style={{
+          padding: "16px 18px", background: "var(--paper-2)",
+          borderRadius: 12, border: "1px solid var(--rule)",
+          marginBottom: 16,
+        }}>
+          <div style={{
+            fontFamily: "var(--mono)", fontSize: 9, letterSpacing: "0.2em",
+            textTransform: "uppercase", color: "var(--ink-3)", marginBottom: 8,
+          }}>
+            {tr("reflexão da noite")}
+          </div>
+          <div style={{
+            fontFamily: "var(--serif)", fontSize: 16, lineHeight: 1.5,
+            color: "var(--ink)",
+          }}>
+            {day.reflection}
+          </div>
+        </div>
+      )}
+
+      {focusMs > 0 && (
+        <div style={{
+          padding: "12px 14px", border: "1px solid var(--rule)",
+          borderRadius: 10, display: "flex", justifyContent: "space-between",
+          alignItems: "center",
+        }}>
+          <div>
+            <div style={{
+              fontFamily: "var(--mono)", fontSize: 9, letterSpacing: "0.16em",
+              textTransform: "uppercase", color: "var(--ink-3)", marginBottom: 3,
+            }}>
+              {tr("tempo em foco")}
+            </div>
+            <div style={{
+              fontFamily: "var(--serif)", fontSize: 22, color: accentColor,
+              letterSpacing: "-0.01em",
+            }}>
+              {fmtDuration(focusMs)}
+            </div>
+          </div>
+          <div style={{
+            fontFamily: "var(--mono)", fontSize: 10, color: "var(--ink-3)",
+            letterSpacing: "0.06em", textAlign: "right",
+          }}>
+            {blocksDay.length} {blocksDay.length === 1 ? tr("bloco") : tr("blocos")}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Intention row ─────────────────────────────────────────
+// Priority cycles: nenhuma → principal → importante → nenhuma.
+function nextPriority(p) {
+  return p === "principal" ? "importante" : p === "importante" ? null : "principal";
+}
+
+function PriorityChip({ priority, accentColor, onClick }) {
+  const styles = {
+    principal: { mark: "●", label: tr("principal"), color: accentColor, weight: 600 },
+    importante: { mark: "◆", label: tr("importante"), color: "var(--ink-2)", weight: 500 },
+  };
+  const s = styles[priority] || { mark: "○", label: tr("prioridade"), color: "var(--ink-4)", weight: 400 };
+  return (
+    <button onClick={onClick} className="tap" title={tr("definir prioridade")}
+      style={{
+        border: "none", background: "transparent", padding: 0, cursor: "pointer",
+        fontFamily: "var(--mono)", fontSize: 10, letterSpacing: "0.04em",
+        color: s.color, fontWeight: s.weight, display: "inline-flex", alignItems: "center", gap: 5,
+      }}>
+      <span style={{ fontSize: 9 }}>{s.mark}</span>{s.label}
+    </button>
+  );
+}
+
+function IntentionRow({ intention, focusMs, dragging, onToggle, onChange, onRemove, onCyclePriority, onDragStart, onStart, accentColor }) {
+  const [hover, setHover] = useState(false);
+  const isPrimary = intention.priority === "principal";
+  const isImportant = intention.priority === "importante";
+  return (
+    <div
+      data-drag-id={intention.id}
+      onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
+      style={{
+        display: "flex", alignItems: "flex-start", gap: 10,
+        padding: "14px 0", borderBottom: "1px solid var(--rule)",
+        background: dragging ? "var(--paper-2)" : "transparent",
+        opacity: dragging ? 0.7 : 1, borderRadius: dragging ? 10 : 0,
+        transition: "background 0.12s",
+      }}>
+      <button
+        onPointerDown={onDragStart} className="tap" title={tr("arrastar para reordenar")}
+        style={{
+          width: 22, alignSelf: "stretch", border: "none", background: "transparent",
+          color: hover || dragging ? "var(--ink-3)" : "var(--ink-4)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          cursor: "grab", padding: 0, touchAction: "none", flexShrink: 0,
+        }}>
+        <Icon.Grip size={13}/>
+      </button>
+      <div style={{ paddingTop: 1 }}>
+        <Check checked={intention.done} onChange={onToggle} accentColor={accentColor}/>
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <EditableText
+          value={intention.text}
+          onChange={onChange}
+          placeholder={tr("(intenção sem texto)")}
+          multiline={false}
+          style={{
+            display: "block",
+            fontFamily: isPrimary || isImportant ? "var(--serif)" : "var(--sans)",
+            fontSize: isPrimary ? 22 : isImportant ? 18 : 16,
+            lineHeight: 1.25,
+            color: intention.done ? "var(--ink-3)" : "var(--ink)",
+            textDecoration: intention.done ? "line-through" : "none",
+            textDecorationColor: "var(--ink-3)",
+            letterSpacing: isPrimary ? "-0.01em" : "0",
+          }}
+        />
+        <div style={{ marginTop: 4, display: "flex", alignItems: "center", gap: 12, fontFamily: "var(--mono)", fontSize: 10, color: "var(--ink-3)", letterSpacing: "0.04em" }}>
+          <PriorityChip priority={intention.priority} accentColor={accentColor} onClick={onCyclePriority}/>
+          {focusMs > 0 && <span>{trf("{d} em foco", { d: fmtDuration(focusMs) })}</span>}
+        </div>
+      </div>
+      <div style={{ display: "flex", gap: 4, opacity: hover ? 1 : 0, transition: "opacity 0.12s" }}>
+        <button onClick={onStart} className="tap" title={tr("iniciar bloco com esta intenção")}
+          style={{ width: 28, height: 28, borderRadius: 6, border: "none", background: "transparent", color: "var(--ink-2)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+          <Icon.Play size={11}/>
+        </button>
+        <button onClick={onRemove} className="tap"
+          style={{ width: 28, height: 28, borderRadius: 6, border: "none", background: "transparent", color: "var(--ink-3)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+          <Icon.Trash size={13}/>
+        </button>
+      </div>
+    </div>
+  );
+}
+
+window.TabHoje = TabHoje;
