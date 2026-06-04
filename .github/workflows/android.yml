@@ -110,6 +110,25 @@ jobs:
           git tag -f latest
           git push -f origin latest
 
+      - name: Prune old APKs from the rolling release
+        # The rolling `latest` release re-uploads pauta-v<run>.apk every build, but
+        # softprops/action-gh-release does NOT delete prior, differently-named
+        # assets — so they pile up (pauta-v1, v3, v5…). GitHub returns assets
+        # oldest-first, so the in-app updater (and the release page) would surface
+        # the OLDEST apk; across a signing change that one is signed with a
+        # different key → "package conflicts with an existing package" on install.
+        # Delete every existing asset before publishing so the release always holds
+        # exactly one current, correctly-signed APK.
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ids=$(gh api "repos/${{ github.repository }}/releases/tags/latest" --jq '.assets[].id' 2>/dev/null || true)
+          for id in $ids; do
+            echo "Deleting old release asset $id"
+            gh api -X DELETE "repos/${{ github.repository }}/releases/assets/$id" || true
+          done
+
       - name: Publish to rolling "latest" Release
         # Only main owns the release the in-app updater fetches; branch pushes
         # still build + upload the artifact above, but never touch `latest`.
