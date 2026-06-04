@@ -72,11 +72,13 @@ jobs:
 
       - uses: android-actions/setup-android@v3
 
-      - name: Use stable debug keystore (so app updates keep your data)
-        run: |
-          mkdir -p ~/.android
-          cp debug.keystore ~/.android/debug.keystore
-
+      # Signing is pinned in android/app/build.gradle by `inject:native` above:
+      # the debug signingConfig points at the committed debug.keystore copied into
+      # the module, so every build signs with the SAME stable key and updates
+      # install cleanly. (We used to `cp debug.keystore ~/.android/debug.keystore`
+      # here, but AGP read its debug keystore from a different path and silently
+      # signed with an auto-generated throwaway key per build — which is exactly
+      # why installs failed with "package conflicts with an existing package".)
       - name: Build debug APK
         run: |
           cd android
