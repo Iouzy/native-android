@@ -14,27 +14,7 @@ permissions:
   contents: write
 
 jobs:
-  # Lint/test gate — runs the same `npm run check` used locally (JSX transpile,
-  # i18n EN coverage, cadence math, Vitest). A JSX syntax error fails silently
-  # in the browser and would otherwise ship to the rolling release unnoticed,
-  # so block the APK build on it.
-  check:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-
-      - name: Install dependencies
-        run: npm install
-
-      - name: Run checks (JSX + i18n + cadence + Vitest)
-        run: npm run check
-
   build:
-    needs: check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -45,6 +25,16 @@ jobs:
 
       - name: Install dependencies
         run: npm install
+
+      # ── SAFETY GATE — runs BEFORE anything is built or published ──────────
+      # The same `npm run check` used locally (JSX transpile, i18n EN coverage,
+      # cadence math, Vitest). It is the FIRST step, so if it fails the job stops
+      # right here: none of the build / artifact / tag-move / prune / publish
+      # steps below run, and a broken build can never reach the rolling `latest`
+      # release the app auto-updates from. check:jsx and check:i18n exit non-zero
+      # on problems, so a failure is a hard CI failure, not a warning.
+      - name: Run checks (JSX + i18n + cadence + Vitest) — gate the build
+        run: npm run check
 
       - name: Assemble web bundle
         run: npm run build:web
