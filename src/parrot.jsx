@@ -175,17 +175,33 @@ const WING_PIVOT = [35, 33];   // shoulder
 const HEAD_PIVOT = [40, 30];   // neck
 const TAIL_PIVOT = [34, 46];   // tail base
 const EYE_CY     = 21;         // eye centre Y, for the blink squash
+const BODY_PIVOT  = [36, 42];  // chest centre — the breathing scale pivots here
+const CREST_PIVOT = [41, 13];  // crest base — its trailing sway pivots here
+const BOARD_PIVOT = [66, 18];  // surfboard centre — the surf carve pivots here
 
 // ── Easing ──
 function easeInOutCubic(t) { return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; }
 function lerp(a, b, t) { return a + (b - a) * t; }
+// A damped spring, integrated in fixed sub-steps so it stays stable even at the
+// idle 30fps throttle (large dt). Mutates {p,v} toward `target`. Tuned slightly
+// under-damped (k vs d) so parts overshoot and settle — the organic, non-linear
+// motion the body/tail/crest use instead of a bare sine. // PT: mola amortecida.
+function spring(o, target, k, d, ds) {
+  let r = ds;
+  while (r > 1e-4) {
+    const s = r > 1 / 120 ? 1 / 120 : r;
+    o.v += (k * (target - o.p) - d * o.v) * s;
+    o.p += o.v * s;
+    r -= s;
+  }
+}
 
 // Articulated parrot, facing left — a two-tone tropical bird: terracotta body in
 // the live accent, a teal/blue wing + tail flash, a yellow hooked beak and a
 // swept-back crest. Each movable part is its own <g> with a ref so the rAF loop
 // can rotate it about a fixed pivot (via the SVG `transform` attribute — robust
 // across browsers and immune to reduce-motion). Drawn in a 72×72 viewBox.
-function ParrotSvg({ accent, size, wingRef, headRef, tailRef, eyeRef }) {
+function ParrotSvg({ accent, size, bodyRef, wingRef, headRef, crestRef, tailRef, eyeRef }) {
   const shade   = "rgba(0,0,0,0.18)";  // soft shading
   const belly   = "#F4E4C1";           // warm cream chest/cheek
   const teal    = "#2BA6C9";           // teal/blue wing + tail flash
@@ -205,9 +221,11 @@ function ParrotSvg({ accent, size, wingRef, headRef, tailRef, eyeRef }) {
         <path d="M33 71 C31 66 31 61 32 57 C34 61 34 66 35 70 Z" fill={teal}/>
         <path d="M36 67 C35 63 36 59 37 56 C38 60 38 64 37 66 Z" fill={teal} opacity="0.92"/>
       </g>
-      {/* body */}
-      <ellipse cx="36" cy="41" rx="14.5" ry="17" fill={accent}/>
-      <ellipse cx="39" cy="45" rx="9" ry="12" fill={belly}/>
+      {/* body — its own group so the rAF loop can scale it for the breath */}
+      <g ref={bodyRef}>
+        <ellipse cx="36" cy="41" rx="14.5" ry="17" fill={accent}/>
+        <ellipse cx="39" cy="45" rx="9" ry="12" fill={belly}/>
+      </g>
       {/* feet — little legs + gripping toes (read standing on the surfboard) */}
       <g stroke={foot} strokeWidth="2.1" strokeLinecap="round" fill="none">
         <path d="M33 54 L33 59"/>
@@ -224,10 +242,12 @@ function ParrotSvg({ accent, size, wingRef, headRef, tailRef, eyeRef }) {
       </g>
       {/* head group — gentle nod (crest, beak and eye move with it) */}
       <g ref={headRef}>
-        {/* swept-back crest */}
-        <path d="M42 12 C47 4 53 3 52 9 C50 13 46 14 42 13 Z" fill={accent}/>
-        <path d="M39 11 C43 3 49 3 47 9 C46 13 42 13 39 12 Z" fill={accent} opacity="0.92"/>
-        <path d="M37 12 C39 5 44 5 44 10 C43 13 40 13 37 13 Z" fill={accent} opacity="0.84"/>
+        {/* swept-back crest — own group so it can flick a beat after the head */}
+        <g ref={crestRef}>
+          <path d="M42 12 C47 4 53 3 52 9 C50 13 46 14 42 13 Z" fill={accent}/>
+          <path d="M39 11 C43 3 49 3 47 9 C46 13 42 13 39 12 Z" fill={accent} opacity="0.92"/>
+          <path d="M37 12 C39 5 44 5 44 10 C43 13 40 13 37 13 Z" fill={accent} opacity="0.84"/>
+        </g>
         <circle cx="41" cy="21" r="12.5" fill={accent}/>
         {/* subtle cream cheek patch */}
         <ellipse cx="36" cy="24.5" rx="4.5" ry="3.2" fill={belly} opacity="0.7"/>
@@ -254,7 +274,7 @@ function ParrotSvg({ accent, size, wingRef, headRef, tailRef, eyeRef }) {
 // accent rails, centre stringer, a fin); its top edge meets Pip's feet — the
 // negative marginTop tucks the deck right under them. Water stays fixed blues so
 // it always reads as a wave; the board takes the live accent. Bright on dark.
-function SurfScene({ accent, width = 132 }) {
+function SurfScene({ accent, width = 132, boardRef }) {
   const deep = "#1F6E94";   // deep water
   const mid  = "#2E93BE";   // mid water
   const sea  = "#46B4D8";   // surface water
@@ -287,12 +307,16 @@ function SurfScene({ accent, width = 132 }) {
       <circle cx="98" cy="31" r="1.5" fill="#fff" opacity="0.85"/>
       {/* shadow the board casts on the water */}
       <ellipse cx="66" cy="25" rx="44" ry="4.4" fill="#06283a" opacity="0.22"/>
-      {/* ── surfboard: pointed nose (left), rounded tail (right); Pip stands here ── */}
-      <path d="M8 17 C34 10 56 9 78 10 C100 11 116 13 124 18 C116 22 100 24 78 25 C56 25 34 24 8 17 Z" fill={accent}/>
-      <path d="M20 16 C42 11.5 58 12 78 12.5 C98 13 110 14.5 117 17.5 C110 20.5 98 22 78 22.5 C58 23 42 21.5 20 16 Z" fill={deck}/>
-      <line x1="13" y1="16.6" x2="119" y2="17.8" stroke={accent} strokeWidth="1" opacity="0.5"/>
-      {/* fin under the tail */}
-      <path d="M111 24 C113 30 116 32 119 31 C118 27 115 24 113 23 Z" fill={accent} opacity="0.9"/>
+      {/* ── surfboard: pointed nose (left), rounded tail (right); Pip stands here.
+          Grouped so the rAF loop can tilt it on the swell (the shadow above stays
+          on the water). ── */}
+      <g ref={boardRef}>
+        <path d="M8 17 C34 10 56 9 78 10 C100 11 116 13 124 18 C116 22 100 24 78 25 C56 25 34 24 8 17 Z" fill={accent}/>
+        <path d="M20 16 C42 11.5 58 12 78 12.5 C98 13 110 14.5 117 17.5 C110 20.5 98 22 78 22.5 C58 23 42 21.5 20 16 Z" fill={deck}/>
+        <line x1="13" y1="16.6" x2="119" y2="17.8" stroke={accent} strokeWidth="1" opacity="0.5"/>
+        {/* fin under the tail */}
+        <path d="M111 24 C113 30 116 32 119 31 C118 27 115 24 113 23 Z" fill={accent} opacity="0.9"/>
+      </g>
     </svg>
   );
 }
@@ -343,10 +367,13 @@ function ParrotCompanion({ store, accentColor, tab }) {
   const moverRef  = useRef(null);   // screen position (fly-across)
   const bobRef    = useRef(null);   // vertical bob + hop (bird + surf scene)
   const tiltRef   = useRef(null);   // body lean / surf tilt
+  const bodyRef   = useRef(null);   // chest — breathing scale
   const wingRef   = useRef(null);   // flapping wing
   const headRef   = useRef(null);   // head nod
+  const crestRef  = useRef(null);   // crest — trailing flick
   const tailRef   = useRef(null);   // tail sway
   const eyeRef    = useRef(null);   // blink
+  const boardRef  = useRef(null);   // surfboard — carve (Marés only)
   const bubbleRefEl = useRef(null); // speech bubble (a tiny JS pop-in)
 
   // The whole motion model lives in one mutable object so the loop allocates
@@ -360,6 +387,12 @@ function ParrotCompanion({ store, accentColor, tab }) {
     nextBlink: 0,               // when to blink next
     blinkUntil: 0,              // blink end timestamp
     bubbleAt: 0,                // when the current bubble appeared (for the pop)
+    // Spring states {p:angle, v:velocity} for the parts that move organically:
+    // the body lean (counter-balances the board, delayed), and the tail + crest
+    // that TRAIL it through their own springs (overlapping / follow-through).
+    tilt:  { p: 0, v: 0 },
+    tail:  { p: 0, v: 0 },
+    crest: { p: 0, v: 0 },
   }).current;
 
   // Frame size, refreshed on resize so anchors track rotation / window changes.
@@ -462,7 +495,7 @@ function ParrotCompanion({ store, accentColor, tab }) {
         px = m.x; py = m.y;
       }
 
-      // ── bob + hop ──
+      // ── bob + hop (vertical) ──
       let bob, hop = 0;
       if (surf && !m.flying) bob = Math.sin(t * 2.1) * 4.5;   // ride the swell
       else if (!m.flying)    bob = Math.sin(t * 2.0) * 3.2;   // gentle float
@@ -472,22 +505,54 @@ function ParrotCompanion({ store, accentColor, tab }) {
         hop = -Math.sin(Math.PI * hp) * 16;
       }
 
-      // ── lean / tilt ──
-      let lean;
-      if (m.flying)      lean = leanFly;
-      else if (now < m.hopUntil) lean = Math.sin((now - (m.hopUntil - 760)) / 60) * 8;
-      else if (surf)     lean = Math.sin(t * 1.7) * 7;        // carve on the wave
-      else               lean = Math.sin(t * 1.4) * 2.5;      // idle sway
+      const ds = dt / 1000;   // seconds, for the springs
 
-      // ── wing flap ── faster + wider while flying or hopping ──
+      // ── breathing ── a constant, slow chest swell so Pip is never frozen, even
+      // at rest. A touch more vertical than horizontal reads as an inhale rather
+      // than a uniform zoom; the head lifts a hair with it. // PT: respira sempre.
+      const breath = Math.sin(t * 1.8);
+      const breathSx = 1 + 0.020 * breath;
+      const breathSy = 1 + 0.034 * breath;
+      const headY = -0.5 * breath;
+
+      // ── board carve (Marés only) ── two sines so the swell isn't metronomic. 0
+      // off the wave (there's no board there).
+      const boardTilt = surf ? (Math.sin(t * 1.45) * 3.6 + Math.sin(t * 0.63 + 1.1) * 1.4) : 0;
+
+      // ── body lean ── spring-driven, never linear. At rest it eases toward a
+      // target with a little overshoot: on the wave the target is the OPPOSITE of
+      // the board's tilt, so Pip counter-balances the carve a beat late (the
+      // spring lag *is* the delay); off the wave it's a gentle idle sway. Flight
+      // and hop keep their deliberate lean and re-seed the spring so there's no
+      // jump when they hand back to it.
+      let lean;
+      if (m.flying) { m.tilt.p = leanFly; m.tilt.v = 0; lean = leanFly; }
+      else if (now < m.hopUntil) {
+        const hl = Math.sin((now - (m.hopUntil - 760)) / 60) * 8;
+        m.tilt.p = hl; m.tilt.v = 0; lean = hl;
+      } else {
+        const tiltTarget = surf ? -0.62 * boardTilt : Math.sin(t * 0.9) * 2.0;
+        spring(m.tilt, tiltTarget, 70, 10, ds);   // ζ≈0.6 → lively, settles late
+        lean = m.tilt.p;
+      }
+
+      // ── wing flap ── strong while flying/hopping; at rest a primary beat plus a
+      // smaller, faster flutter (a second harmonic) so it isn't one rigid sine.
       let wing;
       if (m.flying || now < m.hopUntil) wing = Math.sin(t * 22) * 34;
-      else if (surf)                     wing = -2 + Math.sin(t * 4.2) * 7;
-      else                               wing = 4 + Math.sin(t * 3.0) * 10;
+      else if (surf)                     wing = -2 + Math.sin(t * 4.2) * 7 + Math.sin(t * 9.0) * 2.0;
+      else                               wing = 4 + Math.sin(t * 3.0) * 10 + Math.sin(t * 6.4) * 2.5;
 
-      // ── head nod + tail sway ──
-      const head = Math.sin(t * 1.6 + 0.5) * 2.4;
-      const tailA = Math.sin(t * 1.9) * 5;
+      // ── head nod ── gentle compound nod on its own cadence.
+      const head = Math.sin(t * 1.55 + 0.5) * 2.4 + Math.sin(t * 0.8) * 0.8;
+
+      // ── overlapping / secondary motion ── tail and crest TRAIL the body and the
+      // head through their own springs, each at a different cadence, so motion
+      // ripples through Pip (follow-through) instead of every part moving as one.
+      spring(m.tail,  -0.7 * lean, 120, 14, ds);   // tail trails the lean
+      spring(m.crest,  1.1 * head, 110, 12, ds);    // crest flicks after the head
+      const tailA  = m.tail.p  + Math.sin(t * 1.9 + 0.6) * 3.0;
+      const crestA = m.crest.p + Math.sin(t * 1.25 + 1.3) * 1.6;
 
       // ── blink ── brief eye squash on a randomised cadence ──
       if (!m.nextBlink) m.nextBlink = now + 2500 + Math.random() * 3000;
@@ -509,14 +574,25 @@ function ParrotCompanion({ store, accentColor, tab }) {
       }
       if (bobRef.current)  bobRef.current.style.transform  = "translateY(" + (bob + hop) + "px)";
       if (tiltRef.current) tiltRef.current.style.transform = "rotate(" + lean + "deg)";
+      // body: breathe — scale about the chest (sub-1px, reads as an inhale)
+      if (bodyRef.current) bodyRef.current.setAttribute("transform",
+        "translate(" + BODY_PIVOT[0] + " " + BODY_PIVOT[1] + ") scale(" +
+        breathSx.toFixed(4) + " " + breathSy.toFixed(4) + ") translate(" +
+        (-BODY_PIVOT[0]) + " " + (-BODY_PIVOT[1]) + ")");
       if (wingRef.current) wingRef.current.setAttribute("transform",
         "rotate(" + wing + " " + WING_PIVOT[0] + " " + WING_PIVOT[1] + ")");
+      // head: tiny breath-coupled lift, then the nod
       if (headRef.current) headRef.current.setAttribute("transform",
-        "rotate(" + head + " " + HEAD_PIVOT[0] + " " + HEAD_PIVOT[1] + ")");
+        "translate(0 " + headY.toFixed(2) + ") rotate(" + head + " " + HEAD_PIVOT[0] + " " + HEAD_PIVOT[1] + ")");
+      if (crestRef.current) crestRef.current.setAttribute("transform",
+        "rotate(" + crestA + " " + CREST_PIVOT[0] + " " + CREST_PIVOT[1] + ")");
       if (tailRef.current) tailRef.current.setAttribute("transform",
         "rotate(" + tailA + " " + TAIL_PIVOT[0] + " " + TAIL_PIVOT[1] + ")");
       if (eyeRef.current) eyeRef.current.setAttribute("transform",
         "matrix(1 0 0 " + eyeSy.toFixed(3) + " 0 " + (EYE_CY * (1 - eyeSy)).toFixed(2) + ")");
+      // board: carve under Pip's feet — he counter-balances it (Marés only)
+      if (surf && boardRef.current) boardRef.current.setAttribute("transform",
+        "rotate(" + boardTilt.toFixed(3) + " " + BOARD_PIVOT[0] + " " + BOARD_PIVOT[1] + ")");
 
       // ── speech bubble: a tiny JS pop-in (no CSS, so it survives reduce-motion) ──
       if (bubbleRefEl.current) {
@@ -701,12 +777,13 @@ function ParrotCompanion({ store, accentColor, tab }) {
               WebkitTapHighlightColor: "transparent", WebkitTouchCallout: "none",
               WebkitUserSelect: "none", userSelect: "none",
             }}>
-              <div ref={tiltRef} style={{ willChange: "transform" }}>
+              <div ref={tiltRef} style={{ willChange: "transform", transformOrigin: "50% 100%" }}>
                 <ParrotSvg accent={accentColor} size={birdSize}
-                  wingRef={wingRef} headRef={headRef} tailRef={tailRef} eyeRef={eyeRef}/>
+                  bodyRef={bodyRef} wingRef={wingRef} headRef={headRef}
+                  crestRef={crestRef} tailRef={tailRef} eyeRef={eyeRef}/>
               </div>
             </button>
-            {surf && <SurfScene accent={accentColor}/>}
+            {surf && <SurfScene accent={accentColor} boardRef={boardRef}/>}
           </div>
         </div>
       </div>
