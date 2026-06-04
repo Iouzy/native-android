@@ -465,16 +465,31 @@ function ParrotCompanion({ store, accentColor, tab }) {
     const ro = ("ResizeObserver" in window) ? new ResizeObserver(measure) : null;
     if (ro && fieldRef.current) ro.observe(fieldRef.current);
 
-    let raf = 0, running = true, lastWork = 0, prev = performance.now();
-    const FLIGHT_MS = 950;
+    let raf = 0, running = true, lastStep = performance.now();
+    const FLIGHT_MS = 820;
 
     const frame = (now) => {
       raf = requestAnimationFrame(frame);
+
+      // The speech bubble stays SMOOTH (it's UI text) — written every real frame,
+      // before the character's stepped clock below.
+      if (bubbleRefEl.current) {
+        const bp = Math.min(1, (now - m.bubbleAt) / 200);
+        const s = 0.85 + 0.15 * easeInOutCubic(bp);
+        bubbleRefEl.current.style.transform = "scale(" + s.toFixed(3) + ")";
+        bubbleRefEl.current.style.opacity = bp.toFixed(3);
+      }
+
       const surf = tabRef.current === "mares";
       const busy = m.flying || now < m.hopUntil;
-      // Throttle to ~30fps while idle; full-rate when flying/hopping.
-      if (!busy && now - lastWork < 32) return;
-      const dt = Math.min(now - prev, 60); prev = now; lastWork = now;
+      // ── "on twos/threes" ── Pip animates in stepped poses (~11fps idle, ~15fps
+      // in action) instead of smoothly: he HOLDS each pose for a few real frames,
+      // then snaps to the next. That deliberate low-frame-rate cadence is the
+      // Spider-Verse look — punchy and hand-animated, not lag — and it's lighter
+      // than per-frame work. // PT: animação "aos saltos", ao estilo do filme.
+      const stepMs = busy ? 65 : 90;
+      if (now - lastStep < stepMs) return;
+      const dt = Math.min(now - lastStep, 200); lastStep = now;
       const t = now / 1000;
 
       // ── position: explicit interpolation while flying, soft easing at rest ──
@@ -490,69 +505,65 @@ function ParrotCompanion({ store, accentColor, tab }) {
         m.x = px; m.y = py;
       } else {
         const dest = anchorPx(anchorRef.current);
-        m.x = lerp(m.x, dest.x, 0.12);                        // ease + track resize
-        m.y = lerp(m.y, dest.y, 0.12);
+        m.x = lerp(m.x, dest.x, 0.26);                        // ease + track resize
+        m.y = lerp(m.y, dest.y, 0.26);
         px = m.x; py = m.y;
       }
 
-      // ── bob + hop (vertical) ──
+      // ── bob + hop (vertical) ── big enough that each held pose has real travel.
       let bob, hop = 0;
-      if (surf && !m.flying) bob = Math.sin(t * 2.1) * 4.5;   // ride the swell
-      else if (!m.flying)    bob = Math.sin(t * 2.0) * 3.2;   // gentle float
+      if (surf && !m.flying) bob = Math.sin(t * 2.2) * 7;     // ride the swell
+      else if (!m.flying)    bob = Math.sin(t * 2.0) * 5;     // float
       else                   bob = 0;
       if (now < m.hopUntil) {
         const hp = 1 - (m.hopUntil - now) / 760;
-        hop = -Math.sin(Math.PI * hp) * 16;
+        hop = -Math.sin(Math.PI * hp) * 22;
       }
 
       const ds = dt / 1000;   // seconds, for the springs
 
-      // ── breathing ── a constant, slow chest swell so Pip is never frozen, even
-      // at rest. A touch more vertical than horizontal reads as an inhale rather
-      // than a uniform zoom; the head lifts a hair with it. // PT: respira sempre.
+      // ── breathing ── a bold squash-and-stretch chest (Y up ~9% / X in ~5%) so
+      // Pip visibly breathes even in a held pose; the head rides up with it.
       const breath = Math.sin(t * 1.8);
-      const breathSx = 1 + 0.020 * breath;
-      const breathSy = 1 + 0.034 * breath;
-      const headY = -0.5 * breath;
+      const breathSx = 1 - 0.05 * breath;
+      const breathSy = 1 + 0.09 * breath;
+      const headY = -1.6 * breath;
 
-      // ── board carve (Marés only) ── two sines so the swell isn't metronomic. 0
-      // off the wave (there's no board there).
-      const boardTilt = surf ? (Math.sin(t * 1.45) * 3.6 + Math.sin(t * 0.63 + 1.1) * 1.4) : 0;
+      // ── board carve (Marés only) ── a big swell carve (~±12°) so the wave reads.
+      const boardTilt = surf ? (Math.sin(t * 1.5) * 9 + Math.sin(t * 0.66 + 1.1) * 3.5) : 0;
 
-      // ── body lean ── spring-driven, never linear. At rest it eases toward a
-      // target with a little overshoot: on the wave the target is the OPPOSITE of
-      // the board's tilt, so Pip counter-balances the carve a beat late (the
-      // spring lag *is* the delay); off the wave it's a gentle idle sway. Flight
-      // and hop keep their deliberate lean and re-seed the spring so there's no
-      // jump when they hand back to it.
+      // ── body lean ── spring-driven (never linear) and UNDER-damped, so Pip
+      // counter-balances the board a beat late and OVERSHOOTS — the lag plus the
+      // bounce is the life. Off the wave it's a bigger idle sway. Flight and hop
+      // keep their deliberate lean and re-seed the spring so there's no jump.
       let lean;
       if (m.flying) { m.tilt.p = leanFly; m.tilt.v = 0; lean = leanFly; }
       else if (now < m.hopUntil) {
-        const hl = Math.sin((now - (m.hopUntil - 760)) / 60) * 8;
+        const hl = Math.sin((now - (m.hopUntil - 760)) / 55) * 11;
         m.tilt.p = hl; m.tilt.v = 0; lean = hl;
       } else {
-        const tiltTarget = surf ? -0.62 * boardTilt : Math.sin(t * 0.9) * 2.0;
-        spring(m.tilt, tiltTarget, 70, 10, ds);   // ζ≈0.6 → lively, settles late
+        const tiltTarget = surf ? -0.85 * boardTilt : Math.sin(t * 0.95) * 5.5;
+        spring(m.tilt, tiltTarget, 80, 7, ds);   // ζ≈0.39 → clear, lively overshoot
         lean = m.tilt.p;
       }
 
-      // ── wing flap ── strong while flying/hopping; at rest a primary beat plus a
-      // smaller, faster flutter (a second harmonic) so it isn't one rigid sine.
+      // ── wing flap ── strong in flight/hop; at rest a big primary beat plus a
+      // faster flutter (a second harmonic) so it never reads as one rigid sine.
       let wing;
-      if (m.flying || now < m.hopUntil) wing = Math.sin(t * 22) * 34;
-      else if (surf)                     wing = -2 + Math.sin(t * 4.2) * 7 + Math.sin(t * 9.0) * 2.0;
-      else                               wing = 4 + Math.sin(t * 3.0) * 10 + Math.sin(t * 6.4) * 2.5;
+      if (m.flying || now < m.hopUntil) wing = Math.sin(t * 22) * 36;
+      else if (surf)                     wing = -4 + Math.sin(t * 4.4) * 16 + Math.sin(t * 9.0) * 4;
+      else                               wing = 6 + Math.sin(t * 3.1) * 20 + Math.sin(t * 6.6) * 5;
 
-      // ── head nod ── gentle compound nod on its own cadence.
-      const head = Math.sin(t * 1.55 + 0.5) * 2.4 + Math.sin(t * 0.8) * 0.8;
+      // ── head nod ── a bold compound nod on its own cadence.
+      const head = Math.sin(t * 1.7 + 0.5) * 5.5 + Math.sin(t * 0.85) * 2;
 
-      // ── overlapping / secondary motion ── tail and crest TRAIL the body and the
-      // head through their own springs, each at a different cadence, so motion
-      // ripples through Pip (follow-through) instead of every part moving as one.
-      spring(m.tail,  -0.7 * lean, 120, 14, ds);   // tail trails the lean
-      spring(m.crest,  1.1 * head, 110, 12, ds);    // crest flicks after the head
-      const tailA  = m.tail.p  + Math.sin(t * 1.9 + 0.6) * 3.0;
-      const crestA = m.crest.p + Math.sin(t * 1.25 + 1.3) * 1.6;
+      // ── overlapping / secondary motion ── tail and crest TRAIL the lean and the
+      // head through their own UNDER-damped springs, each at a different cadence,
+      // so the motion whips through Pip (follow-through) a beat behind the body.
+      spring(m.tail,  -0.9 * lean, 110, 9, ds);   // tail whips behind the lean
+      spring(m.crest,  1.3 * head, 130, 9, ds);   // crest flicks after the head
+      const tailA  = m.tail.p  + Math.sin(t * 1.95 + 0.6) * 6;
+      const crestA = m.crest.p + Math.sin(t * 1.3 + 1.3) * 4;
 
       // ── blink ── brief eye squash on a randomised cadence ──
       if (!m.nextBlink) m.nextBlink = now + 2500 + Math.random() * 3000;
@@ -593,14 +604,6 @@ function ParrotCompanion({ store, accentColor, tab }) {
       // board: carve under Pip's feet — he counter-balances it (Marés only)
       if (surf && boardRef.current) boardRef.current.setAttribute("transform",
         "rotate(" + boardTilt.toFixed(3) + " " + BOARD_PIVOT[0] + " " + BOARD_PIVOT[1] + ")");
-
-      // ── speech bubble: a tiny JS pop-in (no CSS, so it survives reduce-motion) ──
-      if (bubbleRefEl.current) {
-        const bp = Math.min(1, (now - m.bubbleAt) / 200);
-        const s = 0.85 + 0.15 * easeInOutCubic(bp);
-        bubbleRefEl.current.style.transform = "scale(" + s.toFixed(3) + ")";
-        bubbleRefEl.current.style.opacity = bp.toFixed(3);
-      }
     };
 
     raf = requestAnimationFrame(frame);
@@ -608,7 +611,7 @@ function ParrotCompanion({ store, accentColor, tab }) {
     // Park entirely while the tab/app is hidden; resume cleanly when back.
     const onVis = () => {
       if (document.hidden) { running = false; cancelAnimationFrame(raf); }
-      else if (!running) { running = true; prev = performance.now(); lastWork = 0; raf = requestAnimationFrame(frame); }
+      else if (!running) { running = true; lastStep = performance.now(); raf = requestAnimationFrame(frame); }
     };
     document.addEventListener("visibilitychange", onVis);
 
