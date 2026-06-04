@@ -97,7 +97,17 @@ function UpdateChecker({ accentColor, store }) {
       });
       if (!r.ok) throw new Error("HTTP " + r.status);
       const j = await r.json();
-      const apk = (j.assets || []).find(a => /\.apk$/i.test(a.name || ""));
+      // Pick the MOST RECENTLY UPDATED .apk, not the first one. The rolling
+      // release can briefly carry more than one apk (a build uploads
+      // pauta-v<run>.apk and older, differently-named assets aren't always pruned
+      // yet), and GitHub returns assets oldest-first — so a plain find() would
+      // hand out a STALE apk. Across a signing-key change that older apk is signed
+      // with a different key → the "package conflicts with an existing package"
+      // install failure all over again. The newest updated_at is this build.
+      const apk = (j.assets || [])
+        .filter(a => /\.apk$/i.test(a.name || ""))
+        .reduce((best, a) =>
+          (!best || new Date(a.updated_at || 0) > new Date(best.updated_at || 0)) ? a : best, null);
       if (!apk) { setState({ kind: "err", text: tr("Sem APK disponível no repositório.") }); return; }
 
       // The "latest" release is rolling (re-published every build), and GitHub
