@@ -144,7 +144,7 @@ function TabBar({ tab, onTab, accentColor }) {
     { id: "mares", label: tr("Marés"), Ic: Icon.Mares },
   ];
   return (
-    <div style={{
+    <div className="om-tabbar" style={{
       flexShrink: 0,
       borderTop: "1px solid var(--rule)",
       background: "var(--tabbar-bg)",

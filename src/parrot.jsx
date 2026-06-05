@@ -161,14 +161,16 @@ function ParrotHead({ accent, size, eyeRef, pupilRef }) {
 }
 
 const HEAD_SIZE = 72;
-// How high above the frame bottom Pip sits, clearing the tab bar (+ its safe-area
-// padding). Tweak this single value to nudge him up/down.
-const CORNER_BOTTOM = "calc(72px + env(safe-area-inset-bottom))";
+// Gap (px) Pip keeps above the tab bar's top edge.
+const CORNER_GAP = 14;
+// Fallback distance above the frame bottom until the tab bar is measured.
+const CORNER_FALLBACK = 90;
 
 function ParrotCompanion({ store, accentColor, tab }) {
   const enabled = store.state.prefs.parrot !== false;
   const [out, setOut] = useState(false);     // expanded + talking?
   const [line, setLine] = useState(null);    // the spoken line (stays mounted; faded by the loop)
+  const [bottomPx, setBottomPx] = useState(CORNER_FALLBACK);  // sits above the tab bar
 
   // Refs that always hold the current values, so the long-lived rAF loop never
   // reads a stale closure. // PT: refs com o valor atual.
@@ -193,6 +195,25 @@ function ParrotCompanion({ store, accentColor, tab }) {
     const mo = new MutationObserver(check);
     mo.observe(document.body, { childList: true, subtree: true });
     return () => mo.disconnect();
+  }, []);
+
+  // Sit ABOVE the three tabs, always. Measure the tab bar's real rendered height
+  // (which already includes its safe-area padding) and park Pip a small gap above
+  // it — so he never covers the tabs, on any device. Re-measures on resize / when
+  // the bar resizes (e.g. rotation, dynamic safe-area). // PT: medir a barra para
+  // ficar sempre por cima dos separadores.
+  useEffect(() => {
+    const measure = () => {
+      const bar = document.querySelector(".om-tabbar");
+      const h = bar ? bar.getBoundingClientRect().height : 76;
+      setBottomPx(Math.round(h + CORNER_GAP));
+    };
+    measure();
+    const bar = document.querySelector(".om-tabbar");
+    const ro = (bar && "ResizeObserver" in window) ? new ResizeObserver(measure) : null;
+    if (ro) ro.observe(bar);
+    window.addEventListener("resize", measure);
+    return () => { window.removeEventListener("resize", measure); if (ro) ro.disconnect(); };
   }, []);
 
   // ── DOM refs the rAF loop writes to (never React state per frame) ──
@@ -295,8 +316,9 @@ function ParrotCompanion({ store, accentColor, tab }) {
       WebkitUserSelect: "none", userSelect: "none",
       WebkitTouchCallout: "none", WebkitTapHighlightColor: "transparent",
     }}>
-      {/* Corner anchor (bottom-right). Holds the upward-opening bubble + the head. */}
-      <div style={{ position: "absolute", right: 8, bottom: CORNER_BOTTOM }}>
+      {/* Corner anchor (bottom-right), parked just above the measured tab bar so
+          it never covers the three tabs. Holds the upward-opening bubble + head. */}
+      <div style={{ position: "absolute", right: 8, bottom: bottomPx }}>
         {/* Speech bubble — stays mounted once Pip has spoken; the loop fades it in
             and out via opacity so the recoil reads smoothly. Opens up-left. */}
         {line && (
