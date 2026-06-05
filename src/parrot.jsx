@@ -131,7 +131,7 @@ function ParrotHead({ accent, size, eyeRef, pupilRef }) {
   const beakDk = "#C2AC82";   // beak shading
   const beakLo = "#6E5F50";   // darker lower mandible
   return (
-    <svg width={size} height={size} viewBox="16 34 54 54" fill="none" aria-hidden="true"
+    <svg width={size} height={size * 48 / 54} viewBox="16 38 54 48" fill="none" aria-hidden="true"
       style={{ display: "block", overflow: "visible" }}>
       {/* neck / shoulder hint */}
       <path d="M52 66 C62 66 70 72 72 82 L40 82 C40 74 45 67 52 66 Z" fill={accent} opacity="0.96"/>
@@ -160,11 +160,14 @@ function ParrotHead({ accent, size, eyeRef, pupilRef }) {
   );
 }
 
-const HEAD_SIZE = 72;
-// Gap (px) Pip keeps above the tab bar's top edge.
-const CORNER_GAP = 14;
+const HEAD_SIZE = 112;
+// Small gap (px) above the tab bar — Pip rests just on top of it, not floating.
+const CORNER_GAP = 4;
 // Fallback distance above the frame bottom until the tab bar is measured.
-const CORNER_FALLBACK = 90;
+const CORNER_FALLBACK = 80;
+// How far Pip tucks off the right edge while idle (px), so he peeks from the
+// corner and "slides out" when tapped instead of floating mid-screen.
+const PEEK_HIDE = 48;
 
 function ParrotCompanion({ store, accentColor, tab }) {
   const enabled = store.state.prefs.parrot !== false;
@@ -282,8 +285,10 @@ function ParrotCompanion({ store, accentColor, tab }) {
 
       // ── write transforms ──
       if (scaleRef.current) {
-        const sc = 0.72 + 0.28 * p;                 // idle ~0.72 → out 1.0
-        scaleRef.current.style.transform = "translateY(" + (-4 * p).toFixed(1) + "px) scale(" + sc.toFixed(3) + ")";
+        const peek = (1 - p) * PEEK_HIDE;            // tucked off the right wall when idle
+        const sc = 0.95 + 0.05 * p;                  // keep ~preview size; a subtle expand
+        scaleRef.current.style.transform =
+          "translate(" + peek.toFixed(1) + "px," + (-4 * p).toFixed(1) + "px) scale(" + sc.toFixed(3) + ")";
       }
       if (breathRef.current) breathRef.current.style.transform = "scaleY(" + breath.toFixed(4) + ")";
       if (eyeRef.current) eyeRef.current.setAttribute("transform",
@@ -313,17 +318,20 @@ function ParrotCompanion({ store, accentColor, tab }) {
   return (
     <div style={{
       position: "absolute", inset: 0, zIndex: 40, pointerEvents: "none",
+      overflow: "hidden",                 // so the idle peek clips cleanly at the wall
       WebkitUserSelect: "none", userSelect: "none",
       WebkitTouchCallout: "none", WebkitTapHighlightColor: "transparent",
     }}>
-      {/* Corner anchor (bottom-right), parked just above the measured tab bar so
-          it never covers the three tabs. Holds the upward-opening bubble + head. */}
-      <div style={{ position: "absolute", right: 8, bottom: bottomPx }}>
+      {/* Corner anchor — flush to the right wall, resting just above the measured
+          tab bar. Pip tucks off the wall while idle and slides out when tapped, so
+          he reads as anchored to the corner, never floating mid-screen. Holds the
+          upward-opening bubble + head. */}
+      <div style={{ position: "absolute", right: 0, bottom: bottomPx }}>
         {/* Speech bubble — stays mounted once Pip has spoken; the loop fades it in
             and out via opacity so the recoil reads smoothly. Opens up-left. */}
         {line && (
           <div ref={bubbleRef} style={{
-            position: "absolute", bottom: "100%", right: 0, marginBottom: 12,
+            position: "absolute", bottom: "100%", right: 6, marginBottom: 12,
             width: "min(15rem, 68vw)", opacity: 0, transformOrigin: "right bottom",
             pointerEvents: "none",
           }}>
