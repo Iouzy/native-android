@@ -171,21 +171,27 @@ const TAB_ANCHOR = { hoje: "hoje", pauta: "pauta", mares: "surf" };
 
 // Pivots (in the bird's 0..72 viewBox) the rAF loop rotates the articulated
 // parts about. They MUST match where those parts are drawn in ParrotSvg.
-const WING_PIVOT = [35, 33];   // shoulder
-const HEAD_PIVOT = [40, 30];   // neck
-const TAIL_PIVOT = [34, 46];   // tail base
-const EYE_CY     = 21;         // eye centre Y, for the blink squash
+const WING_PIVOT  = [35, 33];  // near (left) shoulder
+const WING2_PIVOT = [40, 33];  // far (right) shoulder
+const HEAD_PIVOT  = [40, 30];  // neck
+const TAIL_PIVOT  = [34, 46];  // tail base
+const EYE_CY      = 21;        // eye centre Y, for the blink squash
 
 // ── Easing ──
 function easeInOutCubic(t) { return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; }
 function lerp(a, b, t) { return a + (b - a) * t; }
 
 // Articulated parrot, facing left — a two-tone tropical bird: terracotta body in
-// the live accent, a teal/blue wing + tail flash, a yellow hooked beak and a
-// swept-back crest. Each movable part is its own <g> with a ref so the rAF loop
-// can rotate it about a fixed pivot (via the SVG `transform` attribute — robust
-// across browsers and immune to reduce-motion). Drawn in a 72×72 viewBox.
-function ParrotSvg({ accent, size, wingRef, headRef, tailRef, eyeRef }) {
+// the live accent, teal/blue wings + tail flash, a yellow hooked beak and a
+// swept-back crest. It has TWO wings now: a bright near (left) wing and a dimmer
+// far (right) wing tucked behind the body for depth — each its own <g> with a
+// shoulder pivot so Pip can fold/adjust them. The eye's pupil is its own nested
+// <g> so the gaze can drift independently of the blink (which squashes the whole
+// eye). A soft radial contact shadow under the body grounds him — subtle volume,
+// no flashy 3D. Every movable part rotates/translates about a fixed pivot via the
+// SVG `transform` attribute (robust across browsers, immune to reduce-motion).
+// Drawn in a 72×72 viewBox.
+function ParrotSvg({ accent, size, wingRef, wing2Ref, headRef, tailRef, eyeRef, pupilRef }) {
   const shade   = "rgba(0,0,0,0.18)";  // soft shading
   const belly   = "#F4E4C1";           // warm cream chest/cheek
   const teal    = "#2BA6C9";           // teal/blue wing + tail flash
@@ -197,6 +203,22 @@ function ParrotSvg({ accent, size, wingRef, headRef, tailRef, eyeRef }) {
   return (
     <svg width={size} height={size} viewBox="0 0 72 72" fill="none" aria-hidden="true"
       style={{ display: "block", overflow: "visible" }}>
+      <defs>
+        {/* soft ground-contact shadow — a radial pool, not a hard disk */}
+        <radialGradient id="pipShadow" cx="0.5" cy="0.5" r="0.5">
+          <stop offset="0" stopColor="#000" stopOpacity="0.22"/>
+          <stop offset="0.7" stopColor="#000" stopOpacity="0.12"/>
+          <stop offset="1" stopColor="#000" stopOpacity="0"/>
+        </radialGradient>
+      </defs>
+      {/* contact shadow under the body — subtle volume so Pip isn't a flat sticker */}
+      <ellipse cx="35" cy="63" rx="13.5" ry="3.2" fill="url(#pipShadow)"/>
+      {/* FAR wing (bird's right) — behind the body, dimmer for depth; its own <g>
+          pivoting at the far shoulder so it can fold/settle */}
+      <g ref={wing2Ref}>
+        <path d="M40 31 C50 33 54 45 49 54 C46 50 42 41 41 32 Z" fill={tealDk} opacity="0.9"/>
+        <path d="M42 34 C46 37 48 44 46 50" stroke="#14647d" strokeWidth="1.1" fill="none" opacity="0.45"/>
+      </g>
       {/* long parrot tail — accent body with blue tips; sways from its base */}
       <g ref={tailRef}>
         <path d="M30 44 C28 54 29 63 33 71 C37 63 40 54 42 46 C38 44 33 43 30 44 Z" fill={accent}/>
@@ -208,14 +230,15 @@ function ParrotSvg({ accent, size, wingRef, headRef, tailRef, eyeRef }) {
       {/* body */}
       <ellipse cx="36" cy="41" rx="14.5" ry="17" fill={accent}/>
       <ellipse cx="39" cy="45" rx="9" ry="12" fill={belly}/>
-      {/* feet — little legs + gripping toes (read standing on the surfboard) */}
+      {/* feet — little legs + toes */}
       <g stroke={foot} strokeWidth="2.1" strokeLinecap="round" fill="none">
         <path d="M33 54 L33 59"/>
         <path d="M40 54 L40 59"/>
         <path d="M33 59 l-2.6 1.8 M33 59 l0 2.3 M33 59 l2.6 1.8"/>
         <path d="M40 59 l-2.6 1.8 M40 59 l0 2.3 M40 59 l2.6 1.8"/>
       </g>
-      {/* wing — teal flash, separate <g> pivoting at the shoulder so Pip flaps */}
+      {/* NEAR wing (bird's left) — bright teal flash, its own <g> pivoting at the
+          near shoulder so Pip can fold/adjust it */}
       <g ref={wingRef}>
         <path d="M35 30 C23 32 19 46 27 56 C33 51 37 41 37 31 Z" fill={teal}/>
         <path d="M35 31 C26 34 22 45 27 54" stroke={tealDk} strokeWidth="1.5" fill="none" opacity="0.75"/>
@@ -235,11 +258,14 @@ function ParrotSvg({ accent, size, wingRef, headRef, tailRef, eyeRef }) {
         <path d="M34 15 C28 13 22 16 19 20 C18 22.5 20 26 23 25.5 C23 23.5 25 21.5 29 21 C31 20.5 33 17 34 15 Z" fill={beak}/>
         <path d="M23 25.5 C25 27.5 30 27 31 23.5 C29 24.8 26 24.8 23.6 24.2 Z" fill={beakDk}/>
         <path d="M34 15 C28 13 22 16 19 20" stroke={beakDk} strokeWidth="0.7" fill="none" opacity="0.5"/>
-        {/* eye — its own group so the blink can squash it shut */}
+        {/* eye — sclera in its own group so the blink can squash it shut, with the
+            pupil nested in its own <g> so the gaze can drift without un-blinking */}
         <g ref={eyeRef}>
           <circle cx="44" cy={EYE_CY} r="5" fill="#fff"/>
-          <circle cx="45" cy={EYE_CY} r="2.4" fill="#1A1815"/>
-          <circle cx="46.3" cy={EYE_CY - 1.3} r="0.9" fill="#fff"/>
+          <g ref={pupilRef}>
+            <circle cx="45" cy={EYE_CY} r="2.4" fill="#1A1815"/>
+            <circle cx="46.3" cy={EYE_CY - 1.3} r="0.9" fill="#fff"/>
+          </g>
         </g>
       </g>
     </svg>
@@ -343,10 +369,12 @@ function ParrotCompanion({ store, accentColor, tab }) {
   const moverRef  = useRef(null);   // screen position (fly-across)
   const bobRef    = useRef(null);   // vertical bob + hop (bird + surf scene)
   const tiltRef   = useRef(null);   // body lean / surf tilt
-  const wingRef   = useRef(null);   // flapping wing
+  const wingRef   = useRef(null);   // near (left) wing
+  const wing2Ref  = useRef(null);   // far (right) wing
   const headRef   = useRef(null);   // head nod
   const tailRef   = useRef(null);   // tail sway
-  const eyeRef    = useRef(null);   // blink
+  const eyeRef    = useRef(null);   // blink (squashes the whole eye)
+  const pupilRef  = useRef(null);   // gaze drift (moves only the pupil)
   const bubbleRefEl = useRef(null); // speech bubble (a tiny JS pop-in)
 
   // The whole motion model lives in one mutable object so the loop allocates
@@ -703,7 +731,8 @@ function ParrotCompanion({ store, accentColor, tab }) {
             }}>
               <div ref={tiltRef} style={{ willChange: "transform" }}>
                 <ParrotSvg accent={accentColor} size={birdSize}
-                  wingRef={wingRef} headRef={headRef} tailRef={tailRef} eyeRef={eyeRef}/>
+                  wingRef={wingRef} wing2Ref={wing2Ref} headRef={headRef}
+                  tailRef={tailRef} eyeRef={eyeRef} pupilRef={pupilRef}/>
               </div>
             </button>
             {surf && <SurfScene accent={accentColor}/>}
