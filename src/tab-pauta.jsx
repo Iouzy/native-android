@@ -360,10 +360,15 @@ function ZenFocus({ block, accentColor, onExit, onPause, onConclude }) {
     color: "var(--on-dark)", borderRadius: 10, padding: "11px 20px",
     fontSize: 14, fontWeight: 500, cursor: "pointer", fontFamily: "var(--sans)",
   };
-  return (
+  // Rendered through a portal to <body> so it truly covers the whole screen. The
+  // content wrapper in app.jsx keeps a permanent `transform` (animation fill-mode
+  // "both"), which would otherwise make THIS fixed overlay a child of that
+  // containing block — leaving the tab bar and Pip painting on top. At body level
+  // it covers everything in one flat colour: no tabs, no Pip, just the timer.
+  return ReactDOM.createPortal(
     <div role="dialog" aria-label={tr("modo foco")} onClick={onExit}
       style={{
-        position: "fixed", inset: 0, zIndex: 120,
+        position: "fixed", inset: 0, zIndex: 200,
         background: "var(--surface-dark)", color: "var(--on-dark)",
         display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
         gap: 20, padding: 28, animation: "fadeIn 0.3s ease",
@@ -382,10 +387,11 @@ function ZenFocus({ block, accentColor, onExit, onPause, onConclude }) {
         <button className="tap" onClick={onConclude}
           style={{ ...zenBtn, background: accentColor, border: "none", color: "#fff" }}>{tr("Concluir")}</button>
       </div>
-      <div style={{ position: "absolute", bottom: 28, fontFamily: "var(--serif)", fontStyle: "italic", fontSize: 13, color: "var(--on-dark-2)" }}>
+      <div style={{ position: "absolute", bottom: "calc(28px + env(safe-area-inset-bottom))", fontFamily: "var(--serif)", fontStyle: "italic", fontSize: 13, color: "var(--on-dark-2)" }}>
         {tr("toque para sair")}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
