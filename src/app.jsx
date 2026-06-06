@@ -958,6 +958,36 @@ function DataAction({ icon, title, subtitle, onClick, accentColor, danger }) {
   );
 }
 
+// Non-blocking banner shown when a localStorage write fails (e.g. quota full).
+// Without it a failed save is invisible and the user can lose data with no
+// warning — so we offer a one-tap export (a Blob download that works even when
+// localStorage is full) plus a dismiss. / Aviso não-bloqueante quando a gravação
+// falha: oferece exportar (download, funciona com a quota cheia) e dispensar.
+function SaveErrorBanner({ store, accentColor }) {
+  if (!store.saveError) return null;
+  const bg = accentColor || "var(--accent)";
+  return (
+    <div role="alert" style={{
+      display: "flex", alignItems: "center", gap: 8,
+      padding: "10px 14px", background: bg, color: "var(--on-dark)",
+      borderBottom: "1px solid var(--rule)",
+    }}>
+      <div style={{ flex: 1, minWidth: 0, fontFamily: "var(--serif)", fontSize: 13, lineHeight: 1.35 }}>
+        {tr("Não foi possível guardar — exporte uma cópia de segurança.")}
+      </div>
+      <button onClick={() => store.exportData()} className="tap" style={{
+        flexShrink: 0, border: "none", borderRadius: 999, padding: "7px 14px",
+        background: "var(--on-dark)", color: bg, cursor: "pointer",
+        fontFamily: "var(--mono)", fontSize: 11, fontWeight: 600, letterSpacing: "0.04em",
+      }}>{tr("Exportar")}</button>
+      <button onClick={() => store.dismissSaveError()} aria-label={tr("Dispensar")} className="tap" style={{
+        flexShrink: 0, border: "none", background: "transparent", color: "var(--on-dark)",
+        cursor: "pointer", fontSize: 18, lineHeight: 1, padding: "4px 6px", opacity: 0.85,
+      }}>×</button>
+    </div>
+  );
+}
+
 const TAB_ORDER = ["hoje", "pauta", "mares"];
 
 function App() {
@@ -1088,6 +1118,7 @@ function App() {
   return (
     <div className="frame">
       <StatusBar onMenu={() => setSettingsOpen(true)}/>
+      <SaveErrorBanner store={store} accentColor={accentColor}/>
 
       <div onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}
         style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", position: "relative", zIndex: 1 }}>

@@ -433,7 +433,13 @@ function emptyState() {
     prefs: defaultPrefs(),
   };
 }
-function saveState(s) { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); } catch (e) {} }
+// Returns true on success, false if the write failed (e.g. QuotaExceededError).
+// Stays synchronous so the persist effect and tests can read the result. /
+// Devolve true se gravou, false se falhou (ex.: quota cheia).
+function saveState(s) {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); return true; }
+  catch (e) { return false; }
+}
 
 // ─── EXPORT / IMPORT ───────────────────────────────────────
 // Backup file shape: { app:"pauta", version, exportedAt, data:<state> }.
@@ -1160,7 +1166,38 @@ function prevWeeklyReview(state, endKey = dayKeyOf(Date.now()), now = Date.now()
 // ─── HOOK ────────────────────────────────────────────────
 function useStore() {
   const [state, setState] = useState(loadState);
-  useEffect(() => { saveState(state); }, [state]);
+  // True when the last persist attempt failed (e.g. localStorage quota full).
+  // The app surfaces a banner offering an export so data isn't silently lost. /
+  // Verdadeiro quando a última gravação falhou (ex.: quota cheia).
+  const [saveError, setSaveError] = useState(false);
+
+  // Latest state, readable from the synchronous hide-flush below without
+  // re-subscribing the listener on every change. / Estado mais recente.
+  const stateRef = useRef(state);
+  useEffect(() => { stateRef.current = state; }, [state]);
+
+  // Persist is debounced: rapid edits coalesce into one JSON.stringify+write
+  // instead of one per keystroke (less main-thread jank, less quota churn). /
+  // Gravação com debounce: edições rápidas juntam-se numa só escrita.
+  const saveTimer = useRef(0);
+  useEffect(() => {
+    clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => setSaveError(!saveState(state)), 400);
+    return () => clearTimeout(saveTimer.current);
+  }, [state]);
+
+  // Flush immediately when the page is hidden/closed so an app-switch within the
+  // debounce window never drops the last edit. / Grava já ao esconder/fechar.
+  useEffect(() => {
+    const flush = () => setSaveError(!saveState(stateRef.current));
+    const onVis = () => { if (document.hidden) flush(); };
+    window.addEventListener("pagehide", flush);
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      window.removeEventListener("pagehide", flush);
+      document.removeEventListener("visibilitychange", onVis);
+    };
+  }, []);
 
   const activeBlock = useMemo(() =>
     state.activeId ? state.blocks.find(b => b.id === state.activeId) : null,
@@ -1538,6 +1575,8 @@ function useStore() {
     resetAll, reseed, clearForOnboarding,
     // backup
     exportData, importData, serializeBackup,
+    // persistence health
+    saveError, dismissSaveError: () => setSaveError(false),
   };
 }
 
