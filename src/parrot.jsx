@@ -98,7 +98,7 @@ const PARROT_HOJE = [
   { pt: "Uma a quatro intenções. Mais do que isso é uma lista de desejos, não um dia.", en: "One to four intentions. More than that is a wish list, not a day." },
   { pt: "Escolhe a intenção que, feita, faria o dia valer a pena.", en: "Pick the intention that, if done, would make the day worth it." },
   { pt: "À noite, uma linha de reflexão chega. O teu eu de amanhã agradece.", en: "At night, one line of reflection is enough. Tomorrow-you will thank you." },
-  { pt: "Arrasta as intenções para pôr a mais importante no topo.", en: "Drag your intentions to put the most important one on top." },
+  { pt: "Dá prioridade 1, 2 ou 3 a cada intenção — a lista organiza-se sozinha.", en: "Give each intention priority 1, 2 or 3 — the list sorts itself." },
   { pt: "O que não cabe hoje, cabe amanhã. Recomeça-se sempre.", en: "What doesn't fit today fits tomorrow. You always begin again." },
 ];
 const PARROT_PAUTA = [

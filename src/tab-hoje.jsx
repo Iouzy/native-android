@@ -1,7 +1,7 @@
 // Tab: HOJE — intenções do dia + reflexão noturna
 
 function TabHoje({ store, accentColor, onJumpToPauta }) {
-  const { state, addIntention, updateIntention, toggleIntention, removeIntention, reorderIntentions, setReflection, carryOverIntentions } = store;
+  const { state, addIntention, updateIntention, toggleIntention, removeIntention, setReflection, carryOverIntentions } = store;
   const { today, blocks } = state;
 
   // Unfinished intentions from the most recent archived day — offered as a
@@ -17,6 +17,8 @@ function TabHoje({ store, accentColor, onJumpToPauta }) {
   }, [state.days, today.dayKey]);
   const [adding, setAdding] = useState(false);
   const [newText, setNewText] = useState("");
+  const [newPriority, setNewPriority] = useState(2); // default to "média"
+  const [newTarget, setNewTarget] = useState(""); // minutes as a free string; "" = none
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyDayKey, setHistoryDayKey] = useState(null);
 
@@ -39,18 +41,15 @@ function TabHoje({ store, accentColor, onJumpToPauta }) {
 
   const pastKeys = useMemo(() => pastDayKeys(state), [state.days]);
 
-  const [sortByPriority, setSortByPriority] = useState(false);
-
-  const PRIO_ORDER = { principal: 0, importante: 1 };
+  // The list auto-sorts by priority level (1 = highest); unset priorities sink to
+  // the bottom. A stable sort keeps insertion order within the same level, so
+  // there's no separate manual-reorder mode — the number IS the order.
   const displayIntentions = useMemo(() => {
-    if (!sortByPriority) return today.intentions;
-    return [...today.intentions].sort((a, b) =>
-      (PRIO_ORDER[a.priority] ?? 2) - (PRIO_ORDER[b.priority] ?? 2)
-    );
-  }, [today.intentions, sortByPriority]);
-
-  const intentionIds = displayIntentions.map(i => i.id);
-  const { dragId, start } = useDragReorder(intentionIds, reorderIntentions);
+    return today.intentions
+      .map((it, i) => [it, i])
+      .sort((a, b) => ((a[0].priority || 4) - (b[0].priority || 4)) || (a[1] - b[1]))
+      .map(pair => pair[0]);
+  }, [today.intentions]);
 
   // Render today's summary as a shareable PNG (Web Share, else download).
   const shareDay = () => {
@@ -67,10 +66,16 @@ function TabHoje({ store, accentColor, onJumpToPauta }) {
     if (window.haptic) window.haptic(8);
   };
 
+  const resetForm = () => { setNewText(""); setNewPriority(2); setNewTarget(""); setAdding(false); };
   const commitNew = () => {
-    if (newText.trim()) addIntention(newText);
-    setNewText("");
-    setAdding(false);
+    if (newText.trim()) {
+      const tm = parseInt(newTarget, 10);
+      addIntention(newText, {
+        priority: newPriority,
+        targetMin: Number.isFinite(tm) && tm > 0 ? tm : null,
+      });
+    }
+    resetForm();
   };
 
   return (
@@ -112,103 +117,22 @@ function TabHoje({ store, accentColor, onJumpToPauta }) {
         </div>
       </div>
 
-      {/* Intentions */}
-      {today.intentions.length === 0 && !adding && (
-        <div style={{ padding: "24px 0", textAlign: "left" }}>
-          <div style={{
-            fontFamily: "var(--serif)", fontStyle: "italic", fontSize: 18,
-            color: "var(--ink-3)", lineHeight: 1.4,
-          }}>
-            {tr("Comece por listar 1 a 4 coisas que importam hoje.")}<br/>
-            {tr("Não tarefas de rotina — coisas que")} <em>{tr("movem")}</em> {tr("o seu dia.")}
-          </div>
-          {carry && (
-            <button onClick={() => carryOverIntentions(carry.items)} className="tap"
-              style={{
-                marginTop: 16, width: "100%", textAlign: "left", cursor: "pointer",
-                display: "flex", alignItems: "center", gap: 12,
-                background: "var(--paper-2)", border: "1px solid var(--rule)",
-                borderRadius: 12, padding: "12px 14px", color: "var(--ink)",
-              }}>
-              <span style={{ flexShrink: 0, color: accentColor, display: "inline-flex" }}><Icon.Plus size={16}/></span>
-              <span style={{ flex: 1, minWidth: 0 }}>
-                <span style={{ display: "block", fontSize: 14, fontWeight: 500 }}>
-                  {carry.items.length === 1
-                    ? tr("Trazer 1 intenção de ontem")
-                    : trf("Trazer {n} intenções de ontem", { n: carry.items.length })}
-                </span>
-                <span style={{ display: "block", fontSize: 12.5, color: "var(--ink-3)", marginTop: 2, fontStyle: "italic", fontFamily: "var(--serif)" }}>
-                  {carry.items.slice(0, 2).map(i => i.text).join(" · ")}{carry.items.length > 2 ? "…" : ""}
-                </span>
-              </span>
-            </button>
-          )}
-          <StarterChips
-            label={tr("Para começar")}
-            accentColor={accentColor}
-            items={["Ler 20 minutos", "Caminhar 30 min", "Escrever 3 ideias", "Uma conversa importante"]}
-            onPick={(text) => addIntention(text)}
-          />
-        </div>
-      )}
-
-      {/* Sort controls */}
-      {today.intentions.length > 1 && (
-        <div style={{ marginBottom: 4, display: "flex", justifyContent: "flex-end" }}>
-          <button onClick={() => setSortByPriority(s => !s)} className="tap"
-            style={{
-              border: "none", background: "transparent",
-              fontFamily: "var(--mono)", fontSize: 9, letterSpacing: "0.12em",
-              textTransform: "uppercase",
-              color: sortByPriority ? accentColor : "var(--ink-4)",
-              cursor: "pointer", padding: "2px 0",
-            }}>
-            {sortByPriority ? tr("ordem manual") : tr("ordenar por prioridade")}
-          </button>
-        </div>
-      )}
-
-      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-        {displayIntentions.map((it) => (
-          <IntentionRow
-            key={it.id}
-            intention={it}
-            focusMs={focusByIntention[it.id] || 0}
-            dragging={dragId === it.id}
-            onToggle={() => toggleIntention(it.id)}
-            onChange={text => updateIntention(it.id, { text })}
-            onRemove={() => removeIntention(it.id)}
-            onSetPriority={v => updateIntention(it.id, { priority: v })}
-            onSetTarget={v => updateIntention(it.id, { targetMin: v })}
-            onDragStart={(e) => start(e, it.id)}
-            onStart={() => onJumpToPauta && onJumpToPauta({ intention: it, start: true })}
-            accentColor={accentColor}
-          />
-        ))}
-      </div>
-
-      {/* Add new */}
+      {/* Add new intention — now at the TOP of the list (swapped with the
+          carry-over button, which moved to the bottom). Tapping the button
+          opens an inline form for name + priority + optional duration. */}
       {adding ? (
-        <div style={{
-          marginTop: 8, padding: "14px 0 14px 34px",
-          borderBottom: "1px solid var(--rule)",
-          display: "flex", alignItems: "center", gap: 12,
-        }}>
-          <input autoFocus value={newText}
-            onChange={e => setNewText(e.target.value)}
-            onBlur={commitNew}
-            onKeyDown={e => { if (e.key === "Enter" || e.key === "Tab") { e.preventDefault(); commitNew(); } if (e.key === "Escape") { setNewText(""); setAdding(false); } }}
-            placeholder={tr("Nova intenção…")}
-            style={{
-              flex: 1, border: "none", background: "transparent", padding: 0,
-              fontSize: 16, color: "var(--ink)", lineHeight: 1.35,
-            }}/>
-        </div>
+        <IntentionForm
+          text={newText} onText={setNewText}
+          priority={newPriority} onPriority={setNewPriority}
+          target={newTarget} onTarget={setNewTarget}
+          onCommit={commitNew} onCancel={resetForm}
+          accentColor={accentColor}
+        />
       ) : (
         <button onClick={() => setAdding(true)} className="tap"
           data-tour="add-intention"
           style={{
-            marginTop: 12, background: "transparent", border: "none",
+            marginTop: 4, marginBottom: 4, background: "transparent", border: "none",
             padding: "10px 0", display: "flex", alignItems: "center", gap: 10,
             color: "var(--ink-3)", fontSize: 14, cursor: "pointer",
           }}>
@@ -220,6 +144,67 @@ function TabHoje({ store, accentColor, onJumpToPauta }) {
             <Icon.Plus size={12}/>
           </div>
           {tr("adicionar intenção")}
+        </button>
+      )}
+
+      {/* Empty-state hint */}
+      {today.intentions.length === 0 && !adding && (
+        <div style={{ padding: "16px 0 8px", textAlign: "left" }}>
+          <div style={{
+            fontFamily: "var(--serif)", fontStyle: "italic", fontSize: 18,
+            color: "var(--ink-3)", lineHeight: 1.4,
+          }}>
+            {tr("Comece por listar 1 a 4 coisas que importam hoje.")}<br/>
+            {tr("Não tarefas de rotina — coisas que")} <em>{tr("movem")}</em> {tr("o seu dia.")}
+          </div>
+          <StarterChips
+            label={tr("Para começar")}
+            accentColor={accentColor}
+            items={["Ler 20 minutos", "Caminhar 30 min", "Escrever 3 ideias", "Uma conversa importante"]}
+            onPick={(text) => addIntention(text, { priority: 2 })}
+          />
+        </div>
+      )}
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+        {displayIntentions.map((it) => (
+          <IntentionRow
+            key={it.id}
+            intention={it}
+            focusMs={focusByIntention[it.id] || 0}
+            onToggle={() => toggleIntention(it.id)}
+            onChange={text => updateIntention(it.id, { text })}
+            onRemove={() => removeIntention(it.id)}
+            onSetPriority={v => updateIntention(it.id, { priority: v })}
+            onSetTarget={v => updateIntention(it.id, { targetMin: v })}
+            onStart={() => onJumpToPauta && onJumpToPauta({ intention: it, start: true })}
+            accentColor={accentColor}
+          />
+        ))}
+      </div>
+
+      {/* Carry-over — now at the BOTTOM (swapped with the add button). Always
+          available when the previous day left unfinished intentions, not just
+          on an empty list. */}
+      {carry && (
+        <button onClick={() => carryOverIntentions(carry.items)} className="tap"
+          style={{
+            marginTop: 16, width: "100%", textAlign: "left", cursor: "pointer",
+            display: "flex", alignItems: "center", gap: 12,
+            background: "var(--paper-2)", border: "1px solid var(--rule)",
+            borderRadius: 12, padding: "12px 14px", color: "var(--ink)",
+          }}>
+          <span style={{ flexShrink: 0, color: accentColor, display: "inline-flex" }}><Icon.Plus size={16}/></span>
+          <span style={{ flex: 1, minWidth: 0 }}>
+            <span style={{ display: "block", fontSize: 14, fontWeight: 500 }}>
+              {carry.items.length === 1
+                ? tr("Trazer 1 intenção de ontem")
+                : trf("Trazer {n} intenções de ontem", { n: carry.items.length })}
+            </span>
+            <span style={{ display: "block", fontSize: 12.5, color: "var(--ink-3)", marginTop: 2, fontStyle: "italic", fontFamily: "var(--serif)" }}>
+              {carry.items.slice(0, 2).map(i => i.text).join(" · ")}{carry.items.length > 2 ? "…" : ""}
+            </span>
+          </span>
         </button>
       )}
 
@@ -521,17 +506,126 @@ const COARSE_POINTER = typeof window !== "undefined" && typeof window.matchMedia
   ? window.matchMedia("(hover: none), (pointer: coarse)").matches
   : false;
 
-// Priority cycles: nenhuma → principal → importante → nenhuma.
-function nextPriority(p) {
-  return p === "principal" ? "importante" : p === "importante" ? null : "principal";
+// Priority levels (1 = highest). The Hoje list auto-sorts by this number, so the
+// number IS the order — there's no manual drag-reorder mode anymore. Picking the
+// priority replaces the old principal/importante labels + the reorder handle,
+// which together were redundant.
+const PRIO_LEVELS = [
+  { value: 1, label: "alta",  mark: "●" },
+  { value: 2, label: "média", mark: "◆" },
+  { value: 3, label: "baixa", mark: "○" },
+];
+function prioColor(value, accentColor) {
+  return value === 1 ? accentColor : value === 2 ? "var(--ink-2)" : "var(--ink-4)";
+}
+function prioMeta(value) {
+  return PRIO_LEVELS.find(o => o.value === value) || PRIO_LEVELS[2];
 }
 
-// Planned duration cycles: nenhuma → 25 → 50 → 90 → nenhuma. The values match
-// the StartSheet presets so a planned duration pre-fills the timer one-to-one.
-function nextTarget(m) {
-  return m === 25 ? 50 : m === 50 ? 90 : m === 90 ? null : 25;
+// ─── Inline add form: name + priority + optional duration ───
+// Opens in place (no bottom sheet) so adding an intention captures everything in
+// one step instead of add-then-tweak-chips.
+function FieldLabel({ children }) {
+  return (
+    <div style={{
+      fontFamily: "var(--mono)", fontSize: 9, letterSpacing: "0.16em",
+      textTransform: "uppercase", color: "var(--ink-3)", marginBottom: 8,
+    }}>{children}</div>
+  );
 }
 
+function PrioritySelect({ value, onSet, accentColor }) {
+  return (
+    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+      {PRIO_LEVELS.map(opt => {
+        const active = opt.value === value;
+        const col = prioColor(opt.value, accentColor);
+        return (
+          <button key={opt.value} onClick={() => onSet(opt.value)} className="tap"
+            style={{
+              border: `1px solid ${active ? accentColor + "55" : "var(--rule)"}`,
+              background: active ? accentColor + "14" : "transparent",
+              borderRadius: 999, padding: "7px 13px", cursor: "pointer",
+              fontFamily: "var(--mono)", fontSize: 11, letterSpacing: "0.04em",
+              color: active ? col : "var(--ink-3)", fontWeight: active ? 600 : 400,
+              display: "inline-flex", alignItems: "center", gap: 6, whiteSpace: "nowrap",
+            }}>
+            <span style={{ fontSize: 9, color: col }}>{opt.mark}</span>
+            {opt.value} · {tr(opt.label)}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// Free-entry duration field (no fixed 25/50/90 presets). Empty = no planned time.
+function DurationField({ value, onChange }) {
+  return (
+    <div style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+      <span style={{ fontSize: 12, color: "var(--ink-3)" }}>◷</span>
+      <input
+        type="number" min="1" max="480" inputMode="numeric"
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        placeholder="—"
+        style={{
+          width: 70, border: "1px solid var(--rule)", background: "transparent",
+          borderRadius: 999, padding: "7px 10px", textAlign: "center",
+          fontFamily: "var(--mono)", fontSize: 12, color: "var(--ink)",
+        }}/>
+      <span style={{ fontFamily: "var(--mono)", fontSize: 11, color: "var(--ink-3)" }}>min</span>
+    </div>
+  );
+}
+
+function IntentionForm({ text, onText, priority, onPriority, target, onTarget, onCommit, onCancel, accentColor }) {
+  const ready = !!text.trim();
+  return (
+    <div style={{
+      marginTop: 4, marginBottom: 10, padding: "16px 18px",
+      background: "var(--paper-2)", border: "1px solid var(--rule)", borderRadius: 14,
+    }}>
+      <input autoFocus value={text}
+        onChange={e => onText(e.target.value)}
+        onKeyDown={e => {
+          if (e.key === "Enter") { e.preventDefault(); onCommit(); }
+          if (e.key === "Escape") { e.preventDefault(); onCancel(); }
+        }}
+        placeholder={tr("Nova intenção…")}
+        style={{
+          width: "100%", border: "none", background: "transparent", padding: 0,
+          fontFamily: "var(--serif)", fontSize: 19, color: "var(--ink)", lineHeight: 1.3,
+        }}/>
+      <div style={{ marginTop: 16 }}>
+        <FieldLabel>{tr("prioridade")}</FieldLabel>
+        <PrioritySelect value={priority} onSet={onPriority} accentColor={accentColor}/>
+      </div>
+      <div style={{ marginTop: 14 }}>
+        <FieldLabel>{tr("duração (opcional)")}</FieldLabel>
+        <DurationField value={target} onChange={onTarget}/>
+      </div>
+      <div style={{ marginTop: 18, display: "flex", justifyContent: "flex-end", gap: 8 }}>
+        <button onClick={onCancel} className="tap"
+          style={{
+            border: "1px solid var(--rule)", background: "transparent",
+            borderRadius: 999, padding: "8px 16px", cursor: "pointer",
+            fontFamily: "var(--mono)", fontSize: 11, letterSpacing: "0.04em", color: "var(--ink-3)",
+          }}>{tr("cancelar")}</button>
+        <button onClick={onCommit} disabled={!ready} className="tap"
+          style={{
+            border: "none", borderRadius: 999, padding: "8px 18px",
+            cursor: ready ? "pointer" : "default",
+            background: ready ? accentColor : "var(--rule)",
+            color: ready ? "var(--paper)" : "var(--ink-4)",
+            fontFamily: "var(--mono)", fontSize: 11, letterSpacing: "0.04em", fontWeight: 600,
+          }}>{tr("adicionar")}</button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Row chips (compact, collapsible) ───
 function TargetChip({ targetMin, accentColor, onSet }) {
   const [open, setOpen] = useState(false);
   const [custom, setCustom] = useState("");
@@ -549,28 +643,21 @@ function TargetChip({ targetMin, accentColor, onSet }) {
   if (open) {
     const confirm = () => {
       const n = parseInt(custom, 10);
-      if (n > 0 && n <= 480) onSet(n);
+      onSet(n > 0 && n <= 480 ? n : null);
       setOpen(false); setCustom("");
     };
     return (
-      <div style={{ display: "flex", gap: 4, flexWrap: "wrap", alignItems: "center" }}>
-        {[25, 50, 90].map(n => (
-          <button key={n} onMouseDown={(e) => e.preventDefault()}
-            onClick={() => { onSet(n); setOpen(false); setCustom(""); }} className="tap"
-            style={{ ...chipStyle(targetMin === n), display: "inline-flex", alignItems: "center", gap: 4 }}>
-            <span style={{ fontSize: 9 }}>◷</span>{trf("{n} min", { n })}
-          </button>
-        ))}
+      <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
         <input
-          type="number" min="1" max="480"
+          type="number" min="1" max="480" inputMode="numeric"
           value={custom}
           onChange={e => setCustom(e.target.value)}
           onKeyDown={e => { if (e.key === "Enter") confirm(); if (e.key === "Escape") { setOpen(false); setCustom(""); } }}
           onBlur={confirm}
-          placeholder={tr("outro")}
+          placeholder="min"
           autoFocus
           style={{
-            width: 58, border: "1px solid var(--rule)", background: "transparent",
+            width: 64, border: "1px solid var(--rule)", background: "transparent",
             borderRadius: 999, padding: "6px 8px",
             fontFamily: "var(--mono)", fontSize: 10, color: "var(--ink)", textAlign: "center",
           }}/>
@@ -582,7 +669,7 @@ function TargetChip({ targetMin, accentColor, onSet }) {
   }
 
   return (
-    <button onClick={() => setOpen(true)} className="tap" title={tr("definir duração")}
+    <button onClick={() => { setCustom(set ? String(targetMin) : ""); setOpen(true); }} className="tap" title={tr("definir duração")}
       style={{
         ...chipStyle(set),
         display: "inline-flex", alignItems: "center", gap: 5,
@@ -594,32 +681,31 @@ function TargetChip({ targetMin, accentColor, onSet }) {
 
 function PriorityChip({ priority, accentColor, onSet }) {
   const [open, setOpen] = useState(false);
-
-  const OPTS = [
-    { value: "principal", mark: "●", label: tr("principal"), color: accentColor, weight: 600 },
-    { value: "importante", mark: "◆", label: tr("importante"), color: "var(--ink-2)", weight: 500 },
-    { value: null, mark: "○", label: tr("nenhuma"), color: "var(--ink-4)", weight: 400 },
-  ];
-  const cur = OPTS.find(o => o.value === (priority || null)) || OPTS[2];
+  const cur = prioMeta(priority);
+  const curCol = prioColor(cur.value, accentColor);
 
   if (open) {
     return (
       <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-        {OPTS.map(opt => (
-          <button key={opt.value ?? "none"}
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={() => { onSet(opt.value); setOpen(false); }} className="tap"
-            style={{
-              border: `1px solid ${opt.value === priority ? accentColor + "55" : "var(--rule)"}`,
-              background: opt.value === priority ? accentColor + "14" : "transparent",
-              borderRadius: 999, padding: "6px 11px", cursor: "pointer",
-              fontFamily: "var(--mono)", fontSize: 10, letterSpacing: "0.04em",
-              color: opt.color, fontWeight: opt.weight,
-              display: "inline-flex", alignItems: "center", gap: 5, whiteSpace: "nowrap",
-            }}>
-            <span style={{ fontSize: 9 }}>{opt.mark}</span>{opt.label}
-          </button>
-        ))}
+        {PRIO_LEVELS.map(opt => {
+          const active = opt.value === priority;
+          const col = prioColor(opt.value, accentColor);
+          return (
+            <button key={opt.value}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => { onSet(opt.value); setOpen(false); }} className="tap"
+              style={{
+                border: `1px solid ${active ? accentColor + "55" : "var(--rule)"}`,
+                background: active ? accentColor + "14" : "transparent",
+                borderRadius: 999, padding: "6px 11px", cursor: "pointer",
+                fontFamily: "var(--mono)", fontSize: 10, letterSpacing: "0.04em",
+                color: col, fontWeight: active ? 600 : 400,
+                display: "inline-flex", alignItems: "center", gap: 5, whiteSpace: "nowrap",
+              }}>
+              <span style={{ fontSize: 9 }}>{opt.mark}</span>{opt.value} · {tr(opt.label)}
+            </button>
+          );
+        })}
       </div>
     );
   }
@@ -630,39 +716,28 @@ function PriorityChip({ priority, accentColor, onSet }) {
         border: "1px solid var(--rule)", background: "transparent",
         borderRadius: 999, padding: "6px 11px", cursor: "pointer",
         fontFamily: "var(--mono)", fontSize: 10, letterSpacing: "0.04em",
-        color: cur.color, fontWeight: cur.weight,
+        color: priority ? curCol : "var(--ink-3)", fontWeight: priority ? 600 : 400,
         display: "inline-flex", alignItems: "center", gap: 5, whiteSpace: "nowrap",
       }}>
-      <span style={{ fontSize: 9 }}>{cur.mark}</span>{cur.label}
+      {priority
+        ? <><span style={{ fontSize: 9 }}>{cur.mark}</span>{cur.value} · {tr(cur.label)}</>
+        : <><span style={{ fontSize: 9 }}>○</span>{tr("prioridade")}</>}
     </button>
   );
 }
 
-function IntentionRow({ intention, focusMs, dragging, onToggle, onChange, onRemove, onSetPriority, onSetTarget, onDragStart, onStart, accentColor }) {
+function IntentionRow({ intention, focusMs, onToggle, onChange, onRemove, onSetPriority, onSetTarget, onStart, accentColor }) {
   const [hover, setHover] = useState(false);
-  const isPrimary = intention.priority === "principal";
-  const isImportant = intention.priority === "importante";
+  const isPrimary = intention.priority === 1;
+  const isImportant = intention.priority === 2;
   return (
     <div
-      data-drag-id={intention.id}
       onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
       style={{
         display: "flex", alignItems: "flex-start", gap: 10,
         padding: "14px 0", borderBottom: "1px solid var(--rule)",
-        background: dragging ? "var(--paper-2)" : "transparent",
-        opacity: dragging ? 0.7 : 1, borderRadius: dragging ? 10 : 0,
         transition: "background 0.12s",
       }}>
-      <button
-        onPointerDown={onDragStart} className="tap" title={tr("arrastar para reordenar")}
-        style={{
-          width: 22, alignSelf: "stretch", border: "none", background: "transparent",
-          color: hover || dragging || COARSE_POINTER ? "var(--ink-3)" : "var(--ink-4)",
-          display: "flex", alignItems: "center", justifyContent: "center",
-          cursor: "grab", padding: 0, touchAction: "none", flexShrink: 0,
-        }}>
-        <Icon.Grip size={13}/>
-      </button>
       <div style={{ paddingTop: 1 }}>
         <Check checked={intention.done} onChange={onToggle} accentColor={accentColor}/>
       </div>

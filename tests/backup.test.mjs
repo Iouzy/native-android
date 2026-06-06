@@ -153,17 +153,20 @@ describe("import sanitizes malformed fields instead of crashing", () => {
       today: {
         dayKey: S.dayKeyOf(Date.now()),
         intentions: [
+          // Legacy string priorities migrate to numeric levels (1 = highest).
           { id: "i1", text: "Caminhar", priority: "principal", targetMin: 50 },
-          { id: "i2", text: "Ler", targetMin: 0 },        // 0 = no target → dropped
-          { id: "i3", text: "Jogar", targetMin: "nope" }, // garbage → dropped
+          { id: "i2", text: "Ler", priority: 2, targetMin: 0 }, // 0 = no target → dropped
+          { id: "i3", text: "Jogar", priority: "nope", targetMin: "x" }, // garbage → dropped
         ],
         reflection: "",
       },
     }));
     const [a, b, c] = st.today.intentions;
     expect(a.targetMin).toBe(50);            // survives the round-trip
-    expect(a.priority).toBe("principal");
+    expect(a.priority).toBe(1);              // "principal" → 1
+    expect(b.priority).toBe(2);              // numeric level kept as-is
     expect(b.targetMin).toBeUndefined();     // non-positive is not kept
+    expect(c.priority).toBeUndefined();      // unknown priority → dropped
     expect(c.targetMin).toBeUndefined();     // non-numeric is not kept
   });
 });
