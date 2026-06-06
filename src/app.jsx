@@ -1000,6 +1000,11 @@ function App() {
   const [pendingIntention, setPendingIntention] = useState(null);
   const [pendingStart, setPendingStart] = useState(null);
   const [pendingSwitch, setPendingSwitch] = useState(false);
+  // Pauta timeline filter lives here (not in TabPauta) so it survives the
+  // tab unmount on switch. Not persisted to localStorage: it holds a block/
+  // intention id that can go stale across sessions. /
+  // O filtro da Pauta vive aqui para sobreviver à troca de separador.
+  const [pautaFilter, setPautaFilter] = useState(null); // { kind, id, label }
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [insightsOpen, setInsightsOpen] = useState(false);
   const [tierGuideOpen, setTierGuideOpen] = useState(false);
@@ -1135,6 +1140,8 @@ function App() {
           {tab === "pauta" && (
             <TabPauta store={store} accentColor={accentColor}
               showElapsed={t.showElapsed}
+              filter={pautaFilter}
+              setFilter={setPautaFilter}
               pendingIntention={pendingIntention}
               clearPending={() => setPendingIntention(null)}
               pendingStart={pendingStart}

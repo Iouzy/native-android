@@ -1,6 +1,6 @@
 // Tab: PAUTA — bloco ativo + linha temporal com ciclo de vida + filtro
 
-function TabPauta({ store, accentColor, showElapsed, pendingIntention, clearPending, pendingStart, clearPendingStart, pendingSwitch, clearPendingSwitch }) {
+function TabPauta({ store, accentColor, showElapsed, filter, setFilter, pendingIntention, clearPending, pendingStart, clearPendingStart, pendingSwitch, clearPendingSwitch }) {
   const { state, activeBlock, startBlock, pauseActive, resumeBlock, concludeActive, concludeBlock, updateBlock, updateSessionNote, deleteBlock } = store;
   const { today, blocks } = state;
 
@@ -11,7 +11,9 @@ function TabPauta({ store, accentColor, showElapsed, pendingIntention, clearPend
   const [sheetSwitch, setSheetSwitch] = useState(false);
   const [sheetEdit, setSheetEdit] = useState(null); // blockId
   const [sheetHistory, setSheetHistory] = useState(false);
-  const [filter, setFilter] = useState(null); // { kind:"block"|"intention", id, label }
+  // `filter` is lifted to App (see app.jsx) so it survives the tab unmount on
+  // switch; { kind:"block"|"intention"|"project", id, label }. /
+  // O filtro vem do App para sobreviver à troca de separador.
   const [zen, setZen] = useState(false); // full-screen distraction-free timer
   const [reachedPrompt, setReachedPrompt] = useState(null); // { targetMin } when the active block hits its goal
 
