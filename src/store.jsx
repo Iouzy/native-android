@@ -623,6 +623,12 @@ function sanitizeHabit(h) {
     createdAt: finiteOr(m.createdAt, Date.now()),
   };
 }
+function sanitizeMilestone(m) {
+  if (!isPlainObj(m)) return null;
+  const text = cleanStr(m.text).trim();
+  if (!text) return null;
+  return { id: typeof m.id === "string" ? m.id : uid("m_"), text, done: !!m.done };
+}
 function sanitizeGoal(g) {
   if (!isPlainObj(g)) return null;
   const text = cleanStr(g.text);
@@ -632,6 +638,7 @@ function sanitizeGoal(g) {
     text,
     done: !!g.done,
     quarter: typeof g.quarter === "string" ? g.quarter : quarterOf(Date.now()),
+    milestones: asArray(g.milestones).map(sanitizeMilestone).filter(Boolean),
     createdAt: finiteOr(g.createdAt, Date.now()),
   };
 }
@@ -1549,12 +1556,23 @@ function useStore() {
   const addGoal = (text, quarter) => {
     const t = (text || "").trim(); if (!t) return null;
     const id = uid("g_");
-    setState(s => ({ ...s, goals: [...(s.goals || []), { id, text: t, quarter: quarter || quarterOf(Date.now()), done: false, createdAt: Date.now() }] }));
+    setState(s => ({ ...s, goals: [...(s.goals || []), { id, text: t, quarter: quarter || quarterOf(Date.now()), done: false, milestones: [], createdAt: Date.now() }] }));
     return id;
   };
   const updateGoal = (id, patch) => setState(s => ({ ...s, goals: (s.goals || []).map(g => g.id === id ? { ...g, ...patch } : g) }));
   const toggleGoal = (id) => setState(s => ({ ...s, goals: (s.goals || []).map(g => g.id === id ? { ...g, done: !g.done } : g) }));
   const removeGoal = (id) => setState(s => ({ ...s, goals: (s.goals || []).filter(g => g.id !== id) }));
+  // Milestones — a small checklist breaking a quarterly goal into steps. /
+  // Marcos — sub-passos de um objetivo trimestral.
+  const addMilestone = (goalId, text) => {
+    const t = (text || "").trim(); if (!t) return;
+    setState(s => ({ ...s, goals: (s.goals || []).map(g => g.id === goalId
+      ? { ...g, milestones: [...(g.milestones || []), { id: uid("m_"), text: t, done: false }] } : g) }));
+  };
+  const toggleMilestone = (goalId, mId) => setState(s => ({ ...s, goals: (s.goals || []).map(g => g.id === goalId
+    ? { ...g, milestones: (g.milestones || []).map(m => m.id === mId ? { ...m, done: !m.done } : m) } : g) }));
+  const removeMilestone = (goalId, mId) => setState(s => ({ ...s, goals: (s.goals || []).map(g => g.id === goalId
+    ? { ...g, milestones: (g.milestones || []).filter(m => m.id !== mId) } : g) }));
   // Reorder the goals within one quarter; goals in other quarters keep their slots.
   const reorderGoals = (quarter, orderedIds) => setState(s => {
     const goals = s.goals || [];
@@ -1645,6 +1663,7 @@ function useStore() {
     setPref, setReminderPref,
     // goals
     addGoal, updateGoal, toggleGoal, removeGoal, reorderGoals,
+    addMilestone, toggleMilestone, removeMilestone,
     // misc
     resetAll, reseed, clearForOnboarding,
     // backup
@@ -1686,6 +1705,6 @@ Object.assign(window, {
   readAutoBackup, writeAutoBackup, autoBackupIntervalMs,
   // schema / import (exposed for tests + reuse)
   STORAGE_KEY, EXPORT_VERSION, emptyState, seed, loadState, saveState,
-  migrateHabit, sanitizeHabit, normalizeImported, parseBackup, MAX_BACKUP_CHARS,
+  migrateHabit, sanitizeHabit, sanitizeGoal, sanitizeMilestone, normalizeImported, parseBackup, MAX_BACKUP_CHARS,
   withDayReflection, buildCSV, csvCell, isHexColor,
 });

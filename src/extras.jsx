@@ -524,6 +524,43 @@ function InsightsSheet({ open, onClose, store, accentColor }) {
 }
 
 // ─── Metas trimestrais (secção do Hoje) ─────────────────────
+// Expandable milestone checklist for one quarterly goal — breaks a big goal
+// into concrete steps. / Lista de marcos de um objetivo.
+function MilestoneList({ goal, store, accentColor }) {
+  const { addMilestone, toggleMilestone, removeMilestone } = store;
+  const ms = goal.milestones || [];
+  const [text, setText] = useState("");
+  const add = () => { const t = text.trim(); if (t) { addMilestone(goal.id, t); haptic(6); } setText(""); };
+  return (
+    <div style={{
+      margin: "0 0 4px 48px", paddingBottom: 8, borderBottom: "1px solid var(--rule)",
+      display: "flex", flexDirection: "column", gap: 5,
+    }}>
+      {ms.map(m => (
+        <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <Check checked={m.done} onChange={() => { toggleMilestone(goal.id, m.id); haptic(6); }} size={16} accentColor={accentColor}/>
+          <span style={{
+            flex: 1, fontFamily: "var(--sans)", fontSize: 13.5, lineHeight: 1.3,
+            color: m.done ? "var(--ink-3)" : "var(--ink-2)",
+            textDecoration: m.done ? "line-through" : "none", textDecorationColor: "var(--ink-3)",
+          }}>{m.text}</span>
+          <button onClick={() => removeMilestone(goal.id, m.id)} className="tap" title={tr("remover")}
+            style={{ border: "none", background: "transparent", color: "var(--ink-4)", cursor: "pointer", padding: 2, display: "flex" }}>
+            <Icon.X size={11}/>
+          </button>
+        </div>
+      ))}
+      <input value={text} onChange={e => setText(e.target.value)} onBlur={add}
+        onKeyDown={e => { if (e.key === "Enter") add(); if (e.key === "Escape") setText(""); }}
+        placeholder={tr("novo passo…")}
+        style={{
+          border: "none", borderBottom: "1px solid var(--rule)", background: "transparent",
+          padding: "4px 0", fontSize: 13.5, color: "var(--ink)", fontFamily: "var(--sans)", marginLeft: 24,
+        }}/>
+    </div>
+  );
+}
+
 function GoalsSection({ store, accentColor }) {
   const { state, addGoal, updateGoal, toggleGoal, removeGoal, reorderGoals } = store;
   const goals = state.goals || [];
@@ -533,6 +570,7 @@ function GoalsSection({ store, accentColor }) {
   const [editId, setEditId] = useState(null);
   const [editText, setEditText] = useState("");
   const [histOpen, setHistOpen] = useState(false);
+  const [expanded, setExpanded] = useState(null); // goalId whose milestones are open
 
   const current = quarterOf(Date.now());
   const list = goals.filter(g => g.quarter === q);
@@ -599,9 +637,14 @@ function GoalsSection({ store, accentColor }) {
       )}
 
       <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-        {list.map(g => (
-          <div key={g.id} data-drag-id={g.id} className="goal-row"
-            style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "10px 0", borderBottom: "1px solid var(--rule)",
+        {list.map(g => {
+          const ms = g.milestones || [];
+          const msDone = ms.filter(m => m.done).length;
+          const open = expanded === g.id;
+          return (
+          <div key={g.id}>
+          <div data-drag-id={g.id} className="goal-row"
+            style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "10px 0", borderBottom: open ? "none" : "1px solid var(--rule)",
               background: dragId === g.id ? "var(--paper)" : "transparent", opacity: dragId === g.id ? 0.7 : 1,
               borderRadius: dragId === g.id ? 10 : 0, transition: "background 0.12s" }}>
             <button onPointerDown={(e) => start(e, g.id)} className="tap" title={tr("arrastar para reordenar")}
@@ -623,6 +666,13 @@ function GoalsSection({ store, accentColor }) {
                 textDecoration: g.done ? "line-through" : "none", textDecorationColor: "var(--ink-3)",
               }}>{g.text}</div>
             )}
+            {editId !== g.id && (
+              <button onClick={() => setExpanded(x => x === g.id ? null : g.id)} className="tap" title={tr("passos")} aria-label={tr("passos")} aria-expanded={open}
+                style={{ border: "none", background: "transparent", cursor: "pointer", padding: "2px 4px", display: "flex", alignItems: "center", gap: 3,
+                  color: ms.length > 0 ? accentColor : "var(--ink-4)", fontFamily: "var(--mono)", fontSize: 10, flexShrink: 0 }}>
+                {(open ? "▾" : "▸")}{ms.length > 0 ? ` ${msDone}/${ms.length}` : ` ${tr("passos")}`}
+              </button>
+            )}
             {!g.done && editId !== g.id && (
               <button onClick={() => carryOver(g)} className="tap" title={trf("mover para {q}", { q: quarterLabel(nextQuarter(g.quarter)).split(" · ")[0] })}
                 style={{ border: "none", background: "transparent", color: "var(--ink-4)", cursor: "pointer", padding: 2, display: "flex" }}>
@@ -634,7 +684,10 @@ function GoalsSection({ store, accentColor }) {
               <Icon.Trash size={13}/>
             </button>
           </div>
-        ))}
+          {open && <MilestoneList goal={g} store={store} accentColor={accentColor}/>}
+          </div>
+          );
+        })}
       </div>
 
       {adding ? (
