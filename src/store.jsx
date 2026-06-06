@@ -506,6 +506,12 @@ function sanitizeIntention(it) {
     createdAt: finiteOr(it.createdAt, Date.now()),
   };
   if (typeof it.priority === "string") out.priority = it.priority;
+  // Planned focus duration (minutes, a Pomodoro preset). Optional — must be
+  // preserved across persistence, migration and the backup round-trip or the ◷
+  // chip and the quick-focus target silently reset to "no duration" on the next
+  // app load. Only a positive number is kept; 0/null/garbage means "none".
+  const targetMin = Number(it.targetMin);
+  if (Number.isFinite(targetMin) && targetMin > 0) out.targetMin = targetMin;
   return out;
 }
 function sanitizeSession(seg) {

@@ -566,6 +566,7 @@ const I18N_EN_BULK = {
   "definir duração": "set duration",
   "{n} min": "{n} min",
   "focar nesta intenção agora": "focus on this intention now",
+  "remover intenção": "remove intention",
   "arrastar para reordenar": "drag to reorder",
   "tocar para editar": "tap to edit",
   "trimestre anterior": "previous quarter",

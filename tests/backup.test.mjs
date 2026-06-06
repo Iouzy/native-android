@@ -147,4 +147,23 @@ describe("import sanitizes malformed fields instead of crashing", () => {
     expect(st.today.intentions[1].done).toBe(true);
     expect(st.today.reflection).toBe("");   // coerced from a number
   });
+
+  it("preserves an intention's planned duration (targetMin) and priority", () => {
+    const st = S.parseBackup(JSON.stringify({
+      today: {
+        dayKey: S.dayKeyOf(Date.now()),
+        intentions: [
+          { id: "i1", text: "Caminhar", priority: "principal", targetMin: 50 },
+          { id: "i2", text: "Ler", targetMin: 0 },        // 0 = no target → dropped
+          { id: "i3", text: "Jogar", targetMin: "nope" }, // garbage → dropped
+        ],
+        reflection: "",
+      },
+    }));
+    const [a, b, c] = st.today.intentions;
+    expect(a.targetMin).toBe(50);            // survives the round-trip
+    expect(a.priority).toBe("principal");
+    expect(b.targetMin).toBeUndefined();     // non-positive is not kept
+    expect(c.targetMin).toBeUndefined();     // non-numeric is not kept
+  });
 });
