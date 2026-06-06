@@ -1,7 +1,7 @@
 // Tab: HOJE — intenções do dia + reflexão noturna
 
 function TabHoje({ store, accentColor, onJumpToPauta }) {
-  const { state, addIntention, updateIntention, toggleIntention, removeIntention, setReflection, carryOverIntentions } = store;
+  const { state, addIntention, updateIntention, toggleIntention, removeIntention, setReflection, setDayReflection, carryOverIntentions } = store;
   const { today, blocks } = state;
 
   // Unfinished intentions from the most recent archived day — offered as a
@@ -247,6 +247,7 @@ function TabHoje({ store, accentColor, onJumpToPauta }) {
         keys={pastKeys}
         openedDayKey={historyDayKey}
         onOpenDay={setHistoryDayKey}
+        setDayReflection={setDayReflection}
         accentColor={accentColor}
       />
     </div>
@@ -254,7 +255,7 @@ function TabHoje({ store, accentColor, onJumpToPauta }) {
 }
 
 // ─── History sheet (past days) ─────────────────────────────
-function HojeHistorySheet({ open, onClose, days, blocks, keys, openedDayKey, onOpenDay, accentColor }) {
+function HojeHistorySheet({ open, onClose, days, blocks, keys, openedDayKey, onOpenDay, setDayReflection, accentColor }) {
   const [query, setQuery] = useState("");
   useEffect(() => { if (!open) setQuery(""); }, [open]);
   if (!open) return null;
@@ -277,6 +278,7 @@ function HojeHistorySheet({ open, onClose, days, blocks, keys, openedDayKey, onO
             day={opened}
             blocks={blocks}
             accentColor={accentColor}
+            setDayReflection={setDayReflection}
             onBack={() => onOpenDay(null)}
           />
         ) : (
@@ -372,7 +374,7 @@ function HojeHistorySheet({ open, onClose, days, blocks, keys, openedDayKey, onO
   );
 }
 
-function HojeHistoryDetail({ dayKey, day, blocks, accentColor, onBack }) {
+function HojeHistoryDetail({ dayKey, day, blocks, accentColor, setDayReflection, onBack }) {
   const focusMs = dailyFocusMs(blocks, dayKey);
   const blocksDay = blocks.filter(b => b.sessions.some(s => dayKeyOf(s.startedAt) === dayKey));
   return (
@@ -443,26 +445,30 @@ function HojeHistoryDetail({ dayKey, day, blocks, accentColor, onBack }) {
         </div>
       )}
 
-      {day.reflection && day.reflection.trim() && (
+      {/* Reflection is editable here too, so a past day can be revisited or a
+          forgotten note added later. Wired to the live store via setDayReflection. */}
+      <div style={{
+        padding: "16px 18px", background: "var(--paper-2)",
+        borderRadius: 12, border: "1px solid var(--rule)",
+        marginBottom: 16,
+      }}>
         <div style={{
-          padding: "16px 18px", background: "var(--paper-2)",
-          borderRadius: 12, border: "1px solid var(--rule)",
-          marginBottom: 16,
+          fontFamily: "var(--mono)", fontSize: 9, letterSpacing: "0.2em",
+          textTransform: "uppercase", color: "var(--ink-3)", marginBottom: 8,
         }}>
-          <div style={{
-            fontFamily: "var(--mono)", fontSize: 9, letterSpacing: "0.2em",
-            textTransform: "uppercase", color: "var(--ink-3)", marginBottom: 8,
-          }}>
-            {tr("reflexão da noite")}
-          </div>
-          <div style={{
-            fontFamily: "var(--serif)", fontSize: 16, lineHeight: 1.5,
-            color: "var(--ink)",
-          }}>
-            {day.reflection}
-          </div>
+          {tr("reflexão da noite")}
         </div>
-      )}
+        <AutoTextarea
+          value={day.reflection || ""}
+          onChange={text => setDayReflection(dayKey, text)}
+          placeholder={tr("Escreva quando quiser. Não precisa de ser longo.")}
+          minRows={2}
+          style={{
+            fontSize: 16, lineHeight: 1.5, color: "var(--ink)",
+            fontFamily: "var(--serif)",
+          }}
+        />
+      </div>
 
       {focusMs > 0 && (
         <div style={{
