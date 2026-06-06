@@ -255,19 +255,47 @@ function TabHoje({ store, accentColor, onJumpToPauta }) {
 }
 
 // ─── History sheet (past days) ─────────────────────────────
+// Small toggle chip for the history filters (status / priority). /
+// Chip de filtro do histórico.
+function HistChip({ label, active, accentColor, onClick }) {
+  return (
+    <button onClick={onClick} className="tap" aria-pressed={active}
+      style={{
+        border: "1px solid " + (active ? accentColor : "var(--rule)"),
+        background: active ? `${accentColor}14` : "var(--paper-2)",
+        color: active ? accentColor : "var(--ink-2)",
+        borderRadius: 999, padding: "5px 11px", cursor: "pointer",
+        fontFamily: "var(--mono)", fontSize: 10.5, letterSpacing: "0.04em",
+        display: "inline-flex", alignItems: "center", gap: 4,
+      }}>{label}</button>
+  );
+}
+
 function HojeHistorySheet({ open, onClose, days, blocks, keys, openedDayKey, onOpenDay, setDayReflection, accentColor }) {
   const [query, setQuery] = useState("");
-  useEffect(() => { if (!open) setQuery(""); }, [open]);
+  // Extra filters narrow the day list as history grows: by intention status
+  // (done / unfinished) and by priority level. / Filtros por estado e prioridade.
+  const [statusFilter, setStatusFilter] = useState(null); // null | "done" | "open"
+  const [prioFilter, setPrioFilter] = useState(null);     // null | 1 | 2 | 3
+  useEffect(() => { if (!open) { setQuery(""); setStatusFilter(null); setPrioFilter(null); } }, [open]);
   if (!open) return null;
   const opened = openedDayKey && days[openedDayKey];
 
   const q = query.trim().toLowerCase();
-  const filteredKeys = q ? keys.filter(k => {
+  const hasFilters = !!(q || statusFilter || prioFilter);
+  // Text matches day-wide (reflection or any intention); status/priority match a
+  // day that has at least one intention satisfying BOTH active constraints.
+  const filteredKeys = !hasFilters ? keys : keys.filter(k => {
     const d = days[k];
-    const inIntentions = (d.intentions || []).some(i => (i.text || "").toLowerCase().includes(q));
-    const inReflection = (d.reflection || "").toLowerCase().includes(q);
-    return inIntentions || inReflection;
-  }) : keys;
+    const ints = d.intentions || [];
+    const textOK = !q
+      || (d.reflection || "").toLowerCase().includes(q)
+      || ints.some(i => (i.text || "").toLowerCase().includes(q));
+    const attrOK = (!statusFilter && !prioFilter) || ints.some(i =>
+      (!statusFilter || (statusFilter === "done" ? !!i.done : !i.done)) &&
+      (!prioFilter || (i.priority || 4) === prioFilter));
+    return textOK && attrOK;
+  });
 
   return (
     <Sheet open={open} onClose={onClose} title={tr("Dias anteriores")}>
@@ -301,8 +329,33 @@ function HojeHistorySheet({ open, onClose, days, blocks, keys, openedDayKey, onO
                 style={{
                   width: "100%", border: "1px solid var(--rule)", background: "var(--paper-2)",
                   borderRadius: 10, padding: "10px 14px", fontSize: 14, color: "var(--ink)",
-                  marginBottom: 16, fontFamily: "var(--sans)",
+                  marginBottom: 10, fontFamily: "var(--sans)",
                 }}/>
+            )}
+            {keys.length > 0 && (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 16, alignItems: "center" }}>
+                <HistChip label={tr("concluídas")}
+                  active={statusFilter === "done"} accentColor={accentColor}
+                  onClick={() => setStatusFilter(s => s === "done" ? null : "done")}/>
+                <HistChip label={tr("por concluir")}
+                  active={statusFilter === "open"} accentColor={accentColor}
+                  onClick={() => setStatusFilter(s => s === "open" ? null : "open")}/>
+                <span style={{ width: 1, height: 16, background: "var(--rule)", margin: "0 2px" }}/>
+                {PRIO_LEVELS.map(p => (
+                  <HistChip key={p.value} label={<>{p.mark} {tr(p.label)}</>}
+                    active={prioFilter === p.value} accentColor={accentColor}
+                    onClick={() => setPrioFilter(v => v === p.value ? null : p.value)}/>
+                ))}
+                {hasFilters && (
+                  <button onClick={() => { setQuery(""); setStatusFilter(null); setPrioFilter(null); }}
+                    className="tap" title={tr("limpar filtros")} aria-label={tr("limpar filtros")}
+                    style={{
+                      marginLeft: "auto", background: "transparent", border: "none",
+                      color: "var(--ink-3)", cursor: "pointer", fontFamily: "var(--mono)",
+                      fontSize: 10, letterSpacing: "0.08em", textTransform: "uppercase",
+                    }}>{tr("limpar filtros")} ✕</button>
+                )}
+              </div>
             )}
             {keys.length === 0 ? (
               <div style={{
@@ -319,7 +372,7 @@ function HojeHistorySheet({ open, onClose, days, blocks, keys, openedDayKey, onO
                 fontFamily: "var(--serif)", fontStyle: "italic", fontSize: 14,
                 color: "var(--ink-3)",
               }}>
-                {trf('Nada encontrado para "{q}".', { q: query.trim() })}
+                {q ? trf('Nada encontrado para "{q}".', { q: query.trim() }) : tr("Nada encontrado com estes filtros.")}
               </div>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
