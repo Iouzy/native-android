@@ -1,6 +1,6 @@
 // Tab: PAUTA — bloco ativo + linha temporal com ciclo de vida + filtro
 
-function TabPauta({ store, accentColor, showElapsed, pendingIntention, clearPending, pendingSwitch, clearPendingSwitch }) {
+function TabPauta({ store, accentColor, showElapsed, pendingIntention, clearPending, pendingStart, clearPendingStart, pendingSwitch, clearPendingSwitch }) {
   const { state, activeBlock, startBlock, pauseActive, resumeBlock, concludeActive, concludeBlock, updateBlock, updateSessionNote, deleteBlock } = store;
   const { today, blocks } = state;
 
@@ -13,6 +13,7 @@ function TabPauta({ store, accentColor, showElapsed, pendingIntention, clearPend
   const [sheetHistory, setSheetHistory] = useState(false);
   const [filter, setFilter] = useState(null); // { kind:"block"|"intention", id, label }
   const [zen, setZen] = useState(false); // full-screen distraction-free timer
+  const [reachedPrompt, setReachedPrompt] = useState(null); // { targetMin } when the active block hits its goal
 
   // Open start sheet from Hoje
   useEffect(() => {
@@ -21,6 +22,19 @@ function TabPauta({ store, accentColor, showElapsed, pendingIntention, clearPend
       if (clearPending) clearPending();
     }
   }, [pendingIntention]);
+
+  // Quick focus from Hoje (the ▷ button): start the block straight away, carrying
+  // the intention's planned duration as the timer target — no sheet in between.
+  useEffect(() => {
+    if (pendingStart) {
+      handleStart(pendingStart.text, pendingStart.id, null, pendingStart.targetMin || 0);
+      if (clearPendingStart) clearPendingStart();
+    }
+  }, [pendingStart]);
+
+  // Dismiss the "goal reached" prompt whenever the active block changes (start,
+  // pause, resume, conclude) so a stale prompt never lingers onto another block.
+  useEffect(() => { setReachedPrompt(null); }, [activeBlock?.id]);
 
   // Open the switch sheet when asked from outside — the "Trocar" button on the
   // native focus notification flips pendingSwitch in App and jumps to this tab.
@@ -164,6 +178,12 @@ function TabPauta({ store, accentColor, showElapsed, pendingIntention, clearPend
             accentColor={accentColor}
             showElapsed={showElapsed}
             soundOn={state.prefs.sound}
+            onReached={() => {
+                // In-app companion to the native heads-up: when the soft target
+                // lands while the app is open, offer the same two choices.
+                const min = activeBlock.targetMs > 0 ? Math.round(activeBlock.targetMs / 60000) : 0;
+                setReachedPrompt({ targetMin: min });
+              }}
             onPause={() => {
                 // Pause immediately so the timer stops on first tap.
                 // PauseSheet then lets the user optionally add a note;
@@ -344,6 +364,53 @@ function TabPauta({ store, accentColor, showElapsed, pendingIntention, clearPend
           onConclude={() => { const id = activeBlock.id; setZen(false); concludeActive(""); setSheetConclude({ blockId: id, wasActive: true }); }}
         />
       )}
+
+      {/* In-app goal-reached prompt — mirrors the native heads-up notification so
+          the choice (keep going / finish) is the same whether the app is open or
+          backgrounded. Only meaningful while the block is still running. */}
+      {reachedPrompt && activeBlock && (
+        <div role="alert" style={{
+          position: "fixed", left: 16, right: 16, bottom: 84, zIndex: 150,
+          maxWidth: 520, margin: "0 auto",
+          background: "var(--surface-dark)", color: "var(--on-dark)",
+          border: `1px solid ${accentColor}`, borderRadius: 14,
+          padding: "16px 18px", boxShadow: "0 10px 30px rgba(0,0,0,0.28)",
+          animation: "fadeIn 0.25s ease",
+        }}>
+          <div style={{ fontFamily: "var(--mono)", fontSize: 9, letterSpacing: "0.2em", textTransform: "uppercase", color: accentColor, marginBottom: 6 }}>
+            {tr("meta cumprida")}
+          </div>
+          <div style={{ fontFamily: "var(--serif)", fontSize: 19, lineHeight: 1.25, marginBottom: 14 }}>
+            {reachedPrompt.targetMin > 0
+              ? trf("Cumpriu os {n} min planeados.", { n: reachedPrompt.targetMin })
+              : tr("Cumpriu a meta planeada.")}
+          </div>
+          <div style={{ display: "flex", gap: 10 }}>
+            <button onClick={() => setReachedPrompt(null)} className="tap"
+              style={{
+                flex: 1, background: "transparent", color: "var(--on-dark)",
+                border: "1px solid rgba(245,241,234,0.3)", borderRadius: 999,
+                padding: "11px 16px", fontSize: 14, fontWeight: 500, cursor: "pointer",
+                fontFamily: "var(--sans)",
+              }}>
+              {tr("Continuar")}
+            </button>
+            <button onClick={() => {
+                const id = activeBlock?.id;
+                setReachedPrompt(null);
+                if (id) { concludeActive(""); setSheetConclude({ blockId: id, wasActive: true }); }
+              }} className="tap"
+              style={{
+                flex: 1, background: accentColor, color: "var(--on-dark)",
+                border: "none", borderRadius: 999,
+                padding: "11px 16px", fontSize: 14, fontWeight: 600, cursor: "pointer",
+                fontFamily: "var(--sans)",
+              }}>
+              {tr("Concluir")}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -360,10 +427,15 @@ function ZenFocus({ block, accentColor, onExit, onPause, onConclude }) {
     color: "var(--on-dark)", borderRadius: 10, padding: "11px 20px",
     fontSize: 14, fontWeight: 500, cursor: "pointer", fontFamily: "var(--sans)",
   };
-  return (
+  // Rendered through a portal to <body> so it truly covers the whole screen. The
+  // content wrapper in app.jsx keeps a permanent `transform` (animation fill-mode
+  // "both"), which would otherwise make THIS fixed overlay a child of that
+  // containing block — leaving the tab bar and Pip painting on top. At body level
+  // it covers everything in one flat colour: no tabs, no Pip, just the timer.
+  return ReactDOM.createPortal(
     <div role="dialog" aria-label={tr("modo foco")} onClick={onExit}
       style={{
-        position: "fixed", inset: 0, zIndex: 120,
+        position: "fixed", inset: 0, zIndex: 200,
         background: "var(--surface-dark)", color: "var(--on-dark)",
         display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
         gap: 20, padding: 28, animation: "fadeIn 0.3s ease",
@@ -382,10 +454,11 @@ function ZenFocus({ block, accentColor, onExit, onPause, onConclude }) {
         <button className="tap" onClick={onConclude}
           style={{ ...zenBtn, background: accentColor, border: "none", color: "#fff" }}>{tr("Concluir")}</button>
       </div>
-      <div style={{ position: "absolute", bottom: 28, fontFamily: "var(--serif)", fontStyle: "italic", fontSize: 13, color: "var(--on-dark-2)" }}>
+      <div style={{ position: "absolute", bottom: "calc(28px + env(safe-area-inset-bottom))", fontFamily: "var(--serif)", fontStyle: "italic", fontSize: 13, color: "var(--on-dark-2)" }}>
         {tr("toque para sair")}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 

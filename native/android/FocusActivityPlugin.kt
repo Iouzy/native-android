@@ -10,10 +10,13 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
+import android.util.Base64
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
+import java.io.File
 import com.getcapacitor.JSObject
 import com.getcapacitor.Plugin
 import com.getcapacitor.PluginCall
@@ -342,6 +345,48 @@ class FocusActivityPlugin : Plugin() {
         ReminderScheduler.save(context, false, null, null, null, null, null, null, null, null, null)
         ReminderScheduler.cancelAll(context)
         call.resolve(JSObject().put("scheduled", false))
+    }
+
+    // ── Native share sheet ───────────────────────────────────────
+    // The Web Share API's FILE support is unreliable inside the Capacitor WebView
+    // (navigator.share({ files }) silently no-ops on many devices), so the day-card
+    // PNG is shared natively: decode the base64 to a cache file and hand it to
+    // ACTION_SEND through the same FileProvider the updater already declares.
+    @PluginMethod
+    fun shareImage(call: PluginCall) {
+        val base64 = call.getString("base64")
+        if (base64.isNullOrBlank()) {
+            call.resolve(JSObject().put("shared", false).put("reason", "missing-image"))
+            return
+        }
+        val filename = (call.getString("filename") ?: "pauta.png").substringAfterLast('/')
+        val title = call.getString("title") ?: "Pauta"
+        try {
+            val bytes = Base64.decode(base64, Base64.DEFAULT)
+            val dir = File(context.cacheDir, "share").apply { mkdirs() }
+            val file = File(dir, filename)
+            file.outputStream().use { it.write(bytes) }
+
+            val uri = FileProvider.getUriForFile(context, context.packageName + ".updateprovider", file)
+            val send = Intent(Intent.ACTION_SEND).apply {
+                type = "image/png"
+                putExtra(Intent.EXTRA_STREAM, uri)
+                putExtra(Intent.EXTRA_TITLE, title)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            val chooser = Intent.createChooser(send, title)
+
+            val act = activity
+            if (act != null) {
+                act.startActivity(chooser)
+            } else {
+                chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                context.startActivity(chooser)
+            }
+            call.resolve(JSObject().put("shared", true))
+        } catch (e: Exception) {
+            call.resolve(JSObject().put("shared", false).put("reason", e.message ?: "error"))
+        }
     }
 
     // ── Called by FocusActionReceiver when a notification button is tapped ──

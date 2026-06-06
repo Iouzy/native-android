@@ -10,13 +10,15 @@ function StartSheet({ open, onClose, intentions, prefilledIntention, projects = 
   useEffect(() => {
     if (open) {
       setProject("");
-      setTargetMin(0);
       if (prefilledIntention) {
         setTitle(prefilledIntention.text);
         setSelectedIntention(prefilledIntention.id);
+        // Pre-fill the timer with the duration planned on the intention in Hoje.
+        setTargetMin(prefilledIntention.targetMin || 0);
       } else {
         setTitle("");
         setSelectedIntention(null);
+        setTargetMin(0);
       }
     }
   }, [open, prefilledIntention]);
@@ -31,6 +33,8 @@ function StartSheet({ open, onClose, intentions, prefilledIntention, projects = 
   const pick = (i) => {
     setSelectedIntention(i.id);
     setTitle(i.text);
+    // Carry the intention's planned duration into the timer target as well.
+    if (i.targetMin > 0) setTargetMin(i.targetMin);
   };
 
   const submit = () => {

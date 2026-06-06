@@ -218,13 +218,13 @@ function TabMares({ store, accentColor }) {
       </div>
 
       {/* Tier-up celebration toast — pinned to the TOP of the tab, not the
-          bottom. Pip (the parrot) surfs low and bottom-centre on Marés, and his
+          bottom. Pip (the parrot) rests low in the bottom-right corner, and his
           app-level overlay (zIndex 40) lives in a higher stacking context than
           this scroll container (zIndex 1), so a bottom toast was always painted
           *under* him — he covered the celebration. Up here it clears Pip and
           stays put while the grid scrolls. Centred with auto margins so the
           riseIn keyframe's translateY doesn't cancel a translateX.
-          // PT: no topo para o Pip (que surfa em baixo) não o tapar. */}
+          // PT: no topo para o Pip (que descansa no canto) não o tapar. */}
       {tierUpToast && (
         <div style={{
           position: "fixed",

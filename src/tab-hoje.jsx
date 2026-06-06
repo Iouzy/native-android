@@ -179,8 +179,9 @@ function TabHoje({ store, accentColor, onJumpToPauta }) {
             onChange={text => updateIntention(it.id, { text })}
             onRemove={() => removeIntention(it.id)}
             onCyclePriority={() => updateIntention(it.id, { priority: nextPriority(it.priority) })}
+            onCycleTarget={() => updateIntention(it.id, { targetMin: nextTarget(it.targetMin) })}
             onDragStart={(e) => start(e, it.id)}
-            onStart={() => onJumpToPauta && onJumpToPauta({ intention: it })}
+            onStart={() => onJumpToPauta && onJumpToPauta({ intention: it, start: true })}
             accentColor={accentColor}
           />
         ))}
@@ -516,6 +517,27 @@ function nextPriority(p) {
   return p === "principal" ? "importante" : p === "importante" ? null : "principal";
 }
 
+// Planned duration cycles: nenhuma → 25 → 50 → 90 → nenhuma. The values match
+// the StartSheet presets so a planned duration pre-fills the timer one-to-one.
+function nextTarget(m) {
+  return m === 25 ? 50 : m === 50 ? 90 : m === 90 ? null : 25;
+}
+
+function TargetChip({ targetMin, accentColor, onClick }) {
+  const set = targetMin > 0;
+  return (
+    <button onClick={onClick} className="tap" title={tr("definir duração")}
+      style={{
+        border: "none", background: "transparent", padding: 0, cursor: "pointer",
+        fontFamily: "var(--mono)", fontSize: 10, letterSpacing: "0.04em",
+        color: set ? accentColor : "var(--ink-4)", fontWeight: set ? 500 : 400,
+        display: "inline-flex", alignItems: "center", gap: 5,
+      }}>
+      <span style={{ fontSize: 9 }}>◷</span>{set ? trf("{n} min", { n: targetMin }) : tr("duração")}
+    </button>
+  );
+}
+
 function PriorityChip({ priority, accentColor, onClick }) {
   const styles = {
     principal: { mark: "●", label: tr("principal"), color: accentColor, weight: 600 },
@@ -534,7 +556,7 @@ function PriorityChip({ priority, accentColor, onClick }) {
   );
 }
 
-function IntentionRow({ intention, focusMs, dragging, onToggle, onChange, onRemove, onCyclePriority, onDragStart, onStart, accentColor }) {
+function IntentionRow({ intention, focusMs, dragging, onToggle, onChange, onRemove, onCyclePriority, onCycleTarget, onDragStart, onStart, accentColor }) {
   const [hover, setHover] = useState(false);
   const isPrimary = intention.priority === "principal";
   const isImportant = intention.priority === "importante";
@@ -581,11 +603,12 @@ function IntentionRow({ intention, focusMs, dragging, onToggle, onChange, onRemo
         />
         <div style={{ marginTop: 4, display: "flex", alignItems: "center", gap: 12, fontFamily: "var(--mono)", fontSize: 10, color: "var(--ink-3)", letterSpacing: "0.04em" }}>
           <PriorityChip priority={intention.priority} accentColor={accentColor} onClick={onCyclePriority}/>
+          <TargetChip targetMin={intention.targetMin} accentColor={accentColor} onClick={onCycleTarget}/>
           {focusMs > 0 && <span>{trf("{d} em foco", { d: fmtDuration(focusMs) })}</span>}
         </div>
       </div>
       <div style={{ display: "flex", gap: 4, opacity: hover ? 1 : 0, transition: "opacity 0.12s" }}>
-        <button onClick={onStart} className="tap" title={tr("iniciar bloco com esta intenção")}
+        <button onClick={onStart} className="tap" title={tr("focar nesta intenção agora")}
           style={{ width: 28, height: 28, borderRadius: 6, border: "none", background: "transparent", color: "var(--ink-2)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
           <Icon.Play size={11}/>
         </button>

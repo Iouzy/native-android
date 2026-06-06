@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import androidx.core.app.NotificationManagerCompat
 
 /**
  * Manifest-registered BroadcastReceiver that handles notification action buttons
@@ -23,6 +24,14 @@ import android.os.Build
 class FocusActionReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
+        // "Continuar" on the goal-reached heads-up: just dismiss that alert. The
+        // block keeps running (now counting up past the target) — no service or
+        // JS state change, so there's nothing else to reconcile.
+        if (intent.action == ACTION_DISMISS_ALERT) {
+            NotificationManagerCompat.from(context).cancel(FocusService.NOTIF_ALERT_ID)
+            return
+        }
+
         val kind = when (intent.action) {
             ACTION_PAUSE    -> "pause"
             ACTION_RESUME   -> "resume"
@@ -72,9 +81,10 @@ class FocusActionReceiver : BroadcastReceiver() {
     }
 
     companion object {
-        const val ACTION_PAUSE    = "com.pauta.app.FOCUS_PAUSE"
-        const val ACTION_RESUME   = "com.pauta.app.FOCUS_RESUME"
-        const val ACTION_CONCLUDE = "com.pauta.app.FOCUS_CONCLUDE"
-        const val ACTION_SWITCH   = "com.pauta.app.FOCUS_SWITCH"
+        const val ACTION_PAUSE         = "com.pauta.app.FOCUS_PAUSE"
+        const val ACTION_RESUME        = "com.pauta.app.FOCUS_RESUME"
+        const val ACTION_CONCLUDE      = "com.pauta.app.FOCUS_CONCLUDE"
+        const val ACTION_SWITCH        = "com.pauta.app.FOCUS_SWITCH"
+        const val ACTION_DISMISS_ALERT = "com.pauta.app.FOCUS_DISMISS_ALERT"
     }
 }

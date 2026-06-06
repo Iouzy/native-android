@@ -1193,8 +1193,25 @@ function playChime() {
 }
 
 // ─── Shareable "day card" ────────────────────────────────────
+// Strip a Blob down to bare base64 (no "data:image/png;base64," prefix) for the
+// native share bridge, which decodes it back to bytes on the Kotlin side.
+function blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onloadend = () => {
+      const s = String(r.result || "");
+      const comma = s.indexOf(",");
+      resolve(comma >= 0 ? s.slice(comma + 1) : s);
+    };
+    r.onerror = reject;
+    r.readAsDataURL(blob);
+  });
+}
+
 // Renders today's summary to a 1080² PNG (on-brand: paper, ink, accent, serif
-// wordmark) and offers it via the Web Share API, falling back to a download.
+// wordmark) and offers it via the OS share sheet, falling back to a download.
+// On native Android it shares through the FocusActivity bridge (the WebView's
+// Web Share file support is unreliable); on the web it uses navigator.share.
 // Fully local — no upload. Caller passes already-translated label strings.
 async function shareDayCard({ dateLabel, focusValue, focusCaption, ratioValue, ratioCaption, tagline, accent }) {
   try {
@@ -1232,6 +1249,18 @@ async function shareDayCard({ dateLabel, focusValue, focusCaption, ratioValue, r
 
     const blob = await new Promise(res => c.toBlob(res, "image/png"));
     if (!blob) return;
+
+    // Native Android first: hand the PNG to the system share sheet via the bridge.
+    // navigator.share({ files }) silently no-ops in many Capacitor WebViews, which
+    // is exactly why sharing "did nothing" in the installed app before this.
+    if (window.FocusActivity && window.FocusActivity.isNative) {
+      try {
+        const base64 = await blobToBase64(blob);
+        const r = await window.FocusActivity.shareImage({ base64, filename: "pauta-hoje.png", title: "Pauta" });
+        if (r && r.shared) return;
+      } catch (e) { /* fall through to the web paths below */ }
+    }
+
     const file = new File([blob], "pauta-hoje.png", { type: "image/png" });
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
       await navigator.share({ files: [file], title: "Pauta" });
