@@ -352,8 +352,14 @@ const navBtn = {
 // ─── Revisão semanal ────────────────────────────────────────
 function WeekReview({ store, accentColor }) {
   const { state } = store;
-  const r = useMemo(() => weeklyReview(state), [state]);
-  const prev = useMemo(() => prevWeeklyReview(state), [state]);
+  // Key the (fairly heavy) weekly aggregation on only the slices weeklyReview
+  // actually reads — blocks/habits/days/today — so it doesn't recompute on
+  // every unrelated state change (prefs tweak, active-block tick, etc.). /
+  // Memoiza sobre as fatias que weeklyReview lê, não sobre o estado inteiro.
+  const r = useMemo(() => weeklyReview(state),
+    [state.blocks, state.habits, state.days, state.today]);
+  const prev = useMemo(() => prevWeeklyReview(state),
+    [state.blocks, state.habits, state.days, state.today]);
   const big = () => ({ fontFamily: "var(--serif)", fontSize: 24, color: "var(--ink)", lineHeight: 1 });
   const cap = { fontFamily: "var(--mono)", fontSize: 9, letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--ink-3)", marginTop: 4 };
 
