@@ -485,6 +485,11 @@ function stepBtn(accentColor, primary) {
 function HabitDetailSheet({ open, onClose, habit, accentColor, todayTs,
   onToggleDay, onIncDay, onSetCount, onMarkRespiro, onUnmarkRespiro, onUpdate, onRemove }) {
   if (!open || !habit) return null;
+  // This whole sheet is about one tide, so colour it with the habit's own
+  // colour where set; keep the real app accent for the edit form's "automático"
+  // swatch. / Cor da maré em toda a folha; o acento real só no formulário.
+  const appAccent = accentColor;
+  accentColor = habit.color || accentColor;
   const isCount = !!habit.target;
   const todayKey = dayKeyOf(todayTs);
   const todayCount = (habit.counts && habit.counts[todayKey]) || 0;
@@ -511,7 +516,7 @@ function HabitDetailSheet({ open, onClose, habit, accentColor, todayTs,
         {editing ? (
           <HabitEditForm
             habit={habit}
-            accentColor={accentColor}
+            accentColor={appAccent}
             onSave={(patch) => { onUpdate(patch); setEditing(false); }}
             onCancel={() => setEditing(false)}
             onRemove={onRemove}
@@ -821,12 +826,37 @@ function RespiroPickerInline({ dayKey, accentColor, onClose, onConfirm }) {
   );
 }
 
+// Curated per-habit palette — muted, earthy tones that read on both the light
+// and dark paper. The accent presets lead, then a few extra hues so adjacent
+// tides in the grid stay distinguishable. / Paleta por maré.
+const HABIT_COLORS = [
+  "#B8533A", "#5A6B3E", "#3D5A80", "#8E5A8E",
+  "#C08A2D", "#3F8E7F", "#A8474A", "#52607A",
+];
+
+// One round swatch. `auto` (the accent-following default) gets a dashed ring so
+// it reads as "no fixed colour". Selected swatches get a halo. /
+// Um disco de cor; `auto` segue o acento.
+function ColorSwatch({ color, selected, auto, label, onClick }) {
+  return (
+    <button onClick={onClick} className="tap" title={label} aria-label={label} aria-pressed={selected}
+      style={{
+        width: 28, height: 28, borderRadius: "50%", padding: 0, cursor: "pointer",
+        background: color,
+        border: auto ? "1.5px dashed var(--paper)" : "1.5px solid rgba(0,0,0,0.12)",
+        boxShadow: selected ? `0 0 0 2px var(--paper), 0 0 0 4px ${color}` : "none",
+        outline: "none", flexShrink: 0,
+      }}/>
+  );
+}
+
 // ─── Habit edit form ─────────────────────────────────────
 function HabitEditForm({ habit, accentColor, onSave, onCancel, onRemove }) {
   const [name, setName] = useState(habit.name || "");
   const [time, setTime] = useState(habit.time || "");
   const [clock, setClock] = useState(habit.clock || "");
   const [description, setDescription] = useState(habit.description || "");
+  const [color, setColor] = useState(habit.color || null); // null = follow accent
   const [recurrence, setRecurrence] = useState(habit.recurrence || "forever");
   const [countable, setCountable] = useState(!!habit.target);
   const [target, setTarget] = useState(habit.target || 3);
@@ -847,7 +877,7 @@ function HabitEditForm({ habit, accentColor, onSave, onCancel, onRemove }) {
     } else if (recurrence === "month") {
       endsAt = null;
     }
-    onSave({ name, time, clock, description, recurrence, endsAt,
+    onSave({ name, time, clock, description, recurrence, endsAt, color,
       target: countable ? Math.max(2, parseInt(target, 10) || 2) : null, unit: countable ? unit : "" });
   };
 
@@ -866,6 +896,22 @@ function HabitEditForm({ habit, accentColor, onSave, onCancel, onRemove }) {
           padding: "10px 12px", fontSize: 16, color: "var(--ink)",
           marginBottom: 16,
         }}/>
+
+      <div style={{
+        fontFamily: "var(--mono)", fontSize: 10, letterSpacing: "0.12em",
+        color: "var(--ink-3)", textTransform: "uppercase", marginBottom: 8,
+      }}>
+        {tr("Cor")}
+      </div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
+        {/* "automático" follows the live accent (color = null). */}
+        <ColorSwatch color={accentColor} selected={!color} auto
+          label={tr("automático")} onClick={() => setColor(null)}/>
+        {HABIT_COLORS.map(c => (
+          <ColorSwatch key={c} color={c} selected={color === c}
+            label={c} onClick={() => setColor(c)}/>
+        ))}
+      </div>
 
       <div style={{
         fontFamily: "var(--mono)", fontSize: 10, letterSpacing: "0.12em",

@@ -377,6 +377,8 @@ const I18N_EN_BULK = {
   "Pauta · reflexão da noite": "Pauta · evening reflection",
   "O que valeu hoje? Escreva uma linha.": "What was worth it today? Write a line.",
   "nome": "name",
+  "Cor": "Colour",
+  "automático": "automatic",
   "quando": "when",
   "ex.: manhã, antes de dormir": "e.g.: morning, before bed",
   "hora certa": "exact time",

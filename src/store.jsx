@@ -391,6 +391,8 @@ function migrateHabit(h, todayTs = Date.now()) {
   // Fixed period day: weekday 0–6 (weekly) or day-of-month 1–31 (monthly).
   // null = manual (the user picks any one day in the period).
   if (!("anchor" in out)) out.anchor = null;
+  // Optional per-habit color (hex). null = follow the live accent.
+  if (!("color" in out)) out.color = null;
   return out;
 }
 
@@ -548,6 +550,9 @@ function asDayMap(v, valueFn) {
 }
 const cleanStr = (v) => (typeof v === "string" ? v : "");
 const finiteOr = (v, fallback) => (Number.isFinite(Number(v)) ? Number(v) : fallback);
+// A #rgb or #rrggbb hex color, else null. Used to validate per-habit colors. /
+// Cor hex (#rgb / #rrggbb) ou null.
+const isHexColor = (v) => typeof v === "string" && /^#[0-9a-fA-F]{3}([0-9a-fA-F]{3})?$/.test(v.trim());
 
 function sanitizeIntention(it) {
   if (!isPlainObj(it)) return null;
@@ -608,6 +613,7 @@ function sanitizeHabit(h) {
     endsAt: Number.isFinite(Number(m.endsAt)) ? Number(m.endsAt) : null,
     cadence: ["daily", "weekly", "monthly"].includes(m.cadence) ? m.cadence : "daily",
     anchor: Number.isFinite(Number(m.anchor)) ? Number(m.anchor) : null,
+    color: isHexColor(m.color) ? m.color.trim() : null,
     target,
     unit: cleanStr(m.unit),
     clock: cleanStr(m.clock),
@@ -1466,6 +1472,7 @@ function useStore() {
         anchor: (opts.anchor == null ? null : opts.anchor),
         target, unit: (opts.unit || "").trim(),
         clock: (opts.clock || "").trim(),
+        color: isHexColor(opts.color) ? opts.color.trim() : null,
         log: {}, respiros: {}, counts: {},
         createdAt: Date.now(),
       }]
@@ -1679,6 +1686,6 @@ Object.assign(window, {
   readAutoBackup, writeAutoBackup, autoBackupIntervalMs,
   // schema / import (exposed for tests + reuse)
   STORAGE_KEY, EXPORT_VERSION, emptyState, seed, loadState, saveState,
-  migrateHabit, normalizeImported, parseBackup, MAX_BACKUP_CHARS,
-  withDayReflection, buildCSV, csvCell,
+  migrateHabit, sanitizeHabit, normalizeImported, parseBackup, MAX_BACKUP_CHARS,
+  withDayReflection, buildCSV, csvCell, isHexColor,
 });
