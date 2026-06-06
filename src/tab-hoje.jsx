@@ -195,6 +195,7 @@ function TabHoje({ store, accentColor, onJumpToPauta }) {
           display: "flex", alignItems: "center", gap: 12,
         }}>
           <input autoFocus value={newText}
+            enterKeyHint="done" inputMode="text"
             onChange={e => setNewText(e.target.value)}
             onBlur={commitNew}
             onKeyDown={e => { if (e.key === "Enter" || e.key === "Tab") { e.preventDefault(); commitNew(); } if (e.key === "Escape") { setNewText(""); setAdding(false); } }}

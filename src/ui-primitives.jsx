@@ -338,7 +338,8 @@ function EditableText({ value, onChange, placeholder, style, multiline = false, 
     }
     return (
       <input value={draft} onChange={e => setDraft(e.target.value)} onBlur={commit}
-        onKeyDown={e => { if (e.key === "Enter") commit(); if (e.key === "Escape") { setDraft(value); setEditing(false); } }}
+        enterKeyHint="done"
+        onKeyDown={e => { if (e.key === "Enter" || e.key === "Tab") { e.preventDefault(); commit(); } if (e.key === "Escape") { setDraft(value); setEditing(false); } }}
         autoFocus placeholder={placeholder}
         style={{ width: "100%", border: "none", background: "transparent", padding: 0, font: "inherit", color: "inherit", ...style }}/>
     );
