@@ -615,6 +615,7 @@ function HabitRow({ habit, year, monthIdx, todayTs, accentColor,
           onClick={onOpenDetail}
           className="tap"
           title={tr("ver histórico completo")}
+          aria-label={trf("ver histórico de {h}", { h: habit.name })}
           style={{
             flex: 1, minWidth: 0, textAlign: "left",
             border: "none", background: "transparent", padding: 0, cursor: "pointer",
@@ -756,6 +757,16 @@ function HabitRow({ habit, year, monthIdx, todayTs, accentColor,
 }
 
 // Individual day cell with long-press detection.
+// Screen-reader label for a grid cell: date + state. / Rótulo da célula.
+function cellLabel(day) {
+  const d = fmtDateShort(tsFromDayKey(day.key));
+  const st = day.state === "done" ? tr("feito")
+    : day.state === "respiro" ? tr("respiro")
+    : day.state === "partial" ? tr("parcial")
+    : tr("por marcar");
+  return d + " — " + st;
+}
+
 function DayCell({ day, accentColor, ndays, target, onTap, onLongPress, onTooltip }) {
   const pressTimer = useRef(null);
   const pressed = useRef(false);
@@ -826,6 +837,9 @@ function DayCell({ day, accentColor, ndays, target, onTap, onLongPress, onToolti
         }
       }}
       title={fmtDateShort(tsFromDayKey(day.key))}
+      role={clickable ? "button" : undefined}
+      aria-label={clickable ? cellLabel(day) : undefined}
+      aria-pressed={day.state === "done" ? true : (day.state === "empty" ? false : undefined)}
       style={{
         width: 22, height: 22, flexShrink: 0,
         borderRadius: 4,
