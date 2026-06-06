@@ -512,6 +512,15 @@ function HojeHistoryDetail({ dayKey, day, blocks, accentColor, onBack }) {
 }
 
 // ─── Intention row ─────────────────────────────────────────
+// Touch devices have no hover. The row's quick-focus (▷) and delete (🗑) used to
+// reveal on hover only, so on a phone they were invisible — and a tap leaves a
+// "stuck" hover on the last-touched row, which is why they showed up on a single
+// row at random. Reveal them always on coarse pointers; keep the tidy
+// hover-reveal for mouse/trackpad.
+const COARSE_POINTER = typeof window !== "undefined" && typeof window.matchMedia === "function"
+  ? window.matchMedia("(hover: none), (pointer: coarse)").matches
+  : false;
+
 // Priority cycles: nenhuma → principal → importante → nenhuma.
 function nextPriority(p) {
   return p === "principal" ? "importante" : p === "importante" ? null : "principal";
@@ -528,10 +537,12 @@ function TargetChip({ targetMin, accentColor, onClick }) {
   return (
     <button onClick={onClick} className="tap" title={tr("definir duração")}
       style={{
-        border: "none", background: "transparent", padding: 0, cursor: "pointer",
+        border: `1px solid ${set ? accentColor + "55" : "var(--rule)"}`,
+        background: set ? accentColor + "14" : "transparent",
+        borderRadius: 999, padding: "6px 11px", cursor: "pointer",
         fontFamily: "var(--mono)", fontSize: 10, letterSpacing: "0.04em",
-        color: set ? accentColor : "var(--ink-4)", fontWeight: set ? 500 : 400,
-        display: "inline-flex", alignItems: "center", gap: 5,
+        color: set ? accentColor : "var(--ink-3)", fontWeight: set ? 600 : 400,
+        display: "inline-flex", alignItems: "center", gap: 5, whiteSpace: "nowrap",
       }}>
       <span style={{ fontSize: 9 }}>◷</span>{set ? trf("{n} min", { n: targetMin }) : tr("duração")}
     </button>
@@ -543,13 +554,15 @@ function PriorityChip({ priority, accentColor, onClick }) {
     principal: { mark: "●", label: tr("principal"), color: accentColor, weight: 600 },
     importante: { mark: "◆", label: tr("importante"), color: "var(--ink-2)", weight: 500 },
   };
-  const s = styles[priority] || { mark: "○", label: tr("prioridade"), color: "var(--ink-4)", weight: 400 };
+  const s = styles[priority] || { mark: "○", label: tr("prioridade"), color: "var(--ink-3)", weight: 400 };
   return (
     <button onClick={onClick} className="tap" title={tr("definir prioridade")}
       style={{
-        border: "none", background: "transparent", padding: 0, cursor: "pointer",
+        border: "1px solid var(--rule)", background: "transparent",
+        borderRadius: 999, padding: "6px 11px", cursor: "pointer",
         fontFamily: "var(--mono)", fontSize: 10, letterSpacing: "0.04em",
-        color: s.color, fontWeight: s.weight, display: "inline-flex", alignItems: "center", gap: 5,
+        color: s.color, fontWeight: s.weight,
+        display: "inline-flex", alignItems: "center", gap: 5, whiteSpace: "nowrap",
       }}>
       <span style={{ fontSize: 9 }}>{s.mark}</span>{s.label}
     </button>
@@ -575,7 +588,7 @@ function IntentionRow({ intention, focusMs, dragging, onToggle, onChange, onRemo
         onPointerDown={onDragStart} className="tap" title={tr("arrastar para reordenar")}
         style={{
           width: 22, alignSelf: "stretch", border: "none", background: "transparent",
-          color: hover || dragging ? "var(--ink-3)" : "var(--ink-4)",
+          color: hover || dragging || COARSE_POINTER ? "var(--ink-3)" : "var(--ink-4)",
           display: "flex", alignItems: "center", justifyContent: "center",
           cursor: "grab", padding: 0, touchAction: "none", flexShrink: 0,
         }}>
@@ -601,20 +614,20 @@ function IntentionRow({ intention, focusMs, dragging, onToggle, onChange, onRemo
             letterSpacing: isPrimary ? "-0.01em" : "0",
           }}
         />
-        <div style={{ marginTop: 4, display: "flex", alignItems: "center", gap: 12, fontFamily: "var(--mono)", fontSize: 10, color: "var(--ink-3)", letterSpacing: "0.04em" }}>
+        <div style={{ marginTop: 8, display: "flex", alignItems: "center", flexWrap: "wrap", gap: 8, fontFamily: "var(--mono)", fontSize: 10, color: "var(--ink-3)", letterSpacing: "0.04em" }}>
           <PriorityChip priority={intention.priority} accentColor={accentColor} onClick={onCyclePriority}/>
           <TargetChip targetMin={intention.targetMin} accentColor={accentColor} onClick={onCycleTarget}/>
-          {focusMs > 0 && <span>{trf("{d} em foco", { d: fmtDuration(focusMs) })}</span>}
+          {focusMs > 0 && <span style={{ marginLeft: 2 }}>{trf("{d} em foco", { d: fmtDuration(focusMs) })}</span>}
         </div>
       </div>
-      <div style={{ display: "flex", gap: 4, opacity: hover ? 1 : 0, transition: "opacity 0.12s" }}>
-        <button onClick={onStart} className="tap" title={tr("focar nesta intenção agora")}
-          style={{ width: 28, height: 28, borderRadius: 6, border: "none", background: "transparent", color: "var(--ink-2)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
-          <Icon.Play size={11}/>
+      <div style={{ display: "flex", gap: 6, alignItems: "center", flexShrink: 0, opacity: (hover || COARSE_POINTER) ? 1 : 0, transition: "opacity 0.12s" }}>
+        <button onClick={onStart} className="tap" title={tr("focar nesta intenção agora")} aria-label={tr("focar nesta intenção agora")}
+          style={{ width: 36, height: 36, borderRadius: 9, border: "1px solid var(--rule)", background: "transparent", color: accentColor, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+          <Icon.Play size={14}/>
         </button>
-        <button onClick={onRemove} className="tap"
-          style={{ width: 28, height: 28, borderRadius: 6, border: "none", background: "transparent", color: "var(--ink-3)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
-          <Icon.Trash size={13}/>
+        <button onClick={onRemove} className="tap" title={tr("remover intenção")} aria-label={tr("remover intenção")}
+          style={{ width: 36, height: 36, borderRadius: 9, border: "1px solid var(--rule)", background: "transparent", color: "var(--ink-3)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+          <Icon.Trash size={15}/>
         </button>
       </div>
     </div>

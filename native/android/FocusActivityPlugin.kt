@@ -372,9 +372,17 @@ class FocusActivityPlugin : Plugin() {
                 type = "image/png"
                 putExtra(Intent.EXTRA_STREAM, uri)
                 putExtra(Intent.EXTRA_TITLE, title)
+                // Attach the URI as clipData too: a bare EXTRA_STREAM read-grant is
+                // dropped by several OEM share sheets (the chooser then opens with no
+                // image, or silently does nothing), so the share "did nothing". The
+                // clipData grant + the flag on BOTH the send intent and the chooser
+                // make the read permission actually reach the chosen app.
+                clipData = android.content.ClipData.newUri(context.contentResolver, filename, uri)
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
-            val chooser = Intent.createChooser(send, title)
+            val chooser = Intent.createChooser(send, title).apply {
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
 
             val act = activity
             if (act != null) {
