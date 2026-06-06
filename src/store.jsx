@@ -1235,6 +1235,30 @@ function withDayReflection(s, dayKey, text) {
   return { ...s, days: { ...s.days, [dayKey]: { ...prev, reflection: text } } };
 }
 
+// Pure: mark a single respiro ("honest rest") on habit `h` for `dayKey`.
+// No-op (returns the same habit) when the day is outside the habit's window,
+// in the future, or — for weekly/monthly tides — not the period's anchor day
+// or already completed. For periodic tides it clears the whole period first,
+// exactly like the original markRespiro. Shared by markRespiro + the bulk
+// markRespiroRange. / Puro: marca um respiro; reutilizado pelo intervalo.
+function applyRespiro(h, dayKey, reason = "", now = Date.now()) {
+  if (!habitIsActiveOn(h, dayKey)) return h;
+  if (dayKey > dayKeyOf(now)) return h;
+  const log = { ...(h.log || {}) };
+  const respiros = { ...(h.respiros || {}) };
+  if (habitCadence(h) !== "daily") {
+    const mark = habitPeriodMark(h, dayKey);
+    if (mark.kind === "done") return h;            // a completed period can't be a respiro
+    if (!habitIsAnchorDay(h, dayKey)) return h;
+    const { start, end } = periodRange(h, dayKey);
+    for (let k = start; k <= end; k = addDaysToKey(k, 1)) { delete respiros[k]; delete log[k]; }
+  } else {
+    delete log[dayKey];
+  }
+  respiros[dayKey] = { reason: (reason || "").trim(), at: now };
+  return { ...h, log, respiros };
+}
+
 // ─── HOOK ────────────────────────────────────────────────
 function useStore() {
   const [state, setState] = useState(loadState);
@@ -1439,23 +1463,19 @@ function useStore() {
   // Mark a day as respiro (with optional reason). Clears any "done" mark.
   // For weekly/monthly tides the respiro covers the whole period (one mark).
   const markRespiro = (id, dayKey, reason = "") => setState(s => ({
+    ...s, habits: s.habits.map(h => h.id === id ? applyRespiro(h, dayKey, reason) : h)
+  }));
+  // Bulk "catch-up": mark every day in [startKey, endKey] as a respiro in one go
+  // — e.g. an illness week — instead of one tap per day. Per-day logic is reused,
+  // so daily tides get a respiro each day and weekly/monthly tides get one per
+  // period (on its anchor day). / Marcar um intervalo de respiros de uma vez.
+  const markRespiroRange = (id, startKey, endKey, reason = "") => setState(s => ({
     ...s, habits: s.habits.map(h => {
       if (h.id !== id) return h;
-      if (!habitIsActiveOn(h, dayKey)) return h;
-      if (dayKey > dayKeyOf(Date.now())) return h;
-      const log = { ...(h.log || {}) };
-      const respiros = { ...(h.respiros || {}) };
-      if (habitCadence(h) !== "daily") {
-        const mark = habitPeriodMark(h, dayKey);
-        if (mark.kind === "done") return h;            // a completed period can't be a respiro
-        if (!habitIsAnchorDay(h, dayKey)) return h;
-        const { start, end } = periodRange(h, dayKey);
-        for (let k = start; k <= end; k = addDaysToKey(k, 1)) { delete respiros[k]; delete log[k]; }
-      } else {
-        delete log[dayKey];
-      }
-      respiros[dayKey] = { reason: (reason || "").trim(), at: Date.now() };
-      return { ...h, log, respiros };
+      const [a, b] = startKey <= endKey ? [startKey, endKey] : [endKey, startKey];
+      let out = h;
+      for (let k = a; k <= b; k = addDaysToKey(k, 1)) out = applyRespiro(out, k, reason);
+      return out;
     })
   }));
   const unmarkRespiro = (id, dayKey) => setState(s => ({
@@ -1657,7 +1677,7 @@ function useStore() {
     startBlock, pauseActive, resumeBlock, concludeActive, concludeBlock,
     updateBlock, updateSessionNote, deleteBlock,
     // marés
-    toggleHabitToday, toggleHabitDay, markRespiro, unmarkRespiro,
+    toggleHabitToday, toggleHabitDay, markRespiro, markRespiroRange, unmarkRespiro,
     addHabit, removeHabit, updateHabit, reorderHabits, setHabitCount, incHabitDay,
     // prefs
     setPref, setReminderPref,
@@ -1706,5 +1726,5 @@ Object.assign(window, {
   // schema / import (exposed for tests + reuse)
   STORAGE_KEY, EXPORT_VERSION, emptyState, seed, loadState, saveState,
   migrateHabit, sanitizeHabit, sanitizeGoal, sanitizeMilestone, normalizeImported, parseBackup, MAX_BACKUP_CHARS,
-  withDayReflection, buildCSV, csvCell, isHexColor,
+  withDayReflection, buildCSV, csvCell, isHexColor, applyRespiro,
 });
