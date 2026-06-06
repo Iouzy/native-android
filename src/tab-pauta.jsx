@@ -287,6 +287,7 @@ function TabPauta({ store, accentColor, showElapsed, filter, setFilter, pendingI
             <Timeline events={events} accentColor={accentColor}
               onFilterBlock={(blockId, label) => setFilter({ kind: "block", id: blockId, label })}
               onEditBlock={(blockId) => setSheetEdit(blockId)}
+              onEditNote={updateSessionNote}
             />
           )}
         </div>
