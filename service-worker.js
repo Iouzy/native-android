@@ -1,6 +1,6 @@
 // Pauta service worker — offline app shell.
 // Bump CACHE_VERSION whenever the precached assets change so clients refresh.
-const CACHE_VERSION = "pauta-v8";
+const CACHE_VERSION = "pauta-v9";
 
 // Same-origin assets that make up the app shell. Relative paths keep this
 // working whether served from a domain root or a GitHub Pages subpath.
@@ -31,6 +31,15 @@ const LOCAL_ASSETS = [
   "./vendor/react.development.js",
   "./vendor/react-dom.development.js",
   "./vendor/babel.min.js",
+  // Self-hosted fonts (precached so first offline paint uses the real type).
+  "./vendor/fonts/geist-300.woff2",
+  "./vendor/fonts/geist-400.woff2",
+  "./vendor/fonts/geist-500.woff2",
+  "./vendor/fonts/geist-600.woff2",
+  "./vendor/fonts/geist-mono-400.woff2",
+  "./vendor/fonts/geist-mono-500.woff2",
+  "./vendor/fonts/instrument-serif-400.woff2",
+  "./vendor/fonts/instrument-serif-400-italic.woff2",
 ];
 
 self.addEventListener("install", (event) => {
