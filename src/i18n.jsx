@@ -644,6 +644,7 @@ const I18N_EN_BULK = {
   "ao longo do dia": "through the day",
   "aprendeu as cordas": "learned the ropes",
   "bem-vindo": "welcome",
+  "Introdução": "Introduction",
   "com": "with",
   "com N maiúsculo": "with a capital N",
   "comanda a sua embarcação": "commands their vessel",
