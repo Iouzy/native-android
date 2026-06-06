@@ -481,9 +481,84 @@ function stepBtn(accentColor, primary) {
   };
 }
 
+// Bulk "catch-up" control: pick a date range + optional reason and mark every
+// day in it as a respiro at once (e.g. an illness week). / Intervalo de respiros.
+function RespiroRange({ accentColor, onSubmit }) {
+  const today = dayKeyOf(Date.now());
+  const [open, setOpen] = useState(false);
+  const [from, setFrom] = useState(today);
+  const [to, setTo] = useState(today);
+  const [reason, setReason] = useState("");
+  const dateStyle = {
+    flex: 1, minWidth: 0, border: "1px solid var(--rule)", background: "var(--paper)",
+    borderRadius: 8, padding: "8px 10px", fontSize: 13, color: "var(--ink)", fontFamily: "var(--mono)",
+  };
+  const submit = () => {
+    if (!from || !to || !onSubmit) return;
+    onSubmit(from, to, reason);
+    if (window.haptic) window.haptic(10);
+    setOpen(false); setReason("");
+  };
+  if (!open) {
+    return (
+      <button onClick={() => setOpen(true)} className="tap"
+        style={{
+          marginTop: 18, width: "100%", border: "1px solid var(--rule)",
+          background: "transparent", borderRadius: 8, padding: "10px 12px",
+          fontFamily: "var(--mono)", fontSize: 10, letterSpacing: "0.08em",
+          textTransform: "uppercase", color: "var(--ink-3)", cursor: "pointer",
+        }}>
+        {tr("Marcar intervalo como respiro")}
+      </button>
+    );
+  }
+  return (
+    <div style={{
+      marginTop: 18, padding: "14px", background: "var(--paper-2)",
+      border: "1px solid var(--rule)", borderRadius: 10,
+      display: "flex", flexDirection: "column", gap: 10,
+    }}>
+      <div style={{
+        fontFamily: "var(--mono)", fontSize: 10, letterSpacing: "0.12em",
+        color: "var(--ink-3)", textTransform: "uppercase",
+      }}>
+        {tr("Marcar intervalo como respiro")}
+      </div>
+      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+        <input type="date" value={from} max={today} onChange={e => setFrom(e.target.value)} aria-label={tr("de")} style={dateStyle}/>
+        <span style={{ color: "var(--ink-3)" }}>–</span>
+        <input type="date" value={to} max={today} onChange={e => setTo(e.target.value)} aria-label={tr("até")} style={dateStyle}/>
+      </div>
+      <input value={reason} onChange={e => setReason(e.target.value)} placeholder={tr("motivo (opcional)")}
+        style={{
+          border: "1px solid var(--rule)", background: "var(--paper)", borderRadius: 8,
+          padding: "8px 10px", fontSize: 14, color: "var(--ink)", fontFamily: "var(--sans)",
+        }}/>
+      <div style={{ display: "flex", gap: 8 }}>
+        <button onClick={submit} className="tap"
+          style={{
+            flex: 1, border: "none", background: accentColor, color: "var(--on-dark)",
+            borderRadius: 999, padding: "10px", fontFamily: "var(--mono)", fontSize: 11,
+            letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer",
+          }}>
+          {tr("Marcar")}
+        </button>
+        <button onClick={() => { setOpen(false); setReason(""); }} className="tap"
+          style={{
+            border: "1px solid var(--rule)", background: "transparent", color: "var(--ink-2)",
+            borderRadius: 999, padding: "10px 16px", fontFamily: "var(--mono)", fontSize: 11,
+            letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer",
+          }}>
+          {tr("cancelar")}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ─── Habit Detail Sheet ────────────────────────────────────
 function HabitDetailSheet({ open, onClose, habit, accentColor, todayTs,
-  onToggleDay, onIncDay, onSetCount, onMarkRespiro, onUnmarkRespiro, onUpdate, onRemove }) {
+  onToggleDay, onIncDay, onSetCount, onMarkRespiro, onMarkRespiroRange, onUnmarkRespiro, onUpdate, onRemove }) {
   if (!open || !habit) return null;
   // This whole sheet is about one tide, so colour it with the habit's own
   // colour where set; keep the real app accent for the edit form's "automático"
@@ -740,6 +815,9 @@ function HabitDetailSheet({ open, onClose, habit, accentColor, todayTs,
                 </div>
               </div>
             )}
+
+            {/* Bulk catch-up: mark a whole range as respiro at once. */}
+            <RespiroRange accentColor={accentColor} onSubmit={onMarkRespiroRange}/>
 
             <div style={{
               marginTop: 18,

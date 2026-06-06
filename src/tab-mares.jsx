@@ -4,7 +4,7 @@
 //   hábitos com recorrência (permanente / período / mês único).
 
 function TabMares({ store, accentColor }) {
-  const { state, addHabit, toggleHabitDay, markRespiro, unmarkRespiro, removeHabit, updateHabit, reorderHabits, incHabitDay, setHabitCount } = store;
+  const { state, addHabit, toggleHabitDay, markRespiro, markRespiroRange, unmarkRespiro, removeHabit, updateHabit, reorderHabits, incHabitDay, setHabitCount } = store;
   const { habits } = state;
 
   const now = useNow(60000, true);
@@ -276,6 +276,7 @@ function TabMares({ store, accentColor }) {
         onIncDay={(k) => detailHabitId && incHabitDay(detailHabitId, k)}
         onSetCount={(k, n) => detailHabitId && setHabitCount(detailHabitId, k, n)}
         onMarkRespiro={(k, reason) => detailHabitId && markRespiro(detailHabitId, k, reason)}
+        onMarkRespiroRange={(a, b, reason) => detailHabitId && markRespiroRange(detailHabitId, a, b, reason)}
         onUnmarkRespiro={(k) => detailHabitId && unmarkRespiro(detailHabitId, k)}
         onUpdate={(patch) => detailHabitId && updateHabit(detailHabitId, patch)}
         onRemove={() => {
