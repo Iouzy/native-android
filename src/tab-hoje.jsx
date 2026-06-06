@@ -178,8 +178,8 @@ function TabHoje({ store, accentColor, onJumpToPauta }) {
             onToggle={() => toggleIntention(it.id)}
             onChange={text => updateIntention(it.id, { text })}
             onRemove={() => removeIntention(it.id)}
-            onCyclePriority={() => updateIntention(it.id, { priority: nextPriority(it.priority) })}
-            onCycleTarget={() => updateIntention(it.id, { targetMin: nextTarget(it.targetMin) })}
+            onSetPriority={v => updateIntention(it.id, { priority: v })}
+            onSetTarget={v => updateIntention(it.id, { targetMin: v })}
             onDragStart={(e) => start(e, it.id)}
             onStart={() => onJumpToPauta && onJumpToPauta({ intention: it, start: true })}
             accentColor={accentColor}
@@ -197,7 +197,7 @@ function TabHoje({ store, accentColor, onJumpToPauta }) {
           <input autoFocus value={newText}
             onChange={e => setNewText(e.target.value)}
             onBlur={commitNew}
-            onKeyDown={e => { if (e.key === "Enter") commitNew(); if (e.key === "Escape") { setNewText(""); setAdding(false); } }}
+            onKeyDown={e => { if (e.key === "Enter" || e.key === "Tab") { e.preventDefault(); commitNew(); } if (e.key === "Escape") { setNewText(""); setAdding(false); } }}
             placeholder={tr("Nova intenção…")}
             style={{
               flex: 1, border: "none", background: "transparent", padding: 0,
@@ -532,44 +532,113 @@ function nextTarget(m) {
   return m === 25 ? 50 : m === 50 ? 90 : m === 90 ? null : 25;
 }
 
-function TargetChip({ targetMin, accentColor, onClick }) {
+function TargetChip({ targetMin, accentColor, onSet }) {
+  const [open, setOpen] = useState(false);
+  const [custom, setCustom] = useState("");
+
   const set = targetMin > 0;
+  const chipStyle = (active) => ({
+    border: `1px solid ${active ? accentColor + "55" : "var(--rule)"}`,
+    background: active ? accentColor + "14" : "transparent",
+    borderRadius: 999, padding: "6px 11px", cursor: "pointer",
+    fontFamily: "var(--mono)", fontSize: 10, letterSpacing: "0.04em",
+    color: active ? accentColor : "var(--ink-3)", fontWeight: active ? 600 : 400,
+    whiteSpace: "nowrap",
+  });
+
+  if (open) {
+    const confirm = () => {
+      const n = parseInt(custom, 10);
+      if (n > 0 && n <= 480) onSet(n);
+      setOpen(false); setCustom("");
+    };
+    return (
+      <div style={{ display: "flex", gap: 4, flexWrap: "wrap", alignItems: "center" }}>
+        {[25, 50, 90].map(n => (
+          <button key={n} onMouseDown={(e) => e.preventDefault()}
+            onClick={() => { onSet(n); setOpen(false); setCustom(""); }} className="tap"
+            style={{ ...chipStyle(targetMin === n), display: "inline-flex", alignItems: "center", gap: 4 }}>
+            <span style={{ fontSize: 9 }}>◷</span>{trf("{n} min", { n })}
+          </button>
+        ))}
+        <input
+          type="number" min="1" max="480"
+          value={custom}
+          onChange={e => setCustom(e.target.value)}
+          onKeyDown={e => { if (e.key === "Enter") confirm(); if (e.key === "Escape") { setOpen(false); setCustom(""); } }}
+          onBlur={confirm}
+          placeholder={tr("outro")}
+          autoFocus
+          style={{
+            width: 58, border: "1px solid var(--rule)", background: "transparent",
+            borderRadius: 999, padding: "6px 8px",
+            fontFamily: "var(--mono)", fontSize: 10, color: "var(--ink)", textAlign: "center",
+          }}/>
+        <button onMouseDown={(e) => e.preventDefault()}
+          onClick={() => { onSet(null); setOpen(false); setCustom(""); }} className="tap"
+          style={{ ...chipStyle(false), padding: "6px 10px", color: "var(--ink-4)" }}>×</button>
+      </div>
+    );
+  }
+
   return (
-    <button onClick={onClick} className="tap" title={tr("definir duração")}
+    <button onClick={() => setOpen(true)} className="tap" title={tr("definir duração")}
       style={{
-        border: `1px solid ${set ? accentColor + "55" : "var(--rule)"}`,
-        background: set ? accentColor + "14" : "transparent",
-        borderRadius: 999, padding: "6px 11px", cursor: "pointer",
-        fontFamily: "var(--mono)", fontSize: 10, letterSpacing: "0.04em",
-        color: set ? accentColor : "var(--ink-3)", fontWeight: set ? 600 : 400,
-        display: "inline-flex", alignItems: "center", gap: 5, whiteSpace: "nowrap",
+        ...chipStyle(set),
+        display: "inline-flex", alignItems: "center", gap: 5,
       }}>
       <span style={{ fontSize: 9 }}>◷</span>{set ? trf("{n} min", { n: targetMin }) : tr("duração")}
     </button>
   );
 }
 
-function PriorityChip({ priority, accentColor, onClick }) {
-  const styles = {
-    principal: { mark: "●", label: tr("principal"), color: accentColor, weight: 600 },
-    importante: { mark: "◆", label: tr("importante"), color: "var(--ink-2)", weight: 500 },
-  };
-  const s = styles[priority] || { mark: "○", label: tr("prioridade"), color: "var(--ink-3)", weight: 400 };
+function PriorityChip({ priority, accentColor, onSet }) {
+  const [open, setOpen] = useState(false);
+
+  const OPTS = [
+    { value: "principal", mark: "●", label: tr("principal"), color: accentColor, weight: 600 },
+    { value: "importante", mark: "◆", label: tr("importante"), color: "var(--ink-2)", weight: 500 },
+    { value: null, mark: "○", label: tr("nenhuma"), color: "var(--ink-4)", weight: 400 },
+  ];
+  const cur = OPTS.find(o => o.value === (priority || null)) || OPTS[2];
+
+  if (open) {
+    return (
+      <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+        {OPTS.map(opt => (
+          <button key={opt.value ?? "none"}
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => { onSet(opt.value); setOpen(false); }} className="tap"
+            style={{
+              border: `1px solid ${opt.value === priority ? accentColor + "55" : "var(--rule)"}`,
+              background: opt.value === priority ? accentColor + "14" : "transparent",
+              borderRadius: 999, padding: "6px 11px", cursor: "pointer",
+              fontFamily: "var(--mono)", fontSize: 10, letterSpacing: "0.04em",
+              color: opt.color, fontWeight: opt.weight,
+              display: "inline-flex", alignItems: "center", gap: 5, whiteSpace: "nowrap",
+            }}>
+            <span style={{ fontSize: 9 }}>{opt.mark}</span>{opt.label}
+          </button>
+        ))}
+      </div>
+    );
+  }
+
   return (
-    <button onClick={onClick} className="tap" title={tr("definir prioridade")}
+    <button onClick={() => setOpen(true)} className="tap" title={tr("definir prioridade")}
       style={{
         border: "1px solid var(--rule)", background: "transparent",
         borderRadius: 999, padding: "6px 11px", cursor: "pointer",
         fontFamily: "var(--mono)", fontSize: 10, letterSpacing: "0.04em",
-        color: s.color, fontWeight: s.weight,
+        color: cur.color, fontWeight: cur.weight,
         display: "inline-flex", alignItems: "center", gap: 5, whiteSpace: "nowrap",
       }}>
-      <span style={{ fontSize: 9 }}>{s.mark}</span>{s.label}
+      <span style={{ fontSize: 9 }}>{cur.mark}</span>{cur.label}
     </button>
   );
 }
 
-function IntentionRow({ intention, focusMs, dragging, onToggle, onChange, onRemove, onCyclePriority, onCycleTarget, onDragStart, onStart, accentColor }) {
+function IntentionRow({ intention, focusMs, dragging, onToggle, onChange, onRemove, onSetPriority, onSetTarget, onDragStart, onStart, accentColor }) {
   const [hover, setHover] = useState(false);
   const isPrimary = intention.priority === "principal";
   const isImportant = intention.priority === "importante";
@@ -615,8 +684,8 @@ function IntentionRow({ intention, focusMs, dragging, onToggle, onChange, onRemo
           }}
         />
         <div style={{ marginTop: 8, display: "flex", alignItems: "center", flexWrap: "wrap", gap: 8, fontFamily: "var(--mono)", fontSize: 10, color: "var(--ink-3)", letterSpacing: "0.04em" }}>
-          <PriorityChip priority={intention.priority} accentColor={accentColor} onClick={onCyclePriority}/>
-          <TargetChip targetMin={intention.targetMin} accentColor={accentColor} onClick={onCycleTarget}/>
+          <PriorityChip priority={intention.priority} accentColor={accentColor} onSet={onSetPriority}/>
+          <TargetChip targetMin={intention.targetMin} accentColor={accentColor} onSet={onSetTarget}/>
           {focusMs > 0 && <span style={{ marginLeft: 2 }}>{trf("{d} em foco", { d: fmtDuration(focusMs) })}</span>}
         </div>
       </div>
