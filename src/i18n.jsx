@@ -89,6 +89,8 @@ const I18N_EN = {
   "O que significam os tiers, de Onda a Tsunami.": "What the tiers mean, from Wave to Tsunami.",
   "Exportar dados": "Export data",
   "Transfere um ficheiro .json com tudo.": "Downloads a .json file with everything.",
+  "Exportar CSV": "Export CSV",
+  "Folha de cálculo: intenções, blocos e marés.": "Spreadsheet: intentions, blocks and tides.",
   "Importar dados": "Import data",
   "Restaura a partir de um ficheiro .json.": "Restores from a .json file.",
   "Backup transferido.": "Backup downloaded.",

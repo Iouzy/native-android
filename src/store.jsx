@@ -466,8 +466,7 @@ function autoBackupIntervalMs(freq) {
   return ({ "30m": 30 * 60000, "hourly": 3600000, "daily": 86400000, "weekly": 7 * 86400000 })[freq] || 0;
 }
 
-function downloadJSON(filename, obj) {
-  const blob = new Blob([JSON.stringify(obj, null, 2)], { type: "application/json" });
+function downloadBlob(filename, blob) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
@@ -476,6 +475,53 @@ function downloadJSON(filename, obj) {
   a.click();
   document.body.removeChild(a);
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+function downloadJSON(filename, obj) {
+  downloadBlob(filename, new Blob([JSON.stringify(obj, null, 2)], { type: "application/json" }));
+}
+// CSV gets a UTF-8 BOM so spreadsheets (Excel especially) read accented
+// Portuguese correctly. / BOM para o Excel ler os acentos.
+function downloadCSV(filename, csv) {
+  // Lead with a UTF-8 BOM (U+FEFF) so Excel detects the encoding.
+  downloadBlob(filename, new Blob([String.fromCharCode(0xFEFF) + csv], { type: "text/csv;charset=utf-8" }));
+}
+
+// ─── CSV EXPORT (anti-lock-in) ─────────────────────────────
+// A flat, spreadsheet-friendly snapshot: one row per record across the three
+// data types, discriminated by a `type` column. Pure + testable. /
+// Exportação CSV plana das intenções, blocos de foco e marés.
+function csvCell(v) {
+  const s = v == null ? "" : String(v);
+  // Wrap in quotes (doubling any internal quote) when the value contains a
+  // comma, quote or newline — the minimal RFC-4180 escaping.
+  return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+function buildCSV(state) {
+  const rows = [["type", "date", "title", "project", "minutes", "count", "status", "note"]];
+  // Intentions: live today first, then archived days in date order.
+  const dayEntries = [];
+  if (state.today) dayEntries.push([state.today.dayKey, state.today]);
+  for (const k of Object.keys(state.days || {}).sort()) dayEntries.push([k, state.days[k]]);
+  for (const [k, day] of dayEntries) {
+    for (const it of (day.intentions || [])) {
+      rows.push(["intention", k, it.text || "", "", "", "", it.done ? "done" : "open", ""]);
+    }
+  }
+  // Focus blocks: one row each — total focus minutes + final reflection.
+  for (const b of (state.blocks || [])) {
+    const min = Math.round(blockFocusMs(b) / 60000);
+    rows.push(["block", dayKeyOf(b.createdAt), b.title || "", b.project || "", String(min), "", b.status || "", b.reflection || ""]);
+  }
+  // Habits: one row per completed day (count carries the value) and per respiro.
+  for (const h of (state.habits || [])) {
+    for (const k of Object.keys(h.log || {}).sort()) {
+      if (h.log[k]) rows.push(["habit", k, h.name || "", "", "", String(h.log[k]), "done", ""]);
+    }
+    for (const k of Object.keys(h.respiros || {}).sort()) {
+      if (h.respiros[k]) rows.push(["habit", k, h.name || "", "", "", "", "respiro", ""]);
+    }
+  }
+  return rows.map(r => r.map(csvCell).join(",")).join("\r\n");
 }
 
 // ─── IMPORT SANITIZERS ─────────────────────────────────────
@@ -1543,6 +1589,11 @@ function useStore() {
   const exportData = () => {
     downloadJSON(`pauta-backup-${dayKeyOf(Date.now())}.json`, serializeBackup());
   };
+  // Spreadsheet-friendly CSV (intentions + focus blocks + habit marks). /
+  // CSV para folha de cálculo.
+  const exportCSV = () => {
+    downloadCSV(`pauta-${dayKeyOf(Date.now())}.csv`, buildCSV(state));
+  };
 
   // Append a batch of intentions (used by "carry over yesterday's unfinished").
   // Preserves priority + the planned duration; fresh ids/timestamps so they
@@ -1590,7 +1641,7 @@ function useStore() {
     // misc
     resetAll, reseed, clearForOnboarding,
     // backup
-    exportData, importData, serializeBackup,
+    exportData, exportCSV, importData, serializeBackup,
     // persistence health
     saveError, dismissSaveError: () => setSaveError(false),
   };
@@ -1629,5 +1680,5 @@ Object.assign(window, {
   // schema / import (exposed for tests + reuse)
   STORAGE_KEY, EXPORT_VERSION, emptyState, seed, loadState, saveState,
   migrateHabit, normalizeImported, parseBackup, MAX_BACKUP_CHARS,
-  withDayReflection,
+  withDayReflection, buildCSV, csvCell,
 });
