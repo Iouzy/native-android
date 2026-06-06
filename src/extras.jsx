@@ -1220,6 +1220,9 @@ async function shareDayCard({ dateLabel, focusValue, focusCaption, ratioValue, r
     c.width = W; c.height = H;
     const ctx = c.getContext("2d");
     if (!ctx) return;
+    // Wait for the web fonts (Instrument Serif / Geist) so the card isn't drawn
+    // in a fallback system font on the first share of a session. Best-effort.
+    try { if (document.fonts && document.fonts.ready) await document.fonts.ready; } catch (e) {}
     const cs = getComputedStyle(document.documentElement);
     const v = (name, fb) => (cs.getPropertyValue(name).trim() || fb);
     const paper = v("--paper", "#F5F1EA"), ink = v("--ink", "#1A1815"), ink3 = v("--ink-3", "#8A8275");
@@ -1261,15 +1264,27 @@ async function shareDayCard({ dateLabel, focusValue, focusCaption, ratioValue, r
       } catch (e) { /* fall through to the web paths below */ }
     }
 
-    const file = new File([blob], "pauta-hoje.png", { type: "image/png" });
-    if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      await navigator.share({ files: [file], title: "Pauta" });
-    } else {
+    const download = () => {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url; a.download = "pauta-hoje.png";
       document.body.appendChild(a); a.click(); document.body.removeChild(a);
       setTimeout(() => URL.revokeObjectURL(url), 1000);
+    };
+
+    const file = new File([blob], "pauta-hoje.png", { type: "image/png" });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({ files: [file], title: "Pauta" });
+      } catch (e) {
+        // AbortError == the user dismissed the sheet: nothing more to do. Any
+        // OTHER failure (a WebView that lies about canShare, an expired user
+        // activation after the async canvas render) must NOT swallow silently —
+        // fall back to a download so "partilhar" always produces the image.
+        if (!e || e.name !== "AbortError") download();
+      }
+    } else {
+      download();
     }
   } catch (e) {}
 }

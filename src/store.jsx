@@ -214,8 +214,8 @@ function seed() {
     today: {
       dayKey: dayKeyOf(Date.now()),
       intentions: [
-        { id: ids.briefing, text: tr("Estudar 45 min para o teste"), done: false, priority: "principal", createdAt: Date.now() },
-        { id: ids.ler, text: tr("Tratar das compras da semana"), done: false, priority: "importante", createdAt: Date.now() },
+        { id: ids.briefing, text: tr("Estudar 45 min para o teste"), done: false, priority: 1, createdAt: Date.now() },
+        { id: ids.ler, text: tr("Tratar das compras da semana"), done: false, priority: 2, createdAt: Date.now() },
         { id: ids.emails, text: tr("Rever os apontamentos da semana"), done: true, createdAt: Date.now() },
       ],
       reflection: "",
@@ -505,7 +505,12 @@ function sanitizeIntention(it) {
     done: !!it.done,
     createdAt: finiteOr(it.createdAt, Date.now()),
   };
-  if (typeof it.priority === "string") out.priority = it.priority;
+  // Priority is now a numeric level (1 = highest, 3 = lowest) the Hoje list
+  // auto-sorts by. Legacy backups stored strings ("principal"/"importante") —
+  // migrate them so old data keeps its hierarchy after the redesign.
+  const PRIO_FROM_LEGACY = { principal: 1, importante: 2 };
+  let prio = typeof it.priority === "string" ? PRIO_FROM_LEGACY[it.priority] : Number(it.priority);
+  if (prio === 1 || prio === 2 || prio === 3) out.priority = prio;
   // Planned focus duration (minutes, a Pomodoro preset). Optional — must be
   // preserved across persistence, migration and the backup round-trip or the ◷
   // chip and the quick-focus target silently reset to "no duration" on the next
@@ -1139,10 +1144,17 @@ function useStore() {
     [state.activeId, state.blocks]);
 
   // ─ Hoje ─
-  const addIntention = (text) => {
+  // opts: { priority?: 1|2|3, targetMin?: number } — both optional. Priority is a
+  // numeric level (1 = highest) the list auto-sorts by; targetMin is a planned
+  // focus duration in minutes.
+  const addIntention = (text, opts = {}) => {
     const t = (text || "").trim(); if (!t) return null;
     const id = uid("i_");
-    setState(s => ({ ...s, today: { ...s.today, intentions: [...s.today.intentions, { id, text: t, done: false, createdAt: Date.now() }] } }));
+    const it = { id, text: t, done: false, createdAt: Date.now() };
+    if (opts.priority === 1 || opts.priority === 2 || opts.priority === 3) it.priority = opts.priority;
+    const tm = Number(opts.targetMin);
+    if (Number.isFinite(tm) && tm > 0) it.targetMin = Math.round(tm);
+    setState(s => ({ ...s, today: { ...s.today, intentions: [...s.today.intentions, it] } }));
     return id;
   };
   const updateIntention = (id, patch) => setState(s => ({
