@@ -1097,14 +1097,37 @@ function weeklyReview(state, endKey = dayKeyOf(Date.now()), now = Date.now()) {
     if (day && day.intentions) { intTotal += day.intentions.length; intDone += day.intentions.filter(i => i.done).length; }
   }
 
-  // Habits: done-day count + how many distinct habits were active.
+  // Habits: cadence-aware completion count over the window. Daily tides count
+  // one slot per active day; weekly/monthly tides are completed once per period,
+  // so each period overlapping the window counts ONCE (judged by its period-wide
+  // mark), mirroring habitPeriodStats. Counting every active day for a periodic
+  // tide would under-report it (1/1 week scored as 1-of-7). /
+  // Contagem ciente da cadência: marés diárias contam um slot por dia activo;
+  // semanais/mensais contam cada período uma vez (marca do período), como
+  // habitPeriodStats — senão uma maré semanal feita 1/1 ficaria 1-em-7.
   let habitDone = 0, habitObservedSlots = 0, respiros = 0;
   for (const h of habits) {
-    for (const k of days) {
-      if (!habitIsActiveOn(h, k)) continue;
-      habitObservedSlots++;
-      if (h.log && h.log[k]) habitDone++;
-      else if (h.respiros && h.respiros[k]) respiros++;
+    if (habitCadence(h) === "daily") {
+      for (const k of days) {
+        if (!habitIsActiveOn(h, k)) continue;
+        habitObservedSlots++;
+        if (h.log && h.log[k]) habitDone++;
+        else if (h.respiros && h.respiros[k]) respiros++;
+      }
+    } else {
+      // Weekly/monthly: each period overlapping the 7-day window counts once,
+      // deduped by its start key, judged by its period-wide mark (done/respiro).
+      const seen = new Set();
+      for (const k of days) {
+        if (!habitIsActiveOn(h, k)) continue;
+        const { start } = periodRange(h, k);
+        if (seen.has(start)) continue;
+        seen.add(start);
+        habitObservedSlots++;
+        const mark = habitPeriodMark(h, k);
+        if (mark.kind === "done") habitDone++;
+        else if (mark.kind === "respiro") respiros++;
+      }
     }
   }
   const habitPct = (habitObservedSlots - respiros) > 0
