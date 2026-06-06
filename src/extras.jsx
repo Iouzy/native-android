@@ -26,6 +26,10 @@ function OnboardingOverlay({ onDone, accentColor, store }) {
   const [idx, setIdx] = useState(0);
   const [leaving, setLeaving] = useState(false);
   const touchX = useRef(null);
+  // Full-screen modal: trap keyboard focus inside it, like Sheet does. Escape
+  // skips onboarding (same as the "saltar" button). / Prende o foco no overlay.
+  const overlayRef = useRef(null);
+  useFocusTrap(overlayRef, true, () => finish(false));
 
   const cards = [
     { tag: tr("bem-vindo"), icon: "spark",
@@ -79,7 +83,8 @@ function OnboardingOverlay({ onDone, accentColor, store }) {
   };
 
   return (
-    <div data-noswipe="true" style={{
+    <div ref={overlayRef} data-noswipe="true"
+      role="dialog" aria-modal="true" aria-label={tr("Introdução")} style={{
       position: "absolute", inset: 0, zIndex: 500, background: "var(--paper)",
       display: "flex", flexDirection: "column", overflow: "hidden",
       animation: (leaving ? "fadeOut 0.28s ease forwards" : "fadeIn 0.3s ease"),
