@@ -603,6 +603,8 @@ const I18N_EN_BULK = {
   "Nos dias com": "On days with",
   "Nova intenção…": "New intention…",
   "Nova meta…": "New goal…",
+  "passos": "steps",
+  "novo passo…": "new step…",
   "Não tarefas de rotina — coisas que": "Not routine tasks — things that",
   "O que importa": "What matters",
   "O que importou nesse dia.": "What mattered that day.",
