@@ -59,7 +59,7 @@ function PrefToggle({ label, sub, value, onChange, accentColor }) {
 //     existing package" loop some users hit when sideloading through a browser.
 function UpdateChecker({ accentColor, store }) {
   const build = window.PAUTA_BUILD || { ts: 0, run: 0 };
-  const repo  = window.PAUTA_REPO  || "Iouzy/psychic-guide";
+  const repo  = window.PAUTA_REPO  || "Iouzy/native-android";
   const [state, setState] = useState({ kind: "idle" });
 
   // Reflect native download progress (0–100) in the button subtitle.

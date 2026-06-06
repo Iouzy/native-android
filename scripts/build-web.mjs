@@ -23,11 +23,23 @@ for (const d of dirs) cpSync(d, `${OUT}/${d}`, { recursive: true });
 const run = Number(process.env.GITHUB_RUN_NUMBER || 0);
 const ts  = Math.floor(Date.now() / 1000);
 
+// Point the in-app updater at the repo whose CI is building this APK. Releases
+// publish to GITHUB_REPOSITORY ("owner/repo"), so stamping it here keeps the
+// update check from ever polling a stale/forked repo. Locally (no env) the
+// committed default in index.html stands.
+const repo = process.env.GITHUB_REPOSITORY || "";
+
 const indexPath = `${OUT}/index.html`;
-const html = readFileSync(indexPath, "utf8").replace(
+let html = readFileSync(indexPath, "utf8").replace(
   /\/\*BUILD-INFO-BEGIN\*\/[\s\S]*?\/\*BUILD-INFO-END\*\//,
   `/*BUILD-INFO-BEGIN*/ ts: ${ts}, run: ${run} /*BUILD-INFO-END*/`,
 );
+if (repo) {
+  html = html.replace(
+    /window\.PAUTA_REPO\s*=\s*"[^"]*";\s*\/\*REPO-INFO\*\//,
+    `window.PAUTA_REPO  = "${repo}"; /*REPO-INFO*/`,
+  );
+}
 writeFileSync(indexPath, html);
 
-console.log(`Web bundle assembled in ./${OUT}  (build run=${run}, ts=${ts})`);
+console.log(`Web bundle assembled in ./${OUT}  (build run=${run}, ts=${ts}, repo=${repo || "default"})`);
