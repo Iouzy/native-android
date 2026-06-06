@@ -1163,6 +1163,19 @@ function prevWeeklyReview(state, endKey = dayKeyOf(Date.now()), now = Date.now()
   return weeklyReview(state, prevEnd, now);
 }
 
+// Pure: return the next state with `text` as the reflection for `dayKey`,
+// whether that's the live `today` or an archived entry in `days`. Archived days
+// that don't exist yet are created with an empty intentions list. Kept pure (no
+// setState) so it's unit-testable in the Babel sandbox. /
+// Puro: devolve o estado com a reflexão de `dayKey` atualizada (hoje ou arquivo).
+function withDayReflection(s, dayKey, text) {
+  if (dayKey === s.today.dayKey) {
+    return { ...s, today: { ...s.today, reflection: text } };
+  }
+  const prev = s.days[dayKey] || { intentions: [] };
+  return { ...s, days: { ...s.days, [dayKey]: { ...prev, reflection: text } } };
+}
+
 // ─── HOOK ────────────────────────────────────────────────
 function useStore() {
   const [state, setState] = useState(loadState);
@@ -1233,6 +1246,9 @@ function useStore() {
     return { ...s, today: { ...s.today, intentions: next } };
   });
   const setReflection = (text) => setState(s => ({ ...s, today: { ...s.today, reflection: text } }));
+  // Edit any day's reflection — today or an archived day in history. /
+  // Editar a reflexão de qualquer dia — hoje ou um dia arquivado no histórico.
+  const setDayReflection = (dayKey, text) => setState(s => withDayReflection(s, dayKey, text));
 
   // ─ Pauta ─
   const startBlock = (title, linkedToId = null, opts = {}) => {
@@ -1560,7 +1576,7 @@ function useStore() {
     state, activeBlock,
     // hoje
     addIntention, updateIntention, removeIntention, toggleIntention, reorderIntentions, setReflection,
-    carryOverIntentions,
+    setDayReflection, carryOverIntentions,
     // pauta
     startBlock, pauseActive, resumeBlock, concludeActive, concludeBlock,
     updateBlock, updateSessionNote, deleteBlock,
@@ -1613,4 +1629,5 @@ Object.assign(window, {
   // schema / import (exposed for tests + reuse)
   STORAGE_KEY, EXPORT_VERSION, emptyState, seed, loadState, saveState,
   migrateHabit, normalizeImported, parseBackup, MAX_BACKUP_CHARS,
+  withDayReflection,
 });
