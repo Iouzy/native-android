@@ -374,6 +374,7 @@ function TimelineRow({ event, accentColor, isLast, connectDown, connectUp, onFil
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8 }}>
           <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap", flex: 1, minWidth: 0 }}>
             <div onClick={onFilter} title={tr("filtrar por esta atividade")}
+              role="button" aria-label={trf("filtrar por {t}", { t: block.title })}
               style={{
                 fontSize: 15, fontWeight: 500, color: "var(--ink)", lineHeight: 1.25,
                 cursor: "pointer",
@@ -390,7 +391,7 @@ function TimelineRow({ event, accentColor, isLast, connectDown, connectUp, onFil
             )}
           </div>
           {onEdit && (
-            <button onClick={onEdit} className="tap" title={tr("editar bloco")}
+            <button onClick={onEdit} className="tap" title={tr("editar bloco")} aria-label={tr("editar bloco")}
               style={{
                 flexShrink: 0, width: 26, height: 26, borderRadius: 6,
                 background: "transparent", border: "none",
