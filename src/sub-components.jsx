@@ -2,24 +2,30 @@
 // Timeline, StartSheet, PauseSheet, ConcludeSheet, SwitchSheet
 
 // ─── ACTIVE BLOCK CARD ───────────────────────────────────────
-function ActiveBlockCard({ block, intention, accentColor, showElapsed, onPause, onSwitch, onConclude, onCancel, onZen, soundOn }) {
+function ActiveBlockCard({ block, intention, accentColor, showElapsed, onPause, onSwitch, onConclude, onCancel, onZen, onReached, soundOn }) {
   const now = useNow(1000, true);
   const currentSeg = block.sessions[block.sessions.length - 1];
   const elapsed = now - currentSeg.startedAt;
   const totalElapsed = block.sessions.reduce((acc, seg) => acc + ((seg.endedAt || now) - seg.startedAt), 0);
   const hasResumed = block.sessions.length > 1;
 
-  // Optional soft target (Pomodoro). Chime + haptic once when first reached;
-  // the block keeps running so the user can stop when they choose.
+  // Optional soft target (Pomodoro). Chime + haptic once on the moment it's first
+  // reached; the block keeps running so the user can stop when they choose. The
+  // ref is SEEDED with the current `reached` value so reopening the tab on an
+  // already-over-target block doesn't re-fire the chime or the in-app prompt —
+  // only a genuine false→true transition while mounted does.
   const target = block.targetMs || 0;
   const reached = target > 0 && totalElapsed >= target;
   const targetMin = target > 0 ? Math.round(target / 60000) : 0;
-  const chimedRef = useRef(false);
+  const reachedRef = useRef(reached);
   useEffect(() => {
-    if (reached && !chimedRef.current) {
-      chimedRef.current = true;
+    if (reached && !reachedRef.current) {
+      reachedRef.current = true;
       if (soundOn && window.playChime) window.playChime();
       if (window.haptic) window.haptic(18);
+      if (onReached) onReached();
+    } else if (!reached) {
+      reachedRef.current = false;
     }
   }, [reached, soundOn]);
 

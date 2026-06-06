@@ -131,6 +131,13 @@
   //   already-localized. `exact` is false when the OS denied exact alarms.
   //
   // FocusActivity.cancelReminders() → Promise<{ scheduled:false }>
+  //
+  // FocusActivity.shareImage({ base64, filename, title }) → Promise<{ shared }>
+  //   Writes a PNG (base64, no data: prefix) to the app cache and hands it to the
+  //   Android share sheet via a FileProvider content URI. This exists because the
+  //   Web Share API's file support is unreliable inside the Capacitor WebView, so
+  //   navigator.share({ files }) silently no-ops on many devices — the native
+  //   ACTION_SEND path actually opens the chooser.
 
   window.FocusActivity = {
     get isNative() { return nativePlatform(); },
@@ -140,6 +147,7 @@
     notify:      function (o) { return invoke("showReminder", o)      || Promise.resolve({ shown: false }); },
     scheduleReminders: function (o) { return invoke("scheduleReminders", o) || Promise.resolve({ scheduled: false, exact: false }); },
     cancelReminders:   function ()  { return invoke("cancelReminders")       || Promise.resolve({ scheduled: false }); },
+    shareImage:  function (o) { return invoke("shareImage", o) || Promise.resolve({ shared: false }); },
     addListener: function (ev, cb) { return listen(ev, cb); },
     checkPermission:     function () { return invoke("checkPermission")     || Promise.resolve({ granted: false }); },
     requestPermission:   function () { return invoke("requestPermission")   || Promise.resolve({ granted: false }); },

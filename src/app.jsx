@@ -968,6 +968,7 @@ function App() {
 
   const [tab, setTab] = useState("pauta");
   const [pendingIntention, setPendingIntention] = useState(null);
+  const [pendingStart, setPendingStart] = useState(null);
   const [pendingSwitch, setPendingSwitch] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [insightsOpen, setInsightsOpen] = useState(false);
@@ -1001,8 +1002,11 @@ function App() {
     } catch (_) {}
   }, []);
 
-  const jumpToPauta = ({ intention }) => {
-    setPendingIntention(intention);
+  // From the Hoje tab: `start` jumps straight into a running block (the ▷ quick
+  // focus), otherwise we just open the start sheet pre-filled with the intention.
+  const jumpToPauta = ({ intention, start }) => {
+    if (start) setPendingStart(intention);
+    else setPendingIntention(intention);
     setTab("pauta");
   };
 
@@ -1102,6 +1106,8 @@ function App() {
               showElapsed={t.showElapsed}
               pendingIntention={pendingIntention}
               clearPending={() => setPendingIntention(null)}
+              pendingStart={pendingStart}
+              clearPendingStart={() => setPendingStart(null)}
               pendingSwitch={pendingSwitch}
               clearPendingSwitch={() => setPendingSwitch(false)}/>
           )}

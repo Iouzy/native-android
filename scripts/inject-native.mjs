@@ -70,6 +70,7 @@ const PERMISSIONS = `
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC"/>
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <uses-permission android:name="android.permission.VIBRATE"/>
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"/>
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
     <uses-permission android:name="android.permission.USE_EXACT_ALARM"/>
@@ -88,6 +89,7 @@ const COMPONENTS = `
                 <action android:name="com.pauta.app.FOCUS_RESUME"/>
                 <action android:name="com.pauta.app.FOCUS_CONCLUDE"/>
                 <action android:name="com.pauta.app.FOCUS_SWITCH"/>
+                <action android:name="com.pauta.app.FOCUS_DISMISS_ALERT"/>
             </intent-filter>
         </receiver>
         <receiver

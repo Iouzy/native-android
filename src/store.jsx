@@ -1451,7 +1451,8 @@ function useStore() {
   };
 
   // Append a batch of intentions (used by "carry over yesterday's unfinished").
-  // Preserves priority; fresh ids/timestamps so they belong to today.
+  // Preserves priority + the planned duration; fresh ids/timestamps so they
+  // belong to today.
   const carryOverIntentions = (items) => setState(s => ({
     ...s,
     today: {
@@ -1460,7 +1461,8 @@ function useStore() {
         ...s.today.intentions,
         ...items.map(it => ({
           id: uid("i_"), text: (it.text || "").trim(),
-          done: false, priority: it.priority, createdAt: Date.now(),
+          done: false, priority: it.priority, targetMin: it.targetMin || null,
+          createdAt: Date.now(),
         })).filter(it => it.text),
       ],
     },
