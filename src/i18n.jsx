@@ -319,6 +319,7 @@ const I18N_EN_BULK = {
   "limpar": "clear",
   "filtrar por esta atividade": "filter by this activity",
   "editar bloco": "edit block",
+  "adicionar nota…": "add a note…",
   "iniciado": "started",
   "retomado": "resumed",
   "pausa": "paused",

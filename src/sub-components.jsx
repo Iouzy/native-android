@@ -292,7 +292,7 @@ function Chip({ label, active, muted, accentColor, onClick }) {
 
 // ─── TIMELINE ───────────────────────────────────────────────
 // Groups consecutive events by block. Shows start/pause/resume/conclude markers.
-function Timeline({ events, accentColor, onFilterBlock, onEditBlock }) {
+function Timeline({ events, accentColor, onFilterBlock, onEditBlock, onEditNote }) {
   // We render each event as a row.
   // Adjacent events from same block visually share the vertical rail with a dotted continuation.
   return (
@@ -311,6 +311,7 @@ function Timeline({ events, accentColor, onFilterBlock, onEditBlock }) {
             connectUp={sameBlockPrev}
             onFilter={() => onFilterBlock(e.blockId, e.block.title)}
             onEdit={() => onEditBlock(e.blockId)}
+            onEditNote={onEditNote}
           />
         );
       })}
@@ -318,7 +319,7 @@ function Timeline({ events, accentColor, onFilterBlock, onEditBlock }) {
   );
 }
 
-function TimelineRow({ event, accentColor, isLast, connectDown, connectUp, onFilter, onEdit }) {
+function TimelineRow({ event, accentColor, isLast, connectDown, connectUp, onFilter, onEdit, onEditNote }) {
   const { kind, time, block, segment, sessionIdx } = event;
   const isResumed = kind === "resume";
   const isPaused = kind === "pause";
@@ -415,7 +416,24 @@ function TimelineRow({ event, accentColor, isLast, connectDown, connectUp, onFil
             {tr("em curso")}
           </div>
         )}
-        {isPaused && segment.note && (
+        {/* Pause notes: tap-to-edit when an editor is wired (live Pauta tab),
+            read-only otherwise (history view). / Nota da pausa, editável. */}
+        {isPaused && onEditNote && (
+          <div style={{ marginTop: 6 }}>
+            <EditableText
+              value={segment.note || ""}
+              onChange={text => onEditNote(event.blockId, sessionIdx, text)}
+              placeholder={tr("adicionar nota…")}
+              multiline
+              style={{
+                display: "block",
+                fontFamily: "var(--serif)", fontStyle: "italic",
+                fontSize: 13, color: "var(--ink-2)", lineHeight: 1.4,
+              }}
+            />
+          </div>
+        )}
+        {isPaused && !onEditNote && segment.note && (
           <div style={{
             marginTop: 6, fontFamily: "var(--serif)", fontStyle: "italic",
             fontSize: 13, color: "var(--ink-2)", lineHeight: 1.4,
