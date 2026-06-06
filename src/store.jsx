@@ -433,7 +433,13 @@ function emptyState() {
     prefs: defaultPrefs(),
   };
 }
-function saveState(s) { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); } catch (e) {} }
+// Returns true on success, false if the write failed (e.g. QuotaExceededError).
+// Stays synchronous so the persist effect and tests can read the result. /
+// Devolve true se gravou, false se falhou (ex.: quota cheia).
+function saveState(s) {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); return true; }
+  catch (e) { return false; }
+}
 
 // ─── EXPORT / IMPORT ───────────────────────────────────────
 // Backup file shape: { app:"pauta", version, exportedAt, data:<state> }.
@@ -1097,14 +1103,37 @@ function weeklyReview(state, endKey = dayKeyOf(Date.now()), now = Date.now()) {
     if (day && day.intentions) { intTotal += day.intentions.length; intDone += day.intentions.filter(i => i.done).length; }
   }
 
-  // Habits: done-day count + how many distinct habits were active.
+  // Habits: cadence-aware completion count over the window. Daily tides count
+  // one slot per active day; weekly/monthly tides are completed once per period,
+  // so each period overlapping the window counts ONCE (judged by its period-wide
+  // mark), mirroring habitPeriodStats. Counting every active day for a periodic
+  // tide would under-report it (1/1 week scored as 1-of-7). /
+  // Contagem ciente da cadência: marés diárias contam um slot por dia activo;
+  // semanais/mensais contam cada período uma vez (marca do período), como
+  // habitPeriodStats — senão uma maré semanal feita 1/1 ficaria 1-em-7.
   let habitDone = 0, habitObservedSlots = 0, respiros = 0;
   for (const h of habits) {
-    for (const k of days) {
-      if (!habitIsActiveOn(h, k)) continue;
-      habitObservedSlots++;
-      if (h.log && h.log[k]) habitDone++;
-      else if (h.respiros && h.respiros[k]) respiros++;
+    if (habitCadence(h) === "daily") {
+      for (const k of days) {
+        if (!habitIsActiveOn(h, k)) continue;
+        habitObservedSlots++;
+        if (h.log && h.log[k]) habitDone++;
+        else if (h.respiros && h.respiros[k]) respiros++;
+      }
+    } else {
+      // Weekly/monthly: each period overlapping the 7-day window counts once,
+      // deduped by its start key, judged by its period-wide mark (done/respiro).
+      const seen = new Set();
+      for (const k of days) {
+        if (!habitIsActiveOn(h, k)) continue;
+        const { start } = periodRange(h, k);
+        if (seen.has(start)) continue;
+        seen.add(start);
+        habitObservedSlots++;
+        const mark = habitPeriodMark(h, k);
+        if (mark.kind === "done") habitDone++;
+        else if (mark.kind === "respiro") respiros++;
+      }
     }
   }
   const habitPct = (habitObservedSlots - respiros) > 0
@@ -1137,7 +1166,38 @@ function prevWeeklyReview(state, endKey = dayKeyOf(Date.now()), now = Date.now()
 // ─── HOOK ────────────────────────────────────────────────
 function useStore() {
   const [state, setState] = useState(loadState);
-  useEffect(() => { saveState(state); }, [state]);
+  // True when the last persist attempt failed (e.g. localStorage quota full).
+  // The app surfaces a banner offering an export so data isn't silently lost. /
+  // Verdadeiro quando a última gravação falhou (ex.: quota cheia).
+  const [saveError, setSaveError] = useState(false);
+
+  // Latest state, readable from the synchronous hide-flush below without
+  // re-subscribing the listener on every change. / Estado mais recente.
+  const stateRef = useRef(state);
+  useEffect(() => { stateRef.current = state; }, [state]);
+
+  // Persist is debounced: rapid edits coalesce into one JSON.stringify+write
+  // instead of one per keystroke (less main-thread jank, less quota churn). /
+  // Gravação com debounce: edições rápidas juntam-se numa só escrita.
+  const saveTimer = useRef(0);
+  useEffect(() => {
+    clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => setSaveError(!saveState(state)), 400);
+    return () => clearTimeout(saveTimer.current);
+  }, [state]);
+
+  // Flush immediately when the page is hidden/closed so an app-switch within the
+  // debounce window never drops the last edit. / Grava já ao esconder/fechar.
+  useEffect(() => {
+    const flush = () => setSaveError(!saveState(stateRef.current));
+    const onVis = () => { if (document.hidden) flush(); };
+    window.addEventListener("pagehide", flush);
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      window.removeEventListener("pagehide", flush);
+      document.removeEventListener("visibilitychange", onVis);
+    };
+  }, []);
 
   const activeBlock = useMemo(() =>
     state.activeId ? state.blocks.find(b => b.id === state.activeId) : null,
@@ -1515,6 +1575,8 @@ function useStore() {
     resetAll, reseed, clearForOnboarding,
     // backup
     exportData, importData, serializeBackup,
+    // persistence health
+    saveError, dismissSaveError: () => setSaveError(false),
   };
 }
 

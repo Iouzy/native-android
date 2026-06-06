@@ -214,6 +214,11 @@ const I18N_EN = {
   "Cópia e atualizar": "Back up & update",
   "Só atualizar": "Just update",
 
+  // ─── Save-error banner (quota full / write failed) ───
+  "Não foi possível guardar — exporte uma cópia de segurança.": "Couldn't save your data — export a backup.",
+  "Exportar": "Export",
+  "Dispensar": "Dismiss",
+
   // ─── Cloud share ───
   "Enviar para a nuvem": "Send to the cloud",
   "Partilha a cópia para o Drive, Dropbox, Ficheiros…": "Share the copy to Drive, Dropbox, Files…",
