@@ -153,7 +153,7 @@ function TabMares({ store, accentColor }) {
               year={view.y}
               monthIdx={view.m}
               todayTs={now}
-              accentColor={accentColor}
+              accentColor={h.color || accentColor}
               draggable={visibleHabits.length > 1}
               dragging={dragId === h.id}
               onDragStart={(e) => startDrag(e, h.id)}
