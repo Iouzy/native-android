@@ -492,6 +492,10 @@ function DataSheet({ open, onClose, store, accentColor, onOpenInsights, onOpenTi
             title={tr("Exportar dados")}
             subtitle={tr("Transfere um ficheiro .json com tudo.")}
             onClick={onExport}/>
+          <DataAction icon={<Icon.Download size={16}/>} accentColor={accentColor}
+            title={tr("Exportar CSV")}
+            subtitle={tr("Folha de cálculo: intenções, blocos e marés.")}
+            onClick={() => store.exportCSV()}/>
           <DataAction icon={<Icon.Upload size={16}/>} accentColor={accentColor}
             title={tr("Importar dados")}
             subtitle={tr("Restaura a partir de um ficheiro .json.")}
