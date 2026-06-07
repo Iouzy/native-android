@@ -1479,6 +1479,29 @@ function habitActionableToday(h, todayTs = Date.now()) {
   return habitDayStatus(h, dayKeyOf(todayTs));
 }
 
+// Build a completed focus block from a manual time entry (the user forgot to run
+// the timer). startTs/endTs are absolute ms; a single closed session carries the
+// time so every timeline/stat reads it like any other block. Returns null on bad
+// input (no title, or a non-positive span). / Bloco concluído de registo manual.
+function buildManualBlock(opts = {}) {
+  const title = (opts.title || "").trim();
+  const startTs = Number(opts.startTs);
+  const endTs = Number(opts.endTs);
+  if (!title) return null;
+  if (!Number.isFinite(startTs) || !Number.isFinite(endTs) || endTs <= startTs) return null;
+  return {
+    id: uid("b_"),
+    title,
+    linkedToId: typeof opts.linkedToId === "string" ? opts.linkedToId : null,
+    project: (opts.project || "").trim() || null,
+    targetMs: null,
+    sessions: [{ startedAt: startTs, endedAt: endTs, note: (opts.note || "").trim() }],
+    status: "done",
+    reflection: (opts.reflection || "").trim(),
+    createdAt: startTs,
+  };
+}
+
 // ─── HOOK ────────────────────────────────────────────────
 function useStore() {
   const [state, setState] = useState(loadState);
@@ -1661,6 +1684,13 @@ function useStore() {
     } : b)
   }));
   const deleteBlock = (id) => setState(s => ({ ...s, blocks: s.blocks.filter(b => b.id !== id), activeId: s.activeId === id ? null : s.activeId }));
+  // Log a past focus block from a manual time entry (forgot to run the timer).
+  const addManualBlock = (opts) => {
+    const b = buildManualBlock(opts);
+    if (!b) return null;
+    setState(s => ({ ...s, blocks: [...s.blocks, b] }));
+    return b.id;
+  };
 
   // ─ Marés ─
   // Toggle a specific day's "done" state. No-op if outside habit window.
@@ -1939,7 +1969,7 @@ function useStore() {
     addRoutine, removeRoutine, applyRoutine, saveRoutineFromToday,
     // pauta
     startBlock, pauseActive, resumeBlock, concludeActive, concludeBlock,
-    updateBlock, updateSessionNote, deleteBlock,
+    updateBlock, updateSessionNote, deleteBlock, addManualBlock,
     // marés
     toggleHabitToday, toggleHabitDay, markRespiro, markRespiroRange, unmarkRespiro,
     addHabit, removeHabit, updateHabit, reorderHabits, setHabitCount, incHabitDay,
@@ -1972,7 +2002,7 @@ Object.assign(window, {
   fmtClock, fmtDuration, fmtDateLong, fmtDateShort, fmtMonthYear, fmtMonthShort, fmtMonthLong,
   dayKeyOf, dayKeyFromYMD, tsFromDayKey, monthKeyOf, daysInMonth, daysBetween, addDaysToKey,
   pad, uid,
-  buildTimeline, blockFocusMs, dailyFocusMs, dailyBlockCount, blocksAllDays, pastDayKeys,
+  buildTimeline, blockFocusMs, dailyFocusMs, dailyBlockCount, blocksAllDays, pastDayKeys, buildManualBlock,
   // prefs / goals / insights
   defaultPrefs, mergePrefs, quarterOf, quarterLabel, nextQuarter, prevQuarter,
   focusByHour, bestHourStats, habitFocusCorrelation, weeklyReview, prevWeeklyReview, narrativeStats, yearReview,
