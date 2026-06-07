@@ -268,6 +268,21 @@ const I18N_EN = {
   "maré ligada": "linked tide",
   "nenhuma": "none",
 
+  // ─── Year in review (Retrospetiva) ───
+  "Retrospetiva": "Year in review",
+  "Retrospetiva do ano": "Year in review",
+  "Os números do ano — e um cartaz para partilhar.": "The year in numbers — and a poster to share.",
+  "ano anterior": "previous year",
+  "ano seguinte": "next year",
+  "dias com foco": "days with focus",
+  "dias de maré": "tide-days",
+  "Maré do ano:": "Tide of the year:",
+  "({n} dias).": "({n} days).",
+  "Melhor sequência: {n} dias.": "Best run: {n} days.",
+  "Partilhar o ano": "Share the year",
+  "em foco este ano": "in focus this year",
+  "dias de maré cumpridos": "tide-days kept",
+
   // ─── Accessibility ───
   "Acessibilidade": "Accessibility",
   "Alto contraste": "High contrast",

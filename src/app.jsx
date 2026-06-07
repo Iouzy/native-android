@@ -261,7 +261,7 @@ function UpdateChecker({ accentColor, store }) {
 
 // ─── DATA / SETTINGS SHEET ──────────────────────────────────
 // User-facing home for analysis, preferences, reminders, backup, install, reset.
-function DataSheet({ open, onClose, store, accentColor, onOpenInsights, onOpenTierGuide }) {
+function DataSheet({ open, onClose, store, accentColor, onOpenInsights, onOpenTierGuide, onOpenYearReview }) {
   const fileRef = useRef(null);
   const [msg, setMsg] = useState(null); // { kind:"ok"|"err", text }
   const [canInstall, setCanInstall] = useState(!!window.PAUTA_DEFERRED_INSTALL);
@@ -387,6 +387,11 @@ function DataSheet({ open, onClose, store, accentColor, onOpenInsights, onOpenTi
             title={tr("Revisão semanal")}
             subtitle={tr("Foco, hábitos e padrões dos últimos 7 dias.")}
             onClick={() => { onClose(); onOpenInsights && onOpenInsights(); }}/>
+          <DataAction accentColor={accentColor}
+            icon={<Icon.Upload size={16}/>}
+            title={tr("Retrospetiva do ano")}
+            subtitle={tr("Os números do ano — e um cartaz para partilhar.")}
+            onClick={() => { onClose(); onOpenYearReview && onOpenYearReview(); }}/>
           <DataAction accentColor={accentColor}
             icon={<Icon.Info size={16}/>}
             title={tr("Como funcionam as marés")}
@@ -1067,6 +1072,7 @@ function App() {
   const [pautaFilter, setPautaFilter] = useState(null); // { kind, id, label }
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [insightsOpen, setInsightsOpen] = useState(false);
+  const [yearReviewOpen, setYearReviewOpen] = useState(false);
   const [tierGuideOpen, setTierGuideOpen] = useState(false);
   // App lock: start locked when a PIN exists; re-lock after a long background. /
   // Bloqueio: arranca bloqueado se houver PIN; re-bloqueia após pausa longa.
@@ -1260,8 +1266,11 @@ function App() {
       <DataSheet open={settingsOpen} onClose={() => setSettingsOpen(false)}
         store={store} accentColor={accentColor}
         onOpenInsights={() => setInsightsOpen(true)}
-        onOpenTierGuide={() => setTierGuideOpen(true)}/>
+        onOpenTierGuide={() => setTierGuideOpen(true)}
+        onOpenYearReview={() => setYearReviewOpen(true)}/>
       <InsightsSheet open={insightsOpen} onClose={() => setInsightsOpen(false)}
+        store={store} accentColor={accentColor}/>
+      <YearReviewSheet open={yearReviewOpen} onClose={() => setYearReviewOpen(false)}
         store={store} accentColor={accentColor}/>
       <TierGuideSheet open={tierGuideOpen} onClose={() => setTierGuideOpen(false)}
         accentColor={accentColor}/>
