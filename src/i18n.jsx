@@ -263,6 +263,10 @@ const I18N_EN = {
 
   // ─── Pauta: conclude → plan-vs-actual + fulfil a tide ───
   "Planeado {p} · real {a}": "Planned {p} · actual {a}",
+
+  // ─── Hoje: goal ↔ tide link (living pulse) ───
+  "maré ligada": "linked tide",
+  "nenhuma": "none",
 };
 
 // === I18N_EN_BULK_BEGIN === (entries collected from the rest of the app)

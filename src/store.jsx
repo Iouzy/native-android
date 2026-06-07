@@ -689,6 +689,10 @@ function sanitizeGoal(g) {
     done: !!g.done,
     quarter: typeof g.quarter === "string" ? g.quarter : quarterOf(Date.now()),
     milestones: asArray(g.milestones).map(sanitizeMilestone).filter(Boolean),
+    // Optional link to a tide (Marés): the goal shows that tide's live pulse
+    // (streak + this-month %). A dangling id just renders no pulse. /
+    // Ligação opcional a uma maré — mostra o pulso dessa maré na meta.
+    habitId: typeof g.habitId === "string" ? g.habitId : null,
     createdAt: finiteOr(g.createdAt, Date.now()),
   };
 }
