@@ -600,3 +600,64 @@ function EditBlockSheet({ open, onClose, block, onUpdateBlock, onUpdateSessionNo
     </Sheet>
   );
 }
+
+// ─── MANUAL BLOCK SHEET (log past focus) ─────────────────────
+// Record a focus block you forgot to time: what + date + start + duration. The
+// store turns it into a normal completed block (single closed session). /
+// Registar à mão um bloco de foco que não foi cronometrado.
+function ManualBlockSheet({ open, onClose, onAdd, accentColor }) {
+  const [title, setTitle] = useState("");
+  const [date, setDate] = useState("");
+  const [start, setStart] = useState("");
+  const [dur, setDur] = useState("");
+  useEffect(() => {
+    if (open) {
+      setTitle(""); setStart(""); setDur("");
+      const d = new Date();
+      setDate(d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()));
+    }
+  }, [open]);
+  const minutes = parseInt(dur, 10);
+  const ready = !!title.trim() && !!date && !!start && Number.isFinite(minutes) && minutes > 0;
+  const submit = () => {
+    if (!ready) return;
+    const [y, m, dd] = date.split("-").map(Number);
+    const [hh, mm] = start.split(":").map(Number);
+    const startTs = new Date(y, (m || 1) - 1, dd || 1, hh || 0, mm || 0, 0, 0).getTime();
+    onAdd({ title: title.trim(), startTs, endTs: startTs + minutes * 60000 });
+    onClose();
+  };
+  const field = { width: "100%", border: "1px solid var(--rule)", background: "var(--paper-2)", borderRadius: 10, padding: "11px 13px", fontSize: 15, color: "var(--ink)", fontFamily: "var(--sans)" };
+  const lbl = { fontFamily: "var(--mono)", fontSize: 9, letterSpacing: "0.16em", textTransform: "uppercase", color: "var(--ink-3)", marginBottom: 6 };
+  return (
+    <Sheet open={open} onClose={onClose} title={tr("Registar tempo")}>
+      <div style={{ padding: "0 24px 8px", display: "flex", flexDirection: "column", gap: 14 }}>
+        <div style={{ fontFamily: "var(--serif)", fontStyle: "italic", fontSize: 13, color: "var(--ink-3)" }}>
+          {tr("Esqueceu-se de iniciar o cronómetro? Registe o bloco à mão.")}
+        </div>
+        <div>
+          <div style={lbl}>{tr("O quê")}</div>
+          <input autoFocus value={title} onChange={e => setTitle(e.target.value)} placeholder={tr("ex.: leitura")} style={field}/>
+        </div>
+        <div style={{ display: "flex", gap: 10 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={lbl}>{tr("Data")}</div>
+            <input type="date" value={date} onChange={e => setDate(e.target.value)} style={field}/>
+          </div>
+          <div style={{ width: 116, flexShrink: 0 }}>
+            <div style={lbl}>{tr("Início")}</div>
+            <input type="time" value={start} onChange={e => setStart(e.target.value)} style={field}/>
+          </div>
+        </div>
+        <div>
+          <div style={lbl}>{tr("Duração (min)")}</div>
+          <input type="number" min="1" max="1440" inputMode="numeric" value={dur} onChange={e => setDur(e.target.value)} placeholder="45" style={{ ...field, width: 120 }}/>
+        </div>
+        <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
+          <Button variant="ghost" onClick={onClose} style={{ flex: 1 }}>{tr("Cancelar")}</Button>
+          <Button onClick={submit} accentColor={accentColor} disabled={!ready} style={{ flex: 2 }}>{tr("Adicionar")}</Button>
+        </div>
+      </div>
+    </Sheet>
+  );
+}

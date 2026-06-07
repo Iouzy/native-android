@@ -264,6 +264,17 @@ const I18N_EN = {
   // ─── Pauta: conclude → plan-vs-actual + fulfil a tide ───
   "Planeado {p} · real {a}": "Planned {p} · actual {a}",
 
+  // ─── Pauta: manual / retroactive block ───
+  "Registar tempo": "Log time",
+  "registar": "log",
+  "registar um bloco passado": "log a past block",
+  "Esqueceu-se de iniciar o cronómetro? Registe o bloco à mão.": "Forgot to start the timer? Log the block by hand.",
+  "O quê": "What",
+  "ex.: leitura": "e.g. reading",
+  "Data": "Date",
+  "Início": "Start",
+  "Duração (min)": "Duration (min)",
+
   // ─── Hoje: goal ↔ tide link (living pulse) ───
   "maré ligada": "linked tide",
   "nenhuma": "none",

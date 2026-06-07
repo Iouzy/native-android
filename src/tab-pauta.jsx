@@ -1,7 +1,7 @@
 // Tab: PAUTA — bloco ativo + linha temporal com ciclo de vida + filtro
 
 function TabPauta({ store, accentColor, showElapsed, filter, setFilter, pendingIntention, clearPending, pendingStart, clearPendingStart, pendingSwitch, clearPendingSwitch, pendingStartBlank, clearPendingStartBlank }) {
-  const { state, activeBlock, startBlock, pauseActive, resumeBlock, concludeActive, concludeBlock, updateBlock, updateSessionNote, deleteBlock, toggleHabitToday } = store;
+  const { state, activeBlock, startBlock, pauseActive, resumeBlock, concludeActive, concludeBlock, updateBlock, updateSessionNote, deleteBlock, toggleHabitToday, addManualBlock } = store;
   const { today, blocks } = state;
 
   // ─ Sheets state ─
@@ -11,6 +11,7 @@ function TabPauta({ store, accentColor, showElapsed, filter, setFilter, pendingI
   const [sheetSwitch, setSheetSwitch] = useState(false);
   const [sheetEdit, setSheetEdit] = useState(null); // blockId
   const [sheetHistory, setSheetHistory] = useState(false);
+  const [sheetManual, setSheetManual] = useState(false); // log a past focus block
   // `filter` is lifted to App (see app.jsx) so it survives the tab unmount on
   // switch; { kind:"block"|"intention"|"project", id, label }. /
   // O filtro vem do App para sobreviver à troca de separador.
@@ -184,16 +185,27 @@ function TabPauta({ store, accentColor, showElapsed, filter, setFilter, pendingI
               {distinctBlockCount} {distinctBlockCount === 1 ? tr("bloco") : tr("blocos")}. <em style={{ color: accentColor }}>{fmtDuration(totalFocus)}</em> {tr("em foco.")}
             </h1>
           </div>
-          <button onClick={() => setSheetHistory(true)} className="tap" title={tr("ver pautas anteriores")}
-            style={{
-              border: "1px solid var(--rule)", background: "transparent",
-              borderRadius: 8, padding: "6px 10px",
-              fontFamily: "var(--mono)", fontSize: 9, letterSpacing: "0.14em",
-              textTransform: "uppercase", color: "var(--ink-3)",
-              cursor: "pointer", flexShrink: 0, marginTop: 2,
-            }}>
-            {tr("histórico")} ↗
-          </button>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8, flexShrink: 0, marginTop: 2 }}>
+            <button onClick={() => setSheetHistory(true)} className="tap" title={tr("ver pautas anteriores")}
+              style={{
+                border: "1px solid var(--rule)", background: "transparent",
+                borderRadius: 8, padding: "6px 10px",
+                fontFamily: "var(--mono)", fontSize: 9, letterSpacing: "0.14em",
+                textTransform: "uppercase", color: "var(--ink-3)", cursor: "pointer",
+              }}>
+              {tr("histórico")} ↗
+            </button>
+            <button onClick={() => setSheetManual(true)} className="tap" title={tr("registar um bloco passado")}
+              style={{
+                border: "1px solid var(--rule)", background: "transparent",
+                borderRadius: 8, padding: "6px 9px",
+                fontFamily: "var(--mono)", fontSize: 9, letterSpacing: "0.14em",
+                textTransform: "uppercase", color: "var(--ink-3)", cursor: "pointer",
+                display: "inline-flex", alignItems: "center", gap: 5,
+              }}>
+              <Icon.Plus size={10}/> {tr("registar")}
+            </button>
+          </div>
         </div>
 
         {/* Active block */}
@@ -380,6 +392,11 @@ function TabPauta({ store, accentColor, showElapsed, filter, setFilter, pendingI
       <PautaHistorySheet
         open={sheetHistory} onClose={() => setSheetHistory(false)}
         blocks={blocks}
+        accentColor={accentColor}
+      />
+      <ManualBlockSheet
+        open={sheetManual} onClose={() => setSheetManual(false)}
+        onAdd={addManualBlock}
         accentColor={accentColor}
       />
 
