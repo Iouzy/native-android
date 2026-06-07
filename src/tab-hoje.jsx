@@ -1,9 +1,10 @@
 // Tab: HOJE — intenções do dia + reflexão noturna
 
 function TabHoje({ store, accentColor, onJumpToPauta, onOpenInsights }) {
-  const { state, addIntention, updateIntention, toggleIntention, removeIntention, setReflection, setDayReflection, carryOverIntentions, toggleHabitToday, incHabitDay, applyRoutine, removeRoutine, saveRoutineFromToday } = store;
+  const { state, addIntention, updateIntention, toggleIntention, removeIntention, setReflection, setDayReflection, carryOverIntentions, toggleHabitToday, incHabitDay, applyRoutine, removeRoutine, saveRoutineFromToday, addPlannedIntention, removePlannedIntention } = store;
   const { today, blocks, habits } = state;
   const routines = state.routines || [];
+  const plans = state.plans || {};
 
   // Unfinished intentions from the most recent archived day — offered as a
   // one-tap carry-over so momentum survives the midnight rollover.
@@ -25,6 +26,7 @@ function TabHoje({ store, accentColor, onJumpToPauta, onOpenInsights }) {
   const [historyDayKey, setHistoryDayKey] = useState(null);
   const [savingRoutine, setSavingRoutine] = useState(false);
   const [routineName, setRoutineName] = useState("");
+  const [weekOpen, setWeekOpen] = useState(false);
 
   const totalFocusToday = useMemo(() => {
     const key = dayKeyOf(Date.now());
@@ -156,6 +158,15 @@ function TabHoje({ store, accentColor, onJumpToPauta, onOpenInsights }) {
               textTransform: "uppercase", color: "var(--ink-3)", cursor: "pointer",
             }}>
             {tr("dias anteriores")} ↗
+          </button>
+          <button onClick={() => setWeekOpen(true)} className="tap" title={tr("planear a semana")}
+            style={{
+              border: "1px solid var(--rule)", background: "transparent",
+              borderRadius: 8, padding: "6px 10px",
+              fontFamily: "var(--mono)", fontSize: 9, letterSpacing: "0.14em",
+              textTransform: "uppercase", color: "var(--ink-3)", cursor: "pointer",
+            }}>
+            {tr("a semana")} ↗
           </button>
           <button onClick={shareDay} className="tap" title={tr("partilhar o dia")} aria-label={tr("partilhar o dia")}
             style={{
@@ -430,6 +441,15 @@ function TabHoje({ store, accentColor, onJumpToPauta, onOpenInsights }) {
         openedDayKey={historyDayKey}
         onOpenDay={setHistoryDayKey}
         setDayReflection={setDayReflection}
+        accentColor={accentColor}
+      />
+
+      <WeekAheadSheet
+        open={weekOpen}
+        onClose={() => setWeekOpen(false)}
+        plans={plans}
+        onAdd={addPlannedIntention}
+        onRemove={removePlannedIntention}
         accentColor={accentColor}
       />
     </div>
@@ -1148,6 +1168,58 @@ function TodayTideRow({ tide, last, accentColor, onAct }) {
       style={{ ...base, border: "none", background: "transparent", cursor: "pointer", color: "inherit" }}>
       {inner}
     </button>
+  );
+}
+
+// ─── Week-ahead planner ─────────────────────────────────────
+// Plan intentions for the next 7 days. Plans live in their own store map
+// (state.plans) and become a day's intentions when it arrives (rollOverDay). /
+// Planear os próximos 7 dias.
+function PlanDayRow({ dayKey, items, onAdd, onRemove }) {
+  const [text, setText] = useState("");
+  const add = () => { const t = text.trim(); if (t) { onAdd(dayKey, t); setText(""); if (window.haptic) window.haptic(6); } };
+  return (
+    <div style={{ marginBottom: 18 }}>
+      <div style={{ fontFamily: "var(--mono)", fontSize: 9, letterSpacing: "0.16em", textTransform: "uppercase", color: "var(--ink-3)", marginBottom: 8 }}>
+        {fmtDateLong(tsFromDayKey(dayKey))}
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        {(items || []).map(it => (
+          <div key={it.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", background: "var(--paper-2)", border: "1px solid var(--rule)", borderRadius: 10 }}>
+            <span style={{ flex: 1, minWidth: 0, fontSize: 14, color: "var(--ink)" }}>{it.text}</span>
+            <button onClick={() => onRemove(dayKey, it.id)} className="tap" title={tr("remover")} aria-label={tr("remover")}
+              style={{ border: "none", background: "transparent", color: "var(--ink-4)", cursor: "pointer", padding: 2, display: "flex" }}>
+              <Icon.X size={12}/>
+            </button>
+          </div>
+        ))}
+        <input value={text} onChange={e => setText(e.target.value)}
+          onKeyDown={e => { if (e.key === "Enter") add(); if (e.key === "Escape") setText(""); }}
+          onBlur={add}
+          placeholder={tr("planear intenção…")}
+          style={{ border: "1px dashed var(--rule)", background: "transparent", borderRadius: 10, padding: "9px 12px", fontSize: 14, color: "var(--ink)", fontFamily: "var(--sans)" }}/>
+      </div>
+    </div>
+  );
+}
+
+function WeekAheadSheet({ open, onClose, plans, onAdd, onRemove, accentColor }) {
+  if (!open) return null;
+  const todayKey = dayKeyOf(Date.now());
+  const days = [];
+  for (let i = 1; i <= 7; i++) days.push(addDaysToKey(todayKey, i));
+  return (
+    <Sheet open={open} onClose={onClose} title={tr("A semana")}>
+      <div style={{ padding: "8px 24px 24px" }}>
+        <div style={{ fontFamily: "var(--serif)", fontStyle: "italic", fontSize: 13, color: "var(--ink-3)", marginBottom: 16, lineHeight: 1.45 }}>
+          {tr("Deixe preparado o que importa nos próximos dias. Cada plano vira as intenções desse dia quando ele chegar.")}
+        </div>
+        {days.map(k => (
+          <PlanDayRow key={k} dayKey={k} items={(plans[k] && plans[k].intentions) || []}
+            onAdd={onAdd} onRemove={onRemove}/>
+        ))}
+      </div>
+    </Sheet>
   );
 }
 

@@ -279,6 +279,13 @@ const I18N_EN = {
   "maré ligada": "linked tide",
   "nenhuma": "none",
 
+  // ─── Hoje: week-ahead planner ───
+  "a semana": "the week",
+  "A semana": "The week",
+  "planear a semana": "plan the week",
+  "planear intenção…": "plan an intention…",
+  "Deixe preparado o que importa nos próximos dias. Cada plano vira as intenções desse dia quando ele chegar.": "Set up what matters over the next days. Each plan becomes that day's intentions when it arrives.",
+
   // ─── Hoje: time-of-day grouping ───
   "tarde": "afternoon",
   "sem hora": "no time",
