@@ -20,6 +20,7 @@ function TabHoje({ store, accentColor, onJumpToPauta, onOpenInsights }) {
   const [newText, setNewText] = useState("");
   const [newPriority, setNewPriority] = useState(2); // default to "média"
   const [newTarget, setNewTarget] = useState(""); // minutes as a free string; "" = none
+  const [newWhen, setNewWhen] = useState(null); // null | "manha" | "tarde" | "noite"
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyDayKey, setHistoryDayKey] = useState(null);
   const [savingRoutine, setSavingRoutine] = useState(false);
@@ -98,13 +99,14 @@ function TabHoje({ store, accentColor, onJumpToPauta, onOpenInsights }) {
     if (window.haptic) window.haptic(8);
   };
 
-  const resetForm = () => { setNewText(""); setNewPriority(2); setNewTarget(""); setAdding(false); };
+  const resetForm = () => { setNewText(""); setNewPriority(2); setNewTarget(""); setNewWhen(null); setAdding(false); };
   const commitNew = () => {
     if (newText.trim()) {
       const tm = parseInt(newTarget, 10);
       addIntention(newText, {
         priority: newPriority,
         targetMin: Number.isFinite(tm) && tm > 0 ? tm : null,
+        when: newWhen || undefined,
       });
     }
     resetForm();
@@ -175,6 +177,7 @@ function TabHoje({ store, accentColor, onJumpToPauta, onOpenInsights }) {
           text={newText} onText={setNewText}
           priority={newPriority} onPriority={setNewPriority}
           target={newTarget} onTarget={setNewTarget}
+          when={newWhen} onWhen={setNewWhen}
           onCommit={commitNew} onCancel={resetForm}
           accentColor={accentColor}
         />
@@ -216,8 +219,11 @@ function TabHoje({ store, accentColor, onJumpToPauta, onOpenInsights }) {
         </div>
       )}
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-        {displayIntentions.map((it) => (
+      {(() => {
+        // Render one row. Grouped by time-of-day only when at least one intention
+        // has a `when` set — otherwise a flat list, unchanged. Priority order is
+        // preserved within each group. / Agrupa por período só quando há horas.
+        const renderRow = (it) => (
           <IntentionRow
             key={it.id}
             intention={it}
@@ -227,11 +233,30 @@ function TabHoje({ store, accentColor, onJumpToPauta, onOpenInsights }) {
             onRemove={() => removeIntention(it.id)}
             onSetPriority={v => updateIntention(it.id, { priority: v })}
             onSetTarget={v => updateIntention(it.id, { targetMin: v })}
+            onSetWhen={v => updateIntention(it.id, { when: v || undefined })}
             onStart={() => onJumpToPauta && onJumpToPauta({ intention: it, start: true })}
             accentColor={accentColor}
           />
-        ))}
-      </div>
+        );
+        if (!displayIntentions.some(it => it.when)) {
+          return <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>{displayIntentions.map(renderRow)}</div>;
+        }
+        const groups = [["manha", tr("manhã")], ["tarde", tr("tarde")], ["noite", tr("noite")], [null, tr("sem hora")]];
+        return (
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            {groups.map(([key, label]) => {
+              const items = displayIntentions.filter(it => (it.when || null) === key);
+              if (items.length === 0) return null;
+              return (
+                <div key={key || "none"}>
+                  <div style={{ fontFamily: "var(--mono)", fontSize: 9, letterSpacing: "0.18em", textTransform: "uppercase", color: "var(--ink-4)", marginBottom: 4 }}>{label}</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>{items.map(renderRow)}</div>
+                </div>
+              );
+            })}
+          </div>
+        );
+      })()}
 
       {/* Carry-over — now at the BOTTOM (swapped with the add button). Always
           available when the previous day left unfinished intentions, not just
@@ -795,7 +820,36 @@ function DurationField({ value, onChange }) {
   );
 }
 
-function IntentionForm({ text, onText, priority, onPriority, target, onTarget, onCommit, onCancel, accentColor }) {
+// Time-of-day options for the Hoje intention selector/chip. null = unspecified.
+const WHEN_OPTS = [
+  { value: null, label: "—" },
+  { value: "manha", label: "manhã" },
+  { value: "tarde", label: "tarde" },
+  { value: "noite", label: "noite" },
+];
+function WhenSelect({ value, onSet, accentColor }) {
+  return (
+    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+      {WHEN_OPTS.map(opt => {
+        const active = (value || null) === opt.value;
+        return (
+          <button key={String(opt.value)} onClick={() => onSet(opt.value)} className="tap"
+            style={{
+              border: `1px solid ${active ? accentColor + "55" : "var(--rule)"}`,
+              background: active ? accentColor + "14" : "transparent",
+              borderRadius: 999, padding: "7px 13px", cursor: "pointer",
+              fontFamily: "var(--mono)", fontSize: 11, letterSpacing: "0.04em",
+              color: active ? accentColor : "var(--ink-3)", fontWeight: active ? 600 : 400, whiteSpace: "nowrap",
+            }}>
+            {opt.value ? tr(opt.label) : opt.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function IntentionForm({ text, onText, priority, onPriority, target, onTarget, when, onWhen, onCommit, onCancel, accentColor }) {
   const ready = !!text.trim();
   return (
     <div style={{
@@ -820,6 +874,10 @@ function IntentionForm({ text, onText, priority, onPriority, target, onTarget, o
       <div style={{ marginTop: 14 }}>
         <FieldLabel>{tr("duração (opcional)")}</FieldLabel>
         <DurationField value={target} onChange={onTarget}/>
+      </div>
+      <div style={{ marginTop: 14 }}>
+        <FieldLabel>{tr("quando (opcional)")}</FieldLabel>
+        <WhenSelect value={when} onSet={onWhen} accentColor={accentColor}/>
       </div>
       <div style={{ marginTop: 18, display: "flex", justifyContent: "flex-end", gap: 8 }}>
         <button onClick={onCancel} className="tap"
@@ -942,7 +1000,43 @@ function PriorityChip({ priority, accentColor, onSet }) {
   );
 }
 
-function IntentionRow({ intention, focusMs, onToggle, onChange, onRemove, onSetPriority, onSetTarget, onStart, accentColor }) {
+function WhenChip({ when, accentColor, onSet }) {
+  const [open, setOpen] = useState(false);
+  const cur = WHEN_OPTS.find(o => o.value === (when || null)) || WHEN_OPTS[0];
+  const chipBase = {
+    border: "1px solid var(--rule)", background: "transparent",
+    borderRadius: 999, padding: "6px 11px", cursor: "pointer",
+    fontFamily: "var(--mono)", fontSize: 10, letterSpacing: "0.04em",
+    display: "inline-flex", alignItems: "center", gap: 5, whiteSpace: "nowrap",
+  };
+  if (open) {
+    return (
+      <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+        {WHEN_OPTS.map(opt => {
+          const active = (when || null) === opt.value;
+          return (
+            <button key={String(opt.value)} onMouseDown={(e) => e.preventDefault()}
+              onClick={() => { onSet(opt.value); setOpen(false); }} className="tap"
+              style={{ ...chipBase,
+                border: `1px solid ${active ? accentColor + "55" : "var(--rule)"}`,
+                background: active ? accentColor + "14" : "transparent",
+                color: active ? accentColor : "var(--ink-3)", fontWeight: active ? 600 : 400 }}>
+              {opt.value ? tr(opt.label) : tr("sem hora")}
+            </button>
+          );
+        })}
+      </div>
+    );
+  }
+  return (
+    <button onClick={() => setOpen(true)} className="tap" title={tr("definir período")}
+      style={{ ...chipBase, color: when ? accentColor : "var(--ink-3)", fontWeight: when ? 600 : 400 }}>
+      <span style={{ fontSize: 9 }}>◴</span>{when ? tr(cur.label) : tr("quando")}
+    </button>
+  );
+}
+
+function IntentionRow({ intention, focusMs, onToggle, onChange, onRemove, onSetPriority, onSetTarget, onSetWhen, onStart, accentColor }) {
   const [hover, setHover] = useState(false);
   const isPrimary = intention.priority === 1;
   const isImportant = intention.priority === 2;
@@ -977,6 +1071,7 @@ function IntentionRow({ intention, focusMs, onToggle, onChange, onRemove, onSetP
         <div style={{ marginTop: 8, display: "flex", alignItems: "center", flexWrap: "wrap", gap: 8, fontFamily: "var(--mono)", fontSize: 10, color: "var(--ink-3)", letterSpacing: "0.04em" }}>
           <PriorityChip priority={intention.priority} accentColor={accentColor} onSet={onSetPriority}/>
           <TargetChip targetMin={intention.targetMin} accentColor={accentColor} onSet={onSetTarget}/>
+          <WhenChip when={intention.when} accentColor={accentColor} onSet={onSetWhen}/>
           {focusMs > 0 && <span style={{ marginLeft: 2 }}>{trf("{d} em foco", { d: fmtDuration(focusMs) })}</span>}
         </div>
       </div>

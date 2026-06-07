@@ -279,6 +279,12 @@ const I18N_EN = {
   "maré ligada": "linked tide",
   "nenhuma": "none",
 
+  // ─── Hoje: time-of-day grouping ───
+  "tarde": "afternoon",
+  "sem hora": "no time",
+  "quando (opcional)": "when (optional)",
+  "definir período": "set time of day",
+
   // ─── Insights: monthly review ───
   "Mês": "Month",
 
