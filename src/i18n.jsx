@@ -279,6 +279,9 @@ const I18N_EN = {
   "maré ligada": "linked tide",
   "nenhuma": "none",
 
+  // ─── Insights: monthly review ───
+  "Mês": "Month",
+
   // ─── Year in review (Retrospetiva) ───
   "Retrospetiva": "Year in review",
   "Retrospetiva do ano": "Year in review",

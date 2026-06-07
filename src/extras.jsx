@@ -718,6 +718,51 @@ function WeekReview({ store, accentColor }) {
 // ─── Padrões (narrative insights) ───────────────────────────
 // Calm, locally-computed observations — facts, not judgement — from the shared
 // narrativeStats(). Each line only appears when there's enough data to be honest.
+// ─── Resumo do mês (monthly review) ─────────────────────────
+// The monthly counterpart to WeekReview, with month navigation (capped at the
+// current month). Reads the pure monthReview(). / Resumo do mês, navegável.
+function MonthReview({ store, accentColor }) {
+  const { state } = store;
+  const now = Date.now();
+  const td = new Date(now);
+  const [view, setView] = useState({ y: td.getFullYear(), m: td.getMonth() });
+  const r = useMemo(() => monthReview(state, view.y, view.m, now),
+    [state.blocks, state.habits, state.days, state.today, view]);
+  const isCurrent = view.y === td.getFullYear() && view.m === td.getMonth();
+  const shift = (n) => setView(v => {
+    let m = v.m + n, y = v.y;
+    if (m < 0) { m = 11; y--; } if (m > 11) { m = 0; y++; }
+    if (y > td.getFullYear() || (y === td.getFullYear() && m > td.getMonth())) return v; // no future
+    return { y, m };
+  });
+  const big = { fontFamily: "var(--serif)", fontSize: 24, color: "var(--ink)", lineHeight: 1 };
+  const cap = { fontFamily: "var(--mono)", fontSize: 9, letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--ink-3)", marginTop: 4 };
+  const cell = { background: "var(--paper)", padding: "14px 14px" };
+  return (
+    <div>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+        <button onClick={() => shift(-1)} className="tap" style={navBtn}>‹</button>
+        <div style={{ fontFamily: "var(--serif)", fontSize: 17, color: "var(--ink)" }}>
+          {fmtMonthLong(view.y, view.m)} <span style={{ color: "var(--ink-3)", fontSize: 13 }}>'{String(view.y).slice(2)}</span>
+        </div>
+        <button onClick={() => shift(1)} className="tap" disabled={isCurrent} style={{ ...navBtn, opacity: isCurrent ? 0.4 : 1 }}>›</button>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1, background: "var(--rule)", border: "1px solid var(--rule)", borderRadius: 10, overflow: "hidden" }}>
+        <div style={cell}><div style={{ ...big, color: accentColor }}>{r.focusMs > 0 ? fmtDuration(r.focusMs) : "—"}</div><div style={cap}>{tr("foco")}</div></div>
+        <div style={cell}><div style={big}>{r.activeDays}</div><div style={cap}>{tr("dias com foco")}</div></div>
+        <div style={cell}><div style={big}>{r.intDone}<span style={{ fontSize: 13, color: "var(--ink-3)" }}>/{r.intTotal || 0}</span></div><div style={cap}>{tr("intenções feitas")}</div></div>
+        <div style={cell}><div style={{ ...big, color: r.habitPct === null ? "var(--ink-3)" : accentColor }}>{r.habitPct === null ? "—" : r.habitPct + "%"}</div><div style={cap}>{trf("hábitos · {n} feitos", { n: r.tideDoneDays })}</div></div>
+      </div>
+      {r.topKey && r.topMs > 0 && (
+        <div style={{ marginTop: 12, fontFamily: "var(--serif)", fontSize: 14, color: "var(--ink-2)", lineHeight: 1.45 }}>
+          {tr("Pico:")} <span style={{ fontStyle: "italic" }}>{fmtDateShort(tsFromDayKey(r.topKey))}</span>{tr(" com")} <span style={{ color: accentColor }}>{fmtDuration(r.topMs)}</span> {tr("em foco.")}
+          {r.reflections > 0 && <> {trf("Escreveu {n} {label}.", { n: r.reflections, label: r.reflections === 1 ? tr("reflexão") : tr("reflexões") })}</>}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function NarrativeInsights({ state, accentColor }) {
   const n = useMemo(() => narrativeStats(state), [state.habits, state.blocks, state.days, state.today]);
   const lines = [];
@@ -763,6 +808,9 @@ function InsightsSheet({ open, onClose, store, accentColor }) {
           {tr("Sem julgamento. Só o que aconteceu, para reparar no padrão.")}
         </div>
         <WeekReview store={store} accentColor={accentColor}/>
+        <Section label={tr("Mês")}>
+          <MonthReview store={store} accentColor={accentColor}/>
+        </Section>
         <Section label={tr("Padrões")}>
           <NarrativeInsights state={state} accentColor={accentColor}/>
         </Section>
