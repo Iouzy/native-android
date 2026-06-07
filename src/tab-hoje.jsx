@@ -1,8 +1,9 @@
 // Tab: HOJE — intenções do dia + reflexão noturna
 
 function TabHoje({ store, accentColor, onJumpToPauta, onOpenInsights }) {
-  const { state, addIntention, updateIntention, toggleIntention, removeIntention, setReflection, setDayReflection, carryOverIntentions, toggleHabitToday, incHabitDay } = store;
+  const { state, addIntention, updateIntention, toggleIntention, removeIntention, setReflection, setDayReflection, carryOverIntentions, toggleHabitToday, incHabitDay, applyRoutine, removeRoutine, saveRoutineFromToday } = store;
   const { today, blocks, habits } = state;
+  const routines = state.routines || [];
 
   // Unfinished intentions from the most recent archived day — offered as a
   // one-tap carry-over so momentum survives the midnight rollover.
@@ -21,6 +22,8 @@ function TabHoje({ store, accentColor, onJumpToPauta, onOpenInsights }) {
   const [newTarget, setNewTarget] = useState(""); // minutes as a free string; "" = none
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyDayKey, setHistoryDayKey] = useState(null);
+  const [savingRoutine, setSavingRoutine] = useState(false);
+  const [routineName, setRoutineName] = useState("");
 
   const totalFocusToday = useMemo(() => {
     const key = dayKeyOf(Date.now());
@@ -253,6 +256,67 @@ function TabHoje({ store, accentColor, onJumpToPauta, onOpenInsights }) {
             </span>
           </span>
         </button>
+      )}
+
+      {/* Rotinas — reusable templates of intentions. Apply one to seed today in a
+          tap; save the current list as a new routine. / Modelos de intenções. */}
+      {(routines.length > 0 || today.intentions.length > 0) && (
+        <div style={{ marginTop: 18 }}>
+          <div style={{ fontFamily: "var(--mono)", fontSize: 9, letterSpacing: "0.2em", textTransform: "uppercase", color: "var(--ink-3)", marginBottom: 10 }}>
+            {tr("Rotinas")}
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+            {routines.map(r => (
+              <span key={r.id} style={{
+                display: "inline-flex", alignItems: "center",
+                border: "1px solid var(--rule)", background: "var(--paper-2)",
+                borderRadius: 999, overflow: "hidden",
+              }}>
+                <button onClick={() => { applyRoutine(r.id); if (window.haptic) window.haptic(8); }} className="tap"
+                  title={trf("aplicar {name}", { name: r.name })}
+                  style={{
+                    border: "none", background: "transparent", cursor: "pointer",
+                    padding: "7px 6px 7px 12px", color: "var(--ink)",
+                    fontFamily: "var(--sans)", fontSize: 13, display: "inline-flex", alignItems: "center", gap: 6,
+                  }}>
+                  <Icon.Plus size={12}/>{r.name}
+                  <span style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--ink-3)" }}>{r.items.length}</span>
+                </button>
+                <button onClick={() => removeRoutine(r.id)} className="tap" title={tr("remover rotina")} aria-label={tr("remover rotina")}
+                  style={{ border: "none", background: "transparent", cursor: "pointer", color: "var(--ink-4)", padding: "7px 10px 7px 4px", display: "inline-flex" }}>
+                  <Icon.X size={11}/>
+                </button>
+              </span>
+            ))}
+            {today.intentions.length > 0 && (
+              savingRoutine ? (
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                  <input autoFocus value={routineName} onChange={e => setRoutineName(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === "Enter" && routineName.trim()) { saveRoutineFromToday(routineName.trim()); setRoutineName(""); setSavingRoutine(false); if (window.haptic) window.haptic(8); }
+                      if (e.key === "Escape") { setRoutineName(""); setSavingRoutine(false); }
+                    }}
+                    onBlur={() => { if (routineName.trim()) saveRoutineFromToday(routineName.trim()); setRoutineName(""); setSavingRoutine(false); }}
+                    placeholder={tr("nome da rotina…")}
+                    style={{
+                      border: "1px solid var(--rule)", background: "transparent", borderRadius: 999,
+                      padding: "7px 12px", fontFamily: "var(--sans)", fontSize: 13, color: "var(--ink)", width: 150,
+                    }}/>
+                </span>
+              ) : (
+                <button onClick={() => setSavingRoutine(true)} className="tap"
+                  style={{
+                    border: "1px dashed var(--rule)", background: "transparent", borderRadius: 999,
+                    padding: "7px 12px", cursor: "pointer", color: "var(--ink-3)",
+                    fontFamily: "var(--mono)", fontSize: 10.5, letterSpacing: "0.04em",
+                    display: "inline-flex", alignItems: "center", gap: 6,
+                  }}>
+                  <Icon.Plus size={11}/>{tr("guardar como rotina")}
+                </button>
+              )
+            )}
+          </div>
+        </div>
       )}
 
       {/* Marés de hoje — the actionable tides for today, surfaced from the Marés
