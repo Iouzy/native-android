@@ -114,6 +114,12 @@ const Icon = {
       <path d="M4 11v6c0 1.4 3.6 2.5 8 2.5s8-1.1 8-2.5v-6"/>
     </svg>
   ),
+  Lock: (p) => (
+    <svg width={p.size||16} height={p.size||16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="4" y="11" width="16" height="9" rx="2"/>
+      <path d="M8 11V8a4 4 0 0 1 8 0v3"/>
+    </svg>
+  ),
 };
 
 // ─── Status bar ─────────────────────────────────────────────

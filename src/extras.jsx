@@ -8,6 +8,153 @@ function haptic(ms = 10) {
   try { if (window.PAUTA_HAPTICS && navigator.vibrate) navigator.vibrate(ms); } catch (e) {}
 }
 
+// ─── App lock (offline PIN) ──────────────────────────────────
+// A device-local PIN gate for a private journaling app. The PIN is NEVER stored
+// in plaintext or in the exported backup: only a salted SHA-256 hash lives under
+// its own localStorage key (pauta.lock), separate from the app state. Fail-open
+// by design — if Web Crypto is unavailable the lock simply can't be enabled, so
+// a missing API can never lock anyone out, and disabling it is always reachable
+// from Settings once unlocked. / Bloqueio por PIN, local e offline.
+const LOCK_KEY = "pauta.lock";
+function lockAvailable() {
+  return !!(typeof window !== "undefined" && window.crypto && window.crypto.subtle && window.TextEncoder);
+}
+function readLock() {
+  try { const v = JSON.parse(localStorage.getItem(LOCK_KEY) || "null"); return (v && v.salt && v.hash) ? v : null; }
+  catch (e) { return null; }
+}
+function hasLock() { return !!readLock(); }
+function randomSalt() {
+  const a = new Uint8Array(16); window.crypto.getRandomValues(a);
+  return [...a].map(b => b.toString(16).padStart(2, "0")).join("");
+}
+async function hashPin(pin, salt) {
+  const data = new TextEncoder().encode(salt + ":" + String(pin));
+  const buf = await window.crypto.subtle.digest("SHA-256", data);
+  return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, "0")).join("");
+}
+async function setLockPin(pin) {
+  if (!lockAvailable()) return false;
+  try { const salt = randomSalt(); localStorage.setItem(LOCK_KEY, JSON.stringify({ salt, hash: await hashPin(pin, salt) })); return true; }
+  catch (e) { return false; }
+}
+function clearLock() { try { localStorage.removeItem(LOCK_KEY); } catch (e) {} }
+async function verifyPin(pin) {
+  const l = readLock();
+  if (!l) return true;
+  try { return (await hashPin(pin, l.salt)) === l.hash; } catch (e) { return false; }
+}
+
+// Full-screen unlock overlay (portal to body, above everything). Shown by App
+// while `locked`. / Ecrã de desbloqueio.
+function LockGate({ accentColor, onUnlock }) {
+  const [pin, setPin] = useState("");
+  const [err, setErr] = useState(false);
+  const submit = async () => {
+    if (!pin) return;
+    if (await verifyPin(pin)) { setPin(""); setErr(false); haptic(8); onUnlock(); }
+    else { setErr(true); setPin(""); haptic(20); }
+  };
+  return ReactDOM.createPortal(
+    <div role="dialog" aria-modal="true" aria-label={tr("Pauta bloqueada")}
+      style={{
+        position: "fixed", inset: 0, zIndex: 600, background: "var(--paper)",
+        display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+        gap: 16, padding: "28px",
+      }}>
+      <div style={{ width: 56, height: 56, borderRadius: 16, background: `${accentColor}14`, border: `1px solid ${accentColor}33`, color: accentColor, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <Icon.Lock size={26}/>
+      </div>
+      <div style={{ fontFamily: "var(--serif)", fontSize: 26, color: "var(--ink)", letterSpacing: "-0.01em" }}>{tr("Pauta bloqueada")}</div>
+      <div style={{ fontFamily: "var(--serif)", fontStyle: "italic", fontSize: 14, color: "var(--ink-3)", marginTop: -6 }}>{tr("Introduza o seu PIN.")}</div>
+      <input autoFocus type="password" inputMode="numeric" value={pin}
+        onChange={e => { setPin(e.target.value); setErr(false); }}
+        onKeyDown={e => { if (e.key === "Enter") submit(); }}
+        placeholder="••••"
+        style={{
+          width: 180, textAlign: "center", letterSpacing: "0.35em",
+          border: `1px solid ${err ? "var(--accent)" : "var(--rule)"}`, background: "var(--paper-2)",
+          borderRadius: 12, padding: "14px 16px", fontFamily: "var(--mono)", fontSize: 22, color: "var(--ink)",
+        }}/>
+      {err && <div style={{ fontFamily: "var(--mono)", fontSize: 12, color: "var(--accent)" }}>{tr("PIN incorreto.")}</div>}
+      <Button onClick={submit} accentColor={accentColor} style={{ width: 180 }}>{tr("Desbloquear")}</Button>
+    </div>,
+    document.body
+  );
+}
+
+// Settings control: enable / change / disable the PIN. Once unlocked (you're in
+// Settings), disabling never needs the old PIN — so a bug can't trap you out. /
+// Controlo do bloqueio nas Definições.
+function PinLockControl({ accentColor }) {
+  const [on, setOn] = useState(hasLock());
+  const [mode, setMode] = useState(null);     // null | "set"
+  const [p1, setP1] = useState("");
+  const [p2, setP2] = useState("");
+  const [msg, setMsg] = useState(null);       // { kind, text }
+
+  if (!lockAvailable()) {
+    return (
+      <div style={{ fontFamily: "var(--sans)", fontSize: 13, color: "var(--ink-3)", background: "var(--paper-2)", border: "1px solid var(--rule)", borderRadius: 12, padding: "12px 14px", lineHeight: 1.4 }}>
+        {tr("Este dispositivo não suporta o bloqueio por PIN.")}
+      </div>
+    );
+  }
+
+  const startSet = () => { setMode("set"); setP1(""); setP2(""); setMsg(null); };
+  const cancel = () => { setMode(null); setP1(""); setP2(""); };
+  const save = async () => {
+    if (p1.length < 4) { setMsg({ kind: "err", text: tr("Use pelo menos 4 dígitos.") }); return; }
+    if (p1 !== p2) { setMsg({ kind: "err", text: tr("Os PINs não coincidem.") }); return; }
+    const ok = await setLockPin(p1);
+    if (ok) { setOn(true); setMode(null); setP1(""); setP2(""); setMsg({ kind: "ok", text: tr("Bloqueio ativado.") }); haptic(8); }
+    else setMsg({ kind: "err", text: tr("Não foi possível ativar o bloqueio.") });
+  };
+  const onToggle = async (next) => {
+    if (next) startSet();
+    else {
+      const okc = await window.pautaConfirm({ message: tr("Desligar o bloqueio por PIN?") });
+      if (okc) { clearLock(); setOn(false); setMode(null); setMsg({ kind: "ok", text: tr("Bloqueio desligado.") }); }
+    }
+  };
+  const pinInput = (val, set, ph) => (
+    <input type="password" inputMode="numeric" value={val} autoFocus={ph === "PIN"}
+      onChange={e => { set(e.target.value); setMsg(null); }}
+      onKeyDown={e => { if (e.key === "Enter") save(); if (e.key === "Escape") cancel(); }}
+      placeholder={ph}
+      style={{ flex: 1, minWidth: 0, border: "1px solid var(--rule)", background: "var(--paper)", borderRadius: 8, padding: "9px 12px", fontFamily: "var(--mono)", fontSize: 15, color: "var(--ink)", letterSpacing: "0.2em" }}/>
+  );
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      <PrefToggle label={tr("Bloqueio por PIN")} sub={tr("Pede um PIN ao abrir a app. O código fica só neste dispositivo.")}
+        accentColor={accentColor} value={on} onChange={onToggle}/>
+      {(mode === "set") && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "12px 14px", background: "var(--paper-2)", border: "1px solid var(--rule)", borderRadius: 12 }}>
+          <div style={{ display: "flex", gap: 8 }}>
+            {pinInput(p1, setP1, "PIN")}
+            {pinInput(p2, setP2, tr("repetir"))}
+          </div>
+          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+            <Button variant="ghost" onClick={cancel} style={{ flex: 1 }}>{tr("Cancelar")}</Button>
+            <Button onClick={save} accentColor={accentColor} style={{ flex: 1 }}>{tr("Guardar")}</Button>
+          </div>
+        </div>
+      )}
+      {on && mode === null && (
+        <button onClick={startSet} className="tap"
+          style={{ alignSelf: "flex-start", border: "1px solid var(--rule)", background: "transparent", borderRadius: 8, padding: "8px 12px", cursor: "pointer", fontFamily: "var(--mono)", fontSize: 10.5, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--ink-2)" }}>
+          {tr("Mudar PIN")}
+        </button>
+      )}
+      {msg && <div style={{ fontFamily: "var(--mono)", fontSize: 11, color: msg.kind === "err" ? "var(--accent)" : "var(--good)" }}>{msg.text}</div>}
+      <div style={{ fontFamily: "var(--serif)", fontStyle: "italic", fontSize: 12, color: "var(--ink-3)", lineHeight: 1.4 }}>
+        {tr("Sem servidor: se esquecer o PIN, terá de apagar os dados da app para voltar a entrar. Guarde uma cópia de segurança.")}
+      </div>
+    </div>
+  );
+}
+
 // ─── Onboarding (primeira abertura) ─────────────────────────
 // Tour com holofote: o overlay conduz pelas três tabs reais e, em cada uma,
 // escurece tudo menos o controlo verdadeiro (o botão de adicionar intenção,
@@ -1520,4 +1667,5 @@ Object.assign(window, {
   GoalsSection, useReminders, useFocusActivity,
   useAutoBackup, useWakeLock, useWidgetSnapshot, playChime, shareDayCard, shareBackupFile,
   notifySupported, enableNotifications, fireReminder,
+  LockGate, PinLockControl, lockAvailable, hasLock, clearLock, verifyPin, setLockPin,
 });

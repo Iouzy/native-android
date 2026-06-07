@@ -268,6 +268,25 @@ const I18N_EN = {
   "maré ligada": "linked tide",
   "nenhuma": "none",
 
+  // ─── Privacy: app lock (PIN) ───
+  "Privacidade": "Privacy",
+  "Bloqueio por PIN": "PIN lock",
+  "Pede um PIN ao abrir a app. O código fica só neste dispositivo.": "Asks for a PIN when the app opens. The code stays on this device only.",
+  "Pauta bloqueada": "Pauta locked",
+  "Introduza o seu PIN.": "Enter your PIN.",
+  "PIN incorreto.": "Wrong PIN.",
+  "Desbloquear": "Unlock",
+  "Este dispositivo não suporta o bloqueio por PIN.": "This device doesn't support PIN lock.",
+  "Use pelo menos 4 dígitos.": "Use at least 4 digits.",
+  "Os PINs não coincidem.": "The PINs don't match.",
+  "Bloqueio ativado.": "Lock enabled.",
+  "Bloqueio desligado.": "Lock turned off.",
+  "Não foi possível ativar o bloqueio.": "Couldn't enable the lock.",
+  "Desligar o bloqueio por PIN?": "Turn off the PIN lock?",
+  "repetir": "repeat",
+  "Mudar PIN": "Change PIN",
+  "Sem servidor: se esquecer o PIN, terá de apagar os dados da app para voltar a entrar. Guarde uma cópia de segurança.": "No server: if you forget the PIN you'll have to clear the app's data to get back in. Keep a backup.",
+
   // ─── Hoje: routines (intention templates) ───
   "Rotinas": "Routines",
   "Rotina": "Routine",

@@ -545,6 +545,10 @@ function DataSheet({ open, onClose, store, accentColor, onOpenInsights, onOpenTi
           </DataGroup>
         )}
 
+        <DataGroup label={tr("Privacidade")} icon={<Icon.Lock size={13}/>}>
+          <PinLockControl accentColor={accentColor}/>
+        </DataGroup>
+
         <DataGroup label={tr("Zona perigosa")} icon={<Icon.Trash size={13}/>}>
           <DataAction accentColor={accentColor}
             title={tr("Recarregar exemplo")}
@@ -1059,6 +1063,10 @@ function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [insightsOpen, setInsightsOpen] = useState(false);
   const [tierGuideOpen, setTierGuideOpen] = useState(false);
+  // App lock: start locked when a PIN exists; re-lock after a long background. /
+  // Bloqueio: arranca bloqueado se houver PIN; re-bloqueia após pausa longa.
+  const [locked, setLocked] = useState(() => hasLock());
+  const hiddenAtRef = useRef(0);
 
   const prefs = store.state.prefs;
 
@@ -1143,6 +1151,18 @@ function App() {
   useWakeLock(!!store.activeBlock && prefs.keepAwake);
   // Feed today's snapshot to the native home-screen widget (no-op in a browser).
   useWidgetSnapshot(store);
+
+  // Re-lock after the app has been hidden for a while (a 30s grace so a quick
+  // app-switch doesn't nag). No-op when no PIN is set. / Re-bloqueia após pausa.
+  useEffect(() => {
+    const onVis = () => {
+      if (!hasLock()) return;
+      if (document.hidden) hiddenAtRef.current = Date.now();
+      else if (hiddenAtRef.current && Date.now() - hiddenAtRef.current > 30000) setLocked(true);
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
+  }, []);
 
   // Keyboard shortcuts (desktop): 1/2/3 tabs, g settings, i insights, ? guide.
   useEffect(() => {
@@ -1246,6 +1266,7 @@ function App() {
       {prefs.onboardingSeen && <ParrotCompanion store={store} accentColor={accentColor} tab={tab}/>}
       {prefs.onboardingSeen && <NotifPrompt store={store} accentColor={accentColor}/>}
       <ConfirmHost/>
+      {locked && <LockGate accentColor={accentColor} onUnlock={() => { hiddenAtRef.current = 0; setLocked(false); }}/>}
 
       <TweaksPanel title={tr("Tweaks")}>
         <TweakSection label={tr("Cor de destaque")}/>
