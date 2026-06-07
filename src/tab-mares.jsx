@@ -481,6 +481,11 @@ function GridLegend({ accentColor }) {
             </div>
           } label={tr("respiro")}/>
           <LegendRow swatch={<Sw kind="pre"/>} label={tr("antes da maré")}/>
+          <LegendRow swatch={
+            <div style={{ width: 9, height: 9, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <div style={{ width: 7, height: 2, borderRadius: 2, background: "var(--rule)" }}/>
+            </div>
+          } label={tr("fora do horário")}/>
           <LegendRow swatch={<Sw kind="future"/>} label={tr("ainda não chegou")} last/>
           <div style={{
             marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--rule)",
@@ -576,6 +581,7 @@ function HabitRow({ habit, year, monthIdx, todayTs, accentColor,
         else if (mark.kind === "respiro") state = mark.key === key ? "respiro" : "locked";
         else state = habitIsAnchorDay(habit, key) ? "empty" : "locked";
       }
+      else if (!habitDailyDueOn(habit, key)) state = "off";  // weekday schedule: not due
       else if (habit.log && habit.log[key]) state = "done";
       else if (habit.respiros && habit.respiros[key]) state = "respiro";
       else if (isCount && habit.counts && habit.counts[key] > 0) state = "partial";
@@ -732,6 +738,7 @@ function HabitRow({ habit, year, monthIdx, todayTs, accentColor,
             {tooltip.state === "empty" && " · " + tr(cadence === "daily" ? "não feito" : "por fazer")}
             {tooltip.state === "respiro" && " · " + tr("respiro")}
             {tooltip.state === "locked" && " · " + tr("coberto pela maré")}
+            {tooltip.state === "off" && " · " + tr("fora do horário")}
             {tooltip.state === "pre" && " · " + tr("antes da maré")}
             {tooltip.state === "after" && " · " + tr("maré já terminou")}
             {tooltip.state === "future" && " · " + tr("ainda não")}
@@ -860,12 +867,15 @@ function DayCell({ day, accentColor, ndays, target, onTap, onLongPress, onToolti
           day.state === "future" ? 0.45 :
           day.state === "pre" ? 0.55 :
           day.state === "after" ? 0.35 :
+          day.state === "off" ? 0.3 :
           day.state === "locked" ? 0.3 : 1,
         cursor: clickable ? "pointer" : "default",
         position: "relative",
         display: "flex", alignItems: "center", justifyContent: "center",
         overflow: "hidden",
-        ...(isToday && !filled ? {
+        // Today's accent ring only when today is actually actionable — never on a
+        // weekday-schedule off-day. / Anel de hoje só em dias acionáveis.
+        ...(isToday && !filled && day.state !== "off" ? {
           border: `1.5px solid ${accentColor}`,
         } : {}),
         ...(isToday && filled ? {
@@ -891,6 +901,10 @@ function DayCell({ day, accentColor, ndays, target, onTap, onLongPress, onToolti
           background: "var(--ink-3)",
           opacity: 0.7,
         }}/>
+      )}
+      {day.state === "off" && (
+        // Off-day (not scheduled this weekday): a faint dash, not a missable cell.
+        <div style={{ width: "44%", height: 2, borderRadius: 2, background: "var(--rule)" }}/>
       )}
       {isRespiro && (
         <RespiroPattern color={accentColor}/>
@@ -1004,7 +1018,9 @@ function NewHabitForm({ accentColor, onSubmit, onCancel }) {
   const [countable, setCountable] = useState(false);
   const [target, setTarget] = useState(3);
   const [unit, setUnit] = useState("");
+  const [weekdays, setWeekdays] = useState([]);       // daily schedule; [] = every day
   const [expanded, setExpanded] = useState(false);
+  const toggleWeekday = (wd) => setWeekdays(ws => ws.includes(wd) ? ws.filter(x => x !== wd) : [...ws, wd].sort((a, b) => a - b));
 
   const submit = () => {
     if (!name.trim()) return;
@@ -1023,6 +1039,7 @@ function NewHabitForm({ accentColor, onSubmit, onCancel }) {
     }
     const isCountable = countable && cadence === "daily";
     onSubmit({ name, time, clock, description, recurrence, endsAt, cadence, anchor,
+      weekdays: cadence === "daily" ? weekdays : [],
       target: isCountable ? Math.max(2, parseInt(target, 10) || 2) : null, unit: isCountable ? unit : "" });
   };
 
@@ -1165,6 +1182,32 @@ function NewHabitForm({ accentColor, onSubmit, onCancel }) {
           )}
 
           {cadence === "daily" && (<>
+          {/* Weekday schedule — leave all off for "every day"; pick days for a
+              Mon/Wed/Fri-style tide that isn't "missed" on off-days. */}
+          <div style={{
+            fontFamily: "var(--mono)", fontSize: 9, letterSpacing: "0.1em",
+            color: "var(--ink-3)", textTransform: "uppercase", marginBottom: 8,
+          }}>
+            {tr("dias da semana")}
+          </div>
+          <div style={{ display: "flex", gap: 4, marginBottom: 6, flexWrap: "wrap" }}>
+            {[[1, tr("seg")], [2, tr("ter")], [3, tr("qua")], [4, tr("qui")], [5, tr("sex")], [6, tr("sáb")], [0, tr("dom")]].map(([wd, lbl]) => {
+              const on = weekdays.includes(wd);
+              return (
+                <button key={wd} onClick={() => toggleWeekday(wd)} className="tap" aria-pressed={on}
+                  style={{
+                    flex: 1, minWidth: 38, padding: "8px 4px",
+                    border: `1px solid ${on ? accentColor : "var(--rule)"}`,
+                    background: on ? `${accentColor}11` : "var(--paper)",
+                    color: on ? accentColor : "var(--ink-2)",
+                    borderRadius: 6, fontFamily: "var(--mono)", fontSize: 10, cursor: "pointer",
+                  }}>{lbl}</button>
+              );
+            })}
+          </div>
+          <div style={{ fontFamily: "var(--serif)", fontStyle: "italic", fontSize: 12, color: "var(--ink-4)", marginBottom: 12 }}>
+            {weekdays.length === 0 ? tr("todos os dias") : tr("só nos dias escolhidos")}
+          </div>
           <div style={{
             fontFamily: "var(--mono)", fontSize: 9, letterSpacing: "0.1em",
             color: "var(--ink-3)", textTransform: "uppercase", marginBottom: 8,

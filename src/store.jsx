@@ -105,6 +105,20 @@ const uid = (prefix) => prefix + Date.now() + Math.floor(Math.random()*1000);
 // week or a calendar month. Day completions still live in `log`/`respiros`
 // keyed by dayKey — the period helpers just group those days.
 function habitCadence(h) { return (h && h.cadence) || "daily"; }
+// Per-weekday schedule for a DAILY tide: an array of weekdays (0=Sun..6=Sat) the
+// tide is "due" on. null/empty = every day (the original behaviour). Off-days
+// don't count toward observed / % / streak and aren't actionable — a Mon/Wed/Fri
+// tide is never "missed" on a Tuesday. Only meaningful for daily cadence;
+// weekly/monthly tides are governed by their period + anchor logic instead. /
+// Dias da semana de uma maré diária — fora deles não conta nem é acionável.
+function habitWeekdays(h) {
+  return (h && Array.isArray(h.weekdays) && h.weekdays.length) ? h.weekdays : null;
+}
+function habitDailyDueOn(h, dayKey) {
+  const wd = habitWeekdays(h);
+  if (!wd) return true;
+  return wd.includes(new Date(tsFromDayKey(dayKey)).getDay());
+}
 // Monday-based week. getDay(): 0=Sun..6=Sat → shift so Monday is 0.
 function weekStartKey(dayKey) {
   const dow = (new Date(tsFromDayKey(dayKey)).getDay() + 6) % 7;
@@ -405,6 +419,8 @@ function migrateHabit(h, todayTs = Date.now()) {
   // Fixed period day: weekday 0–6 (weekly) or day-of-month 1–31 (monthly).
   // null = manual (the user picks any one day in the period).
   if (!("anchor" in out)) out.anchor = null;
+  // Daily weekday schedule: weekdays (0=Sun..6=Sat) the tide is due on. [] = every day.
+  if (!("weekdays" in out)) out.weekdays = [];
   // Optional per-habit color (hex). null = follow the live accent.
   if (!("color" in out)) out.color = null;
   return out;
@@ -663,6 +679,9 @@ function sanitizeHabit(h) {
     endsAt: Number.isFinite(Number(m.endsAt)) ? Number(m.endsAt) : null,
     cadence: ["daily", "weekly", "monthly"].includes(m.cadence) ? m.cadence : "daily",
     anchor: Number.isFinite(Number(m.anchor)) ? Number(m.anchor) : null,
+    weekdays: Array.isArray(m.weekdays)
+      ? [...new Set(m.weekdays.map(Number).filter(n => Number.isInteger(n) && n >= 0 && n <= 6))].sort((a, b) => a - b)
+      : [],
     color: isHexColor(m.color) ? m.color.trim() : null,
     target,
     unit: cleanStr(m.unit),
@@ -914,6 +933,7 @@ function habitPeriodStats(h, startKey, endKey) {
   let observed = 0, done = 0, respiros = 0;
   if (habitCadence(h) === "daily") {
     for (let k = startKey; k <= endKey; k = addDaysToKey(k, 1)) {
+      if (!habitDailyDueOn(h, k)) continue;   // off-days (weekday schedule) don't count
       observed++;
       if (h.log && h.log[k]) done++;
       else if (h.respiros && h.respiros[k]) respiros++;
@@ -1003,6 +1023,7 @@ function habitCurrentStreak(h, todayTs = Date.now()) {
   if (c === "daily") {
     let k = stopKey, streak = 0, respiros = 0;
     while (k >= createdKey) {
+      if (!habitDailyDueOn(h, k)) { k = addDaysToKey(k, -1); continue; }  // skip off-days
       if (h.log && h.log[k]) { streak++; }
       else if (h.respiros && h.respiros[k]) { streak++; respiros++; }
       else break;
@@ -1034,6 +1055,7 @@ function habitBestStreak(h, todayTs = Date.now()) {
   if (c === "daily") {
     let k = createdKey;
     while (k <= stopKey) {
+      if (!habitDailyDueOn(h, k)) { k = addDaysToKey(k, 1); continue; }  // skip off-days
       const done = (h.log && h.log[k]) || (h.respiros && h.respiros[k]);
       if (done) { run++; if (run > best) best = run; } else run = 0;
       k = addDaysToKey(k, 1);
@@ -1169,6 +1191,7 @@ function habitFocusCorrelation(habits, blocks, days = 30, now = Date.now()) {
     for (let i = 0; i < days; i++) {
       const k = addDaysToKey(todayKey, -i);
       if (!habitIsActiveOn(h, k)) continue;
+      if (habitCadence(h) === "daily" && !habitDailyDueOn(h, k)) continue;  // off-days excluded
       if (h.respiros && h.respiros[k]) continue;       // respiros don't count either way
       const f = focusOn(k);
       if (h.log && h.log[k]) { doneSum += f; doneN++; }
@@ -1259,6 +1282,7 @@ function weeklyReview(state, endKey = dayKeyOf(Date.now()), now = Date.now()) {
     if (habitCadence(h) === "daily") {
       for (const k of days) {
         if (!habitIsActiveOn(h, k)) continue;
+        if (!habitDailyDueOn(h, k)) continue;  // off-days (weekday schedule) don't count
         habitObservedSlots++;
         if (h.log && h.log[k]) habitDone++;
         else if (h.respiros && h.respiros[k]) respiros++;
@@ -1364,6 +1388,7 @@ function habitDayStatus(h, dayKey) {
     if (!habitIsAnchorDay(h, dayKey)) return null;  // locked / not the chosen day of the period
     return { state: "empty", isCount, count, target: h.target };
   }
+  if (!habitDailyDueOn(h, dayKey)) return null;  // daily weekday schedule: off-day
   let state;
   if (h.log && h.log[dayKey]) state = "done";
   else if (h.respiros && h.respiros[dayKey]) state = "respiro";
@@ -1627,6 +1652,7 @@ function useStore() {
         endsAt: opts.endsAt || null,
         cadence: opts.cadence || "daily",
         anchor: (opts.anchor == null ? null : opts.anchor),
+        weekdays: Array.isArray(opts.weekdays) ? opts.weekdays : [],
         target, unit: (opts.unit || "").trim(),
         clock: (opts.clock || "").trim(),
         color: isHexColor(opts.color) ? opts.color.trim() : null,
@@ -1849,7 +1875,7 @@ Object.assign(window, {
   habitPctInMonth, overallPctInMonth, habitCurrentStreak, habitBestStreak, habitAllTimeStats,
   habitsAllMonths, tideTier, navigatorLevel, totalDoneDays,
   // cadence (weekly / monthly tides)
-  habitCadence, habitIsAnchorDay, habitPeriodMark, periodRange, habitPeriodStats,
+  habitCadence, habitWeekdays, habitDailyDueOn, habitIsAnchorDay, habitPeriodMark, periodRange, habitPeriodStats,
   habitMaturityUnits, cadenceUnitShort, weekStartKey, weekEndKey,
   // auto-backup
   readAutoBackup, writeAutoBackup, listAutoBackups, autoBackupIntervalMs, AUTOBACKUP_KEEP,
