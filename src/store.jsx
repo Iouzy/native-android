@@ -1408,6 +1408,44 @@ function yearReview(state, year, now = Date.now()) {
   };
 }
 
+// Calendar-month review — the monthly counterpart to weeklyReview, for the
+// Insights sheet. Pure aggregate over one month up to today: focus, active days,
+// peak day, intentions, reflections, the cadence-aware habit %, and tide
+// done-days. / Resumo do mês.
+function monthReview(state, year, monthIdx, now = Date.now()) {
+  const blocks = state.blocks || [];
+  const habits = state.habits || [];
+  const nd = daysInMonth(year, monthIdx);
+  const todayKey = dayKeyOf(now);
+  let focusMs = 0, activeDays = 0, topKey = null, topMs = 0;
+  let intTotal = 0, intDone = 0, reflections = 0;
+  for (let d = 1; d <= nd; d++) {
+    const k = dayKeyFromYMD(year, monthIdx, d);
+    if (k > todayKey) break;
+    const f = dailyFocusMs(blocks, k, now);
+    focusMs += f; if (f > 0) activeDays++;
+    if (f > topMs) { topMs = f; topKey = k; }
+    let day = null;
+    if (state.today && state.today.dayKey === k) day = state.today;
+    else if (state.days && state.days[k]) day = state.days[k];
+    if (day) {
+      for (const it of (day.intentions || [])) { intTotal++; if (it.done) intDone++; }
+      if (day.reflection && day.reflection.trim()) reflections++;
+    }
+  }
+  const monthStart = dayKeyFromYMD(year, monthIdx, 1);
+  const monthEnd = dayKeyFromYMD(year, monthIdx, nd);
+  let tideDoneDays = 0;
+  for (const h of habits) for (const kk of Object.keys(h.log || {})) {
+    if (h.log[kk] && kk >= monthStart && kk <= monthEnd) tideDoneDays++;
+  }
+  return {
+    year, monthIdx, focusMs, activeDays, topKey, topMs,
+    intTotal, intDone, reflections,
+    habitPct: overallPctInMonth(habits, year, monthIdx, now), tideDoneDays,
+  };
+}
+
 // Pure: return the next state with `text` as the reflection for `dayKey`,
 // whether that's the live `today` or an archived entry in `days`. Archived days
 // that don't exist yet are created with an empty intentions list. Kept pure (no
@@ -2005,7 +2043,7 @@ Object.assign(window, {
   buildTimeline, blockFocusMs, dailyFocusMs, dailyBlockCount, blocksAllDays, pastDayKeys, buildManualBlock,
   // prefs / goals / insights
   defaultPrefs, mergePrefs, quarterOf, quarterLabel, nextQuarter, prevQuarter,
-  focusByHour, bestHourStats, habitFocusCorrelation, weeklyReview, prevWeeklyReview, narrativeStats, yearReview,
+  focusByHour, bestHourStats, habitFocusCorrelation, weeklyReview, prevWeeklyReview, narrativeStats, yearReview, monthReview,
   // habit stats
   HABIT_MATURITY_DAYS, TIDE_TIERS, NAVIGATOR_LEVELS,
   habitCreatedKey, habitEndKey, habitIsActiveOn, habitHasFinished,
