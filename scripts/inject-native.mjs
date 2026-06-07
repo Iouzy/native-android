@@ -34,6 +34,7 @@ for (const file of [
   "ReminderReceiver.kt",
   "BootReceiver.kt",
   "PautaWidgetProvider.kt",
+  "FocusTileService.kt",
 ]) {
   cpSync(join(SRC, file), join(JAVA, file));
   console.log(`Copied ${file}`);
@@ -126,6 +127,16 @@ const COMPONENTS = `
                 android:name="android.appwidget.provider"
                 android:resource="@xml/widget_pauta_info"/>
         </receiver>
+        <service
+            android:name=".FocusTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_stat_focus"
+            android:label="Foco"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE"/>
+            </intent-filter>
+        </service>
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="com.pauta.app.updateprovider"
