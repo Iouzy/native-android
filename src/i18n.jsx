@@ -268,6 +268,12 @@ const I18N_EN = {
   "maré ligada": "linked tide",
   "nenhuma": "none",
 
+  // ─── Marés: per-weekday daily schedule ───
+  "dias da semana": "weekdays",
+  "todos os dias": "every day",
+  "só nos dias escolhidos": "only on chosen days",
+  "fora do horário": "off-schedule",
+
   // ─── Insights: narrative patterns + pulse entry ───
   "ver revisão": "see review",
   "Padrões": "Patterns",

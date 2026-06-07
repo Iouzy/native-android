@@ -985,7 +985,7 @@ function useReminders(store) {
     try {
       const dayKey = dayKeyOf(Date.now());
       const pending = (state.habits || []).filter(h =>
-        habitIsActiveOn(h, dayKey) && !(h.log && h.log[dayKey]) && !(h.respiros && h.respiros[dayKey])
+        habitIsActiveOn(h, dayKey) && habitDailyDueOn(h, dayKey) && !(h.log && h.log[dayKey]) && !(h.respiros && h.respiros[dayKey])
       ).length;
       const body = pending <= 0 ? "" :
         (pending === 1 ? tr("Falta 1 maré por marcar hoje.") : trf("Faltam {n} marés por marcar hoje.", { n: pending }));
@@ -1020,7 +1020,7 @@ function useReminders(store) {
       // Habits nudge (global time)
       if (rem.habitsTime && hhmm >= rem.habitsTime) {
         const pending = (state.habits || []).filter(h =>
-          habitIsActiveOn(h, dayKey) && !(h.log && h.log[dayKey]) && !(h.respiros && h.respiros[dayKey])
+          habitIsActiveOn(h, dayKey) && habitDailyDueOn(h, dayKey) && !(h.log && h.log[dayKey]) && !(h.respiros && h.respiros[dayKey])
         );
         if (pending.length > 0 && !localStorage.getItem(firedKey("habits", dayKey))) {
           const ok = await fireReminder(
@@ -1036,7 +1036,7 @@ function useReminders(store) {
 
       // Per-habit clock reminders — each habit fires at its own designated time
       for (const h of (state.habits || [])) {
-        if (!h.clock || !habitIsActiveOn(h, dayKey)) continue;
+        if (!h.clock || !habitIsActiveOn(h, dayKey) || !habitDailyDueOn(h, dayKey)) continue;
         if ((h.log && h.log[dayKey]) || (h.respiros && h.respiros[dayKey])) continue;
         if (hhmm >= h.clock) {
           const k = firedKey("clock_" + h.id, dayKey);
@@ -1353,7 +1353,7 @@ function useWidgetSnapshot(store) {
       const intTotal = t ? t.intentions.length : 0;
       const intDone = t ? t.intentions.filter(i => i.done).length : 0;
       const focusMin = Math.round(dailyFocusMs(blocks || [], dayKey) / 60000);
-      const active = (habits || []).filter(h => habitIsActiveOn(h, dayKey));
+      const active = (habits || []).filter(h => habitIsActiveOn(h, dayKey) && habitDailyDueOn(h, dayKey));
       const tidesDone = active.filter(h => h.log && h.log[dayKey]).length;
       window.FocusActivity.setWidgetSnapshot({
         line1: trf("Intenções {d}/{t}", { d: intDone, t: intTotal }),
