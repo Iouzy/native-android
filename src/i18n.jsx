@@ -260,6 +260,9 @@ const I18N_EN = {
   // ─── Settings: auto-backup ring buffer ───
   "Restaurar esta cópia automática substitui todos os dados atuais. Continuar?": "Restoring this automatic copy replaces all your current data. Continue?",
   "Cópias anteriores ({n})": "Earlier copies ({n})",
+
+  // ─── Pauta: conclude → plan-vs-actual + fulfil a tide ───
+  "Planeado {p} · real {a}": "Planned {p} · actual {a}",
 };
 
 // === I18N_EN_BULK_BEGIN === (entries collected from the rest of the app)

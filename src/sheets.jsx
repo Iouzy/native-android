@@ -219,17 +219,26 @@ function PauseSheet({ open, onClose, block, onConfirm, confirmLabel }) {
 }
 
 // ─── CONCLUDE SHEET ───────────────────────────────────────
-function ConcludeSheet({ open, onClose, block, intention, onConfirm, accentColor, cancelLabel }) {
+function ConcludeSheet({ open, onClose, block, intention, todayTides = [], onConfirm, accentColor, cancelLabel }) {
   const [reflection, setReflection] = useState("");
   const [markDone, setMarkDone] = useState(true);
+  // Tides to mark done on conclude — a focus block often *is* a tide (reading,
+  // studying, exercising), so closing the loop here avoids logging it twice. /
+  // Marés a marcar como feitas ao concluir.
+  const [tideIds, setTideIds] = useState([]);
   useEffect(() => {
     if (open) {
       setReflection(block?.reflection || "");
       setMarkDone(true);
+      setTideIds([]);
     }
   }, [open, block]);
   if (!block) return null;
   const totalMs = block.sessions.reduce((a, s) => a + ((s.endedAt || Date.now()) - s.startedAt), 0);
+  // Plan vs. actual — the block's optional Pomodoro target against time focused.
+  const planned = block.targetMs || 0;
+  const deltaMs = totalMs - planned;
+  const toggleTide = (id) => setTideIds(ids => ids.includes(id) ? ids.filter(x => x !== id) : [...ids, id]);
 
   return (
     <Sheet open={open} onClose={onClose} title={tr("Concluir bloco")}>
@@ -237,9 +246,19 @@ function ConcludeSheet({ open, onClose, block, intention, onConfirm, accentColor
         <div style={{ fontFamily: "var(--mono)", fontSize: 10, letterSpacing: "0.18em", textTransform: "uppercase", color: accentColor, marginBottom: 6 }}>
           {trf("✓ {d} em foco", { d: fmtDuration(totalMs) })}
         </div>
-        <div style={{ fontFamily: "var(--serif)", fontSize: 24, color: "var(--ink)", lineHeight: 1.2, marginBottom: 18, letterSpacing: "-0.005em" }}>
+        <div style={{ fontFamily: "var(--serif)", fontSize: 24, color: "var(--ink)", lineHeight: 1.2, marginBottom: planned > 0 ? 8 : 18, letterSpacing: "-0.005em" }}>
           {block.title}
         </div>
+
+        {/* Plan vs. actual — only when the block carried a planned duration. */}
+        {planned > 0 && (
+          <div style={{ fontFamily: "var(--mono)", fontSize: 10.5, color: "var(--ink-3)", letterSpacing: "0.02em", marginBottom: 18 }}>
+            {trf("Planeado {p} · real {a}", { p: fmtDuration(planned), a: fmtDuration(totalMs) })}
+            <span style={{ marginLeft: 6, color: deltaMs >= 0 ? accentColor : "var(--ink-4)" }}>
+              {deltaMs >= 0 ? "+" : "−"}{fmtDuration(Math.abs(deltaMs))}
+            </span>
+          </div>
+        )}
 
         <div style={{ fontFamily: "var(--mono)", fontSize: 10, letterSpacing: "0.18em", textTransform: "uppercase", color: "var(--ink-3)", marginBottom: 8 }}>
           {tr("O que aconteceu?")}
@@ -278,9 +297,46 @@ function ConcludeSheet({ open, onClose, block, intention, onConfirm, accentColor
           </button>
         )}
 
+        {/* Mark a today's tide as done — closes the focus↔habit loop, so a
+            reading/study/exercise block fulfils its tide in one act. */}
+        {todayTides.length > 0 && (
+          <div style={{ marginTop: 16 }}>
+            <div style={{ fontFamily: "var(--mono)", fontSize: 10, letterSpacing: "0.18em", textTransform: "uppercase", color: "var(--ink-3)", marginBottom: 8 }}>
+              {tr("Marés de hoje")}
+            </div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+              {todayTides.map(t => {
+                const on = tideIds.includes(t.habit.id);
+                const col = t.habit.color || accentColor;
+                return (
+                  <button key={t.habit.id} onClick={() => toggleTide(t.habit.id)} className="tap" aria-pressed={on}
+                    style={{
+                      display: "inline-flex", alignItems: "center", gap: 7,
+                      border: `1px solid ${on ? col : "var(--rule)"}`,
+                      background: on ? `${col}14` : "transparent",
+                      color: on ? col : "var(--ink-2)",
+                      borderRadius: 999, padding: "7px 12px", cursor: "pointer",
+                      fontFamily: "var(--sans)", fontSize: 13,
+                    }}>
+                    <span style={{
+                      width: 15, height: 15, borderRadius: "50%", flexShrink: 0,
+                      border: `1.5px solid ${on ? col : "var(--ink-3)"}`,
+                      background: on ? col : "transparent",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                    }}>
+                      {on && <Icon.Check size={9} color="var(--paper)"/>}
+                    </span>
+                    {t.habit.name}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         <div style={{ marginTop: 18, display: "flex", gap: 10 }}>
           <Button variant="ghost" onClick={onClose} style={{ flex: 1 }}>{cancelLabel || tr("Cancelar")}</Button>
-          <Button onClick={() => onConfirm(reflection, markDone)} accentColor={accentColor} style={{ flex: 2 }}>
+          <Button onClick={() => onConfirm(reflection, markDone, tideIds)} accentColor={accentColor} style={{ flex: 2 }}>
             {tr("Concluir")}
           </Button>
         </div>

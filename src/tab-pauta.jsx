@@ -1,7 +1,7 @@
 // Tab: PAUTA — bloco ativo + linha temporal com ciclo de vida + filtro
 
 function TabPauta({ store, accentColor, showElapsed, filter, setFilter, pendingIntention, clearPending, pendingStart, clearPendingStart, pendingSwitch, clearPendingSwitch, pendingStartBlank, clearPendingStartBlank }) {
-  const { state, activeBlock, startBlock, pauseActive, resumeBlock, concludeActive, concludeBlock, updateBlock, updateSessionNote, deleteBlock } = store;
+  const { state, activeBlock, startBlock, pauseActive, resumeBlock, concludeActive, concludeBlock, updateBlock, updateSessionNote, deleteBlock, toggleHabitToday } = store;
   const { today, blocks } = state;
 
   // ─ Sheets state ─
@@ -123,8 +123,11 @@ function TabPauta({ store, accentColor, showElapsed, filter, setFilter, pendingI
     concludeChime();
   };
 
-  const handleConcludeBlock = (blockId, reflection, markDone) => {
+  const handleConcludeBlock = (blockId, reflection, markDone, tideIds) => {
     concludeBlock(blockId, reflection, { markIntentionDone: markDone });
+    // Mark any tides the user ticked in the sheet. They're drawn from the pending
+    // set, so toggling makes them done (never un-does an already-done tide).
+    (tideIds || []).forEach(id => toggleHabitToday(id));
     setSheetConclude(null);
     concludeChime();
   };
@@ -154,6 +157,19 @@ function TabPauta({ store, accentColor, showElapsed, filter, setFilter, pendingI
 
   // intention by id
   const intentionById = useMemo(() => Object.fromEntries(today.intentions.map(i => [i.id, i])), [today.intentions]);
+
+  // Today's still-pending tides — offered in the conclude sheet so a focus block
+  // can fulfil its tide in one act (uses the shared habitDayStatus). /
+  // Marés de hoje ainda por marcar — para concluir o bloco e a maré de uma vez.
+  const todayPendingTides = useMemo(() => {
+    const tk = dayKeyOf(Date.now());
+    const out = [];
+    for (const h of (state.habits || [])) {
+      const st = habitDayStatus(h, tk);
+      if (st && (st.state === "empty" || st.state === "partial")) out.push({ habit: h, ...st });
+    }
+    return out;
+  }, [state.habits]);
 
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", position: "relative", zIndex: 1, overflow: "hidden" }}>
@@ -332,10 +348,11 @@ function TabPauta({ store, accentColor, showElapsed, filter, setFilter, pendingI
           const b = blocks.find(b => b.id === sheetConclude.blockId);
           return b && b.linkedToId && intentionById[b.linkedToId];
         })()}
-        onConfirm={(reflection, markDone) => {
+        todayTides={todayPendingTides}
+        onConfirm={(reflection, markDone, tideIds) => {
           // After optimistic conclude activeBlock is null, so always route through
-          // handleConcludeBlock which correctly saves reflection + intention.
-          handleConcludeBlock(sheetConclude.blockId, reflection, markDone);
+          // handleConcludeBlock which correctly saves reflection + intention + tides.
+          handleConcludeBlock(sheetConclude.blockId, reflection, markDone, tideIds);
         }}
         cancelLabel={sheetConclude?.wasActive ? tr("Retomar") : undefined}
         accentColor={accentColor}
