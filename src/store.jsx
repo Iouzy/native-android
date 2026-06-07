@@ -44,30 +44,43 @@ function monthKeyOf(ts) {
 function daysInMonth(year, monthIdx /* 0-11 */) {
   return new Date(year, monthIdx + 1, 0).getDate();
 }
+// Localized date names. Portuguese is the source language; English mirrors the
+// same compact European day-month layout (the pt-PT base) so the hand-tuned
+// typography is preserved AND dates finally follow the language switch instead
+// of always rendering in Portuguese (the headers, history and Marés month strip
+// all read these). / Nomes de datas por idioma — as datas passam a seguir o
+// idioma escolhido, mantendo o mesmo formato.
+const DATE_NAMES = {
+  pt: {
+    days:  ["domingo","segunda","terça","quarta","quinta","sexta","sábado"],
+    short: ["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"],
+    long:  ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"],
+  },
+  en: {
+    days:  ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"],
+    short: ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"],
+    long:  ["January","February","March","April","May","June","July","August","September","October","November","December"],
+  },
+};
+function dateNames() {
+  const lang = (typeof window !== "undefined" && window.PAUTA_LANG === "en") ? "en" : "pt";
+  return DATE_NAMES[lang];
+}
 function fmtDateLong(ts) {
   const d = new Date(ts);
-  const days = ["domingo","segunda","terça","quarta","quinta","sexta","sábado"];
-  const months = ["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"];
-  return days[d.getDay()] + ", " + d.getDate() + " " + months[d.getMonth()];
+  const n = dateNames();
+  return n.days[d.getDay()] + ", " + d.getDate() + " " + n.short[d.getMonth()];
 }
 function fmtDateShort(ts) {
   const d = new Date(ts);
-  const months = ["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"];
-  return d.getDate() + " " + months[d.getMonth()];
+  return d.getDate() + " " + dateNames().short[d.getMonth()];
 }
 function fmtMonthYear(ts) {
   const d = new Date(ts);
-  const months = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
-  return months[d.getMonth()] + " · " + d.getFullYear();
+  return dateNames().long[d.getMonth()] + " · " + d.getFullYear();
 }
-function fmtMonthShort(y, m /* 0-11 */) {
-  const months = ["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"];
-  return months[m];
-}
-function fmtMonthLong(y, m /* 0-11 */) {
-  const months = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
-  return months[m];
-}
+function fmtMonthShort(y, m /* 0-11 */) { return dateNames().short[m]; }
+function fmtMonthLong(y, m /* 0-11 */) { return dateNames().long[m]; }
 // Day count between two dayKeys (inclusive of both, used for "days observed")
 function daysBetween(fromKey, toKey) {
   // Use UTC math to avoid DST-induced off-by-one (spring forward / fall back
@@ -397,26 +410,39 @@ function migrateHabit(h, todayTs = Date.now()) {
   return out;
 }
 
+// Pure: archive a stale `today` into `days` and open a fresh empty `today` when
+// the calendar day has changed since it was written. Returns the SAME object
+// reference when nothing changed, so a live setState(rollOverDay) is a no-op the
+// rest of the time (React bails on Object.is). Shared by loadState (cold start
+// after midnight) and the in-app midnight watcher in useStore (so leaving the
+// app open overnight still rolls the day over instead of showing yesterday's
+// intentions until the next reload). / Puro: vira o dia quando a data muda.
+function rollOverDay(s, nowTs = Date.now()) {
+  const todayKey = dayKeyOf(nowTs);
+  if (s.today && s.today.dayKey === todayKey) return s;
+  const days = { ...(s.days || {}) };
+  // Archive the old day only if it had any content worth keeping.
+  if (s.today && s.today.dayKey && (
+    (s.today.intentions && s.today.intentions.length > 0) ||
+    (s.today.reflection && s.today.reflection.trim())
+  )) {
+    days[s.today.dayKey] = {
+      intentions: s.today.intentions || [],
+      reflection: s.today.reflection || "",
+    };
+  }
+  return { ...s, days, today: { dayKey: todayKey, intentions: [], reflection: "" } };
+}
+
 function loadState() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return window.PAUTA_CLEAN_START ? emptyState() : seed();
-    const s = JSON.parse(raw);
+    let s = JSON.parse(raw);
     if (!s.days) s.days = {};
-    const todayKey = dayKeyOf(Date.now());
-    if (!s.today || s.today.dayKey !== todayKey) {
-      // Archive the old day if it had any content
-      if (s.today && s.today.dayKey && (
-        (s.today.intentions && s.today.intentions.length > 0) ||
-        (s.today.reflection && s.today.reflection.trim())
-      )) {
-        s.days[s.today.dayKey] = {
-          intentions: s.today.intentions || [],
-          reflection: s.today.reflection || "",
-        };
-      }
-      s.today = { dayKey: todayKey, intentions: [], reflection: "" };
-    }
+    // Archive a stale `today` and start a fresh one if the day changed since the
+    // last write. The same helper runs live while the app stays open (useStore).
+    s = rollOverDay(s);
     // Migrate habits to new schema
     if (Array.isArray(s.habits)) s.habits = s.habits.map(h => migrateHabit(h));
     if (!Array.isArray(s.goals)) s.goals = [];
@@ -1260,6 +1286,39 @@ function applyRespiro(h, dayKey, reason = "", now = Date.now()) {
   return { ...h, log, respiros };
 }
 
+// The status of a tide for a single day, or null when the tide isn't actionable
+// that day. Mirrors the per-cell logic of the Marés grid (tab-mares) so the
+// "Marés de hoje" strip in the Hoje tab surfaces exactly the tides you can act
+// on today: daily tides always; weekly/monthly only on an eligible, still-open
+// day (a completed/respiro period elsewhere, a locked or non-anchor day → null).
+// Returns { state:"done"|"respiro"|"partial"|"empty", isCount, count, target }.
+// This is the single source of "due today" — kept in the store (not the tab) so
+// the per-weekday cadence work can extend it without touching the Hoje UI. /
+// Estado da maré num dia (ou null se não for acionável nesse dia).
+function habitDayStatus(h, dayKey) {
+  if (!habitIsActiveOn(h, dayKey)) return null;
+  const cadence = habitCadence(h);
+  const isCount = !!h.target && cadence === "daily";
+  const count = (h.counts && h.counts[dayKey]) || 0;
+  if (cadence !== "daily") {
+    const mark = habitPeriodMark(h, dayKey);
+    if (mark.kind === "done")    return mark.key === dayKey ? { state: "done",    isCount, count, target: h.target } : null;
+    if (mark.kind === "respiro") return mark.key === dayKey ? { state: "respiro", isCount, count, target: h.target } : null;
+    if (!habitIsAnchorDay(h, dayKey)) return null;  // locked / not the chosen day of the period
+    return { state: "empty", isCount, count, target: h.target };
+  }
+  let state;
+  if (h.log && h.log[dayKey]) state = "done";
+  else if (h.respiros && h.respiros[dayKey]) state = "respiro";
+  else if (isCount && count > 0) state = "partial";
+  else state = "empty";
+  return { state, isCount, count, target: h.target };
+}
+// Convenience: today's status for a tide. / Estado de hoje.
+function habitActionableToday(h, todayTs = Date.now()) {
+  return habitDayStatus(h, dayKeyOf(todayTs));
+}
+
 // ─── HOOK ────────────────────────────────────────────────
 function useStore() {
   const [state, setState] = useState(loadState);
@@ -1294,6 +1353,19 @@ function useStore() {
       window.removeEventListener("pagehide", flush);
       document.removeEventListener("visibilitychange", onVis);
     };
+  }, []);
+
+  // Live day rollover: if the calendar day flips while the app stays open (left
+  // running past midnight), archive yesterday and open a fresh today — otherwise
+  // Hoje keeps showing yesterday's intentions until the next reload. rollOverDay
+  // returns the same state reference on a normal tick, so React bails and this
+  // costs nothing the rest of the day. / Vira o dia em tempo real à meia-noite.
+  useEffect(() => {
+    const check = () => setState(s => rollOverDay(s));
+    const id = setInterval(check, 60000);
+    const onVis = () => { if (!document.hidden) check(); };
+    document.addEventListener("visibilitychange", onVis);
+    return () => { clearInterval(id); document.removeEventListener("visibilitychange", onVis); };
   }, []);
 
   const activeBlock = useMemo(() =>
@@ -1727,5 +1799,6 @@ Object.assign(window, {
   // schema / import (exposed for tests + reuse)
   STORAGE_KEY, EXPORT_VERSION, emptyState, seed, loadState, saveState,
   migrateHabit, sanitizeHabit, sanitizeGoal, sanitizeMilestone, normalizeImported, parseBackup, MAX_BACKUP_CHARS,
-  withDayReflection, buildCSV, csvCell, isHexColor, applyRespiro,
+  withDayReflection, buildCSV, csvCell, isHexColor, applyRespiro, rollOverDay,
+  habitDayStatus, habitActionableToday,
 });

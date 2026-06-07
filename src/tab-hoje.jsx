@@ -1,8 +1,8 @@
 // Tab: HOJE — intenções do dia + reflexão noturna
 
 function TabHoje({ store, accentColor, onJumpToPauta }) {
-  const { state, addIntention, updateIntention, toggleIntention, removeIntention, setReflection, setDayReflection, carryOverIntentions } = store;
-  const { today, blocks } = state;
+  const { state, addIntention, updateIntention, toggleIntention, removeIntention, setReflection, setDayReflection, carryOverIntentions, toggleHabitToday, incHabitDay } = store;
+  const { today, blocks, habits } = state;
 
   // Unfinished intentions from the most recent archived day — offered as a
   // one-tap carry-over so momentum survives the midnight rollover.
@@ -51,6 +51,28 @@ function TabHoje({ store, accentColor, onJumpToPauta }) {
       .map(pair => pair[0]);
   }, [today.intentions]);
 
+  // Today's tides — the actionable slice of Marés surfaced in Hoje (daily always;
+  // weekly/monthly only on an eligible, still-open day). The source of truth is
+  // the shared habitDayStatus() in the store, so this strip never diverges from
+  // the Marés grid; the full grid/history/tiers stay in the Marés tab. /
+  // A fatia acionável das Marés trazida para o Hoje.
+  const todayTides = useMemo(() => {
+    const tk = dayKeyOf(Date.now());
+    const out = [];
+    for (const h of (habits || [])) {
+      const st = habitDayStatus(h, tk);
+      if (st) out.push({ habit: h, ...st });
+    }
+    return out;
+  }, [habits]);
+
+  // Day pulse — mirrors the home-screen widget. Respiros stay OUT of the tides
+  // denominator: an honest rest isn't a miss. / Pulso do dia.
+  const intTotal = today.intentions.length;
+  const intDone = today.intentions.filter(i => i.done).length;
+  const tideDone = todayTides.filter(t => t.state === "done").length;
+  const tideDenom = todayTides.filter(t => t.state !== "respiro").length;
+
   // Render today's summary as a shareable PNG (Web Share, else download).
   const shareDay = () => {
     const done = today.intentions.filter(i => i.done).length;
@@ -89,11 +111,21 @@ function TabHoje({ store, accentColor, onJumpToPauta }) {
           <h1 style={{ fontFamily: "var(--serif)", fontSize: 44, lineHeight: 1.0, margin: 0, fontWeight: 400, letterSpacing: "-0.015em" }}>
             {tr("O que importa")} <em style={{ color: accentColor }}>{tr("hoje")}</em>?
           </h1>
-          {totalFocusToday > 0 && (
-            <div style={{ marginTop: 10, fontFamily: "var(--mono)", fontSize: 11, color: "var(--ink-3)" }}>
-              {trf("{d} em foco até agora", { d: fmtDuration(totalFocusToday) })}
-            </div>
-          )}
+          {(() => {
+            // One quiet line tying the three tabs together: intentions done,
+            // focus logged, tides marked — each shown only when it has a value,
+            // so an empty day stays blank. / Pulso do dia (intenções · foco · marés).
+            const parts = [];
+            if (intTotal > 0) parts.push(trf("{d}/{t} intenções", { d: intDone, t: intTotal }));
+            if (totalFocusToday > 0) parts.push(trf("{d} em foco", { d: fmtDuration(totalFocusToday) }));
+            if (tideDenom > 0) parts.push(trf("{d}/{t} marés", { d: tideDone, t: tideDenom }));
+            if (parts.length === 0) return null;
+            return (
+              <div style={{ marginTop: 10, fontFamily: "var(--mono)", fontSize: 11, color: "var(--ink-3)", letterSpacing: "0.02em" }}>
+                {parts.join("   ·   ")}
+              </div>
+            );
+          })()}
         </div>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8, flexShrink: 0, marginTop: 2 }}>
           <button onClick={() => setHistoryOpen(true)} className="tap" title={tr("ver dias anteriores")}
@@ -206,6 +238,41 @@ function TabHoje({ store, accentColor, onJumpToPauta }) {
             </span>
           </span>
         </button>
+      )}
+
+      {/* Marés de hoje — the actionable tides for today, surfaced from the Marés
+          tab. Tapping writes through the same store actions (toggle / increment);
+          the full grid, history and tiers stay in Marés. Placed between intentions
+          and the night reflection so Hoje reads as one nested day: now → today's
+          rhythm → the night. / A fatia de hoje das Marés. */}
+      {todayTides.length > 0 && (
+        <div style={{ marginTop: 36 }}>
+          <div style={{
+            fontFamily: "var(--mono)", fontSize: 9, letterSpacing: "0.2em",
+            textTransform: "uppercase", color: "var(--ink-3)", marginBottom: 10,
+            display: "flex", justifyContent: "space-between", alignItems: "baseline",
+          }}>
+            <span>{tr("Marés de hoje")}</span>
+            {tideDenom > 0 && (
+              <span style={{ letterSpacing: "0.06em", color: "var(--ink-4)" }}>{tideDone}/{tideDenom}</span>
+            )}
+          </div>
+          <div style={{ display: "flex", flexDirection: "column" }}>
+            {todayTides.map((t, i) => (
+              <TodayTideRow
+                key={t.habit.id}
+                tide={t}
+                last={i === todayTides.length - 1}
+                accentColor={t.habit.color || accentColor}
+                onAct={t.state === "respiro" ? null : () => {
+                  if (window.haptic) window.haptic(8);
+                  if (t.isCount) incHabitDay(t.habit.id, dayKeyOf(Date.now()));
+                  else toggleHabitToday(t.habit.id);
+                }}
+              />
+            ))}
+          </div>
+        </div>
       )}
 
       {/* Evening reflection */}
@@ -834,6 +901,68 @@ function IntentionRow({ intention, focusMs, onToggle, onChange, onRemove, onSetP
         </button>
       </div>
     </div>
+  );
+}
+
+// ─── Today's tide row (Marés de hoje strip) ───
+// One actionable tide surfaced in Hoje. The indicator + name form a single tap
+// target that marks the tide done — or increments a countable one — through the
+// store. A respiro day renders muted and non-interactive (onAct == null): editing
+// a respiro stays in the Marés tab. / Linha de uma maré de hoje.
+function TodayTideRow({ tide, last, accentColor, onAct }) {
+  const h = tide.habit;
+  const { state } = tide;
+  const done = state === "done";
+  const respiro = state === "respiro";
+  const partial = state === "partial";
+  const base = {
+    display: "flex", alignItems: "center", gap: 12,
+    padding: "11px 0", width: "100%", textAlign: "left",
+    borderBottom: last ? "none" : "1px solid var(--rule)",
+  };
+  const inner = (
+    <>
+      <span style={{
+        width: 24, height: 24, borderRadius: "50%", flexShrink: 0,
+        border: `1.6px solid ${done ? accentColor : respiro ? "var(--ink-4)" : "var(--ink-3)"}`,
+        background: done ? accentColor : "transparent",
+        display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden",
+      }}>
+        {done && <Icon.Check size={13} color="var(--paper)"/>}
+        {respiro && <span style={{ width: 9, height: 2, borderRadius: 2, background: "var(--ink-4)" }}/>}
+        {partial && <span style={{ fontFamily: "var(--mono)", fontSize: 9, fontWeight: 600, color: accentColor }}>{tide.count}</span>}
+      </span>
+      <span style={{ flex: 1, minWidth: 0 }}>
+        <span style={{
+          display: "block", fontSize: 15, lineHeight: 1.25,
+          color: done || respiro ? "var(--ink-3)" : "var(--ink)",
+          textDecoration: done ? "line-through" : "none", textDecorationColor: "var(--ink-3)",
+        }}>{h.name}</span>
+        {(h.time || h.clock || respiro) && (
+          <span style={{ display: "block", fontFamily: "var(--serif)", fontStyle: "italic", fontSize: 12.5, color: "var(--ink-3)", marginTop: 2 }}>
+            {respiro ? tr("respiro") : (
+              <>
+                {h.clock && <span style={{ fontFamily: "var(--mono)", fontStyle: "normal", fontSize: 11, marginRight: h.time ? 6 : 0 }}>{h.clock}</span>}
+                {h.time}
+              </>
+            )}
+          </span>
+        )}
+      </span>
+      {tide.isCount && (
+        <span style={{ flexShrink: 0, fontFamily: "var(--mono)", fontSize: 10, letterSpacing: "0.04em", color: done ? accentColor : "var(--ink-3)" }}>
+          {tide.count}/{tide.target}{h.unit ? " " + h.unit : ""}
+        </span>
+      )}
+    </>
+  );
+  if (!onAct) return <div style={base}>{inner}</div>;
+  return (
+    <button onClick={onAct} className="tap" aria-pressed={done}
+      aria-label={trf("marcar maré: {h}", { h: h.name })}
+      style={{ ...base, border: "none", background: "transparent", cursor: "pointer", color: "inherit" }}>
+      {inner}
+    </button>
   );
 }
 
