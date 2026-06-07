@@ -1008,6 +1008,7 @@ function App() {
   const [pendingIntention, setPendingIntention] = useState(null);
   const [pendingStart, setPendingStart] = useState(null);
   const [pendingSwitch, setPendingSwitch] = useState(false);
+  const [pendingStartBlank, setPendingStartBlank] = useState(false); // launcher shortcut → open the start sheet
   // Pauta timeline filter lives here (not in TabPauta) so it survives the
   // tab unmount on switch. Not persisted to localStorage: it holds a block/
   // intention id that can go stale across sessions. /
@@ -1091,7 +1092,9 @@ function App() {
   // Native Android focus timer notification / Xiaomi island. The "Trocar"
   // (switch) notification button jumps to the Pauta tab and opens the switch
   // sheet there (TabPauta consumes pendingSwitch, like pendingIntention).
-  useFocusActivity(store, accentColor, () => { setTab("pauta"); setPendingSwitch(true); });
+  useFocusActivity(store, accentColor,
+    () => { setTab("pauta"); setPendingSwitch(true); },
+    () => { setTab("pauta"); setPendingStartBlank(true); });
   // Rolling local backup snapshot on the user's chosen cadence.
   useAutoBackup(store);
   // Keep the screen awake while a focus block is running (if enabled).
@@ -1161,7 +1164,9 @@ function App() {
               pendingStart={pendingStart}
               clearPendingStart={() => setPendingStart(null)}
               pendingSwitch={pendingSwitch}
-              clearPendingSwitch={() => setPendingSwitch(false)}/>
+              clearPendingSwitch={() => setPendingSwitch(false)}
+              pendingStartBlank={pendingStartBlank}
+              clearPendingStartBlank={() => setPendingStartBlank(false)}/>
           )}
           {tab === "mares" && (
             <TabMares store={store} accentColor={accentColor}/>

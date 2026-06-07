@@ -264,6 +264,16 @@ class FocusActivityPlugin : Plugin() {
         call.resolve(JSObject().put("ok", true))
     }
 
+    // Drained once by the web layer on mount: returns the action stashed by a
+    // cold-start launcher shortcut ("start-focus"), or "" if none. /
+    // Devolve a ação de um atalho de arranque a frio.
+    @PluginMethod
+    fun consumePendingShortcut(call: PluginCall) {
+        val action = MainActivity.pendingShortcutAction
+        MainActivity.pendingShortcutAction = null
+        call.resolve(JSObject().put("action", action ?: ""))
+    }
+
     // ── One-shot local reminders ─────────────────────────────────
     // The web Notification API and service-worker notifications don't work
     // inside the Capacitor WebView, so reminders (habits / nightly reflection)

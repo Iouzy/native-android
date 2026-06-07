@@ -1,6 +1,6 @@
 // Tab: PAUTA — bloco ativo + linha temporal com ciclo de vida + filtro
 
-function TabPauta({ store, accentColor, showElapsed, filter, setFilter, pendingIntention, clearPending, pendingStart, clearPendingStart, pendingSwitch, clearPendingSwitch }) {
+function TabPauta({ store, accentColor, showElapsed, filter, setFilter, pendingIntention, clearPending, pendingStart, clearPendingStart, pendingSwitch, clearPendingSwitch, pendingStartBlank, clearPendingStartBlank }) {
   const { state, activeBlock, startBlock, pauseActive, resumeBlock, concludeActive, concludeBlock, updateBlock, updateSessionNote, deleteBlock } = store;
   const { today, blocks } = state;
 
@@ -33,6 +33,14 @@ function TabPauta({ store, accentColor, showElapsed, filter, setFilter, pendingI
       if (clearPendingStart) clearPendingStart();
     }
   }, [pendingStart]);
+
+  // Launcher shortcut ("Iniciar foco"): open the blank start sheet.
+  useEffect(() => {
+    if (pendingStartBlank) {
+      setSheetStart({});
+      if (clearPendingStartBlank) clearPendingStartBlank();
+    }
+  }, [pendingStartBlank]);
 
   // Dismiss the "goal reached" prompt whenever the active block changes (start,
   // pause, resume, conclude) so a stale prompt never lingers onto another block.

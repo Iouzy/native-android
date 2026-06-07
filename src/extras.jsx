@@ -1088,7 +1088,7 @@ function NotifPrompt({ store, accentColor }) {
 // target) plus Pause/Resume/Conclude buttons matching the block's state, tinted
 // with the app's accent so it reads like an app control. Falls back silently in
 // plain PWA / browser contexts where the plugin is absent.
-function useFocusActivity(store, accentColor, onSwitch) {
+function useFocusActivity(store, accentColor, onSwitch, onStartFocus) {
   const { activeBlock, state, pauseActive, resumeBlock, concludeActive } = store;
   // Track the last known active block id so the receiver can resume it by id.
   const lastIdRef = useRef(null);
@@ -1097,7 +1097,7 @@ function useFocusActivity(store, accentColor, onSwitch) {
   // the latest store actions / onSwitch, never the ones captured at mount (which
   // would go stale after re-renders and silently no-op).
   const handlersRef = useRef({});
-  handlersRef.current = { pauseActive, resumeBlock, concludeActive, onSwitch };
+  handlersRef.current = { pauseActive, resumeBlock, concludeActive, onSwitch, onStartFocus };
 
   // Wire native notification button taps → store actions (once on mount).
   // "switch" has no store action — it asks the app to open the switch sheet
@@ -1109,7 +1109,16 @@ function useFocusActivity(store, accentColor, onSwitch) {
       else if (kind === "resume" && lastIdRef.current) H.resumeBlock(lastIdRef.current);
       else if (kind === "conclude") H.concludeActive("");
       else if (kind === "switch" && H.onSwitch) H.onSwitch();
+      else if (kind === "start-focus" && H.onStartFocus) H.onStartFocus();
     });
+    // Cold start from a launcher shortcut: the action was stashed natively before
+    // JS was listening, so drain it once here. No-ops in a browser.
+    try {
+      const p = window.FocusActivity.consumePendingShortcut();
+      if (p && p.then) p.then((r) => {
+        if (r && r.action === "start-focus" && handlersRef.current.onStartFocus) handlersRef.current.onStartFocus();
+      }).catch(() => {});
+    } catch (_) {}
     return () => { try { h.remove(); } catch (_) {} };
   }, []);
 
