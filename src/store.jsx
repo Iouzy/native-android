@@ -476,19 +476,42 @@ const EXPORT_VERSION = 4;
 
 // ─── AUTO-BACKUP (rolling local snapshot) ──────────────────
 // No server exists, and browsers can't silently write files without a user
-// gesture, so the reliable cross-platform "auto-backup" is a timestamped copy
-// of the latest backup object kept under its own localStorage key. It protects
-// against in-app mistakes (a stray reset/edit) and is one tap to restore or
-// download. The cadence is chosen in Settings; the writing loop lives in
-// useAutoBackup() (extras.jsx).
+// gesture, so the reliable cross-platform "auto-backup" is a short ring buffer
+// of timestamped copies of the backup object kept under its own localStorage
+// key. Keeping several (not one) means a corruption that then auto-saves can't
+// overwrite the last good copy — there are always a few older ones to fall back
+// to. It protects against in-app mistakes (a stray reset/edit) and each is one
+// tap to restore or download. The cadence is chosen in Settings; the writing
+// loop lives in useAutoBackup() (extras.jsx).
 const AUTOBACKUP_KEY = "pauta.autobackup";
-function readAutoBackup() {
-  try { const raw = localStorage.getItem(AUTOBACKUP_KEY); return raw ? JSON.parse(raw) : null; }
-  catch (e) { return null; }
+// How many timestamped snapshots to keep. / Quantas cópias manter (anel).
+const AUTOBACKUP_KEEP = 5;
+// All kept snapshots, newest-first: [{ ts, backup }, …]. Tolerates the legacy
+// single-slot shape ({ ts, backup }) written by older builds, so upgrading keeps
+// the existing copy. / Lista de cópias (aceita o formato antigo de slot único).
+function listAutoBackups() {
+  try {
+    const raw = localStorage.getItem(AUTOBACKUP_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (parsed && Array.isArray(parsed.snaps)) return parsed.snaps.filter(s => s && s.backup);
+    if (parsed && parsed.backup) return [{ ts: parsed.ts || 0, backup: parsed.backup }];  // legacy
+    return [];
+  } catch (e) { return []; }
 }
+// The most recent snapshot, or null. Kept for existing callers. / A mais recente.
+function readAutoBackup() {
+  const list = listAutoBackups();
+  return list.length ? list[0] : null;
+}
+// Prepend a new snapshot and trim to AUTOBACKUP_KEEP. Returns false on a failed
+// write (e.g. quota full). / Adiciona uma cópia e corta ao limite.
 function writeAutoBackup(backupObj) {
-  try { localStorage.setItem(AUTOBACKUP_KEY, JSON.stringify({ ts: Date.now(), backup: backupObj })); return true; }
-  catch (e) { return false; }
+  try {
+    const snaps = [{ ts: Date.now(), backup: backupObj }, ...listAutoBackups()].slice(0, AUTOBACKUP_KEEP);
+    localStorage.setItem(AUTOBACKUP_KEY, JSON.stringify({ snaps }));
+    return true;
+  } catch (e) { return false; }
 }
 // Cadence label → milliseconds (0 = disabled).
 function autoBackupIntervalMs(freq) {
@@ -1795,7 +1818,7 @@ Object.assign(window, {
   habitCadence, habitIsAnchorDay, habitPeriodMark, periodRange, habitPeriodStats,
   habitMaturityUnits, cadenceUnitShort, weekStartKey, weekEndKey,
   // auto-backup
-  readAutoBackup, writeAutoBackup, autoBackupIntervalMs,
+  readAutoBackup, writeAutoBackup, listAutoBackups, autoBackupIntervalMs, AUTOBACKUP_KEEP,
   // schema / import (exposed for tests + reuse)
   STORAGE_KEY, EXPORT_VERSION, emptyState, seed, loadState, saveState,
   migrateHabit, sanitizeHabit, sanitizeGoal, sanitizeMilestone, normalizeImported, parseBackup, MAX_BACKUP_CHARS,
