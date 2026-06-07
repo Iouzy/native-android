@@ -811,13 +811,17 @@ function NotifDiagnostics() {
   );
 }
 
-// Auto-backup: cadence picker + status + restore / download of the latest
-// rolling snapshot (see useAutoBackup / readAutoBackup in store + extras).
+// Auto-backup: cadence picker + status + restore / download of any kept rolling
+// snapshot. The store keeps a short ring buffer (AUTOBACKUP_KEEP) so a bad
+// auto-save can't bury the last good copy — the older ones are listed here. /
+// (ver useAutoBackup / listAutoBackups em store + extras).
 function AutoBackupControl({ store, accentColor }) {
   const freq = store.state.prefs.autoBackup || "off";
-  const [snap, setSnap] = useState(() => window.readAutoBackup());
+  const [list, setList] = useState(() => window.listAutoBackups());
   const [note, setNote] = useState(null);
-  useEffect(() => { setSnap(window.readAutoBackup()); }, [freq]);
+  const [showOlder, setShowOlder] = useState(false);
+  const refresh = () => setList(window.listAutoBackups());
+  useEffect(() => { refresh(); }, [freq]);
 
   const relative = (ts) => {
     const s = Math.floor((Date.now() - ts) / 1000);
@@ -827,21 +831,21 @@ function AutoBackupControl({ store, accentColor }) {
     const d = Math.floor(h / 24); return trf("há {n} dias", { n: d });
   };
 
-  const restore = async () => {
-    const s = window.readAutoBackup();
+  const restoreSnap = async (s) => {
     if (!s || !s.backup) return;
-    const ok = await window.pautaConfirm({ message: tr("Restaurar a última cópia automática substitui todos os dados atuais. Continuar?"), danger: true });
+    const ok = await window.pautaConfirm({ message: tr("Restaurar esta cópia automática substitui todos os dados atuais. Continuar?"), danger: true });
     if (!ok) return;
     const res = store.importData(JSON.stringify(s.backup));
     setNote(res.ok ? tr("Cópia restaurada.") : (res.error || tr("Falhou.")));
+    refresh();
   };
-  const download = () => {
-    const s = window.readAutoBackup();
+  const downloadSnap = (s) => {
     if (!s || !s.backup) return;
+    const stamp = s.ts ? new Date(s.ts).toISOString().slice(0, 10) : "";
     const blob = new Blob([JSON.stringify(s.backup, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
-    a.href = url; a.download = "pauta-autobackup.json";
+    a.href = url; a.download = stamp ? `pauta-autobackup-${stamp}.json` : "pauta-autobackup.json";
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
@@ -853,6 +857,14 @@ function AutoBackupControl({ store, accentColor }) {
     { value: "daily", label: tr("Dia") },
     { value: "weekly", label: tr("Semana") },
   ];
+
+  const latest = list[0] || null;
+  const older = list.slice(1);
+  const smallBtn = {
+    border: "1px solid var(--rule)", background: "transparent", borderRadius: 7,
+    padding: "5px 10px", cursor: "pointer", color: "var(--ink-2)",
+    fontFamily: "var(--mono)", fontSize: 10, letterSpacing: "0.04em",
+  };
 
   return (
     <div style={{
@@ -869,12 +881,42 @@ function AutoBackupControl({ store, accentColor }) {
       <Segmented value={freq} accentColor={accentColor}
         onChange={v => store.setPref("autoBackup", v)} options={opts}/>
       <div style={{ fontFamily: "var(--mono)", fontSize: 11, color: "var(--ink-3)", letterSpacing: "0.02em" }}>
-        {snap ? trf("Última cópia: {t}", { t: relative(snap.ts) }) : tr("Ainda sem cópia.")}
+        {latest ? trf("Última cópia: {t}", { t: relative(latest.ts) }) : tr("Ainda sem cópia.")}
       </div>
-      {snap && (
+      {latest && (
         <div style={{ display: "flex", gap: 8 }}>
-          <button onClick={restore} className="tap" style={miniBtn(accentColor, true)}>{tr("Restaurar")}</button>
-          <button onClick={download} className="tap" style={miniBtn(accentColor, false)}>{tr("Transferir")}</button>
+          <button onClick={() => restoreSnap(latest)} className="tap" style={miniBtn(accentColor, true)}>{tr("Restaurar")}</button>
+          <button onClick={() => downloadSnap(latest)} className="tap" style={miniBtn(accentColor, false)}>{tr("Transferir")}</button>
+        </div>
+      )}
+      {older.length > 0 && (
+        <div style={{ borderTop: "1px solid var(--rule)", paddingTop: 8 }}>
+          <button onClick={() => setShowOlder(o => !o)} className="tap"
+            style={{
+              border: "none", background: "transparent", padding: 0, cursor: "pointer",
+              display: "flex", alignItems: "center", gap: 8,
+              fontFamily: "var(--mono)", fontSize: 10, letterSpacing: "0.1em",
+              textTransform: "uppercase", color: "var(--ink-3)",
+            }}>
+            <span style={{ display: "inline-flex", transform: showOlder ? "rotate(90deg)" : "none", transition: "transform 0.12s" }}>
+              <Icon.Chevron size={11}/>
+            </span>
+            {trf("Cópias anteriores ({n})", { n: older.length })}
+          </button>
+          {showOlder && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 10 }}>
+              {older.map((s, i) => (
+                <div key={(s.ts || 0) + "_" + i}
+                  style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+                  <span style={{ fontFamily: "var(--mono)", fontSize: 11, color: "var(--ink-2)" }}>{relative(s.ts)}</span>
+                  <span style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                    <button onClick={() => restoreSnap(s)} className="tap" style={smallBtn}>{tr("Restaurar")}</button>
+                    <button onClick={() => downloadSnap(s)} className="tap" style={smallBtn}>{tr("Transferir")}</button>
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
       {note && (

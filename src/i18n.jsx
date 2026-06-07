@@ -256,6 +256,10 @@ const I18N_EN = {
   "{d}/{t} intenções": "{d}/{t} intentions",
   "{d}/{t} marés": "{d}/{t} tides",
   "marcar maré: {h}": "mark tide: {h}",
+
+  // ─── Settings: auto-backup ring buffer ───
+  "Restaurar esta cópia automática substitui todos os dados atuais. Continuar?": "Restoring this automatic copy replaces all your current data. Continue?",
+  "Cópias anteriores ({n})": "Earlier copies ({n})",
 };
 
 // === I18N_EN_BULK_BEGIN === (entries collected from the rest of the app)
