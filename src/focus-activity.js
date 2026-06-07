@@ -147,6 +147,8 @@
     // setImmersive({ on }) — native Android only: hide/show the system bars
     // (fullscreen). No-ops in a plain browser.
     setImmersive: function (o) { return invoke("setImmersive", o) || Promise.resolve({ ok: false }); },
+    // consumePendingShortcut() — drains a cold-start launcher-shortcut action.
+    consumePendingShortcut: function () { return invoke("consumePendingShortcut") || Promise.resolve({ action: "" }); },
     notify:      function (o) { return invoke("showReminder", o)      || Promise.resolve({ shown: false }); },
     scheduleReminders: function (o) { return invoke("scheduleReminders", o) || Promise.resolve({ scheduled: false, exact: false }); },
     cancelReminders:   function ()  { return invoke("cancelReminders")       || Promise.resolve({ scheduled: false }); },

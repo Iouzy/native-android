@@ -128,6 +128,20 @@ Honest limitations (preserved deliberately):
   reminder uses a neutral nudge ("You have habits to check off today."). The
   in-app loop, when open, can still be specific.
 
+## App shortcuts (long-press the launcher icon)
+
+- **Android — DONE.** `MainActivity` registers a **dynamic** shortcut
+  ("Iniciar foco") via `ShortcutManagerCompat` whose intent carries the
+  `com.pauta.app.SHORTCUT_FOCUS` action. Dynamic (not static `res/xml`) keeps it
+  self-contained in `MainActivity.kt` — no manifest meta-data / string-resource
+  injection — and it no-ops below API 25. Tapping it deep-links to "start a focus
+  block": a warm start emits the `"action"` event (`kind: "start-focus"`)
+  straight to JS; a cold start stashes the action in `pendingShortcutAction`,
+  which the web layer drains on mount via
+  `FocusActivity.consumePendingShortcut()`. JS then jumps to the Pauta tab and
+  opens the start sheet. All native shortcut code is wrapped in try/catch so it
+  can never affect the launch path.
+
 ## Fullscreen / immersive mode
 
 - **Android — DONE.** `FocusActivity.setImmersive({ on })` calls
