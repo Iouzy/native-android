@@ -629,6 +629,9 @@ const finiteOr = (v, fallback) => (Number.isFinite(Number(v)) ? Number(v) : fall
 // Cor hex (#rgb / #rrggbb) ou null.
 const isHexColor = (v) => typeof v === "string" && /^#[0-9a-fA-F]{3}([0-9a-fA-F]{3})?$/.test(v.trim());
 
+// Time-of-day buckets for intentions (the Hoje list groups by these). /
+// Períodos do dia para as intenções.
+const WHEN_VALUES = ["manha", "tarde", "noite"];
 function sanitizeIntention(it) {
   if (!isPlainObj(it)) return null;
   const out = {
@@ -649,6 +652,9 @@ function sanitizeIntention(it) {
   // app load. Only a positive number is kept; 0/null/garbage means "none".
   const targetMin = Number(it.targetMin);
   if (Number.isFinite(targetMin) && targetMin > 0) out.targetMin = targetMin;
+  // Optional time-of-day bucket the Hoje list groups by. One of manha/tarde/noite
+  // (none = ungrouped). / Período do dia, opcional.
+  if (WHEN_VALUES.includes(it.when)) out.when = it.when;
   return out;
 }
 function sanitizeSession(seg) {
@@ -1604,6 +1610,7 @@ function useStore() {
     if (opts.priority === 1 || opts.priority === 2 || opts.priority === 3) it.priority = opts.priority;
     const tm = Number(opts.targetMin);
     if (Number.isFinite(tm) && tm > 0) it.targetMin = Math.round(tm);
+    if (WHEN_VALUES.includes(opts.when)) it.when = opts.when;
     setState(s => ({ ...s, today: { ...s.today, intentions: [...s.today.intentions, it] } }));
     return id;
   };
@@ -1954,6 +1961,7 @@ function useStore() {
         ...items.map(it => ({
           id: uid("i_"), text: (it.text || "").trim(),
           done: false, priority: it.priority, targetMin: it.targetMin || null,
+          ...(WHEN_VALUES.includes(it.when) ? { when: it.when } : {}),
           createdAt: Date.now(),
         })).filter(it => it.text),
       ],
@@ -2057,7 +2065,7 @@ Object.assign(window, {
   readAutoBackup, writeAutoBackup, listAutoBackups, autoBackupIntervalMs, AUTOBACKUP_KEEP,
   // schema / import (exposed for tests + reuse)
   STORAGE_KEY, EXPORT_VERSION, emptyState, seed, loadState, saveState,
-  migrateHabit, sanitizeHabit, sanitizeGoal, sanitizeMilestone, sanitizeRoutine, normalizeImported, parseBackup, MAX_BACKUP_CHARS,
-  withDayReflection, buildCSV, csvCell, isHexColor, applyRespiro, rollOverDay,
+  migrateHabit, sanitizeIntention, sanitizeHabit, sanitizeGoal, sanitizeMilestone, sanitizeRoutine, normalizeImported, parseBackup, MAX_BACKUP_CHARS,
+  withDayReflection, buildCSV, csvCell, isHexColor, applyRespiro, rollOverDay, WHEN_VALUES,
   habitDayStatus, habitActionableToday,
 });
