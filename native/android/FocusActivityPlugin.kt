@@ -16,6 +16,9 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import java.io.File
 import com.getcapacitor.JSObject
 import com.getcapacitor.Plugin
@@ -232,6 +235,33 @@ class FocusActivityPlugin : Plugin() {
             context.startService(intent)
         }
         call.resolve()
+    }
+
+    // ── Immersive (fullscreen) mode ──────────────────────────────
+    // Hide/show the system status + navigation bars. The app already draws
+    // edge-to-edge (MainActivity sets decorFitsSystemWindows=false), so this just
+    // toggles the bars' visibility; swipe from an edge brings them back
+    // transiently. JS owns the on/off pref and re-applies it on launch.
+    @PluginMethod
+    fun setImmersive(call: PluginCall) {
+        val on = call.getBoolean("on", false) ?: false
+        val act = activity
+        if (act == null) {
+            call.resolve(JSObject().put("ok", false))
+            return
+        }
+        act.runOnUiThread {
+            val window = act.window
+            val controller = WindowCompat.getInsetsController(window, window.decorView)
+            if (on) {
+                controller.systemBarsBehavior =
+                    WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                controller.hide(WindowInsetsCompat.Type.systemBars())
+            } else {
+                controller.show(WindowInsetsCompat.Type.systemBars())
+            }
+        }
+        call.resolve(JSObject().put("ok", true))
     }
 
     // ── One-shot local reminders ─────────────────────────────────

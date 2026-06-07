@@ -130,10 +130,11 @@ Honest limitations (preserved deliberately):
 
 ## Fullscreen / immersive mode
 
-- **Android:** a small plugin calling `WindowInsetsControllerCompat` to hide the
-  system bars (immersive sticky), toggled from a Settings switch. The system
-  clock/battery/Wi-Fi reappear on a swipe from the edge — that satisfies "leave
-  only essential system info" while staying distraction-free.
+- **Android — DONE.** `FocusActivity.setImmersive({ on })` calls
+  `WindowInsetsControllerCompat` to hide the system bars (transient-bars-by-swipe
+  behaviour). Toggled from the **Ecrã inteiro** switch in Settings → Aparência
+  (`prefs.immersive`), re-applied on launch. The clock/battery/Wi-Fi reappear on
+  a swipe from the edge — distraction-free without losing essential system info.
 - **iOS:** a real native app is already full-bleed; `prefersStatusBarHidden`
   controls the status bar. The web `Fullscreen API` is **not** an option — iOS
   Safari does not support `requestFullscreen` on non-video elements, which is why
