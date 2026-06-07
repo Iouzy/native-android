@@ -174,6 +174,7 @@ function defaultPrefs() {
     theme: "auto",          // "auto" | "light" | "dark"
     accent: null,           // null = use the build-time default; else a hex chosen in Settings
     reducedMotion: false,   // user opt-out for animations (OS preference is the implicit default)
+    highContrast: false,    // stronger muted-ink + rules; OS prefers-contrast is the implicit default
     haptics: true,
     sound: false,           // gentle chime when a focus block is concluded / a target is hit
     keepAwake: true,        // hold a screen wake lock while a block is running

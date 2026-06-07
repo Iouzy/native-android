@@ -268,6 +268,11 @@ const I18N_EN = {
   "maré ligada": "linked tide",
   "nenhuma": "none",
 
+  // ─── Accessibility ───
+  "Acessibilidade": "Accessibility",
+  "Alto contraste": "High contrast",
+  "Reforça o texto e as linhas. Segue o sistema por omissão.": "Strengthens text and lines. Follows the system by default.",
+
   // ─── Privacy: app lock (PIN) ───
   "Privacidade": "Privacy",
   "Bloqueio por PIN": "PIN lock",
