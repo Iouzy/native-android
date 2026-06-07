@@ -387,6 +387,7 @@ function seed() {
         { text: tr("Rever os apontamentos da semana"), priority: 2 },
       ] },
     ],
+    plans: {},
     prefs: defaultPrefs(),
   };
 }
@@ -434,19 +435,25 @@ function migrateHabit(h, todayTs = Date.now()) {
   return out;
 }
 
-// Pure: archive a stale `today` into `days` and open a fresh empty `today` when
-// the calendar day has changed since it was written. Returns the SAME object
-// reference when nothing changed, so a live setState(rollOverDay) is a no-op the
-// rest of the time (React bails on Object.is). Shared by loadState (cold start
-// after midnight) and the in-app midnight watcher in useStore (so leaving the
-// app open overnight still rolls the day over instead of showing yesterday's
-// intentions until the next reload). / Puro: vira o dia quando a data muda.
+// Pure: archive a stale `today` into `days` and open a fresh `today` when the
+// calendar day has changed — seeding it from any week-ahead plan for the new day
+// (state.plans, a separate map; see addPlannedIntention) and dropping consumed /
+// stale plans (keys <= today). Returns the SAME object reference when nothing
+// needs to change, so a live setState(rollOverDay) is a no-op the rest of the
+// time (React bails on Object.is). Shared by loadState (cold start after
+// midnight) and the in-app midnight watcher in useStore. /
+// Puro: vira o dia, semeando o plano da semana e limpando planos consumidos.
 function rollOverDay(s, nowTs = Date.now()) {
   const todayKey = dayKeyOf(nowTs);
-  if (s.today && s.today.dayKey === todayKey) return s;
+  const plans = s.plans || {};
+  const sameDay = !!(s.today && s.today.dayKey === todayKey);
+  const stalePlanKeys = Object.keys(plans).filter(k => k <= todayKey);
+  // Nothing to do: still the same day and no plans to promote/clean.
+  if (sameDay && stalePlanKeys.length === 0) return s;
+
   const days = { ...(s.days || {}) };
-  // Archive the old day only if it had any content worth keeping.
-  if (s.today && s.today.dayKey && (
+  // Archive the old day only when the day actually changed and it had content.
+  if (!sameDay && s.today && s.today.dayKey && (
     (s.today.intentions && s.today.intentions.length > 0) ||
     (s.today.reflection && s.today.reflection.trim())
   )) {
@@ -455,7 +462,19 @@ function rollOverDay(s, nowTs = Date.now()) {
       reflection: s.today.reflection || "",
     };
   }
-  return { ...s, days, today: { dayKey: todayKey, intentions: [], reflection: "" } };
+  // New today: keep the existing one on a same-day cleanup, else seed from the
+  // plan for today (if any) so a week-ahead plan becomes the day's intentions.
+  const planned = plans[todayKey];
+  const today = sameDay ? s.today : {
+    dayKey: todayKey,
+    intentions: (planned && Array.isArray(planned.intentions)) ? planned.intentions : [],
+    reflection: "",
+  };
+  // Drop every plan up to and including today (promoted or past/unfulfilled).
+  const nextPlans = {};
+  for (const k of Object.keys(plans)) if (k > todayKey) nextPlans[k] = plans[k];
+
+  return { ...s, days, today, plans: nextPlans };
 }
 
 function loadState() {
@@ -464,8 +483,10 @@ function loadState() {
     if (!raw) return window.PAUTA_CLEAN_START ? emptyState() : seed();
     let s = JSON.parse(raw);
     if (!s.days) s.days = {};
-    // Archive a stale `today` and start a fresh one if the day changed since the
-    // last write. The same helper runs live while the app stays open (useStore).
+    if (!s.plans || typeof s.plans !== "object" || Array.isArray(s.plans)) s.plans = {};
+    // Archive a stale `today`, seed today from any week-ahead plan, and drop
+    // consumed/stale plans if the day changed since the last write. The same
+    // helper runs live while the app stays open (useStore).
     s = rollOverDay(s);
     // Migrate habits to new schema
     if (Array.isArray(s.habits)) s.habits = s.habits.map(h => migrateHabit(h));
@@ -485,6 +506,7 @@ function emptyState() {
     habits: [],
     goals: [],
     routines: [],
+    plans: {},
     prefs: defaultPrefs(),
   };
 }
@@ -792,6 +814,17 @@ function normalizeImported(s) {
   const habits = asArray(s.habits).map(sanitizeHabit).filter(Boolean);
   const goals = asArray(s.goals).map(sanitizeGoal).filter(Boolean);
   const routines = asArray(s.routines).map(sanitizeRoutine).filter(Boolean);
+  // Week-ahead plans: future-dated intention lists, kept separate from the `days`
+  // archive. Only future keys survive import (today's/past plans are dropped —
+  // rollOverDay promotes/cleans them otherwise). / Planos da semana (futuros).
+  const plans = {};
+  if (isPlainObj(s.plans)) {
+    for (const k of Object.keys(s.plans)) {
+      if (!isDayKey(k) || k <= todayKey) continue;
+      const ints = asArray(s.plans[k] && s.plans[k].intentions).map(sanitizeIntention).filter(it => it && it.text.trim());
+      if (ints.length) plans[k] = { intentions: ints };
+    }
+  }
   const prefs = mergePrefs(isPlainObj(s.prefs) ? s.prefs : {});
 
   // Exactly one block may be active. Honour activeId when it points at a real
@@ -806,7 +839,7 @@ function normalizeImported(s) {
     }
   }
 
-  return { today, days, activeId, blocks, habits, goals, routines, prefs };
+  return { today, days, activeId, blocks, habits, goals, routines, plans, prefs };
 }
 
 // Parse + validate backup text. Returns the normalized state or throws.
@@ -1996,6 +2029,36 @@ function useStore() {
   // Save today's current intentions as a new routine (planning fields only).
   const saveRoutineFromToday = (name) => addRoutine(name, state.today.intentions);
 
+  // ─ Week-ahead planning (state.plans, future days only) ─
+  // Add a planned intention to a FUTURE day. When that day becomes today,
+  // rollOverDay promotes the plan into `today`. Past/today keys are ignored. /
+  // Planear uma intenção para um dia futuro.
+  const addPlannedIntention = (dayKey, text, opts = {}) => {
+    const t = (text || "").trim();
+    if (!t || !isDayKey(dayKey) || dayKey <= dayKeyOf(Date.now())) return null;
+    const it = { id: uid("i_"), text: t, done: false, createdAt: Date.now() };
+    if (opts.priority === 1 || opts.priority === 2 || opts.priority === 3) it.priority = opts.priority;
+    const tm = Number(opts.targetMin);
+    if (Number.isFinite(tm) && tm > 0) it.targetMin = Math.round(tm);
+    if (WHEN_VALUES.includes(opts.when)) it.when = opts.when;
+    setState(s => {
+      const plans = { ...(s.plans || {}) };
+      const day = plans[dayKey] || { intentions: [] };
+      plans[dayKey] = { intentions: [...(day.intentions || []), it] };
+      return { ...s, plans };
+    });
+    return it.id;
+  };
+  const removePlannedIntention = (dayKey, id) => setState(s => {
+    const plans = { ...(s.plans || {}) };
+    const day = plans[dayKey];
+    if (!day) return s;
+    const intentions = (day.intentions || []).filter(i => i.id !== id);
+    if (intentions.length) plans[dayKey] = { intentions };
+    else delete plans[dayKey];
+    return { ...s, plans };
+  });
+
   // Returns { ok } or { ok:false, error }. Caller confirms the overwrite.
   const importData = (text) => {
     try {
@@ -2014,6 +2077,8 @@ function useStore() {
     setDayReflection, carryOverIntentions,
     // routines (intention templates)
     addRoutine, removeRoutine, applyRoutine, saveRoutineFromToday,
+    // week-ahead planning
+    addPlannedIntention, removePlannedIntention,
     // pauta
     startBlock, pauseActive, resumeBlock, concludeActive, concludeBlock,
     updateBlock, updateSessionNote, deleteBlock, addManualBlock,
