@@ -561,9 +561,52 @@ function MilestoneList({ goal, store, accentColor }) {
   );
 }
 
+// A goal's "living pulse": the linked tide's current streak + this-month %, so a
+// quarterly goal shows real momentum instead of sitting as a dead checkbox. /
+// O pulso da meta — a maré ligada mostra a constância e a % do mês.
+function GoalPulse({ habit, accentColor }) {
+  const now = Date.now();
+  const d = new Date(now);
+  const streak = habitCurrentStreak(habit, now);
+  const pct = habitPctInMonth(habit, d.getFullYear(), d.getMonth(), now);
+  const col = habit.color || accentColor;
+  return (
+    <div style={{
+      margin: "-2px 0 8px 48px", display: "flex", alignItems: "center", gap: 8,
+      fontFamily: "var(--mono)", fontSize: 10, color: "var(--ink-3)", letterSpacing: "0.04em",
+    }}>
+      <span style={{ color: col, fontSize: 12, lineHeight: 1 }}>≈</span>
+      <span style={{ color: "var(--ink-2)" }}>{habit.name}</span>
+      {streak.days > 0 && <span>· {streak.days}d</span>}
+      {pct !== null && <span>· {pct}%</span>}
+    </div>
+  );
+}
+
+// Link / unlink a goal to a tide via a native select (accessible + compact). /
+// Ligar ou desligar a meta de uma maré.
+function GoalHabitLink({ goal, habits, accentColor, onSet }) {
+  return (
+    <div style={{ margin: "0 0 8px 48px", display: "flex", alignItems: "center", gap: 8 }}>
+      <span style={{ fontFamily: "var(--mono)", fontSize: 9, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--ink-3)", flexShrink: 0 }}>
+        {tr("maré ligada")}
+      </span>
+      <select value={goal.habitId || ""} onChange={e => onSet(e.target.value || null)}
+        style={{
+          flex: 1, minWidth: 0, border: "1px solid var(--rule)", background: "var(--paper)",
+          borderRadius: 7, padding: "5px 8px", fontFamily: "var(--sans)", fontSize: 13, color: "var(--ink)",
+        }}>
+        <option value="">{tr("nenhuma")}</option>
+        {habits.map(h => <option key={h.id} value={h.id}>{h.name}</option>)}
+      </select>
+    </div>
+  );
+}
+
 function GoalsSection({ store, accentColor }) {
   const { state, addGoal, updateGoal, toggleGoal, removeGoal, reorderGoals } = store;
   const goals = state.goals || [];
+  const habits = state.habits || [];
   const [q, setQ] = useState(quarterOf(Date.now()));
   const [adding, setAdding] = useState(false);
   const [text, setText] = useState("");
@@ -641,10 +684,11 @@ function GoalsSection({ store, accentColor }) {
           const ms = g.milestones || [];
           const msDone = ms.filter(m => m.done).length;
           const open = expanded === g.id;
+          const linkedHabit = g.habitId ? habits.find(h => h.id === g.habitId) : null;
           return (
-          <div key={g.id}>
+          <div key={g.id} style={{ borderBottom: open ? "none" : "1px solid var(--rule)" }}>
           <div data-drag-id={g.id} className="goal-row"
-            style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "10px 0", borderBottom: open ? "none" : "1px solid var(--rule)",
+            style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "10px 0", borderBottom: "none",
               background: dragId === g.id ? "var(--paper)" : "transparent", opacity: dragId === g.id ? 0.7 : 1,
               borderRadius: dragId === g.id ? 10 : 0, transition: "background 0.12s" }}>
             <button onPointerDown={(e) => start(e, g.id)} className="tap" title={tr("arrastar para reordenar")}
@@ -684,7 +728,14 @@ function GoalsSection({ store, accentColor }) {
               <Icon.Trash size={13}/>
             </button>
           </div>
-          {open && <MilestoneList goal={g} store={store} accentColor={accentColor}/>}
+          {linkedHabit && <GoalPulse habit={linkedHabit} accentColor={accentColor}/>}
+          {open && (
+            <>
+              <GoalHabitLink goal={g} habits={habits} accentColor={accentColor}
+                onSet={(id) => updateGoal(g.id, { habitId: id })}/>
+              <MilestoneList goal={g} store={store} accentColor={accentColor}/>
+            </>
+          )}
           </div>
           );
         })}
