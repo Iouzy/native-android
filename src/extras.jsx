@@ -1256,6 +1256,32 @@ function useWakeLock(active) {
   }, [active]);
 }
 
+// Push today's snapshot (intentions, focus, tides) to the native home-screen
+// widget whenever it changes. Strings are formatted/localized here so the widget
+// just renders them. No-ops in a browser. Honest limit: the numbers are as of
+// the last time the app was open. / Atualiza o widget com o resumo de hoje.
+function useWidgetSnapshot(store) {
+  const { state } = store;
+  const { today, blocks, habits } = state;
+  useEffect(() => {
+    if (!window.FocusActivity || !window.FocusActivity.isNative) return;
+    try {
+      const dayKey = dayKeyOf(Date.now());
+      const t = (today && today.dayKey === dayKey) ? today : null;
+      const intTotal = t ? t.intentions.length : 0;
+      const intDone = t ? t.intentions.filter(i => i.done).length : 0;
+      const focusMin = Math.round(dailyFocusMs(blocks || [], dayKey) / 60000);
+      const active = (habits || []).filter(h => habitIsActiveOn(h, dayKey));
+      const tidesDone = active.filter(h => h.log && h.log[dayKey]).length;
+      window.FocusActivity.setWidgetSnapshot({
+        line1: trf("Intenções {d}/{t}", { d: intDone, t: intTotal }),
+        line2: trf("Foco {m}m", { m: focusMin }),
+        line3: trf("Marés {d}/{t}", { d: tidesDone, t: active.length }),
+      });
+    } catch (_) {}
+  }, [today, blocks, habits, window.PAUTA_LANG]);
+}
+
 // ─── Completion chime ────────────────────────────────────────
 // A short, soft three-note arpeggio via Web Audio (no asset to ship). Callers
 // gate on prefs.sound. Wrapped in try/catch so it never blocks the action.
@@ -1410,6 +1436,6 @@ Object.assign(window, {
   haptic, OnboardingOverlay, TierGuideSheet, NotifPrompt,
   BestHourChart, CorrelationList, FocusCalendar, WeekReview, InsightsSheet,
   GoalsSection, useReminders, useFocusActivity,
-  useAutoBackup, useWakeLock, playChime, shareDayCard, shareBackupFile,
+  useAutoBackup, useWakeLock, useWidgetSnapshot, playChime, shareDayCard, shareBackupFile,
   notifySupported, enableNotifications, fireReminder,
 });

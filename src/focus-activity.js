@@ -155,6 +155,9 @@
     // setReminderHabitsBody({ body, dayKey }) — count-specific (already-localized)
     // habits-reminder body for the app-CLOSED path; "" = nothing pending.
     setReminderHabitsBody: function (o) { return invoke("setReminderHabitsBody", o) || Promise.resolve(); },
+    // setWidgetSnapshot({ line1, line2, line3 }) — push today's stat lines to the
+    // home-screen widget (already localized). No-ops in a browser.
+    setWidgetSnapshot: function (o) { return invoke("setWidgetSnapshot", o) || Promise.resolve(); },
     shareImage:  function (o) { return invoke("shareImage", o) || Promise.resolve({ shared: false }); },
     addListener: function (ev, cb) { return listen(ev, cb); },
     checkPermission:     function () { return invoke("checkPermission")     || Promise.resolve({ granted: false }); },

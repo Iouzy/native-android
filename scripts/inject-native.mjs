@@ -9,6 +9,7 @@ const SRC     = join(ROOT, "native/android");
 const JAVA    = join(ROOT, "android/app/src/main/java/com/pauta/app");
 const DRAWABLE = join(ROOT, "android/app/src/main/res/drawable");
 const XML      = join(ROOT, "android/app/src/main/res/xml");
+const LAYOUT   = join(ROOT, "android/app/src/main/res/layout");
 const MANIFEST = join(ROOT, "android/app/src/main/AndroidManifest.xml");
 const GRADLE   = join(ROOT, "android/app/build.gradle");
 const ROOT_GRADLE = join(ROOT, "android/build.gradle");
@@ -21,6 +22,7 @@ const KOTLIN_VERSION = "1.9.25";
 mkdirSync(JAVA,     { recursive: true });
 mkdirSync(DRAWABLE, { recursive: true });
 mkdirSync(XML,      { recursive: true });
+mkdirSync(LAYOUT,   { recursive: true });
 
 for (const file of [
   "FocusActivityPlugin.kt",
@@ -31,6 +33,7 @@ for (const file of [
   "ReminderScheduler.kt",
   "ReminderReceiver.kt",
   "BootReceiver.kt",
+  "PautaWidgetProvider.kt",
 ]) {
   cpSync(join(SRC, file), join(JAVA, file));
   console.log(`Copied ${file}`);
@@ -62,6 +65,11 @@ for (const icon of [
 }
 cpSync(join(SRC, "update_file_paths.xml"), join(XML, "update_file_paths.xml"));
 console.log("Copied update_file_paths.xml");
+// Home-screen widget: provider-info (res/xml) + RemoteViews layout (res/layout).
+cpSync(join(SRC, "widget_pauta_info.xml"), join(XML, "widget_pauta_info.xml"));
+console.log("Copied widget_pauta_info.xml");
+cpSync(join(SRC, "widget_pauta.xml"), join(LAYOUT, "widget_pauta.xml"));
+console.log("Copied widget_pauta.xml");
 
 // ── 3. Patch AndroidManifest.xml ─────────────────────────────
 let manifest = readFileSync(MANIFEST, "utf8");
@@ -107,6 +115,16 @@ const COMPONENTS = `
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED"/>
                 <action android:name="android.intent.action.QUICKBOOT_POWERON"/>
             </intent-filter>
+        </receiver>
+        <receiver
+            android:name=".PautaWidgetProvider"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_pauta_info"/>
         </receiver>
         <provider
             android:name="androidx.core.content.FileProvider"
