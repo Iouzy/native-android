@@ -489,6 +489,34 @@ function WeekReview({ store, accentColor }) {
   );
 }
 
+// ─── Padrões (narrative insights) ───────────────────────────
+// Calm, locally-computed observations — facts, not judgement — from the shared
+// narrativeStats(). Each line only appears when there's enough data to be honest.
+function NarrativeInsights({ state, accentColor }) {
+  const n = useMemo(() => narrativeStats(state), [state.habits, state.blocks, state.days, state.today]);
+  const lines = [];
+  if (n.topHabit) lines.push(trf("A tua maré mais constante é {name} — {n} dias seguidos.", { name: n.topHabit.name, n: n.topHabit.days }));
+  if (n.peakHour !== null) lines.push(trf("Focas mais por volta das {h}h.", { h: n.peakHour }));
+  if (n.highPrioPct !== null) lines.push(trf("Concluíste {pct}% das intenções de prioridade alta.", { pct: n.highPrioPct }));
+  if (lines.length === 0) {
+    return (
+      <div style={{ fontFamily: "var(--serif)", fontStyle: "italic", fontSize: 14, color: "var(--ink-3)", lineHeight: 1.5 }}>
+        {tr("Ainda a juntar padrões. Continue a usar a app — em poucos dias aparecem aqui.")}
+      </div>
+    );
+  }
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      {lines.map((t, i) => (
+        <div key={i} style={{ display: "flex", gap: 8, fontFamily: "var(--serif)", fontSize: 15, color: "var(--ink)", lineHeight: 1.4 }}>
+          <span style={{ color: accentColor, flexShrink: 0 }}>—</span>
+          <span>{t}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // ─── Insights sheet (hub de análise) ────────────────────────
 function InsightsSheet({ open, onClose, store, accentColor }) {
   if (!open) return null;
@@ -509,6 +537,9 @@ function InsightsSheet({ open, onClose, store, accentColor }) {
           {tr("Sem julgamento. Só o que aconteceu, para reparar no padrão.")}
         </div>
         <WeekReview store={store} accentColor={accentColor}/>
+        <Section label={tr("Padrões")}>
+          <NarrativeInsights state={state} accentColor={accentColor}/>
+        </Section>
         <Section label={tr("Melhor hora do dia")}>
           <BestHourChart blocks={state.blocks} accentColor={accentColor}/>
         </Section>

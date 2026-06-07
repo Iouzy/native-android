@@ -267,6 +267,14 @@ const I18N_EN = {
   // ─── Hoje: goal ↔ tide link (living pulse) ───
   "maré ligada": "linked tide",
   "nenhuma": "none",
+
+  // ─── Insights: narrative patterns + pulse entry ───
+  "ver revisão": "see review",
+  "Padrões": "Patterns",
+  "A tua maré mais constante é {name} — {n} dias seguidos.": "Your most constant tide is {name} — {n} days running.",
+  "Focas mais por volta das {h}h.": "You focus most around {h}h.",
+  "Concluíste {pct}% das intenções de prioridade alta.": "You completed {pct}% of your high-priority intentions.",
+  "Ainda a juntar padrões. Continue a usar a app — em poucos dias aparecem aqui.": "Still gathering patterns. Keep using the app — they'll show up in a few days.",
 };
 
 // === I18N_EN_BULK_BEGIN === (entries collected from the rest of the app)
