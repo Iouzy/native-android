@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Home-screen widget layout (RemoteViews — only framework views are allowed:
+  LinearLayout / TextView here). The three stat lines are filled at runtime by
+  PautaWidgetProvider from the snapshot the web layer pushes while open. Colours
+  are the app's light-paper tokens; a day/night qualified copy could theme it
+  later, but a single neutral card keeps the resource set small.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="14dp"
+    android:background="#F5F1EA">
+
+    <TextView
+        android:id="@+id/widget_title"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Pauta"
+        android:textColor="#1A1815"
+        android:textSize="13sp"
+        android:textStyle="bold"/>
+
+    <TextView
+        android:id="@+id/widget_line1"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:textColor="#4A453C"
+        android:textSize="14sp"/>
+
+    <TextView
+        android:id="@+id/widget_line2"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:textColor="#4A453C"
+        android:textSize="14sp"/>
+
+    <TextView
+        android:id="@+id/widget_line3"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:textColor="#4A453C"
+        android:textSize="14sp"/>
+</LinearLayout>

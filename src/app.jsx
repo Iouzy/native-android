@@ -1099,6 +1099,8 @@ function App() {
   useAutoBackup(store);
   // Keep the screen awake while a focus block is running (if enabled).
   useWakeLock(!!store.activeBlock && prefs.keepAwake);
+  // Feed today's snapshot to the native home-screen widget (no-op in a browser).
+  useWidgetSnapshot(store);
 
   // Keyboard shortcuts (desktop): 1/2/3 tabs, g settings, i insights, ? guide.
   useEffect(() => {

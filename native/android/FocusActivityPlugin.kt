@@ -397,6 +397,15 @@ class FocusActivityPlugin : Plugin() {
         call.resolve()
     }
 
+    // ── Home-screen widget snapshot ──────────────────────────────
+    // The web layer pushes three already-localized stat lines; we persist them
+    // and refresh any placed widget. / Atualiza o widget do ecrã inicial.
+    @PluginMethod
+    fun setWidgetSnapshot(call: PluginCall) {
+        PautaWidgetProvider.saveSnapshot(context, call.getString("line1"), call.getString("line2"), call.getString("line3"))
+        call.resolve()
+    }
+
     // ── Native share sheet ───────────────────────────────────────
     // The Web Share API's FILE support is unreliable inside the Capacitor WebView
     // (navigator.share({ files }) silently no-ops on many devices), so the day-card

@@ -133,6 +133,19 @@ Honest limitations (preserved deliberately):
   count is as of the **last time the app was open** — it can't update while the
   app is closed.
 
+## Home-screen widget
+
+- **Android — DONE.** A `PautaWidgetProvider` (AppWidgetProvider) renders today's
+  snapshot: intentions done/total, focus minutes, tides done/total. The WebView
+  can't feed a widget directly, so while the app is open the web layer pushes
+  three already-localized stat lines into `SharedPreferences` via
+  `FocusActivity.setWidgetSnapshot({ line1, line2, line3 })`; the provider reads
+  them and (re)renders on demand + on the OS update tick. Tapping the widget
+  opens the app. `inject-native.mjs` copies the provider, the `res/layout`
+  RemoteViews layout and the `res/xml` provider-info, and registers the
+  `<receiver>`. Honest limit: the numbers are as of the last time the app was
+  open — a widget process can't read the app's `localStorage` on its own.
+
 ## App shortcuts (long-press the launcher icon)
 
 - **Android — DONE.** `MainActivity` registers a **dynamic** shortcut
