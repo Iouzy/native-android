@@ -379,6 +379,12 @@ function seed() {
       { id: "g1", text: tr("Aprender a tocar guitarra"), quarter: quarterOf(Date.now()), done: false, createdAt: Date.now() - 20*86400000 },
       { id: "g2", text: tr("Correr 5 km sem parar"), quarter: quarterOf(Date.now()), done: false, createdAt: Date.now() - 10*86400000 },
     ],
+    routines: [
+      { id: "r_manha", name: tr("Manhã"), items: [
+        { text: tr("Estudar 45 min para o teste"), priority: 1, targetMin: 45 },
+        { text: tr("Rever os apontamentos da semana"), priority: 2 },
+      ] },
+    ],
     prefs: defaultPrefs(),
   };
 }
@@ -462,6 +468,7 @@ function loadState() {
     // Migrate habits to new schema
     if (Array.isArray(s.habits)) s.habits = s.habits.map(h => migrateHabit(h));
     if (!Array.isArray(s.goals)) s.goals = [];
+    if (!Array.isArray(s.routines)) s.routines = [];
     s.prefs = mergePrefs(s.prefs);
     return s;
   } catch (e) { return window.PAUTA_CLEAN_START ? emptyState() : seed(); }
@@ -475,6 +482,7 @@ function emptyState() {
     blocks: [],
     habits: [],
     goals: [],
+    routines: [],
     prefs: defaultPrefs(),
   };
 }
@@ -715,6 +723,30 @@ function sanitizeGoal(g) {
     createdAt: finiteOr(g.createdAt, Date.now()),
   };
 }
+// A routine is a reusable template of intentions (e.g. "Manhã"). Items carry only
+// the planning fields (text + optional priority/targetMin); applying a routine
+// instantiates fresh intentions for today. / Rotina = modelo de intenções.
+function sanitizeRoutineItem(it) {
+  if (!isPlainObj(it)) return null;
+  const text = cleanStr(it.text).trim();
+  if (!text) return null;
+  const out = { text };
+  const prio = Number(it.priority);
+  if (prio === 1 || prio === 2 || prio === 3) out.priority = prio;
+  const tm = Number(it.targetMin);
+  if (Number.isFinite(tm) && tm > 0) out.targetMin = Math.round(tm);
+  return out;
+}
+function sanitizeRoutine(r) {
+  if (!isPlainObj(r)) return null;
+  const items = asArray(r.items).map(sanitizeRoutineItem).filter(Boolean);
+  if (items.length === 0) return null;
+  return {
+    id: typeof r.id === "string" ? r.id : uid("r_"),
+    name: cleanStr(r.name).trim() || tr("Rotina"),
+    items,
+  };
+}
 function sanitizeDay(d) {
   if (!isPlainObj(d)) return { intentions: [], reflection: "" };
   return {
@@ -751,6 +783,7 @@ function normalizeImported(s) {
   const blocks = asArray(s.blocks).map(sanitizeBlock).filter(Boolean);
   const habits = asArray(s.habits).map(sanitizeHabit).filter(Boolean);
   const goals = asArray(s.goals).map(sanitizeGoal).filter(Boolean);
+  const routines = asArray(s.routines).map(sanitizeRoutine).filter(Boolean);
   const prefs = mergePrefs(isPlainObj(s.prefs) ? s.prefs : {});
 
   // Exactly one block may be active. Honour activeId when it points at a real
@@ -765,7 +798,7 @@ function normalizeImported(s) {
     }
   }
 
-  return { today, days, activeId, blocks, habits, goals, prefs };
+  return { today, days, activeId, blocks, habits, goals, routines, prefs };
 }
 
 // Parse + validate backup text. Returns the normalized state or throws.
@@ -1813,6 +1846,34 @@ function useStore() {
       ],
     },
   }));
+  // ─ Routines (reusable intention templates) ─
+  // Save a set of {text, priority?, targetMin?} as a named routine. /
+  // Guardar um conjunto de intenções como rotina nomeada.
+  const addRoutine = (name, items) => {
+    const list = (items || [])
+      .map(it => {
+        const text = (it.text || "").trim();
+        if (!text) return null;
+        const out = { text };
+        if (it.priority === 1 || it.priority === 2 || it.priority === 3) out.priority = it.priority;
+        if (it.targetMin > 0) out.targetMin = Math.round(it.targetMin);
+        return out;
+      })
+      .filter(Boolean);
+    if (list.length === 0) return null;
+    const id = uid("r_");
+    setState(s => ({ ...s, routines: [...(s.routines || []), { id, name: (name || "").trim() || tr("Rotina"), items: list }] }));
+    return id;
+  };
+  const removeRoutine = (id) => setState(s => ({ ...s, routines: (s.routines || []).filter(r => r.id !== id) }));
+  // Append a routine's items to today as fresh intentions (reuses carry-over).
+  const applyRoutine = (id) => {
+    const r = (state.routines || []).find(x => x.id === id);
+    if (r) carryOverIntentions(r.items);
+  };
+  // Save today's current intentions as a new routine (planning fields only).
+  const saveRoutineFromToday = (name) => addRoutine(name, state.today.intentions);
+
   // Returns { ok } or { ok:false, error }. Caller confirms the overwrite.
   const importData = (text) => {
     try {
@@ -1829,6 +1890,8 @@ function useStore() {
     // hoje
     addIntention, updateIntention, removeIntention, toggleIntention, reorderIntentions, setReflection,
     setDayReflection, carryOverIntentions,
+    // routines (intention templates)
+    addRoutine, removeRoutine, applyRoutine, saveRoutineFromToday,
     // pauta
     startBlock, pauseActive, resumeBlock, concludeActive, concludeBlock,
     updateBlock, updateSessionNote, deleteBlock,
@@ -1881,7 +1944,7 @@ Object.assign(window, {
   readAutoBackup, writeAutoBackup, listAutoBackups, autoBackupIntervalMs, AUTOBACKUP_KEEP,
   // schema / import (exposed for tests + reuse)
   STORAGE_KEY, EXPORT_VERSION, emptyState, seed, loadState, saveState,
-  migrateHabit, sanitizeHabit, sanitizeGoal, sanitizeMilestone, normalizeImported, parseBackup, MAX_BACKUP_CHARS,
+  migrateHabit, sanitizeHabit, sanitizeGoal, sanitizeMilestone, sanitizeRoutine, normalizeImported, parseBackup, MAX_BACKUP_CHARS,
   withDayReflection, buildCSV, csvCell, isHexColor, applyRespiro, rollOverDay,
   habitDayStatus, habitActionableToday,
 });

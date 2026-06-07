@@ -268,6 +268,15 @@ const I18N_EN = {
   "maré ligada": "linked tide",
   "nenhuma": "none",
 
+  // ─── Hoje: routines (intention templates) ───
+  "Rotinas": "Routines",
+  "Rotina": "Routine",
+  "Manhã": "Morning",
+  "aplicar {name}": "apply {name}",
+  "remover rotina": "remove routine",
+  "nome da rotina…": "routine name…",
+  "guardar como rotina": "save as routine",
+
   // ─── Marés: per-weekday daily schedule ───
   "dias da semana": "weekdays",
   "todos os dias": "every day",
