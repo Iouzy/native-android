@@ -51,6 +51,8 @@ const I18N_EN = {
   "Notificações": "Notifications",
   "Avisos locais enquanto a app está aberta.": "Local alerts while the app is open.",
   "Hábitos pendentes": "Pending habits",
+  "Falta 1 maré por marcar hoje.": "1 tide left to mark today.",
+  "Faltam {n} marés por marcar hoje.": "{n} tides left to mark today.",
   "Reflexão noturna": "Nightly reflection",
   "Sem servidor: os avisos só chegam com a app aberta no telemóvel ou no browser.":
     "No server: alerts only arrive with the app open on your phone or browser.",

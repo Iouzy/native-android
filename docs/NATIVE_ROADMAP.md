@@ -123,10 +123,15 @@ Honest limitations (preserved deliberately):
 - **OEM battery managers** (notably MIUI/Xiaomi) can still delay or drop
   background alarms unless the app is allowed to autostart / exempt from battery
   optimization. This is outside the app's control.
-- **App-closed body is generic:** with the WebView not running we can't read
-  `localStorage` to count *which* habits are still pending, so the closed-app
-  reminder uses a neutral nudge ("You have habits to check off today."). The
-  in-app loop, when open, can still be specific.
+- **App-closed body — now count-specific (best-effort).** Native still can't
+  read `localStorage`, so while the app is open the JS layer pushes a localized,
+  count-specific habits body (e.g. "3 tides left to mark today") plus the dayKey
+  it was computed for, via `FocusActivity.setReminderHabitsBody({ body, dayKey })`
+  → `ReminderScheduler`. The fired reminder uses it **only if it was computed
+  today** (otherwise it falls back to the generic nudge), and an empty body
+  (nothing pending today) suppresses that reminder entirely. Honest limit: the
+  count is as of the **last time the app was open** — it can't update while the
+  app is closed.
 
 ## App shortcuts (long-press the launcher icon)
 

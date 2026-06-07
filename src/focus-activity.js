@@ -152,6 +152,9 @@
     notify:      function (o) { return invoke("showReminder", o)      || Promise.resolve({ shown: false }); },
     scheduleReminders: function (o) { return invoke("scheduleReminders", o) || Promise.resolve({ scheduled: false, exact: false }); },
     cancelReminders:   function ()  { return invoke("cancelReminders")       || Promise.resolve({ scheduled: false }); },
+    // setReminderHabitsBody({ body, dayKey }) — count-specific (already-localized)
+    // habits-reminder body for the app-CLOSED path; "" = nothing pending.
+    setReminderHabitsBody: function (o) { return invoke("setReminderHabitsBody", o) || Promise.resolve(); },
     shareImage:  function (o) { return invoke("shareImage", o) || Promise.resolve({ shared: false }); },
     addListener: function (ev, cb) { return listen(ev, cb); },
     checkPermission:     function () { return invoke("checkPermission")     || Promise.resolve({ granted: false }); },
