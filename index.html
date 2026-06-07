@@ -101,6 +101,20 @@
     --page-bg: #0f0e0c;
     --page-grad: radial-gradient(circle at 30% 20%, #1a1815, #0c0b0a);
   }
+  /* High-contrast mode (Settings → Acessibilidade, or OS prefers-contrast).
+     Darkens muted ink + strengthens rules for low-vision legibility. Placed
+     after the theme blocks so it wins at equal specificity; the dark+contrast
+     pair is more specific still. / Modo de alto contraste. */
+  html[data-contrast="high"] {
+    --ink-3: #44403A;
+    --ink-4: #5C564C;
+    --rule: #A79E8E;
+  }
+  html[data-theme="dark"][data-contrast="high"] {
+    --ink-3: #D6D0C3;
+    --ink-4: #B3AC9E;
+    --rule: #5A554C;
+  }
   * { box-sizing: border-box; }
   /* The app is a native-feeling surface, not a web page: suppress text
      selection, the long-press selection menu and tap-highlight flashes

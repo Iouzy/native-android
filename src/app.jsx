@@ -420,14 +420,19 @@ function DataSheet({ open, onClose, store, accentColor, onOpenInsights, onOpenTi
           </div>
           <PrefToggle label={tr("Vibração")} sub={tr("Pequeno toque ao concluir.")} accentColor={accentColor}
             value={prefs.haptics} onChange={v => store.setPref("haptics", v)}/>
-          <PrefToggle label={tr("Reduzir movimento")} sub={tr("Desliga animações. Segue o sistema por omissão.")} accentColor={accentColor}
-            value={prefs.reducedMotion} onChange={v => store.setPref("reducedMotion", v)}/>
           <PrefToggle label={tr("Papagaio ajudante")} sub={tr("O Pip aparece com dicas e piadas. Toca-lhe para mais.")} accentColor={accentColor}
             value={prefs.parrot !== false} onChange={v => store.setPref("parrot", v)}/>
           {isNative && (
             <PrefToggle label={tr("Ecrã inteiro")} sub={tr("Esconde as barras do sistema. Deslize da margem para as ver.")} accentColor={accentColor}
               value={!!prefs.immersive} onChange={v => { store.setPref("immersive", v); haptic(8); }}/>
           )}
+        </DataGroup>
+
+        <DataGroup label={tr("Acessibilidade")} icon={<Icon.Info size={13}/>}>
+          <PrefToggle label={tr("Alto contraste")} sub={tr("Reforça o texto e as linhas. Segue o sistema por omissão.")} accentColor={accentColor}
+            value={prefs.highContrast} onChange={v => store.setPref("highContrast", v)}/>
+          <PrefToggle label={tr("Reduzir movimento")} sub={tr("Desliga animações. Segue o sistema por omissão.")} accentColor={accentColor}
+            value={prefs.reducedMotion} onChange={v => store.setPref("reducedMotion", v)}/>
         </DataGroup>
 
         <DataGroup label={tr("Foco")} icon={<Icon.Play size={13}/>}>
@@ -1130,6 +1135,17 @@ function App() {
     if (reduce) root.setAttribute("data-reduced-motion", "true");
     else root.removeAttribute("data-reduced-motion");
   }, [prefs.reducedMotion]);
+
+  // High contrast: explicit opt-in via Settings, or implicitly when the OS asks
+  // for it (prefers-contrast: more). Mirrored to a <html> attribute the CSS in
+  // index.html reads to darken muted ink + strengthen rules. / Alto contraste.
+  useEffect(() => {
+    const osContrast = window.matchMedia &&
+      window.matchMedia("(prefers-contrast: more)").matches;
+    const root = document.documentElement;
+    if (prefs.highContrast || osContrast) root.setAttribute("data-contrast", "high");
+    else root.removeAttribute("data-contrast");
+  }, [prefs.highContrast]);
 
   // Native immersive (fullscreen) mode — re-applied on launch and whenever the
   // pref changes. No-ops in a plain browser.
