@@ -250,6 +250,12 @@ const I18N_EN = {
   "Na Pauta, inicie um bloco de foco e o tempo conta-se sozinho. Pause, retome e conclua quando quiser.": "On Pauta, start a focus block and time counts itself. Pause, resume and finish whenever you like.",
   "Nas Marés, marque hábitos dia a dia. A constância faz a maré subir — e os dias de descanso são honestos.": "On Marés, mark habits day by day. Consistency makes the tide rise — and rest days are honest.",
   "Comece com uma pauta em branco, ou explore com um exemplo. Muda tudo depois nas Definições.": "Start with a blank pauta, or explore with an example. Change everything later in Settings.",
+
+  // ─── Hoje: Marés de hoje + day pulse ───
+  "Marés de hoje": "Today's tides",
+  "{d}/{t} intenções": "{d}/{t} intentions",
+  "{d}/{t} marés": "{d}/{t} tides",
+  "marcar maré: {h}": "mark tide: {h}",
 };
 
 // === I18N_EN_BULK_BEGIN === (entries collected from the rest of the app)
