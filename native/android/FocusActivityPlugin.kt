@@ -387,6 +387,16 @@ class FocusActivityPlugin : Plugin() {
         call.resolve(JSObject().put("scheduled", false))
     }
 
+    // Push a count-specific, already-localized habits-reminder body (+ the dayKey
+    // it's for) so the app-CLOSED reminder can be specific ("3 tides left today")
+    // instead of generic. Empty body = nothing pending → that reminder is
+    // suppressed. / Corpo específico do lembrete de marés.
+    @PluginMethod
+    fun setReminderHabitsBody(call: PluginCall) {
+        ReminderScheduler.saveHabitsDynamicBody(context, call.getString("body"), call.getString("dayKey"))
+        call.resolve()
+    }
+
     // ── Native share sheet ───────────────────────────────────────
     // The Web Share API's FILE support is unreliable inside the Capacitor WebView
     // (navigator.share({ files }) silently no-ops on many devices), so the day-card

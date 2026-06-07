@@ -894,6 +894,22 @@ function useReminders(store) {
   useEffect(() => {
     scheduleNativeReminders(rem);
   }, [rem.enabled, rem.habitsTime, rem.reflectionTime, rem.plannerTime, window.PAUTA_LANG]);
+  // Push a count-specific, localized habits-reminder body to native so the
+  // app-CLOSED reminder can say "3 tides left today" instead of a generic nudge.
+  // Empty when nothing is pending (native suppresses that reminder). Honest
+  // limit: the count is as of now — i.e. the last time the app was open.
+  useEffect(() => {
+    if (!window.FocusActivity || !window.FocusActivity.isNative) return;
+    try {
+      const dayKey = dayKeyOf(Date.now());
+      const pending = (state.habits || []).filter(h =>
+        habitIsActiveOn(h, dayKey) && !(h.log && h.log[dayKey]) && !(h.respiros && h.respiros[dayKey])
+      ).length;
+      const body = pending <= 0 ? "" :
+        (pending === 1 ? tr("Falta 1 maré por marcar hoje.") : trf("Faltam {n} marés por marcar hoje.", { n: pending }));
+      window.FocusActivity.setReminderHabitsBody({ body, dayKey });
+    } catch (_) {}
+  }, [state.habits, window.PAUTA_LANG]);
   useEffect(() => {
     if (!rem.enabled) return;
     if (!notifySupported()) return;

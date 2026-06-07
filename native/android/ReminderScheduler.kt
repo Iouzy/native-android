@@ -30,6 +30,11 @@ import java.util.Calendar
 object ReminderScheduler {
     const val PREFS = "pauta_reminders"
     const val K_ENABLED = "enabled"
+    // A count-specific habits body pushed by JS while the app is open, plus the
+    // dayKey it was computed for — so the app-closed reminder can say "3 tides
+    // left today" yet never show a stale count from a previous day.
+    const val K_HABITS_DYN_BODY = "habits_dyn_body"
+    const val K_HABITS_DYN_DAY = "habits_dyn_day"
 
     // Each reminder kind: a stable key + a distinct alarm request code.
     enum class Kind(val key: String, val requestCode: Int, val timePref: String,
@@ -133,10 +138,30 @@ object ReminderScheduler {
     /** Localized title/body persisted for a kind (set from JS via the plugin). */
     fun textFor(context: Context, kind: Kind): Pair<String, String> {
         val p = prefs(context)
-        return Pair(
-            p.getString(kind.titlePref, "Pauta") ?: "Pauta",
-            p.getString(kind.bodyPref, "") ?: ""
-        )
+        val title = p.getString(kind.titlePref, "Pauta") ?: "Pauta"
+        var body = p.getString(kind.bodyPref, "") ?: ""
+        // Habits: prefer the count-specific body JS pushed — but only if it was
+        // computed TODAY. An empty body for today means nothing is pending, so
+        // the receiver suppresses that reminder (no false nag). If the app wasn't
+        // opened today we have no fresh count, so we keep the generic nudge.
+        if (kind == Kind.HABITS && (p.getString(K_HABITS_DYN_DAY, "") ?: "") == todayKey()) {
+            body = p.getString(K_HABITS_DYN_BODY, "") ?: ""
+        }
+        return Pair(title, body)
+    }
+
+    /** Store the JS-computed, count-specific habits body + the day it's for. */
+    fun saveHabitsDynamicBody(context: Context, body: String?, dayKey: String?) {
+        prefs(context).edit()
+            .putString(K_HABITS_DYN_BODY, body ?: "")
+            .putString(K_HABITS_DYN_DAY, dayKey ?: "")
+            .apply()
+    }
+
+    /** Local-date "YYYY-MM-DD", matching the app's dayKey format. */
+    private fun todayKey(): String {
+        val c = Calendar.getInstance()
+        return "%04d-%02d-%02d".format(c.get(Calendar.YEAR), c.get(Calendar.MONTH) + 1, c.get(Calendar.DAY_OF_MONTH))
     }
 
     fun kindFromKey(key: String?): Kind? = Kind.values().firstOrNull { it.key == key }
