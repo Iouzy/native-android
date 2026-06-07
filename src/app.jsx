@@ -434,6 +434,16 @@ function DataSheet({ open, onClose, store, accentColor, onOpenInsights, onOpenTi
         </DataGroup>
 
         <DataGroup label={tr("Acessibilidade")} icon={<Icon.Info size={13}/>}>
+          <div style={prefBlock}>
+            <div style={prefLabel}>{tr("Tamanho do texto")}</div>
+            <Segmented value={prefs.textScale || 1} accentColor={accentColor}
+              onChange={v => store.setPref("textScale", v)}
+              options={[
+                { value: 1, label: tr("Normal") },
+                { value: 1.15, label: tr("Grande") },
+                { value: 1.3, label: tr("Maior") },
+              ]}/>
+          </div>
           <PrefToggle label={tr("Alto contraste")} sub={tr("Reforça o texto e as linhas. Segue o sistema por omissão.")} accentColor={accentColor}
             value={prefs.highContrast} onChange={v => store.setPref("highContrast", v)}/>
           <PrefToggle label={tr("Reduzir movimento")} sub={tr("Desliga animações. Segue o sistema por omissão.")} accentColor={accentColor}
@@ -1229,7 +1239,12 @@ function App() {
       <SaveErrorBanner store={store} accentColor={accentColor}/>
 
       <div onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}
-        style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", position: "relative", zIndex: 1 }}>
+        style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", position: "relative", zIndex: 1,
+          // Opt-in larger text (Settings → Acessibilidade). `zoom` scales only the
+          // tab content region — the tab bar and status bar stay put — and is a
+          // no-op at 1, so it's risk-free for anyone who leaves it off. /
+          // Texto maior, opcional: amplia só o conteúdo dos separadores.
+          zoom: prefs.textScale && prefs.textScale !== 1 ? prefs.textScale : undefined }}>
         {/* key={tab} replays the settle animation on each switch. Tabs already
             unmount when hidden, so the remount changes nothing but the entrance. */}
         <div key={tab} style={{

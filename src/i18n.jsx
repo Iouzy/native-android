@@ -305,6 +305,10 @@ const I18N_EN = {
 
   // ─── Accessibility ───
   "Acessibilidade": "Accessibility",
+  "Tamanho do texto": "Text size",
+  "Normal": "Normal",
+  "Grande": "Large",
+  "Maior": "Larger",
   "Alto contraste": "High contrast",
   "Reforça o texto e as linhas. Segue o sistema por omissão.": "Strengthens text and lines. Follows the system by default.",
 
