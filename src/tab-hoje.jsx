@@ -1,6 +1,6 @@
 // Tab: HOJE — intenções do dia + reflexão noturna
 
-function TabHoje({ store, accentColor, onJumpToPauta }) {
+function TabHoje({ store, accentColor, onJumpToPauta, onOpenInsights }) {
   const { state, addIntention, updateIntention, toggleIntention, removeIntention, setReflection, setDayReflection, carryOverIntentions, toggleHabitToday, incHabitDay } = store;
   const { today, blocks, habits } = state;
 
@@ -72,6 +72,13 @@ function TabHoje({ store, accentColor, onJumpToPauta }) {
   const intDone = today.intentions.filter(i => i.done).length;
   const tideDone = todayTides.filter(t => t.state === "done").length;
   const tideDenom = todayTides.filter(t => t.state !== "respiro").length;
+  // The pulse segments, computed once and reused by the header chip and the
+  // night-reflection summary. Each appears only when it has a value. /
+  // Segmentos do pulso, reutilizados no cabeçalho e na reflexão.
+  const pulseParts = [];
+  if (intTotal > 0) pulseParts.push(trf("{d}/{t} intenções", { d: intDone, t: intTotal }));
+  if (totalFocusToday > 0) pulseParts.push(trf("{d} em foco", { d: fmtDuration(totalFocusToday) }));
+  if (tideDenom > 0) pulseParts.push(trf("{d}/{t} marés", { d: tideDone, t: tideDenom }));
 
   // Render today's summary as a shareable PNG (Web Share, else download).
   const shareDay = () => {
@@ -112,17 +119,25 @@ function TabHoje({ store, accentColor, onJumpToPauta }) {
             {tr("O que importa")} <em style={{ color: accentColor }}>{tr("hoje")}</em>?
           </h1>
           {(() => {
-            // One quiet line tying the three tabs together: intentions done,
-            // focus logged, tides marked — each shown only when it has a value,
-            // so an empty day stays blank. / Pulso do dia (intenções · foco · marés).
-            const parts = [];
-            if (intTotal > 0) parts.push(trf("{d}/{t} intenções", { d: intDone, t: intTotal }));
-            if (totalFocusToday > 0) parts.push(trf("{d} em foco", { d: fmtDuration(totalFocusToday) }));
-            if (tideDenom > 0) parts.push(trf("{d}/{t} marés", { d: tideDone, t: tideDenom }));
-            if (parts.length === 0) return null;
+            // One quiet line tying the three tabs together (intentions · focus ·
+            // tides). Tapping it opens the weekly review (Insights) — a quiet way
+            // in, so the review isn't buried in Settings. / Pulso do dia.
+            if (pulseParts.length === 0) return null;
+            const text = pulseParts.join("   ·   ");
+            if (onOpenInsights) {
+              return (
+                <button onClick={onOpenInsights} className="tap" title={tr("ver revisão")}
+                  style={{
+                    marginTop: 10, border: "none", background: "transparent", padding: 0, cursor: "pointer",
+                    fontFamily: "var(--mono)", fontSize: 11, color: "var(--ink-3)", letterSpacing: "0.02em", textAlign: "left",
+                  }}>
+                  {text} <span style={{ color: "var(--ink-4)" }}>↗</span>
+                </button>
+              );
+            }
             return (
               <div style={{ marginTop: 10, fontFamily: "var(--mono)", fontSize: 11, color: "var(--ink-3)", letterSpacing: "0.02em" }}>
-                {parts.join("   ·   ")}
+                {text}
               </div>
             );
           })()}
@@ -283,6 +298,17 @@ function TabHoje({ store, accentColor, onJumpToPauta }) {
         <div style={{ fontFamily: "var(--serif)", fontStyle: "italic", fontSize: 18, color: "var(--ink-2)", marginBottom: 12 }}>
           "{tr("O que valeu hoje?")}"
         </div>
+        {/* The day at a glance, right where you reflect (the header pulse has
+            scrolled away by now). / O dia em resumo, junto à reflexão. */}
+        {pulseParts.length > 0 && (
+          <div style={{
+            fontFamily: "var(--mono)", fontSize: 10.5, color: "var(--ink-3)",
+            letterSpacing: "0.02em", marginBottom: 14, paddingBottom: 12,
+            borderBottom: "1px solid var(--rule)",
+          }}>
+            {pulseParts.join("   ·   ")}
+          </div>
+        )}
         <AutoTextarea
           value={today.reflection}
           onChange={setReflection}

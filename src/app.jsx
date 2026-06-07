@@ -1196,7 +1196,8 @@ function App() {
         }}>
           {tab === "hoje" && (
             <TabHoje store={store} accentColor={accentColor}
-              onJumpToPauta={jumpToPauta}/>
+              onJumpToPauta={jumpToPauta}
+              onOpenInsights={() => setInsightsOpen(true)}/>
           )}
           {tab === "pauta" && (
             <TabPauta store={store} accentColor={accentColor}

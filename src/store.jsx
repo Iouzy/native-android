@@ -1186,6 +1186,36 @@ function habitFocusCorrelation(habits, blocks, days = 30, now = Date.now()) {
   return out;
 }
 
+// A few calm, locally-computed "patterns" for the Insights sheet — facts, not
+// judgement. Returns structured data (numbers, not sentences) so the templates
+// stay in the i18n layer and the math stays unit-testable. Each field is null
+// when there isn't enough data to say anything honest. /
+// Padrões locais para a Revisão — dados, não frases (as frases vivem no i18n).
+function narrativeStats(state, now = Date.now()) {
+  const habits = state.habits || [];
+  const blocks = state.blocks || [];
+  // Most constant tide right now, by current streak length (in days).
+  let topHabit = null;
+  for (const h of habits) {
+    const st = habitCurrentStreak(h, now);
+    if (st.days > 0 && (!topHabit || st.days > topHabit.days)) topHabit = { name: h.name, days: st.days };
+  }
+  // Peak focus hour (only when there's any focus on record).
+  const bh = bestHourStats(blocks, now);
+  const peakHour = bh.total > 0 ? bh.peak : null;
+  // High-priority intention completion across today + the archive.
+  let hpTotal = 0, hpDone = 0;
+  const scanDay = (day) => {
+    for (const it of (day && day.intentions) || []) {
+      if ((it.priority || 4) === 1) { hpTotal++; if (it.done) hpDone++; }
+    }
+  };
+  scanDay(state.today);
+  for (const k of Object.keys(state.days || {})) scanDay(state.days[k]);
+  const highPrioPct = hpTotal >= 3 ? Math.round((hpDone / hpTotal) * 100) : null;
+  return { topHabit, peakHour, highPrioPct, hpTotal };
+}
+
 // Summary of the 7 days ending at endKey (inclusive). Sunday-review friendly.
 function weeklyReview(state, endKey = dayKeyOf(Date.now()), now = Date.now()) {
   const blocks = state.blocks || [];
@@ -1811,7 +1841,7 @@ Object.assign(window, {
   buildTimeline, blockFocusMs, dailyFocusMs, dailyBlockCount, blocksAllDays, pastDayKeys,
   // prefs / goals / insights
   defaultPrefs, mergePrefs, quarterOf, quarterLabel, nextQuarter, prevQuarter,
-  focusByHour, bestHourStats, habitFocusCorrelation, weeklyReview, prevWeeklyReview,
+  focusByHour, bestHourStats, habitFocusCorrelation, weeklyReview, prevWeeklyReview, narrativeStats,
   // habit stats
   HABIT_MATURITY_DAYS, TIDE_TIERS, NAVIGATOR_LEVELS,
   habitCreatedKey, habitEndKey, habitIsActiveOn, habitHasFinished,
