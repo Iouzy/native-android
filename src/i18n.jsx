@@ -137,6 +137,8 @@ const I18N_EN = {
   // ─── Appearance / motion / accent (Settings) ───
   "Reduzir movimento": "Reduce motion",
   "Desliga animações. Segue o sistema por omissão.": "Turns off animations. Follows the system by default.",
+  "Ecrã inteiro": "Fullscreen",
+  "Esconde as barras do sistema. Deslize da margem para as ver.": "Hides the system bars. Swipe from the edge to see them.",
 
   // ─── Focus notification (native) ───
   "Notificação de foco": "Focus notification",

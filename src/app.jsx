@@ -424,6 +424,10 @@ function DataSheet({ open, onClose, store, accentColor, onOpenInsights, onOpenTi
             value={prefs.reducedMotion} onChange={v => store.setPref("reducedMotion", v)}/>
           <PrefToggle label={tr("Papagaio ajudante")} sub={tr("O Pip aparece com dicas e piadas. Toca-lhe para mais.")} accentColor={accentColor}
             value={prefs.parrot !== false} onChange={v => store.setPref("parrot", v)}/>
+          {isNative && (
+            <PrefToggle label={tr("Ecrã inteiro")} sub={tr("Esconde as barras do sistema. Deslize da margem para as ver.")} accentColor={accentColor}
+              value={!!prefs.immersive} onChange={v => { store.setPref("immersive", v); haptic(8); }}/>
+          )}
         </DataGroup>
 
         <DataGroup label={tr("Foco")} icon={<Icon.Play size={13}/>}>
@@ -1075,6 +1079,12 @@ function App() {
     if (reduce) root.setAttribute("data-reduced-motion", "true");
     else root.removeAttribute("data-reduced-motion");
   }, [prefs.reducedMotion]);
+
+  // Native immersive (fullscreen) mode — re-applied on launch and whenever the
+  // pref changes. No-ops in a plain browser.
+  useEffect(() => {
+    try { if (window.FocusActivity) window.FocusActivity.setImmersive({ on: !!prefs.immersive }); } catch (_) {}
+  }, [prefs.immersive]);
 
   // Local reminders (only while the app is open).
   useReminders(store);
