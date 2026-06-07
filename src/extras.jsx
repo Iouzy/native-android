@@ -333,6 +333,85 @@ function TierGuideSheet({ open, onClose, accentColor }) {
   );
 }
 
+// ─── Retrospetiva do ano (year in review) ───────────────────
+// A calm year-in-review: the year's headline numbers, plus a one-tap shareable
+// poster. Read from the pure yearReview(). / Retrospetiva anual, partilhável.
+function YearReviewSheet({ open, onClose, store, accentColor }) {
+  if (!open) return null;
+  const { state } = store;
+  const now = Date.now();
+  const curYear = new Date(now).getFullYear();
+  const [year, setYear] = useState(curYear);
+  const r = useMemo(() => yearReview(state, year, now), [state.blocks, state.habits, state.days, state.today, year]);
+
+  const big = { fontFamily: "var(--serif)", fontSize: 26, color: "var(--ink)", lineHeight: 1 };
+  const cap = { fontFamily: "var(--mono)", fontSize: 9, letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--ink-3)", marginTop: 5 };
+  const cell = { background: "var(--paper)", padding: "16px 14px" };
+  const navBtnY = (onClick, children, title, disabled) => (
+    <button onClick={onClick} disabled={disabled} className="tap" title={title}
+      style={{ width: 30, height: 30, borderRadius: 8, border: "1px solid var(--rule)", background: "transparent",
+        color: disabled ? "var(--ink-4)" : "var(--ink-2)", cursor: disabled ? "default" : "pointer",
+        display: "flex", alignItems: "center", justifyContent: "center" }}>{children}</button>
+  );
+
+  const share = () => {
+    shareYearCard({
+      year,
+      focusValue: r.focusMs > 0 ? fmtDuration(r.focusMs) : "—",
+      focusCaption: tr("em foco este ano"),
+      tidesValue: String(r.tideDoneDays),
+      tidesCaption: tr("dias de maré cumpridos"),
+      levelValue: r.level ? tr(r.level.name) : "",
+      tagline: tr("escrito à mão, todos os dias"),
+      accent: accentColor,
+    });
+    haptic(8);
+  };
+
+  return (
+    <Sheet open={open} onClose={onClose} title={tr("Retrospetiva")}>
+      <div style={{ padding: "8px 24px 28px" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+          <div style={{ ...big, fontSize: 30 }}>{year}</div>
+          <div style={{ display: "flex", gap: 8 }}>
+            {navBtnY(() => setYear(y => y - 1), <span style={{ display: "inline-flex", transform: "rotate(180deg)" }}><Icon.Chevron size={13}/></span>, tr("ano anterior"))}
+            {navBtnY(() => setYear(y => Math.min(curYear, y + 1)), <Icon.Chevron size={13}/>, tr("ano seguinte"), year >= curYear)}
+          </div>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1, background: "var(--rule)", border: "1px solid var(--rule)", borderRadius: 10, overflow: "hidden" }}>
+          <div style={cell}><div style={{ ...big, color: accentColor }}>{r.focusMs > 0 ? fmtDuration(r.focusMs) : "—"}</div><div style={cap}>{trf("foco · {n} {label}", { n: r.blockCount, label: r.blockCount === 1 ? tr("bloco") : tr("blocos") })}</div></div>
+          <div style={cell}><div style={big}>{r.activeDays}</div><div style={cap}>{tr("dias com foco")}</div></div>
+          <div style={cell}><div style={big}>{r.intDone}<span style={{ fontSize: 14, color: "var(--ink-3)" }}>/{r.intTotal || 0}</span></div><div style={cap}>{tr("intenções feitas")}</div></div>
+          <div style={cell}><div style={{ ...big, color: accentColor }}>{r.tideDoneDays}</div><div style={cap}>{tr("dias de maré")}</div></div>
+        </div>
+
+        {(r.topTide || r.bestStreakDays > 0 || r.reflections > 0) && (
+          <div style={{ marginTop: 14, fontFamily: "var(--serif)", fontSize: 15, color: "var(--ink-2)", lineHeight: 1.5 }}>
+            {r.topTide && <>{tr("Maré do ano:")} <span style={{ fontStyle: "italic" }}>{r.topTide.name}</span> {trf("({n} dias).", { n: r.topTide.days })} </>}
+            {r.bestStreakDays > 0 && <>{trf("Melhor sequência: {n} dias.", { n: r.bestStreakDays })} </>}
+            {r.reflections > 0 && <>{trf("Escreveu {n} {label}.", { n: r.reflections, label: r.reflections === 1 ? tr("reflexão") : tr("reflexões") })}</>}
+          </div>
+        )}
+
+        {r.level && (
+          <div style={{ marginTop: 14, padding: "12px 14px", background: "var(--paper-2)", border: "1px solid var(--rule)", borderRadius: 10, display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10 }}>
+            <div style={{ fontFamily: "var(--serif)", fontSize: 18, color: "var(--ink)" }}>{tr(r.level.name)}</div>
+            <div style={{ fontFamily: "var(--serif)", fontStyle: "italic", fontSize: 13, color: "var(--ink-3)" }}>{tr(r.level.subtitle)}</div>
+          </div>
+        )}
+
+        <button onClick={share} className="tap"
+          style={{ marginTop: 18, width: "100%", border: "none", borderRadius: 12, padding: "13px 14px", cursor: "pointer",
+            background: accentColor, color: "var(--on-dark)", fontFamily: "var(--mono)", fontSize: 12, letterSpacing: "0.08em", textTransform: "uppercase",
+            display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+          <Icon.Upload size={14}/> {tr("Partilhar o ano")}
+        </button>
+      </div>
+    </Sheet>
+  );
+}
+
 // ─── Melhor hora do dia ─────────────────────────────────────
 function BestHourChart({ blocks, accentColor }) {
   const { hours, total, peak } = useMemo(() => bestHourStats(blocks), [blocks]);
@@ -1633,6 +1712,78 @@ async function shareDayCard({ dateLabel, focusValue, focusCaption, ratioValue, r
   } catch (e) {}
 }
 
+// Hand a PNG blob to the OS share sheet (native bridge first, then Web Share),
+// falling back to a download. Shared by the year poster. / Partilhar/descarregar.
+async function shareOrDownloadPng(blob, filename, title) {
+  if (!blob) return;
+  if (window.FocusActivity && window.FocusActivity.isNative) {
+    try {
+      const base64 = await blobToBase64(blob);
+      const r = await window.FocusActivity.shareImage({ base64, filename, title });
+      if (r && r.shared) return;
+    } catch (e) {}
+  }
+  const download = () => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+  const file = new File([blob], filename, { type: "image/png" });
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try { await navigator.share({ files: [file], title }); }
+    catch (e) { if (!e || e.name !== "AbortError") download(); }
+  } else download();
+}
+
+// The year-in-review poster: a calm 1080² card with the year's headline numbers
+// (on-brand paper/ink/accent + serif wordmark). Fully local. / Cartaz do ano.
+async function shareYearCard({ year, focusValue, focusCaption, tidesValue, tidesCaption, levelValue, tagline, accent }) {
+  try {
+    const W = 1080, H = 1080;
+    const c = document.createElement("canvas");
+    c.width = W; c.height = H;
+    const ctx = c.getContext("2d");
+    if (!ctx) return;
+    try { if (document.fonts && document.fonts.ready) await document.fonts.ready; } catch (e) {}
+    const cs = getComputedStyle(document.documentElement);
+    const v = (name, fb) => (cs.getPropertyValue(name).trim() || fb);
+    const paper = v("--paper", "#F5F1EA"), ink = v("--ink", "#1A1815"), ink3 = v("--ink-3", "#8A8275");
+    const accentCol = accent || v("--accent", "#B8533A");
+
+    ctx.fillStyle = paper; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = accentCol; ctx.fillRect(0, 0, W, 18);
+    ctx.textBaseline = "top";
+
+    ctx.fillStyle = ink3; ctx.font = "500 34px Geist, system-ui, sans-serif";
+    ctx.fillText(String(year) + " · " + tr("Retrospetiva").toUpperCase(), 96, 150);
+    ctx.fillStyle = ink; ctx.font = "italic 100px 'Instrument Serif', Georgia, serif";
+    ctx.fillText("Pauta", 92, 196);
+
+    ctx.fillStyle = accentCol; ctx.font = "600 150px Geist, system-ui, sans-serif";
+    ctx.fillText(focusValue || "", 96, 380);
+    ctx.fillStyle = ink3; ctx.font = "400 40px Geist, system-ui, sans-serif";
+    ctx.fillText(focusCaption || "", 100, 556);
+
+    ctx.fillStyle = ink; ctx.font = "600 84px Geist, system-ui, sans-serif";
+    ctx.fillText(tidesValue || "", 96, 660);
+    ctx.fillStyle = ink3; ctx.font = "400 40px Geist, system-ui, sans-serif";
+    ctx.fillText(tidesCaption || "", 100, 766);
+
+    if (levelValue) {
+      ctx.fillStyle = ink; ctx.font = "italic 52px 'Instrument Serif', Georgia, serif";
+      ctx.fillText(levelValue, 96, 864);
+    }
+
+    ctx.fillStyle = ink3; ctx.font = "italic 38px 'Instrument Serif', Georgia, serif";
+    ctx.fillText(tagline || "", 96, H - 120);
+
+    const blob = await new Promise(res => c.toBlob(res, "image/png"));
+    await shareOrDownloadPng(blob, "pauta-" + year + ".png", "Pauta " + year);
+  } catch (e) {}
+}
+
 // ─── Share backup to the cloud (lightweight) ─────────────────
 // Hands the backup JSON to the OS share sheet so the user can drop it into
 // Google Drive / Dropbox / Files — no account or API keys, fits the offline
@@ -1662,10 +1813,10 @@ async function shareBackupFile(backupObj) {
 }
 
 Object.assign(window, {
-  haptic, OnboardingOverlay, TierGuideSheet, NotifPrompt,
+  haptic, OnboardingOverlay, TierGuideSheet, NotifPrompt, YearReviewSheet,
   BestHourChart, CorrelationList, FocusCalendar, WeekReview, InsightsSheet,
   GoalsSection, useReminders, useFocusActivity,
-  useAutoBackup, useWakeLock, useWidgetSnapshot, playChime, shareDayCard, shareBackupFile,
+  useAutoBackup, useWakeLock, useWidgetSnapshot, playChime, shareDayCard, shareYearCard, shareBackupFile,
   notifySupported, enableNotifications, fireReminder,
   LockGate, PinLockControl, lockAvailable, hasLock, clearLock, verifyPin, setLockPin,
 });

@@ -1364,6 +1364,50 @@ function prevWeeklyReview(state, endKey = dayKeyOf(Date.now()), now = Date.now()
   return weeklyReview(state, prevEnd, now);
 }
 
+// Calendar-year retrospective ("Retrospetiva") — the shareable year-in-review.
+// Pure aggregate over one year: focus, intentions, reflections, tide done-days,
+// the most-practised tide, the best daily run, and the all-time navigator level.
+// / Retrospetiva anual — números do ano, para rever e partilhar.
+function yearReview(state, year, now = Date.now()) {
+  const blocks = state.blocks || [];
+  const habits = state.habits || [];
+  const startKey = year + "-01-01";
+  const endKey = year + "-12-31";
+  const inYear = (k) => k >= startKey && k <= endKey;
+
+  let focusMs = 0; const focusDays = new Set(); const blockIds = new Set();
+  for (const b of blocks) for (const seg of b.sessions) {
+    const k = dayKeyOf(seg.startedAt);
+    if (inYear(k)) { focusMs += (seg.endedAt || now) - seg.startedAt; focusDays.add(k); blockIds.add(b.id); }
+  }
+
+  let intTotal = 0, intDone = 0, reflections = 0;
+  const scan = (key, day) => {
+    if (!day || !inYear(key)) return;
+    for (const it of (day.intentions || [])) { intTotal++; if (it.done) intDone++; }
+    if (day.reflection && day.reflection.trim()) reflections++;
+  };
+  if (state.today) scan(state.today.dayKey, state.today);
+  for (const k of Object.keys(state.days || {})) scan(k, state.days[k]);
+
+  let tideDoneDays = 0, bestStreakDays = 0, topTide = null;
+  for (const h of habits) {
+    let hDone = 0;
+    for (const k of Object.keys(h.log || {})) { if (h.log[k] && inYear(k)) { tideDoneDays++; hDone++; } }
+    if (habitCadence(h) === "daily") {
+      const bs = habitBestStreak(h, now);   // in days for daily tides
+      if (bs > bestStreakDays) bestStreakDays = bs;
+    }
+    if (hDone > 0 && (!topTide || hDone > topTide.days)) topTide = { name: h.name, days: hDone };
+  }
+
+  return {
+    year, focusMs, activeDays: focusDays.size, blockCount: blockIds.size,
+    intTotal, intDone, reflections, tideDoneDays, bestStreakDays, topTide,
+    level: navigatorLevel(totalDoneDays(habits)),
+  };
+}
+
 // Pure: return the next state with `text` as the reflection for `dayKey`,
 // whether that's the live `today` or an archived entry in `days`. Archived days
 // that don't exist yet are created with an empty intentions list. Kept pure (no
@@ -1931,7 +1975,7 @@ Object.assign(window, {
   buildTimeline, blockFocusMs, dailyFocusMs, dailyBlockCount, blocksAllDays, pastDayKeys,
   // prefs / goals / insights
   defaultPrefs, mergePrefs, quarterOf, quarterLabel, nextQuarter, prevQuarter,
-  focusByHour, bestHourStats, habitFocusCorrelation, weeklyReview, prevWeeklyReview, narrativeStats,
+  focusByHour, bestHourStats, habitFocusCorrelation, weeklyReview, prevWeeklyReview, narrativeStats, yearReview,
   // habit stats
   HABIT_MATURITY_DAYS, TIDE_TIERS, NAVIGATOR_LEVELS,
   habitCreatedKey, habitEndKey, habitIsActiveOn, habitHasFinished,
