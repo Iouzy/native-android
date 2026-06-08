@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Dark launch-window background, so the splash matches the dark "paper"
+         surface and there's no light flash in dark mode. Value mirrors the dark
+         theme's paper token from index.html. -->
+    <color name="paper">#1B1A17</color>
+</resources>
