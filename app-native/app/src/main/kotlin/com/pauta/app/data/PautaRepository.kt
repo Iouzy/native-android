@@ -3,6 +3,8 @@ package com.pauta.app.data
 import com.pauta.app.data.entity.DayEntity
 import com.pauta.app.data.entity.IntentionEntity
 import com.pauta.app.data.entity.PrefsEntity
+import com.pauta.app.domain.CarrySource
+import com.pauta.app.domain.HojeLogic
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlin.random.Random
@@ -19,6 +21,7 @@ class PautaRepository(private val db: AppDatabase) {
     private val prefsDao = db.prefsDao()
     private val dayDao = db.dayDao()
     private val intentionDao = db.intentionDao()
+    private val plannedDao = db.plannedIntentionDao()
 
     // ── ids ───────────────────────────────────────────────────
     /** Generate a web-style id (`i_…`, `b_…`, …): prefix + base-36 time + random,
@@ -104,5 +107,61 @@ class PautaRepository(private val db: AppDatabase) {
 
     suspend fun setReflection(dayKey: String, text: String) {
         dayDao.upsert(DayEntity(dayKey = dayKey, reflection = text))
+    }
+
+    // ── carry-over ────────────────────────────────────────────
+    /** The most recent past day's unfinished intentions, offered as a one-tap
+     *  carry-over (null when there's nothing to bring forward). */
+    fun carrySource(todayKey: String): Flow<CarrySource?> =
+        intentionDao.observeAll().map { HojeLogic.carrySource(it, todayKey) }
+
+    /** Copy the given items into [todayKey] as fresh intentions, preserving
+     *  priority + planned duration (fresh ids/timestamps), appended after any
+     *  existing ones — mirroring the web's carryOverIntentions. */
+    suspend fun carryOver(todayKey: String, items: List<IntentionEntity>) {
+        var pos = intentionDao.countForDay(todayKey)
+        for (src in items) {
+            intentionDao.upsert(
+                IntentionEntity(
+                    id = newId("i_"),
+                    dayKey = todayKey,
+                    text = src.text,
+                    done = false,
+                    priority = src.priority,
+                    targetMin = src.targetMin,
+                    timeOfDay = null,
+                    createdAt = System.currentTimeMillis(),
+                    position = pos++,
+                ),
+            )
+        }
+    }
+
+    // ── rollover ──────────────────────────────────────────────
+    /** Midnight rollover: promote a week-ahead plan for today into today's
+     *  intentions, then drop every plan up to and including today (promoted or
+     *  stale) — the Room analogue of the web's rollOverDay. Idempotent: yesterday's
+     *  intentions already carry their own dayKey, so nothing to "archive". */
+    suspend fun runRollover(todayKey: String) {
+        val planned = plannedDao.getForDay(todayKey)
+        if (planned.isNotEmpty()) {
+            var pos = intentionDao.countForDay(todayKey)
+            for (p in planned) {
+                intentionDao.upsert(
+                    IntentionEntity(
+                        id = newId("i_"),
+                        dayKey = todayKey,
+                        text = p.text,
+                        done = false,
+                        priority = p.priority,
+                        targetMin = p.targetMin,
+                        timeOfDay = null,
+                        createdAt = System.currentTimeMillis(),
+                        position = pos++,
+                    ),
+                )
+            }
+        }
+        plannedDao.deleteUpTo(todayKey)
     }
 }
