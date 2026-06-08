@@ -13,6 +13,8 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.jsonObject
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
@@ -120,11 +122,43 @@ object BackupManager {
         }
     }
 
-    /** Restore from a JSON string, replacing all current data. Returns row count. */
+    /** Restore from a native JSON backup (BackupData). Returns row count. */
     suspend fun importJson(context: Context, jsonText: String): Result<Int> = withContext(Dispatchers.IO) {
         try {
             if (jsonText.length > 25 * 1024 * 1024) return@withContext Result.failure(Exception("too large"))
-            val data = json.decodeFromString<BackupData>(jsonText)
+            applyBackup(context, json.decodeFromString(BackupData.serializer(), jsonText))
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    /** Restore from a backup exported by the WEB/Capacitor build (store.jsx shape). */
+    suspend fun importWebBackup(context: Context, jsonText: String): Result<Int> = withContext(Dispatchers.IO) {
+        try {
+            if (jsonText.length > 25 * 1024 * 1024) return@withContext Result.failure(Exception("too large"))
+            applyBackup(context, WebBackupConverter.convert(jsonText))
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Import either a native backup or a web (store.jsx) backup — auto-detected.
+     * The native snapshot has a top-level `days` ARRAY; the web shape has `days`
+     * as an object (or nests the state under `data`).
+     */
+    suspend fun importAny(context: Context, jsonText: String): Result<Int> {
+        val looksNative = try {
+            json.parseToJsonElement(jsonText).jsonObject["days"] is JsonArray
+        } catch (e: Exception) {
+            false
+        }
+        return if (looksNative) importJson(context, jsonText) else importWebBackup(context, jsonText)
+    }
+
+    /** Write a decoded snapshot into the database. Returns intentions+blocks+habits count. */
+    private suspend fun applyBackup(context: Context, data: BackupData): Result<Int> {
+        return try {
             val db = (context.applicationContext as PautaApplication).database
             db.dayDao().let { dao -> data.days.forEach { dao.upsert(it) } }
             db.intentionDao().let { dao -> data.intentions.forEach { dao.insert(it) } }
@@ -139,8 +173,7 @@ object BackupManager {
                 data.counts.forEach { dao.upsertCount(it) }
             }
             db.prefsDao().upsert(data.prefs)
-            val count = data.intentions.size + data.blocks.size + data.habits.size
-            Result.success(count)
+            Result.success(data.intentions.size + data.blocks.size + data.habits.size)
         } catch (e: Exception) {
             Result.failure(e)
         }

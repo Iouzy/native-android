@@ -9,13 +9,17 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.pauta.app.BuildConfig
 import com.pauta.app.i18n.Strings
 import com.pauta.app.service.BackupManager
 import com.pauta.app.ui.viewmodel.AppViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -25,6 +29,26 @@ fun SettingsSheet(vm: AppViewModel, onDismiss: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var statusMsg by remember { mutableStateOf<String?>(null) }
+
+    // Pick a .json backup (web or native) and import it into the Room DB.
+    val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        uri ?: return@rememberLauncherForActivityResult
+        scope.launch {
+            statusMsg = "…"
+            val result = withContext(Dispatchers.IO) {
+                try {
+                    val text = context.contentResolver.openInputStream(uri)?.use { it.readBytes().decodeToString() } ?: ""
+                    if (text.isBlank()) Result.failure(Exception("empty")) else BackupManager.importAny(context, text)
+                } catch (e: Exception) {
+                    Result.failure(e)
+                }
+            }
+            statusMsg = result.fold(
+                onSuccess = { "✓ ${tr("Importar dados")} ($it)" },
+                onFailure = { "✗ ${tr("Importar dados")}" },
+            )
+        }
+    }
 
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(
@@ -123,6 +147,21 @@ fun SettingsSheet(vm: AppViewModel, onDismiss: () -> Unit) {
                     Text(tr("Exportar CSV"))
                 }
             }
+            Spacer(Modifier.height(8.dp))
+            OutlinedButton(
+                onClick = { importLauncher.launch("application/json") },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(Icons.Default.Download, null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(4.dp))
+                Text(tr("Importar dados"))
+            }
+            Text(
+                tr("Importa um backup do Pauta (web ou nativo). Metas e rotinas ainda não são importadas."),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 6.dp)
+            )
             statusMsg?.let {
                 Spacer(Modifier.height(8.dp))
                 Text(it, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
