@@ -1,11 +1,14 @@
 package com.pauta.app
 
 import android.app.Application
+import com.pauta.app.data.AppDatabase
 
 /**
- * Application entry point. For now it just exists so the manifest's
- * android:name resolves; as the data layer lands (Phase 1) this becomes the DI
- * root that lazily builds the Room database + repository. // PT: ponto de
- * entrada; passará a alojar a base de dados Room e o repositório na Fase 1.
+ * Application entry point and dependency root. Lazily builds the Room database
+ * (the single, offline source of truth); the repository and ViewModel wiring
+ * layer on top of it in the next steps. // PT: ponto de entrada e raiz de
+ * dependências; constrói a base de dados Room de forma preguiçosa.
  */
-class PautaApplication : Application()
+class PautaApplication : Application() {
+    val database: AppDatabase by lazy { AppDatabase.get(this) }
+}
