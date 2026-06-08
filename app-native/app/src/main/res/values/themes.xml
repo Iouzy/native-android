@@ -1,14 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- A bare Material3 theme used only for the splash/launch window. The whole
-         visible UI is drawn by Compose (see ui/theme/Theme.kt), so this exists
-         mostly to set the launch background to "paper" and avoid a white flash
-         before Compose paints. // PT: tema só para a janela de arranque; a UI é
-         desenhada por Compose. -->
-    <style name="Theme.Pauta" parent="Theme.Material3.DayNight.NoActionBar">
+    <!-- The launch/splash window theme only. The whole visible UI is drawn by
+         Compose (see ui/theme/Theme.kt), so this just sets a paper background to
+         avoid a flash before Compose paints. It parents an AppCompat DayNight
+         theme (appcompat is already a dependency) rather than a Material
+         Components theme, which would need the extra com.google.android.material
+         AAR we don't ship. The dark launch background comes from
+         values-night/colors.xml; Compose owns the system-bar icon contrast at
+         runtime. // PT: tema só da janela de arranque; o resto é Compose. -->
+    <style name="Theme.Pauta" parent="Theme.AppCompat.DayNight.NoActionBar">
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowBackground">@color/paper</item>
-        <item name="android:windowLightStatusBar">true</item>
     </style>
 </resources>
