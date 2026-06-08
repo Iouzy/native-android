@@ -5,7 +5,9 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.pauta.app.data.AppDatabase
 import com.pauta.app.data.PautaRepository
+import com.pauta.app.data.entity.IntentionEntity
 import com.pauta.app.data.entity.PrefsEntity
+import com.pauta.app.domain.DateUtils
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
@@ -26,9 +28,31 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val prefs: StateFlow<PrefsEntity> =
         repo.prefs.stateIn(viewModelScope, SharingStarted.Eagerly, PrefsEntity())
 
+    // ── Hoje ──────────────────────────────────────────────────
+    // Today's key, computed once on creation. (Live midnight rollover lands with
+    // the week planner in a later increment.) // PT: chave de hoje.
+    val todayKey: String = DateUtils.todayKey()
+
+    val intentions: StateFlow<List<IntentionEntity>> =
+        repo.intentions(todayKey).stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    val reflection: StateFlow<String> =
+        repo.dayReflection(todayKey).stateIn(viewModelScope, SharingStarted.Eagerly, "")
+
     init {
         viewModelScope.launch { repo.ensurePrefs() }
     }
+
+    fun addIntention(text: String, priority: Int? = null, targetMin: Int? = null, timeOfDay: String? = null) =
+        viewModelScope.launch { repo.addIntention(todayKey, text, priority, targetMin, timeOfDay) }
+
+    fun toggleIntention(id: String) = viewModelScope.launch { repo.toggleIntention(id) }
+    fun removeIntention(id: String) = viewModelScope.launch { repo.removeIntention(id) }
+    fun setIntentionPriority(id: String, priority: Int?) =
+        viewModelScope.launch { repo.setIntentionPriority(id, priority) }
+    fun setIntentionText(id: String, text: String) =
+        viewModelScope.launch { repo.setIntentionText(id, text) }
+    fun setReflection(text: String) = viewModelScope.launch { repo.setReflection(todayKey, text) }
 
     fun setTheme(value: String) = update { it.copy(theme = value) }
     fun setAccent(hex: String?) = update { it.copy(accent = hex) }

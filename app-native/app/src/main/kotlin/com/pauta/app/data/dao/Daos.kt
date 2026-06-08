@@ -52,6 +52,8 @@ interface IntentionDao {
     fun observeForDay(dayKey: String): Flow<List<IntentionEntity>>
 
     @Query("SELECT * FROM intentions WHERE id = :id") suspend fun getById(id: String): IntentionEntity?
+    @Query("SELECT * FROM intentions WHERE dayKey = :dayKey ORDER BY position") suspend fun getForDay(dayKey: String): List<IntentionEntity>
+    @Query("SELECT COUNT(*) FROM intentions WHERE dayKey = :dayKey") suspend fun countForDay(dayKey: String): Int
     @Query("SELECT * FROM intentions") suspend fun getAll(): List<IntentionEntity>
     @Query("DELETE FROM intentions") suspend fun clear()
 }
