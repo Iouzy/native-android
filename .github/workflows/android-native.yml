@@ -26,10 +26,18 @@ jobs:
 
       - uses: android-actions/setup-android@v3
 
-      - name: Build debug APK
+      # Pure-JVM unit tests for the ported domain math (DateUtils /
+      # HabitCalculator). These need no emulator and gate the build: a failure
+      # here stops the APK from assembling.
+      - name: Run unit tests
         run: |
           cd android-native
           chmod +x ./gradlew
+          ./gradlew :app:testDebugUnitTest
+
+      - name: Build debug APK
+        run: |
+          cd android-native
           ./gradlew :app:assembleDebug
 
       - name: Stage APK
