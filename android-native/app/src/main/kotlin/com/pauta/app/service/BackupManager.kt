@@ -83,6 +83,43 @@ object BackupManager {
         }
     }
 
+    /** Write a flat CSV snapshot (anti-lock-in) to the public Downloads folder. */
+    suspend fun exportCsvToDownloads(context: Context): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val csv = CsvExport.build(buildBackup(context))
+            // Lead with a UTF-8 BOM (U+FEFF) so spreadsheets (Excel) read accented PT text.
+            val text = String(intArrayOf(0xFEFF), 0, 1) + csv
+            val stamp = SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(Date())
+            writeToDownloads(context, "pauta-export-$stamp.csv", "text/csv", text)
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    /** Shared Downloads writer (MediaStore on Q+, public dir below). */
+    private fun writeToDownloads(context: Context, name: String, mime: String, text: String): Boolean {
+        return try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                val values = ContentValues().apply {
+                    put(MediaStore.Downloads.DISPLAY_NAME, name)
+                    put(MediaStore.Downloads.MIME_TYPE, mime)
+                    put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
+                }
+                val resolver = context.contentResolver
+                val uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values) ?: return false
+                resolver.openOutputStream(uri)?.use { it.write(text.toByteArray()) }
+            } else {
+                @Suppress("DEPRECATION")
+                val dir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+                dir.mkdirs()
+                File(dir, name).writeText(text)
+            }
+            true
+        } catch (e: Exception) {
+            false
+        }
+    }
+
     /** Restore from a JSON string, replacing all current data. Returns row count. */
     suspend fun importJson(context: Context, jsonText: String): Result<Int> = withContext(Dispatchers.IO) {
         try {
