@@ -2,7 +2,9 @@ name: Build Native Android APK
 
 # Builds the pure Kotlin/Jetpack Compose rewrite under android-native/ on every
 # push that touches it. Branch pushes build + upload the APK artifact for
-# validation; only main publishes the rolling "latest-native" release.
+# validation; main publishes the rolling "latest" release that the in-app updater
+# pulls. CUTOVER: this replaced the Capacitor publish (disabled in android.yml),
+# so devices now update to the native app.
 on:
   push:
     paths:
@@ -49,17 +51,38 @@ jobs:
           name: pauta-native-apk
           path: pauta-native-v${{ github.run_number }}.apk
 
-      - name: Publish to rolling "latest-native" Release
+      - name: Move the rolling `latest` tag to this commit
+        if: github.ref == 'refs/heads/main'
+        run: |
+          git tag -f latest
+          git push -f origin latest
+
+      - name: Prune old APKs from the rolling release
+        # softprops does NOT delete differently-named assets, and the in-app
+        # updater picks any *.apk (GitHub returns assets oldest-first). Clear the
+        # old Capacitor APK(s) so `latest` holds exactly one current native APK.
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ids=$(gh api "repos/${{ github.repository }}/releases/tags/latest" --jq '.assets[].id' 2>/dev/null || true)
+          for id in $ids; do
+            echo "Deleting old release asset $id"
+            gh api -X DELETE "repos/${{ github.repository }}/releases/assets/$id" || true
+          done
+
+      - name: Publish to rolling "latest" Release
+        # The native APK now owns `latest` — the release the in-app updater fetches.
         if: github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: latest-native
+          tag_name: latest
           target_commitish: ${{ github.sha }}
           prerelease: false
-          make_latest: false
-          name: Pauta Native ${{ github.run_number }}
+          make_latest: true
+          name: Pauta ${{ github.run_number }}
           body: |
-            Native (Kotlin/Jetpack Compose) build ${{ github.run_number }}.
+            Pauta — native (Kotlin/Jetpack Compose) build ${{ github.run_number }}.
             Download pauta-native-v${{ github.run_number }}.apk below and install it.
           files: pauta-native-v${{ github.run_number }}.apk
           fail_on_unmatched_files: true
