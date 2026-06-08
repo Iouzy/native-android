@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Three stacked tide swells in the terracotta accent, centred in the adaptive
+     safe zone (~36..72 of 108). A quiet nod to "Marés". // PT: três ondas de
+     maré na cor de destaque, dentro da zona segura do ícone adaptativo. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:strokeColor="#B8533A"
+        android:strokeWidth="5"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000"
+        android:pathData="M38,46 C44,40 50,40 54,46 C58,52 64,52 70,46" />
+    <path
+        android:strokeColor="#B8533A"
+        android:strokeWidth="5"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000"
+        android:pathData="M38,58 C44,52 50,52 54,58 C58,64 64,64 70,58" />
+    <path
+        android:strokeColor="#B8533A"
+        android:strokeWidth="5"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000"
+        android:pathData="M38,70 C44,64 50,64 54,70 C58,76 64,76 70,70" />
+</vector>

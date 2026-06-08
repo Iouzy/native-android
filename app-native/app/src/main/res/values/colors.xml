@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Launch-window + adaptive-icon background. Matches --paper (light) from
+         index.html; Compose owns all runtime theming. -->
+    <color name="paper">#F5F1EA</color>
+    <color name="ink">#1A1815</color>
+    <color name="accent">#B8533A</color>
+</resources>

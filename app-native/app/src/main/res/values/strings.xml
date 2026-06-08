@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Only the launcher label and a few system-surface labels live in strings.xml.
+     ALL in-app UI text is handled by the in-code i18n layer (PT source +
+     EN dictionary) in com.pauta.app.i18n, mirroring the web app's tr()/trf().
+     // PT: o texto da app é tratado pela camada i18n em código; aqui só ficam
+     rótulos de sistema. -->
+<resources>
+    <string name="app_name">Pauta</string>
+    <string name="focus_tile_label">Iniciar foco</string>
+</resources>
