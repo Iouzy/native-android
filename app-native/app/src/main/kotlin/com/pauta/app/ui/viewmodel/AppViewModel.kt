@@ -9,6 +9,7 @@ import com.pauta.app.data.entity.IntentionEntity
 import com.pauta.app.data.entity.PrefsEntity
 import com.pauta.app.domain.CarrySource
 import com.pauta.app.domain.DateUtils
+import com.pauta.app.domain.HistoryDay
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
@@ -44,6 +45,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
      *  carry-over (null = nothing to bring forward). */
     val carry: StateFlow<CarrySource?> =
         repo.carrySource(todayKey).stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
+    /** Read-only history of past days with content, newest first. */
+    val history: StateFlow<List<HistoryDay>> =
+        repo.history(todayKey).stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     init {
         viewModelScope.launch { repo.ensurePrefs() }

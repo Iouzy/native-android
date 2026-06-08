@@ -4,8 +4,11 @@ import com.pauta.app.data.entity.DayEntity
 import com.pauta.app.data.entity.IntentionEntity
 import com.pauta.app.data.entity.PrefsEntity
 import com.pauta.app.domain.CarrySource
+import com.pauta.app.domain.HistoryBuilder
+import com.pauta.app.domain.HistoryDay
 import com.pauta.app.domain.HojeLogic
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlin.random.Random
 
@@ -114,6 +117,13 @@ class PautaRepository(private val db: AppDatabase) {
      *  carry-over (null when there's nothing to bring forward). */
     fun carrySource(todayKey: String): Flow<CarrySource?> =
         intentionDao.observeAll().map { HojeLogic.carrySource(it, todayKey) }
+
+    // ── history ───────────────────────────────────────────────
+    /** Read-only history of past days with content, newest first. */
+    fun history(todayKey: String): Flow<List<HistoryDay>> =
+        combine(dayDao.observeAll(), intentionDao.observeAll()) { days, intentions ->
+            HistoryBuilder.build(days, intentions, todayKey)
+        }
 
     /** Copy the given items into [todayKey] as fresh intentions, preserving
      *  priority + planned duration (fresh ids/timestamps), appended after any
