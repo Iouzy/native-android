@@ -150,11 +150,13 @@ object HabitCalculator {
         val unitDays = when (habit.cadence) { "weekly" -> 7; "monthly" -> 30; else -> 1 }
         var count = 0
         var cursor = todayKey
+        var first = true
 
         // Walk backwards period-by-period
         repeat(1000) {
             val periodDays = periodDays(habit, cursor)
             val periodStart = periodDays.first()
+            val periodEnd = periodDays.last()
             val habitCreated = DateUtils.keyFromMs(habit.createdAt)
 
             if (periodStart < habitCreated) return count * unitDays
@@ -164,9 +166,15 @@ object HabitCalculator {
 
             when {
                 hasDone || hasRespiro -> count++
+                // The current, still-in-progress weekly/monthly period may be empty
+                // without breaking the streak — only a missed *past* period stops it.
+                // Matches store.jsx habitCurrentStreak; daily still breaks on an
+                // empty today (no grace), as in the web build.
+                habit.cadence != "daily" && first && periodEnd >= todayKey -> { /* grace */ }
                 else -> return count * unitDays
             }
 
+            first = false
             // Move to the period before
             cursor = DateUtils.addDays(periodStart, -1)
         }
@@ -277,8 +285,9 @@ object HabitCalculator {
         }
 
         val denominator = observed - respiros
+        // Round (not truncate) to match store.jsx habitPctInMonth's Math.round.
         val pct = if (observed < 7 || denominator <= 0) null
-                  else (done * 100 / denominator).coerceIn(0, 100)
+                  else Math.round(done * 100.0 / denominator).toInt().coerceIn(0, 100)
         return MonthStats(pct, observed, done, respiros)
     }
 

@@ -96,4 +96,7 @@ dependencies {
 
     implementation("androidx.core:core-splashscreen:1.0.1")
     implementation("androidx.appcompat:appcompat:1.7.0")
+
+    // Pure-JVM unit tests for the domain math (DateUtils / HabitCalculator).
+    testImplementation("junit:junit:4.13.2")
 }
