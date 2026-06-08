@@ -38,7 +38,7 @@ import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HojeScreen(vm: AppViewModel, onOpenSettings: () -> Unit = {}) {
+fun HojeScreen(vm: AppViewModel, onOpenSettings: () -> Unit = {}, onOpenHistory: () -> Unit = {}) {
     val lang      by vm.prefs.collectAsState()
     val todayKey  by vm.todayKey.collectAsState()
     val intentions by vm.intentions.collectAsState()
@@ -101,6 +101,9 @@ fun HojeScreen(vm: AppViewModel, onOpenSettings: () -> Unit = {}) {
                     }
                     IconButton(onClick = { showCarryOver = true }) {
                         Icon(Icons.Default.ContentCopy, tr("Trazer intenções de ontem"))
+                    }
+                    IconButton(onClick = onOpenHistory) {
+                        Icon(Icons.Default.History, tr("Histórico"))
                     }
                     IconButton(onClick = onOpenSettings) {
                         Icon(Icons.Default.Settings, tr("Definições"))

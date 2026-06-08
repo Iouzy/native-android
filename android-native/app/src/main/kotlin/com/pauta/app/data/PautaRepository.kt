@@ -48,6 +48,10 @@ class PautaRepository(private val db: AppDatabase) {
         dayDao.upsert(DayEntity(dayKey, text))
     }
 
+    /** All archived days + all intentions — used to build the history view. */
+    suspend fun allDays(): List<DayEntity> = dayDao.getAll()
+    suspend fun allIntentions(): List<IntentionEntity> = intentionDao.getAll()
+
     // ── Intentions ────────────────────────────────────────────────────────
 
     fun intentionsForDay(dayKey: String): Flow<List<IntentionEntity>> =
