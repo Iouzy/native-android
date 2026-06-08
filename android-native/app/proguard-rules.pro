@@ -1,2 +1,0 @@
--keep class com.pauta.app.data.** { *; }
--keepattributes *Annotation*

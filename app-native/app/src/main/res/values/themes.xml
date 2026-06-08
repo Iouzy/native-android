@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- A bare Material3 theme used only for the splash/launch window. The whole
+         visible UI is drawn by Compose (see ui/theme/Theme.kt), so this exists
+         mostly to set the launch background to "paper" and avoid a white flash
+         before Compose paints. // PT: tema só para a janela de arranque; a UI é
+         desenhada por Compose. -->
+    <style name="Theme.Pauta" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowBackground">@color/paper</item>
+        <item name="android:windowLightStatusBar">true</item>
+    </style>
+</resources>
