@@ -78,12 +78,4 @@ signed with the repo-root `debug.keystore`, so builds install as in-place update
 
 `.github/workflows/android-native.yml` builds the APK on every push that touches
 `android-native/`. Branch pushes upload the APK as an artifact; `main` publishes
-the rolling `latest` GitHub Release that the in-app updater pulls. **Cutover:**
-this replaced the Capacitor publish — `android.yml`'s publish steps are disabled
-(`if: false`), so devices now update to the native app.
-
-> Migration caveat: the native app starts on an empty Room DB. Installing over
-> the Capacitor build is an in-place update (the old WebView `localStorage` stays
-> on disk but isn't read yet), so **export your data from the old app first** and
-> re-import it via Settings → *Importar dados*. A first-launch auto-migration is a
-> follow-up.
+a rolling `latest-native` GitHub Release.
