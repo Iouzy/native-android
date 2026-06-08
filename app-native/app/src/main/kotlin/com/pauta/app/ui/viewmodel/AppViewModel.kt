@@ -7,6 +7,7 @@ import com.pauta.app.data.AppDatabase
 import com.pauta.app.data.PautaRepository
 import com.pauta.app.data.entity.IntentionEntity
 import com.pauta.app.data.entity.PrefsEntity
+import com.pauta.app.domain.CarrySource
 import com.pauta.app.domain.DateUtils
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -39,8 +40,20 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val reflection: StateFlow<String> =
         repo.dayReflection(todayKey).stateIn(viewModelScope, SharingStarted.Eagerly, "")
 
+    /** Unfinished intentions from the most recent past day, offered as a one-tap
+     *  carry-over (null = nothing to bring forward). */
+    val carry: StateFlow<CarrySource?> =
+        repo.carrySource(todayKey).stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
     init {
         viewModelScope.launch { repo.ensurePrefs() }
+        // Promote any week-ahead plan for today and clear stale plans on launch.
+        viewModelScope.launch { repo.runRollover(todayKey) }
+    }
+
+    /** Bring the offered carry-over items into today. */
+    fun carryOver() = viewModelScope.launch {
+        carry.value?.let { repo.carryOver(todayKey, it.items) }
     }
 
     fun addIntention(text: String, priority: Int? = null, targetMin: Int? = null, timeOfDay: String? = null) =

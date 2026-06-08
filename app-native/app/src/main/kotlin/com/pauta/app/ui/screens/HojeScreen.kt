@@ -1,5 +1,6 @@
 package com.pauta.app.ui.screens
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,6 +14,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -32,6 +34,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -42,6 +45,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.pauta.app.data.entity.IntentionEntity
+import com.pauta.app.domain.CarrySource
 import com.pauta.app.i18n.I18n
 import com.pauta.app.i18n.Lang
 import com.pauta.app.i18n.tr
@@ -67,6 +71,7 @@ fun HojeScreen() {
     val vm: AppViewModel = viewModel()
     val intentions by vm.intentions.collectAsStateWithLifecycle()
     val reflection by vm.reflection.collectAsStateWithLifecycle()
+    val carry by vm.carry.collectAsStateWithLifecycle()
 
     // Auto-sort by priority level (1 highest; unset sinks to 4), stable within a
     // level via stored position — matching the web list.
@@ -105,6 +110,11 @@ fun HojeScreen() {
                 color = colors.ink3,
                 fontSize = 13.sp,
             )
+        }
+
+        carry?.let { source ->
+            Spacer(Modifier.height(16.dp))
+            CarryBanner(source = source, onCarry = { vm.carryOver() })
         }
 
         Spacer(Modifier.height(18.dp))
@@ -147,6 +157,35 @@ fun HojeScreen() {
 
 private fun nextPriority(current: Int?): Int? = when (current) {
     null -> 1; 1 -> 2; 2 -> 3; else -> null
+}
+
+/** One-tap "bring forward" of the most recent past day's unfinished intentions. */
+@Composable
+private fun CarryBanner(source: CarrySource, onCarry: () -> Unit) {
+    val colors = LocalPautaColors.current
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(colors.accentBg)
+            .clickableNoRipple(onCarry)
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = trf("Trazer {n} de {d}", "n" to source.items.size, "d" to shortDate(source.dayKey)),
+            color = colors.accent,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Medium,
+            modifier = Modifier.weight(1f),
+        )
+        Text(text = "↓", color = colors.accent, fontSize = 16.sp)
+    }
+}
+
+private fun shortDate(dayKey: String): String {
+    val locale = if (I18n.lang == Lang.EN) Locale.ENGLISH else Locale("pt", "PT")
+    return LocalDate.parse(dayKey).format(DateTimeFormatter.ofPattern("d MMM", locale))
 }
 
 @Composable
