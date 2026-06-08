@@ -10,7 +10,9 @@ import com.pauta.app.PautaApplication
 import com.pauta.app.data.PautaRepository
 import com.pauta.app.data.entity.*
 import com.pauta.app.domain.DateUtils
+import com.pauta.app.domain.DayHistoryItem
 import com.pauta.app.domain.HabitCalculator
+import com.pauta.app.domain.HistoryBuilder
 import com.pauta.app.service.FocusService
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
@@ -87,6 +89,18 @@ class AppViewModel(
     fun carryOverIntentions() = viewModelScope.launch {
         val yesterday = DateUtils.addDays(_todayKey.value, -1)
         repo.carryOverIntentions(yesterday, _todayKey.value)
+    }
+
+    // ── History (past days) ─────────────────────────────────────────────────
+
+    private val _history = MutableStateFlow<List<DayHistoryItem>>(emptyList())
+    val history: StateFlow<List<DayHistoryItem>> = _history
+
+    /** Load past-day history on demand (when the history sheet opens). */
+    fun loadHistory() {
+        viewModelScope.launch {
+            _history.value = HistoryBuilder.build(repo.allDays(), repo.allIntentions(), _todayKey.value)
+        }
     }
 
     // ── Focus blocks ──────────────────────────────────────────────────────
