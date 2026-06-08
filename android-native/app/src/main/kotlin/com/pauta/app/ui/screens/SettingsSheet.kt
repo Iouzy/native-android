@@ -109,6 +109,19 @@ fun SettingsSheet(vm: AppViewModel, onDismiss: () -> Unit) {
                     Spacer(Modifier.width(4.dp))
                     Text(tr("Exportar dados"))
                 }
+                OutlinedButton(
+                    onClick = {
+                        scope.launch {
+                            val ok = BackupManager.exportCsvToDownloads(context)
+                            statusMsg = if (ok) "✓ ${tr("Exportar CSV")}" else "✗"
+                        }
+                    },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Icon(Icons.Default.Upload, null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text(tr("Exportar CSV"))
+                }
             }
             statusMsg?.let {
                 Spacer(Modifier.height(8.dp))
