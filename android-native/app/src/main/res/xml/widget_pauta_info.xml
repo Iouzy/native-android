@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- AppWidgetProviderInfo for the Pauta home-screen widget. updatePeriodMillis
+     is the OS floor (30 min); the app also pushes fresh snapshots via the bridge
+     whenever it's open, so the widget is current right after any use. -->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="180dp"
+    android:minHeight="80dp"
+    android:updatePeriodMillis="1800000"
+    android:initialLayout="@layout/widget_pauta"
+    android:resizeMode="horizontal|vertical"
+    android:widgetCategory="home_screen"/>
