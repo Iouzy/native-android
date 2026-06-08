@@ -153,13 +153,20 @@ object HabitCalculator {
         var first = true
 
         // Walk backwards period-by-period
-        repeat(1000) {
+        repeat(4000) {
             val periodDays = periodDays(habit, cursor)
             val periodStart = periodDays.first()
             val periodEnd = periodDays.last()
             val habitCreated = DateUtils.keyFromMs(habit.createdAt)
 
             if (periodStart < habitCreated) return count * unitDays
+
+            // Daily weekday-schedule off-days don't count and don't break the
+            // streak (matches habitDailyDueOn in store.jsx).
+            if (habit.cadence == "daily" && isDailyOffDay(habit, periodStart)) {
+                cursor = DateUtils.addDays(periodStart, -1)
+                return@repeat
+            }
 
             val hasDone = periodDays.any { logSet.contains(it) }
             val hasRespiro = periodDays.any { respiroSet.contains(it) }
@@ -200,6 +207,13 @@ object HabitCalculator {
             }
             val periodDays = periodDays(habit, cursor)
             val periodStart = periodDays.first()
+
+            // Daily off-days are skipped, not treated as a miss (best streak too).
+            if (habit.cadence == "daily" && isDailyOffDay(habit, periodStart)) {
+                cursor = DateUtils.addDays(periodStart, -1)
+                return@repeat
+            }
+
             val hasDone = periodDays.any { logSet.contains(it) }
             val hasRespiro = periodDays.any { respiroSet.contains(it) }
 
@@ -212,6 +226,11 @@ object HabitCalculator {
             cursor = DateUtils.addDays(periodStart, -1)
         }
         return best * unitDays
+    }
+
+    private fun isDailyOffDay(habit: HabitEntity, dayKey: String): Boolean {
+        val wds = weekdaysOf(habit)
+        return wds.isNotEmpty() && DateUtils.weekdayOf(dayKey) !in wds
     }
 
     private fun tierName(streakDays: Int): String = when {

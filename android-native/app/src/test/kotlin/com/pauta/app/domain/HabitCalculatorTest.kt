@@ -134,6 +134,17 @@ class HabitCalculatorTest {
         assertEquals("Maré Baixa", info.tierName) // tier threshold >= 7
     }
 
+    @Test
+    fun streak_daily_skipsScheduleOffDays() {
+        // Mon/Wed/Fri schedule (native weekdays 0=Mon..6=Sun → [0,2,4]).
+        val h = habit("daily", createdKey = "2025-05-19", weekdays = "[0,2,4]")
+        // 5/19 Mon, 5/21 Wed, 5/23 Fri done; 5/20 Tue & 5/22 Thu are off-days.
+        val log = setOf("2025-05-19", "2025-05-21", "2025-05-23")
+        val info = HabitCalculator.streakInfo(h, log, emptySet(), "2025-05-23")
+        assertEquals(3, info.streakDays) // off-days skipped, don't break the streak
+        assertEquals(3, info.bestDays)
+    }
+
     // ── monthly % ────────────────────────────────────────────────────────────
     @Test
     fun monthStats_daily_pctRoundsAndExcludesRespiros() {
