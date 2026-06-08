@@ -52,6 +52,11 @@ class PautaRepository(private val db: AppDatabase) {
     suspend fun allDays(): List<DayEntity> = dayDao.getAll()
     suspend fun allIntentions(): List<IntentionEntity> = intentionDao.getAll()
 
+    /** Global habit logs/respiros/counts — used for the insights summary. */
+    suspend fun allHabitLogsGlobal(): List<HabitLogEntity> = habitDao.getAllLogsGlobal()
+    suspend fun allHabitRespirosGlobal(): List<HabitRespiroEntity> = habitDao.getAllRespirosGlobal()
+    suspend fun allHabitCountsGlobal(): List<HabitCountEntity> = habitDao.getAllCountsGlobal()
+
     // ── Intentions ────────────────────────────────────────────────────────
 
     fun intentionsForDay(dayKey: String): Flow<List<IntentionEntity>> =
