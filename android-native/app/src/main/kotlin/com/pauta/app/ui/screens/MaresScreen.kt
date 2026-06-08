@@ -30,7 +30,7 @@ import com.pauta.app.ui.viewmodel.AppViewModel
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
-fun MaresScreen(vm: AppViewModel, onOpenSettings: () -> Unit = {}) {
+fun MaresScreen(vm: AppViewModel, onOpenSettings: () -> Unit = {}, onOpenInsights: () -> Unit = {}) {
     val prefs    by vm.prefs.collectAsState()
     val habits   by vm.habits.collectAsState()
     val year     by vm.maresYear.collectAsState()
@@ -80,6 +80,7 @@ fun MaresScreen(vm: AppViewModel, onOpenSettings: () -> Unit = {}) {
                 },
                 actions = {
                     IconButton(onClick = { vm.maresGoToToday() }) { Icon(Icons.Default.Today, tr("Hoje")) }
+                    IconButton(onClick = onOpenInsights) { Icon(Icons.Default.Insights, tr("Resumo")) }
                     IconButton(onClick = onOpenSettings) { Icon(Icons.Default.Settings, tr("Definições")) }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)

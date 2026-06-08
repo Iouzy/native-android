@@ -28,6 +28,7 @@ fun MainScaffold(vm: AppViewModel) {
     var current by rememberSaveable { mutableStateOf(Tab.HOJE) }
     var showSettings by remember { mutableStateOf(false) }
     var showHistory by remember { mutableStateOf(false) }
+    var showInsights by remember { mutableStateOf(false) }
 
     // Launcher shortcut / Quick-Settings tile → jump to the focus tab.
     LaunchedEffect(Unit) {
@@ -53,7 +54,7 @@ fun MainScaffold(vm: AppViewModel) {
             when (current) {
                 Tab.HOJE  -> HojeScreen(vm, onOpenSettings = openSettings, onOpenHistory = { showHistory = true })
                 Tab.PAUTA -> PautaScreen(vm, onOpenSettings = openSettings)
-                Tab.MARES -> MaresScreen(vm, onOpenSettings = openSettings)
+                Tab.MARES -> MaresScreen(vm, onOpenSettings = openSettings, onOpenInsights = { showInsights = true })
             }
         }
     }
@@ -63,5 +64,8 @@ fun MainScaffold(vm: AppViewModel) {
     }
     if (showHistory) {
         HistorySheet(vm = vm, onDismiss = { showHistory = false })
+    }
+    if (showInsights) {
+        InsightsSheet(vm = vm, onDismiss = { showInsights = false })
     }
 }

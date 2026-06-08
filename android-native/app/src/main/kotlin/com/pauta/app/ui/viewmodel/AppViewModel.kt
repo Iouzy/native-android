@@ -13,6 +13,7 @@ import com.pauta.app.domain.DateUtils
 import com.pauta.app.domain.DayHistoryItem
 import com.pauta.app.domain.HabitCalculator
 import com.pauta.app.domain.HistoryBuilder
+import com.pauta.app.domain.Insights
 import com.pauta.app.service.FocusService
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
@@ -100,6 +101,25 @@ class AppViewModel(
     fun loadHistory() {
         viewModelScope.launch {
             _history.value = HistoryBuilder.build(repo.allDays(), repo.allIntentions(), _todayKey.value)
+        }
+    }
+
+    // ── Insights (summary) ──────────────────────────────────────────────────
+
+    private val _insights = MutableStateFlow<Insights.MonthInsights?>(null)
+    val insights: StateFlow<Insights.MonthInsights?> = _insights
+
+    /** Compute the summary (navigator rank, lifetime done-days, this-month %). */
+    fun loadInsights() {
+        viewModelScope.launch {
+            val (y, m) = DateUtils.yearMonth(_todayKey.value)
+            _insights.value = Insights.monthInsights(
+                habits.value,
+                repo.allHabitLogsGlobal(),
+                repo.allHabitRespirosGlobal(),
+                repo.allHabitCountsGlobal(),
+                y, m, _todayKey.value,
+            )
         }
     }
 
