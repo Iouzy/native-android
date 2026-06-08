@@ -72,6 +72,8 @@ fun HojeScreen() {
     val intentions by vm.intentions.collectAsStateWithLifecycle()
     val reflection by vm.reflection.collectAsStateWithLifecycle()
     val carry by vm.carry.collectAsStateWithLifecycle()
+    val history by vm.history.collectAsStateWithLifecycle()
+    var showHistory by remember { mutableStateOf(false) }
 
     // Auto-sort by priority level (1 highest; unset sinks to 4), stable within a
     // level via stored position — matching the web list.
@@ -81,6 +83,11 @@ fun HojeScreen() {
     val done = intentions.count { it.done }
     val total = intentions.size
 
+    if (showHistory) {
+        HistoryView(days = history, onClose = { showHistory = false })
+        return
+    }
+
     Column(
         Modifier
             .fillMaxSize()
@@ -89,11 +96,20 @@ fun HojeScreen() {
             .padding(horizontal = 24.dp),
     ) {
         Spacer(Modifier.height(16.dp))
-        Text(
-            text = localizedDate().replaceFirstChar { it.uppercase() },
-            color = colors.ink3,
-            fontSize = 12.sp,
-        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = localizedDate().replaceFirstChar { it.uppercase() },
+                color = colors.ink3,
+                fontSize = 12.sp,
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                text = tr("Histórico"),
+                color = colors.ink3,
+                fontSize = 12.sp,
+                modifier = Modifier.clickableNoRipple { showHistory = true },
+            )
+        }
         Spacer(Modifier.height(6.dp))
         Text(
             text = tr("O que importa hoje?"),
