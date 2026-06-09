@@ -15,9 +15,13 @@ import com.pauta.app.data.entity.PrefsEntity
 import com.pauta.app.domain.CarrySource
 import com.pauta.app.domain.DateUtils
 import com.pauta.app.domain.FocusMath
+import com.pauta.app.domain.HabitCalculator
+import com.pauta.app.domain.HabitModel
 import com.pauta.app.domain.HistoryDay
+import com.pauta.app.i18n.trf
 import com.pauta.app.service.FocusServiceController
 import com.pauta.app.service.ReminderScheduler
+import com.pauta.app.service.WidgetSnapshot
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -145,6 +149,34 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                         FocusServiceController.start(ctx, block.title, FocusMath.blockElapsedMs(segs, System.currentTimeMillis()))
                     }
                 }
+        }
+        // Keep the home-screen widget's three stat lines fresh as data changes.
+        // // PT: mantém as três linhas do widget atualizadas.
+        viewModelScope.launch {
+            combine(
+                repo.intentions(todayKey), repo.allSessions(), repo.habits(), repo.habitLogs(), repo.habitRespiros(),
+            ) { ints, sess, habs, logs, resps ->
+                val now = System.currentTimeMillis()
+                val intDone = ints.count { it.done }
+                val focusMin = FocusMath.dailyFocusMs(sess.map { FocusMath.FocusSeg(it.startedAt, it.endedAt) }, todayKey, now) / 60_000L
+                val logSet = logs.groupBy { it.habitId }.mapValues { e -> e.value.map { it.dayKey }.toSet() }
+                val respSet = resps.groupBy { it.habitId }.mapValues { e -> e.value.map { it.dayKey }.toSet() }
+                var mDone = 0
+                var mTotal = 0
+                for (h in habs) {
+                    val m = HabitModel(h.id, h.createdAt, h.cadence, h.anchor, h.weekdays, h.recurrence, h.endsAt, logSet[h.id].orEmpty(), respSet[h.id].orEmpty())
+                    when (HabitCalculator.dayState(m, todayKey, todayKey)) {
+                        HabitCalculator.DayState.DONE, HabitCalculator.DayState.RESPIRO -> { mDone++; mTotal++ }
+                        HabitCalculator.DayState.EMPTY -> mTotal++
+                        else -> {}
+                    }
+                }
+                Triple(
+                    trf("{d}/{t} intenções", "d" to intDone, "t" to ints.size),
+                    trf("Foco {m}m", "m" to focusMin),
+                    trf("{d}/{t} marés", "d" to mDone, "t" to mTotal),
+                )
+            }.collect { (l1, l2, l3) -> WidgetSnapshot.publish(getApplication<Application>(), l1, l2, l3) }
         }
     }
 
