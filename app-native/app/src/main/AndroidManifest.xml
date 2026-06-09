@@ -95,6 +95,17 @@
                 android:resource="@xml/widget_pauta_info" />
         </receiver>
 
+        <!-- Shares exported backup JSON files. -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
         <!-- Quick-Settings tile: tap to jump into focus. -->
         <service
             android:name=".service.FocusTileService"
