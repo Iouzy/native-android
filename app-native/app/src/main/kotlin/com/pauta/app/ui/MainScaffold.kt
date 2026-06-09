@@ -15,8 +15,12 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.pauta.app.ui.viewmodel.AppViewModel
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -62,6 +66,10 @@ fun MainScaffold(initialTab: Tab = Tab.HOJE) {
 
     LaunchedEffect(Unit) { focusRequester.requestFocus() }
 
+    val vm: AppViewModel = viewModel()
+    val prefs by vm.prefs.collectAsStateWithLifecycle()
+
+    Box(Modifier.fillMaxSize()) {
     Column(
         Modifier
             .fillMaxSize()
@@ -100,6 +108,18 @@ fun MainScaffold(initialTab: Tab = Tab.HOJE) {
             current = Tab.entries[pager.currentPage],
             onSelect = { tab -> scope.launch { pager.animateScrollToPage(tab.ordinal) } },
         )
+        }
+
+        // Pip lives just above the tab bar in the bottom-right corner.
+        if (prefs.parrot) {
+            ParrotCompanion(
+                tab = Tab.entries[pager.currentPage],
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .navigationBarsPadding()
+                    .padding(end = 10.dp, bottom = 64.dp),
+            )
+        }
     }
 }
 
