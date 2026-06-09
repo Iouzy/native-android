@@ -14,6 +14,12 @@ plugins {
 // — monotónico e à prova de reset, para os updates nunca recuarem.
 val epochMinutes = (Date().time / 60_000).toInt()
 
+// The CI run number this APK was built from (0 locally). The in-app updater
+// compares it against the run number in the published release's asset name, so
+// it only offers an update when the release is genuinely newer. // PT: número da
+// run do CI; o updater compara-o com o da release publicada.
+val buildRun = (project.findProperty("buildRun") as String?)?.toIntOrNull() ?: 0
+
 android {
     namespace = "com.pauta.app"
     compileSdk = 35
@@ -25,6 +31,7 @@ android {
         versionCode = epochMinutes
         versionName = "1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        buildConfigField("int", "BUILD_RUN", "$buildRun")
     }
 
     signingConfigs {
