@@ -14,12 +14,19 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.runtime.Composable
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.Icon
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.foundation.layout.size
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.pauta.app.ui.screens.SettingsScreen
 import com.pauta.app.ui.viewmodel.AppViewModel
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -68,6 +75,7 @@ fun MainScaffold(initialTab: Tab = Tab.HOJE) {
 
     val vm: AppViewModel = viewModel()
     val prefs by vm.prefs.collectAsStateWithLifecycle()
+    var showSettings by remember { mutableStateOf(false) }
 
     Box(Modifier.fillMaxSize()) {
     Column(
@@ -119,6 +127,23 @@ fun MainScaffold(initialTab: Tab = Tab.HOJE) {
                     .navigationBarsPadding()
                     .padding(end = 10.dp, bottom = 64.dp),
             )
+        }
+
+        // A quiet settings gear in the opposite (bottom-left) corner.
+        Icon(
+            imageVector = Icons.Filled.Settings,
+            contentDescription = tr("Definições"),
+            tint = colors.ink4,
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .navigationBarsPadding()
+                .padding(start = 18.dp, bottom = 70.dp)
+                .size(22.dp)
+                .clickableNoRipple { showSettings = true },
+        )
+
+        if (showSettings) {
+            SettingsScreen(onClose = { showSettings = false })
         }
     }
 }
