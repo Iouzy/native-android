@@ -6,13 +6,17 @@ import androidx.lifecycle.viewModelScope
 import com.pauta.app.data.AppDatabase
 import com.pauta.app.data.PautaRepository
 import com.pauta.app.data.entity.FocusBlockEntity
+import com.pauta.app.data.entity.FocusSessionEntity
 import com.pauta.app.data.entity.IntentionEntity
 import com.pauta.app.data.entity.PrefsEntity
 import com.pauta.app.domain.CarrySource
 import com.pauta.app.domain.DateUtils
 import com.pauta.app.domain.HistoryDay
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -57,6 +61,17 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     val activeBlock: StateFlow<FocusBlockEntity?> =
         repo.activeBlock().stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
+    /** Sessions of the running block (for the live timer). */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val activeSessions: StateFlow<List<FocusSessionEntity>> =
+        repo.activeBlock()
+            .flatMapLatest { b -> if (b == null) flowOf(emptyList()) else repo.sessions(b.id) }
+            .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    /** Every session, for per-block totals + daily focus. */
+    val allSessions: StateFlow<List<FocusSessionEntity>> =
+        repo.allSessions().stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     fun startBlock(title: String, linkedToId: String? = null, project: String? = null, targetMin: Int? = null) =
         viewModelScope.launch { repo.startBlock(title, linkedToId, project, targetMin) }

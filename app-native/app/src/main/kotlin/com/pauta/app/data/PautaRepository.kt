@@ -190,6 +190,9 @@ class PautaRepository(private val db: AppDatabase) {
     fun sessions(blockId: String): Flow<List<FocusSessionEntity>> =
         focusSessionDao.observeForBlock(blockId)
 
+    /** Every session across all blocks (for per-block + daily focus totals). */
+    fun allSessions(): Flow<List<FocusSessionEntity>> = focusSessionDao.observeAll()
+
     /** Close the open (last) session of a block, if it's still running. */
     private suspend fun endOpenSession(blockId: String, now: Long, note: String? = null) {
         val last = focusSessionDao.getForBlock(blockId).lastOrNull() ?: return
