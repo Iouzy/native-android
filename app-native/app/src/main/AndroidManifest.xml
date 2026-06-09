@@ -63,5 +63,25 @@
             </intent-filter>
         </receiver>
 
+        <!-- Daily reminder alarm receiver. -->
+        <receiver
+            android:name=".service.ReminderReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.pauta.app.REMINDER_FIRE" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Re-arm reminders after reboot / app update. -->
+        <receiver
+            android:name=".service.BootReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+            </intent-filter>
+        </receiver>
+
     </application>
 </manifest>

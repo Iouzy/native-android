@@ -1,6 +1,11 @@
 package com.pauta.app.ui.screens
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -18,18 +23,29 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.pauta.app.i18n.tr
@@ -58,6 +74,8 @@ fun SettingsScreen(onClose: () -> Unit) {
     val colors = LocalPautaColors.current
     val vm: AppViewModel = viewModel()
     val prefs by vm.prefs.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val notifLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
 
     BackHandler { onClose() }
 
@@ -118,7 +136,55 @@ fun SettingsScreen(onClose: () -> Unit) {
         ToggleRow(tr("Hápticos"), prefs.haptics) { vm.setHaptics(it) }
         ToggleRow(tr("Papagaio ajudante (Pip)"), prefs.parrot) { vm.setParrot(it) }
 
+        Section(tr("Lembretes"))
+        ToggleRow(tr("Lembretes diários"), prefs.remindersEnabled) { enabled ->
+            vm.setRemindersEnabled(enabled)
+            if (enabled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+            ) {
+                notifLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
+        if (prefs.remindersEnabled) {
+            TimeRow(tr("Planeamento"), prefs.plannerTime) { vm.setPlannerTime(it) }
+            TimeRow(tr("Marés"), prefs.habitsTime) { vm.setHabitsTime(it) }
+            TimeRow(tr("Reflexão"), prefs.reflectionTime) { vm.setReflectionTime(it) }
+        }
+
         Spacer(Modifier.height(48.dp))
+    }
+}
+
+@Composable
+private fun TimeRow(label: String, value: String, onCommit: (String) -> Unit) {
+    val colors = LocalPautaColors.current
+    var text by remember(value) { mutableStateOf(value) }
+    Row(
+        Modifier.fillMaxWidth().padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(label, color = colors.ink, fontSize = 16.sp, modifier = Modifier.weight(1f))
+        TextField(
+            value = text,
+            onValueChange = { raw ->
+                // Keep digits + a single colon, max HH:MM.
+                text = raw.filter { it.isDigit() || it == ':' }.take(5)
+                if (Regex("^\\d{1,2}:\\d{2}$").matches(text)) onCommit(text)
+            },
+            singleLine = true,
+            modifier = Modifier.width(96.dp),
+            textStyle = LocalTextStyle.current.copy(color = colors.ink, fontSize = 16.sp),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+            colors = TextFieldDefaults.colors(
+                focusedContainerColor = Color.Transparent,
+                unfocusedContainerColor = Color.Transparent,
+                cursorColor = colors.accent,
+                focusedIndicatorColor = colors.accent,
+                unfocusedIndicatorColor = colors.rule,
+                focusedTextColor = colors.ink,
+                unfocusedTextColor = colors.ink,
+            ),
+        )
     }
 }
 
