@@ -38,6 +38,8 @@ class PautaRepository(private val db: AppDatabase) {
     private val focusSessionDao = db.focusSessionDao()
     private val habitDao = db.habitDao()
     private val habitMarkDao = db.habitMarkDao()
+    private val goalDao = db.goalDao()
+    private val routineDao = db.routineDao()
     private val plannedDao = db.plannedIntentionDao()
 
     // ── ids ───────────────────────────────────────────────────
@@ -455,4 +457,27 @@ class PautaRepository(private val db: AppDatabase) {
 
     private fun isHexColor(s: String): Boolean =
         Regex("^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$").matches(s.trim())
+
+    // ── backup ────────────────────────────────────────────────
+    /** Gather everything into a [WebBackup.Snapshot] for export. */
+    suspend fun snapshot(todayKey: String): WebBackup.Snapshot = WebBackup.Snapshot(
+        todayKey = todayKey,
+        days = dayDao.getAll(),
+        intentions = intentionDao.getAll(),
+        blocks = focusBlockDao.getAll(),
+        sessions = focusSessionDao.getAll(),
+        habits = habitDao.getAll(),
+        logs = habitMarkDao.getAllLogs(),
+        respiros = habitMarkDao.getAllRespiros(),
+        counts = habitMarkDao.getAllCounts(),
+        goals = goalDao.getAllGoals(),
+        milestones = goalDao.getAllMilestones(),
+        routines = routineDao.getAllRoutines(),
+        routineItems = routineDao.getAllItems(),
+        plans = plannedDao.getAll(),
+        prefs = prefsDao.get() ?: com.pauta.app.data.entity.PrefsEntity(),
+    )
+
+    /** The pauta.v4 backup JSON (web-compatible). */
+    suspend fun exportJson(todayKey: String): String = WebBackup.export(snapshot(todayKey))
 }
