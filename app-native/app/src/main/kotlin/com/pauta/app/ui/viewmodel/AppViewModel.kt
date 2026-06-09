@@ -196,6 +196,15 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch { repo.setIntentionText(id, text) }
     fun setReflection(text: String) = viewModelScope.launch { repo.setReflection(todayKey, text) }
 
+    /** Produce the pauta.v4 backup JSON, then hand it to [onReady] (for sharing). */
+    fun exportBackup(onReady: (String) -> Unit) =
+        viewModelScope.launch { onReady(repo.exportJson(todayKey)) }
+
+    /** Replace all data from a pauta.v4 backup; reports success to [onDone]. */
+    fun importBackup(text: String, onDone: (Boolean) -> Unit) = viewModelScope.launch {
+        onDone(runCatching { repo.importJson(text) }.isSuccess)
+    }
+
     fun setTheme(value: String) = update { it.copy(theme = value) }
     fun setAccent(hex: String?) = update { it.copy(accent = hex) }
     fun setLang(value: String) = update { it.copy(lang = value) }

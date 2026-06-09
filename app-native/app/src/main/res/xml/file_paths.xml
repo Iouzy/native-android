@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- Backup files written to cacheDir/backups are shared via the FileProvider. -->
+    <cache-path name="backups" path="backups/" />
+</paths>

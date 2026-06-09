@@ -1,8 +1,11 @@
 package com.pauta.app.ui.screens
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
+import androidx.core.content.FileProvider
+import java.io.File
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -76,6 +79,14 @@ fun SettingsScreen(onClose: () -> Unit) {
     val prefs by vm.prefs.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val notifLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
+    val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri != null) {
+            val text = runCatching {
+                context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
+            }.getOrNull()
+            if (!text.isNullOrBlank()) vm.importBackup(text) {}
+        }
+    }
 
     BackHandler { onClose() }
 
@@ -151,8 +162,40 @@ fun SettingsScreen(onClose: () -> Unit) {
             TimeRow(tr("Reflexão"), prefs.reflectionTime) { vm.setReflectionTime(it) }
         }
 
+        Section(tr("Dados"))
+        ActionRow(tr("Exportar dados")) { vm.exportBackup { json -> shareBackup(context, json) } }
+        ActionRow(tr("Importar dados")) { importLauncher.launch("application/json") }
+
         Spacer(Modifier.height(48.dp))
     }
+}
+
+@Composable
+private fun ActionRow(label: String, onClick: () -> Unit) {
+    val colors = LocalPautaColors.current
+    Text(
+        text = label,
+        color = colors.accent,
+        fontSize = 16.sp,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickableNoRipple(onClick)
+            .padding(vertical = 10.dp),
+    )
+}
+
+/** Write the backup JSON to a cache file and fire a share sheet via FileProvider. */
+private fun shareBackup(context: android.content.Context, json: String) {
+    val dir = File(context.cacheDir, "backups").apply { mkdirs() }
+    val file = File(dir, "pauta-backup.json")
+    file.writeText(json)
+    val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+    val send = Intent(Intent.ACTION_SEND).apply {
+        type = "application/json"
+        putExtra(Intent.EXTRA_STREAM, uri)
+        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    }
+    context.startActivity(Intent.createChooser(send, "Pauta"))
 }
 
 @Composable
