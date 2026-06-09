@@ -5,6 +5,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.pauta.app.data.AppDatabase
 import com.pauta.app.data.PautaRepository
+import com.pauta.app.data.entity.FocusBlockEntity
 import com.pauta.app.data.entity.IntentionEntity
 import com.pauta.app.data.entity.PrefsEntity
 import com.pauta.app.domain.CarrySource
@@ -49,6 +50,26 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /** Read-only history of past days with content, newest first. */
     val history: StateFlow<List<HistoryDay>> =
         repo.history(todayKey).stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    // ── Pauta ─────────────────────────────────────────────────
+    val blocks: StateFlow<List<FocusBlockEntity>> =
+        repo.blocks().stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    val activeBlock: StateFlow<FocusBlockEntity?> =
+        repo.activeBlock().stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
+    fun startBlock(title: String, linkedToId: String? = null, project: String? = null, targetMin: Int? = null) =
+        viewModelScope.launch { repo.startBlock(title, linkedToId, project, targetMin) }
+
+    fun pauseActive(note: String = "") = viewModelScope.launch { repo.pauseActive(note) }
+    fun resumeBlock(id: String) = viewModelScope.launch { repo.resumeBlock(id) }
+    fun concludeActive(reflection: String, markIntentionDone: Boolean = false) =
+        viewModelScope.launch { repo.concludeActive(reflection, markIntentionDone) }
+    fun concludeBlock(id: String, reflection: String, markIntentionDone: Boolean = false) =
+        viewModelScope.launch { repo.concludeBlock(id, reflection, markIntentionDone) }
+    fun deleteBlock(id: String) = viewModelScope.launch { repo.deleteBlock(id) }
+    fun setBlockReflection(id: String, text: String) = viewModelScope.launch { repo.setBlockReflection(id, text) }
+    fun blockSessions(id: String) = repo.sessions(id)
 
     init {
         viewModelScope.launch { repo.ensurePrefs() }
