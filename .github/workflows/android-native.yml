@@ -1,11 +1,12 @@
 name: Build Native Android APK
 
-# Builds the from-scratch Kotlin/Jetpack Compose rewrite under app-native/ on
-# every push that touches it. For now this only runs unit tests and uploads the
-# debug APK as a validation artifact — it deliberately does NOT publish a release.
-# The web app remains the shipping release; the cutover that moves the rolling
-# release to this native build lands in its own phase. // PT: por agora só testa
-# e publica o APK como artifact; o cutover da release fica para a sua fase.
+# Builds the from-scratch Kotlin/Jetpack Compose rewrite under app-native/.
+# Branch / PR pushes run the unit tests and upload the debug APK as a validation
+# artifact. Pushes to main ALSO publish the APK to a rolling "latest-native"
+# GitHub Release, which the in-app updater polls. This deliberately does NOT
+# touch the web app's "latest" release — the native build ships on its own tag,
+# so the final user-facing cutover stays a one-line, reversible change. // PT: em
+# main publica a release "latest-native"; não mexe na "latest" da app web.
 on:
   push:
     paths:
@@ -18,7 +19,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -41,10 +42,11 @@ jobs:
           chmod +x ./gradlew
           ./gradlew :app:testDebugUnitTest
 
+      # Stamp the APK with this CI run number so the in-app updater can compare.
       - name: Build debug APK
         run: |
           cd app-native
-          ./gradlew :app:assembleDebug
+          ./gradlew :app:assembleDebug -PbuildRun=${{ github.run_number }}
 
       - name: Stage APK
         run: cp app-native/app/build/outputs/apk/debug/app-debug.apk "pauta-native-v${{ github.run_number }}.apk"
@@ -54,3 +56,22 @@ jobs:
         with:
           name: pauta-native-apk
           path: pauta-native-v${{ github.run_number }}.apk
+
+      # main only: publish the rolling native release the app updates from. The
+      # asset name carries the run number; the updater parses it to decide if a
+      # newer build exists. The committed debug.keystore signs every build, so
+      # updates install in place without "package conflicts".
+      - name: Publish to rolling "latest-native" Release
+        if: github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest-native
+          target_commitish: ${{ github.sha }}
+          prerelease: false
+          make_latest: false
+          name: Pauta Native ${{ github.run_number }}
+          body: |
+            Native (Kotlin/Jetpack Compose) build ${{ github.run_number }}.
+            Install pauta-native-v${{ github.run_number }}.apk below.
+          files: pauta-native-v${{ github.run_number }}.apk
+          fail_on_unmatched_files: true
