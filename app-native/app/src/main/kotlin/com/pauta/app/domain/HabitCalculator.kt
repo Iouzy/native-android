@@ -297,4 +297,30 @@ object HabitCalculator {
         NAVIGATOR_LEVELS.firstOrNull { totalDoneDays >= it.min } ?: NAVIGATOR_LEVELS.last()
 
     fun totalDoneDays(habits: List<HabitModel>): Int = habits.sumOf { it.log.size }
+
+    /** The state of a single grid cell. */
+    enum class DayState { DONE, RESPIRO, EMPTY, OFF, LOCKED, FUTURE, PRE }
+
+    /**
+     * State of a tide on a given day for the Marés grid, mirroring the web's
+     * habitDayStatus: PRE before it existed, OFF outside its window / a daily
+     * off-day, FUTURE for days ahead, LOCKED for a non-anchor or already-taken
+     * period day, DONE/RESPIRO when marked, else EMPTY (actionable today/past).
+     */
+    fun dayState(h: HabitModel, dayKey: String, todayKey: String): DayState {
+        if (dayKey < createdKey(h)) return DayState.PRE
+        val end = endKey(h)
+        if (end != null && dayKey > end) return DayState.OFF
+        if (h.cadence != "daily") {
+            val (kind, key) = periodMark(h, dayKey)
+            if (kind == MarkKind.DONE) return if (key == dayKey) DayState.DONE else DayState.LOCKED
+            if (kind == MarkKind.RESPIRO) return if (key == dayKey) DayState.RESPIRO else DayState.LOCKED
+            if (!isAnchorDay(h, dayKey)) return DayState.LOCKED
+            return if (dayKey > todayKey) DayState.FUTURE else DayState.EMPTY
+        }
+        if (!dailyDueOn(h, dayKey)) return DayState.OFF
+        if (dayKey in h.log) return DayState.DONE
+        if (dayKey in h.respiros) return DayState.RESPIRO
+        return if (dayKey > todayKey) DayState.FUTURE else DayState.EMPTY
+    }
 }
