@@ -89,6 +89,34 @@ class HabitCalculatorTest {
         assertEquals(48, overall)
     }
 
+    @Test fun dayState_dailyStatesAndOffDays() {
+        val h = HabitModel(
+            id = "h", createdAt = ms("2024-06-01"), cadence = "daily",
+            log = setOf("2024-06-05"), respiros = setOf("2024-06-06"),
+        )
+        assertEquals(HabitCalculator.DayState.PRE, HabitCalculator.dayState(h, "2024-05-31", "2024-06-10"))
+        assertEquals(HabitCalculator.DayState.DONE, HabitCalculator.dayState(h, "2024-06-05", "2024-06-10"))
+        assertEquals(HabitCalculator.DayState.RESPIRO, HabitCalculator.dayState(h, "2024-06-06", "2024-06-10"))
+        assertEquals(HabitCalculator.DayState.EMPTY, HabitCalculator.dayState(h, "2024-06-07", "2024-06-10"))
+        assertEquals(HabitCalculator.DayState.FUTURE, HabitCalculator.dayState(h, "2024-06-11", "2024-06-10"))
+    }
+
+    @Test fun dayState_dailyWeekdayScheduleOff() {
+        // Mon/Wed/Fri only. 2024-06-04 is a Tuesday → OFF.
+        val h = HabitModel(id = "h", createdAt = ms("2024-06-01"), cadence = "daily", weekdays = listOf(1, 3, 5))
+        assertEquals(HabitCalculator.DayState.OFF, HabitCalculator.dayState(h, "2024-06-04", "2024-06-10"))
+    }
+
+    @Test fun dayState_weeklyDoneLocksRestOfPeriod() {
+        val h = HabitModel(
+            id = "h", createdAt = ms("2024-06-01"), cadence = "weekly", anchor = null,
+            log = setOf("2024-06-12"), // week Jun10-16
+        )
+        assertEquals(HabitCalculator.DayState.DONE, HabitCalculator.dayState(h, "2024-06-12", "2024-06-20"))
+        assertEquals(HabitCalculator.DayState.LOCKED, HabitCalculator.dayState(h, "2024-06-13", "2024-06-20"))
+        assertEquals(HabitCalculator.DayState.EMPTY, HabitCalculator.dayState(h, "2024-06-18", "2024-06-20"))
+    }
+
     @Test fun totalDoneDays_sumsLogSizes() {
         val a = HabitModel(id = "a", createdAt = ms("2024-01-01"), log = setOf("2024-01-01", "2024-01-02"))
         val b = HabitModel(id = "b", createdAt = ms("2024-01-01"), log = setOf("2024-01-01"))
