@@ -43,5 +43,25 @@
             </intent-filter>
         </activity>
 
+        <!-- Foreground service owning the ongoing focus-timer notification. -->
+        <service
+            android:name=".service.FocusService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="focus_timer" />
+        </service>
+
+        <!-- Notification action buttons (pause / conclude). -->
+        <receiver
+            android:name=".service.FocusActionReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.pauta.app.FOCUS_PAUSE" />
+                <action android:name="com.pauta.app.FOCUS_CONCLUDE" />
+            </intent-filter>
+        </receiver>
+
     </application>
 </manifest>

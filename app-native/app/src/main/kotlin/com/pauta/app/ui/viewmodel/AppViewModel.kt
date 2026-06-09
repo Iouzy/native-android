@@ -3,18 +3,20 @@ package com.pauta.app.ui.viewmodel
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.pauta.app.data.AppDatabase
-import com.pauta.app.data.PautaRepository
+import com.pauta.app.PautaApplication
 import com.pauta.app.data.entity.FocusBlockEntity
 import com.pauta.app.data.entity.FocusSessionEntity
 import com.pauta.app.data.entity.IntentionEntity
 import com.pauta.app.data.entity.PrefsEntity
 import com.pauta.app.domain.CarrySource
 import com.pauta.app.domain.DateUtils
+import com.pauta.app.domain.FocusMath
 import com.pauta.app.domain.HistoryDay
+import com.pauta.app.service.FocusServiceController
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
@@ -30,7 +32,7 @@ import kotlinx.coroutines.launch
  */
 class AppViewModel(app: Application) : AndroidViewModel(app) {
 
-    private val repo = PautaRepository(AppDatabase.get(app))
+    private val repo = (app as PautaApplication).repository
 
     val prefs: StateFlow<PrefsEntity> =
         repo.prefs.stateIn(viewModelScope, SharingStarted.Eagerly, PrefsEntity())
@@ -90,6 +92,25 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch { repo.ensurePrefs() }
         // Promote any week-ahead plan for today and clear stale plans on launch.
         viewModelScope.launch { repo.runRollover(todayKey) }
+        // Keep the foreground focus-timer notification in sync with the running
+        // block: start it (with the block's accumulated elapsed) when one is
+        // active, tear it down when none is. Emits only on block lifecycle changes
+        // (DB writes), not every second. // PT: liga/desliga a notificação de foco
+        // conforme há ou não um bloco activo.
+        viewModelScope.launch {
+            combine(repo.activeBlock(), repo.allSessions()) { b, sessions -> b to sessions }
+                .collect { (block, sessions) ->
+                    val ctx = getApplication<Application>()
+                    if (block == null) {
+                        FocusServiceController.stop(ctx)
+                    } else {
+                        val segs = sessions
+                            .filter { it.blockId == block.id }
+                            .map { FocusMath.FocusSeg(it.startedAt, it.endedAt) }
+                        FocusServiceController.start(ctx, block.title, FocusMath.blockElapsedMs(segs, System.currentTimeMillis()))
+                    }
+                }
+        }
     }
 
     /** Bring the offered carry-over items into today. */
