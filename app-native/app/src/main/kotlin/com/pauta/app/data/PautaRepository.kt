@@ -3,11 +3,13 @@ package com.pauta.app.data
 import com.pauta.app.data.entity.DayEntity
 import com.pauta.app.data.entity.FocusBlockEntity
 import com.pauta.app.data.entity.FocusSessionEntity
+import com.pauta.app.data.entity.GoalEntity
 import com.pauta.app.data.entity.HabitCountEntity
 import com.pauta.app.data.entity.HabitEntity
 import com.pauta.app.data.entity.HabitLogEntity
 import com.pauta.app.data.entity.HabitRespiroEntity
 import com.pauta.app.data.entity.IntentionEntity
+import com.pauta.app.data.entity.MilestoneEntity
 import com.pauta.app.data.entity.PrefsEntity
 import com.pauta.app.domain.CarrySource
 import com.pauta.app.domain.DateUtils
@@ -457,6 +459,48 @@ class PautaRepository(private val db: AppDatabase) {
 
     private fun isHexColor(s: String): Boolean =
         Regex("^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$").matches(s.trim())
+
+    // ── Objetivos (quarterly goals) ───────────────────────────
+    fun goals(): Flow<List<GoalEntity>> = goalDao.observeGoals()
+    fun milestones(): Flow<List<MilestoneEntity>> = goalDao.observeMilestones()
+
+    suspend fun addGoal(text: String, quarter: String): String? {
+        val t = text.trim(); if (t.isEmpty()) return null
+        val id = newId("g_")
+        goalDao.upsertGoal(
+            GoalEntity(id = id, text = t, done = false, quarter = quarter, habitId = null,
+                createdAt = System.currentTimeMillis(), position = goalDao.getAllGoals().count { it.quarter == quarter }),
+        )
+        return id
+    }
+
+    suspend fun toggleGoal(id: String) =
+        goalDao.getAllGoals().firstOrNull { it.id == id }?.let { goalDao.upsertGoal(it.copy(done = !it.done)) } ?: Unit
+
+    suspend fun setGoalText(id: String, text: String) {
+        val t = text.trim(); if (t.isEmpty()) return
+        goalDao.getAllGoals().firstOrNull { it.id == id }?.let { goalDao.upsertGoal(it.copy(text = t)) }
+    }
+
+    suspend fun removeGoal(id: String) {
+        goalDao.deleteMilestonesForGoal(id)
+        goalDao.deleteGoalById(id)
+    }
+
+    suspend fun addMilestone(goalId: String, text: String): String? {
+        val t = text.trim(); if (t.isEmpty()) return null
+        val id = newId("m_")
+        goalDao.upsertMilestone(
+            MilestoneEntity(id = id, goalId = goalId, text = t, done = false,
+                position = goalDao.getAllMilestones().count { it.goalId == goalId }),
+        )
+        return id
+    }
+
+    suspend fun toggleMilestone(id: String) =
+        goalDao.getAllMilestones().firstOrNull { it.id == id }?.let { goalDao.upsertMilestone(it.copy(done = !it.done)) } ?: Unit
+
+    suspend fun removeMilestone(id: String) = goalDao.deleteMilestoneById(id)
 
     // ── backup ────────────────────────────────────────────────
     /** Gather everything into a [WebBackup.Snapshot] for export. */

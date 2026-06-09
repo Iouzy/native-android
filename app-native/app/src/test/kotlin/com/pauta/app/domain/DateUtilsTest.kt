@@ -52,6 +52,13 @@ class DateUtilsTest {
         assertEquals("2024-Q4", DateUtils.quarterOf("2024-12-31"))
     }
 
+    @Test fun quarterNavigation() {
+        assertEquals("2025-Q1", DateUtils.nextQuarter("2024-Q4"))
+        assertEquals("2024-Q2", DateUtils.nextQuarter("2024-Q1"))
+        assertEquals("2023-Q4", DateUtils.prevQuarter("2024-Q1"))
+        assertEquals("2024-Q2", DateUtils.prevQuarter("2024-Q3"))
+    }
+
     @Test fun monthKeyAndDayOfMonth() {
         assertEquals("2024-06", DateUtils.monthKeyOf("2024-06-15"))
         assertEquals(9, DateUtils.dayOfMonth("2024-06-09"))

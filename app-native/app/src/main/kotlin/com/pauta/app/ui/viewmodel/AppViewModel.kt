@@ -6,11 +6,13 @@ import androidx.lifecycle.viewModelScope
 import com.pauta.app.PautaApplication
 import com.pauta.app.data.entity.FocusBlockEntity
 import com.pauta.app.data.entity.FocusSessionEntity
+import com.pauta.app.data.entity.GoalEntity
 import com.pauta.app.data.entity.HabitCountEntity
 import com.pauta.app.data.entity.HabitEntity
 import com.pauta.app.data.entity.HabitLogEntity
 import com.pauta.app.data.entity.HabitRespiroEntity
 import com.pauta.app.data.entity.IntentionEntity
+import com.pauta.app.data.entity.MilestoneEntity
 import com.pauta.app.data.entity.PrefsEntity
 import com.pauta.app.domain.CarrySource
 import com.pauta.app.domain.DateUtils
@@ -126,6 +128,19 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun unmarkRespiro(id: String, dayKey: String) = viewModelScope.launch { repo.unmarkRespiro(id, dayKey) }
     fun setHabitCount(id: String, dayKey: String, n: Int) =
         viewModelScope.launch { repo.setHabitCount(id, dayKey, n, todayKey) }
+
+    // ── Objetivos ─────────────────────────────────────────────
+    val goals: StateFlow<List<GoalEntity>> =
+        repo.goals().stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+    val milestones: StateFlow<List<MilestoneEntity>> =
+        repo.milestones().stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    fun addGoal(text: String, quarter: String) = viewModelScope.launch { repo.addGoal(text, quarter) }
+    fun toggleGoal(id: String) = viewModelScope.launch { repo.toggleGoal(id) }
+    fun removeGoal(id: String) = viewModelScope.launch { repo.removeGoal(id) }
+    fun addMilestone(goalId: String, text: String) = viewModelScope.launch { repo.addMilestone(goalId, text) }
+    fun toggleMilestone(id: String) = viewModelScope.launch { repo.toggleMilestone(id) }
+    fun removeMilestone(id: String) = viewModelScope.launch { repo.removeMilestone(id) }
 
     init {
         viewModelScope.launch { repo.ensurePrefs() }
