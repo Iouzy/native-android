@@ -57,6 +57,21 @@ jobs:
           name: pauta-native-apk
           path: pauta-native-v${{ github.run_number }}.apk
 
+      # main only: prune the rolling release's old APK assets (incl. leftovers
+      # from the earlier discarded scaffold) so it keeps a single current APK and
+      # the updater never sees stale builds.
+      - name: Prune old release assets
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view latest-native --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            gh release view latest-native --repo "${{ github.repository }}" --json assets \
+              --jq '.assets[].name' | while read -r asset; do
+              gh release delete-asset latest-native "$asset" --repo "${{ github.repository }}" --yes || true
+            done
+          fi
+
       # main only: publish the rolling native release the app updates from. The
       # asset name carries the run number; the updater parses it to decide if a
       # newer build exists. The committed debug.keystore signs every build, so
