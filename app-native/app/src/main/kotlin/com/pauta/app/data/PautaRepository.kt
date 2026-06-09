@@ -480,4 +480,27 @@ class PautaRepository(private val db: AppDatabase) {
 
     /** The pauta.v4 backup JSON (web-compatible). */
     suspend fun exportJson(todayKey: String): String = WebBackup.export(snapshot(todayKey))
+
+    /** Replace all data with the contents of a pauta.v4 backup (web or native). */
+    suspend fun importJson(text: String) {
+        val s = WebBackup.import(text)
+        // Clear every table, then repopulate.
+        intentionDao.clear(); dayDao.clear()
+        focusSessionDao.clear(); focusBlockDao.clear()
+        habitMarkDao.clearLogs(); habitMarkDao.clearRespiros(); habitMarkDao.clearCounts(); habitDao.clear()
+        goalDao.clearMilestones(); goalDao.clearGoals()
+        routineDao.clearItems(); routineDao.clearRoutines()
+        plannedDao.clear()
+
+        s.days.forEach { dayDao.upsert(it) }
+        intentionDao.insertAll(s.intentions)
+        s.blocks.forEach { focusBlockDao.upsert(it) }
+        focusSessionDao.insertAll(s.sessions)
+        s.habits.forEach { habitDao.upsert(it) }
+        habitMarkDao.insertLogs(s.logs); habitMarkDao.insertRespiros(s.respiros); habitMarkDao.insertCounts(s.counts)
+        goalDao.insertGoals(s.goals); goalDao.insertMilestones(s.milestones)
+        routineDao.insertRoutines(s.routines); routineDao.insertItems(s.routineItems)
+        plannedDao.insertAll(s.plans)
+        prefsDao.upsert(s.prefs)
+    }
 }

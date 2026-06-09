@@ -14,12 +14,21 @@ import com.pauta.app.data.entity.PlannedIntentionEntity
 import com.pauta.app.data.entity.PrefsEntity
 import com.pauta.app.data.entity.RoutineEntity
 import com.pauta.app.data.entity.RoutineItemEntity
+import com.pauta.app.domain.DateUtils
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.add
 import kotlinx.serialization.json.addJsonObject
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.longOrNull
+import kotlinx.serialization.json.floatOrNull
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
@@ -197,6 +206,200 @@ object WebBackup {
             put("data", data)
         }
         return json.encodeToString(JsonObject.serializer(), root)
+    }
+
+    // ── import (web JSON → Room snapshot) ─────────────────────
+    private fun JsonElement?.prim(): JsonPrimitive? = this as? JsonPrimitive
+    private fun JsonElement?.str(): String? = prim()?.contentOrNull
+    private fun JsonElement?.long(): Long? = prim()?.longOrNull ?: prim()?.contentOrNull?.toLongOrNull()
+    private fun JsonElement?.int(): Int? = prim()?.intOrNull ?: prim()?.contentOrNull?.toIntOrNull()
+    private fun JsonElement?.bool(): Boolean? = prim()?.booleanOrNull
+    private fun JsonElement?.float(): Float? = prim()?.floatOrNull
+    private fun JsonElement?.obj(): JsonObject? = this as? JsonObject
+    private fun JsonElement?.array(): JsonArray? = this as? JsonArray
+
+    private val LEGACY_PRIORITY = mapOf("principal" to 1, "importante" to 2)
+    private fun parsePriority(el: JsonElement?): Int? {
+        val n = el.int(); if (n == 1 || n == 2 || n == 3) return n
+        return LEGACY_PRIORITY[el.str()]
+    }
+    private fun normalizeWhen(s: String?): String? = if (s in setOf("manha", "tarde", "noite")) s else null
+
+    /**
+     * Parse a `pauta.v4` backup (envelope or raw state) into a [Snapshot].
+     * Handles the web's shapes: today + days object maps, legacy string
+     * priorities, the `when` bucket, sparse habit-mark maps, and auto-pausing any
+     * block left "active" (so an import never resurrects a phantom timer).
+     */
+    fun import(text: String): Snapshot {
+        val root = json.parseToJsonElement(text).obj() ?: throw IllegalArgumentException("not a JSON object")
+        val data = root["data"].obj() ?: root
+
+        val days = mutableListOf<DayEntity>()
+        val intentions = mutableListOf<IntentionEntity>()
+        fun parseIntentions(el: JsonElement?, dayKey: String) {
+            el.array()?.forEachIndexed { idx, e ->
+                val i = e.obj() ?: return@forEachIndexed
+                val id = i["id"].str() ?: return@forEachIndexed
+                intentions.add(
+                    IntentionEntity(
+                        id = id, dayKey = dayKey, text = i["text"].str() ?: "",
+                        done = i["done"].bool() ?: false, priority = parsePriority(i["priority"]),
+                        targetMin = i["targetMin"].int(), timeOfDay = normalizeWhen(i["when"].str()),
+                        createdAt = i["createdAt"].long() ?: 0L, position = idx,
+                    ),
+                )
+            }
+        }
+
+        val today = data["today"].obj()
+        val todayKey = today?.get("dayKey").str() ?: DateUtils.todayKey()
+        if (today != null) {
+            days.add(DayEntity(todayKey, today["reflection"].str() ?: ""))
+            parseIntentions(today["intentions"], todayKey)
+        }
+        data["days"].obj()?.forEach { (key, v) ->
+            val d = v.obj() ?: return@forEach
+            days.add(DayEntity(key, d["reflection"].str() ?: ""))
+            parseIntentions(d["intentions"], key)
+        }
+
+        val blocks = mutableListOf<FocusBlockEntity>()
+        val sessions = mutableListOf<FocusSessionEntity>()
+        data["blocks"].array()?.forEach { be ->
+            val b = be.obj() ?: return@forEach
+            val id = b["id"].str() ?: return@forEach
+            var status = b["status"].str() ?: "done"
+            val wasActive = status == "active"
+            if (wasActive) status = "paused" // auto-pause on import
+            blocks.add(
+                FocusBlockEntity(
+                    id = id, title = b["title"].str() ?: "", linkedToId = b["linkedToId"].str(),
+                    project = b["project"].str(), targetMs = b["targetMs"].long(), status = status,
+                    reflection = b["reflection"].str() ?: "", createdAt = b["createdAt"].long() ?: 0L,
+                ),
+            )
+            b["sessions"].array()?.forEachIndexed { idx, se ->
+                val s = se.obj() ?: return@forEachIndexed
+                var ended = s["endedAt"].long()
+                if (wasActive && ended == null) ended = System.currentTimeMillis() // close the running span
+                sessions.add(
+                    FocusSessionEntity(
+                        blockId = id, startedAt = s["startedAt"].long() ?: 0L, endedAt = ended,
+                        note = s["note"].str() ?: "", position = idx,
+                    ),
+                )
+            }
+        }
+
+        val habits = mutableListOf<HabitEntity>()
+        val logs = mutableListOf<HabitLogEntity>()
+        val respiros = mutableListOf<HabitRespiroEntity>()
+        val counts = mutableListOf<HabitCountEntity>()
+        data["habits"].array()?.forEachIndexed { idx, he ->
+            val h = he.obj() ?: return@forEachIndexed
+            val id = h["id"].str() ?: return@forEachIndexed
+            val weekdays = h["weekdays"].array()?.mapNotNull { it.int() } ?: emptyList()
+            habits.add(
+                HabitEntity(
+                    id = id, name = h["name"].str() ?: "", time = h["time"].str() ?: "",
+                    description = h["description"].str() ?: "", createdAt = h["createdAt"].long() ?: 0L,
+                    recurrence = h["recurrence"].str() ?: "forever", endsAt = h["endsAt"].long(),
+                    cadence = h["cadence"].str() ?: "daily", anchor = h["anchor"].int(), weekdays = weekdays,
+                    target = h["target"].int(), unit = h["unit"].str() ?: "", clock = h["clock"].str() ?: "",
+                    color = h["color"].str(), position = idx,
+                ),
+            )
+            h["log"].obj()?.keys?.forEach { dk -> logs.add(HabitLogEntity(id, dk)) }
+            h["respiros"].obj()?.forEach { (dk, v) ->
+                val r = v.obj()
+                respiros.add(HabitRespiroEntity(id, dk, r?.get("reason").str() ?: "", r?.get("at").long() ?: 0L))
+            }
+            h["counts"].obj()?.forEach { (dk, v) -> counts.add(HabitCountEntity(id, dk, v.int() ?: 0)) }
+        }
+
+        val goals = mutableListOf<GoalEntity>()
+        val milestones = mutableListOf<MilestoneEntity>()
+        data["goals"].array()?.forEachIndexed { gi, ge ->
+            val g = ge.obj() ?: return@forEachIndexed
+            val id = g["id"].str() ?: return@forEachIndexed
+            goals.add(
+                GoalEntity(
+                    id = id, text = g["text"].str() ?: "", done = g["done"].bool() ?: false,
+                    quarter = g["quarter"].str() ?: "", habitId = g["habitId"].str(),
+                    createdAt = g["createdAt"].long() ?: 0L, position = gi,
+                ),
+            )
+            g["milestones"].array()?.forEachIndexed { mi, me ->
+                val m = me.obj() ?: return@forEachIndexed
+                val mid = m["id"].str() ?: return@forEachIndexed
+                milestones.add(MilestoneEntity(mid, id, m["text"].str() ?: "", m["done"].bool() ?: false, mi))
+            }
+        }
+
+        val routines = mutableListOf<RoutineEntity>()
+        val routineItems = mutableListOf<RoutineItemEntity>()
+        data["routines"].array()?.forEachIndexed { ri, re ->
+            val r = re.obj() ?: return@forEachIndexed
+            val id = r["id"].str() ?: return@forEachIndexed
+            routines.add(RoutineEntity(id, r["name"].str() ?: "", ri))
+            r["items"].array()?.forEachIndexed { ii, ie ->
+                val it = ie.obj() ?: return@forEachIndexed
+                routineItems.add(
+                    RoutineItemEntity(
+                        routineId = id, text = it["text"].str() ?: "",
+                        priority = parsePriority(it["priority"]), targetMin = it["targetMin"].int(), position = ii,
+                    ),
+                )
+            }
+        }
+
+        val plans = mutableListOf<PlannedIntentionEntity>()
+        data["plans"].obj()?.forEach { (dayKey, v) ->
+            v.obj()?.get("intentions").array()?.forEachIndexed { idx, e ->
+                val p = e.obj() ?: return@forEachIndexed
+                val id = p["id"].str() ?: return@forEachIndexed
+                plans.add(
+                    PlannedIntentionEntity(
+                        id = id, dayKey = dayKey, text = p["text"].str() ?: "",
+                        priority = parsePriority(p["priority"]), targetMin = p["targetMin"].int(),
+                        createdAt = p["createdAt"].long() ?: 0L, position = idx,
+                    ),
+                )
+            }
+        }
+
+        return Snapshot(
+            todayKey = todayKey, days = days, intentions = intentions, blocks = blocks, sessions = sessions,
+            habits = habits, logs = logs, respiros = respiros, counts = counts, goals = goals,
+            milestones = milestones, routines = routines, routineItems = routineItems, plans = plans,
+            prefs = parsePrefs(data["prefs"].obj()),
+        )
+    }
+
+    private fun parsePrefs(o: JsonObject?): PrefsEntity {
+        if (o == null) return PrefsEntity()
+        val rem = o["reminders"].obj()
+        val def = PrefsEntity()
+        return PrefsEntity(
+            lang = o["lang"].str() ?: def.lang,
+            theme = o["theme"].str() ?: def.theme,
+            accent = o["accent"].str(),
+            reducedMotion = o["reducedMotion"].bool() ?: def.reducedMotion,
+            highContrast = o["highContrast"].bool() ?: def.highContrast,
+            textScale = o["textScale"].float() ?: def.textScale,
+            haptics = o["haptics"].bool() ?: def.haptics,
+            sound = o["sound"].bool() ?: def.sound,
+            keepAwake = o["keepAwake"].bool() ?: def.keepAwake,
+            immersive = o["immersive"].bool() ?: def.immersive,
+            autoBackup = o["autoBackup"].str() ?: def.autoBackup,
+            parrot = o["parrot"].bool() ?: def.parrot,
+            onboardingSeen = o["onboardingSeen"].bool() ?: def.onboardingSeen,
+            remindersEnabled = rem?.get("enabled").bool() ?: def.remindersEnabled,
+            plannerTime = rem?.get("plannerTime").str() ?: def.plannerTime,
+            habitsTime = rem?.get("habitsTime").str() ?: def.habitsTime,
+            reflectionTime = rem?.get("reflectionTime").str() ?: def.reflectionTime,
+        )
     }
 
     private fun prefsObj(p: PrefsEntity): JsonObject = buildJsonObject {
