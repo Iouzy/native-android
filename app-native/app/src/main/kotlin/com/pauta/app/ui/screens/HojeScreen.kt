@@ -39,6 +39,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -46,6 +47,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.pauta.app.data.entity.IntentionEntity
 import com.pauta.app.domain.CarrySource
+import com.pauta.app.domain.HojeLogic
 import com.pauta.app.i18n.I18n
 import com.pauta.app.i18n.Lang
 import com.pauta.app.i18n.tr
@@ -134,16 +136,32 @@ fun HojeScreen() {
         }
 
         Spacer(Modifier.height(18.dp))
-        AddIntentionField(accent = colors.accent, onAdd = { vm.addIntention(it) })
+        AddIntentionForm(
+            accent = colors.accent,
+            onAdd = { text, priority, target, w -> vm.addIntention(text, priority, target, w) },
+        )
 
         Spacer(Modifier.height(8.dp))
-        sorted.forEach { item ->
-            IntentionRow(
-                item = item,
-                onToggle = { vm.toggleIntention(item.id) },
-                onDelete = { vm.removeIntention(item.id) },
-                onCyclePriority = { vm.setIntentionPriority(item.id, nextPriority(item.priority)) },
-            )
+        val groups = remember(sorted) { HojeLogic.groupByTimeOfDay(sorted) }
+        val showHeaders = groups.size > 1
+        groups.forEach { (w, items) ->
+            if (showHeaders) {
+                Spacer(Modifier.height(10.dp))
+                Text(
+                    text = whenLabel(w),
+                    color = colors.ink3,
+                    fontWeight = FontWeight.Medium,
+                    fontSize = 12.sp,
+                )
+            }
+            items.forEach { item ->
+                IntentionRow(
+                    item = item,
+                    onToggle = { vm.toggleIntention(item.id) },
+                    onDelete = { vm.removeIntention(item.id) },
+                    onCyclePriority = { vm.setIntentionPriority(item.id, nextPriority(item.priority)) },
+                )
+            }
         }
         if (total == 0) {
             Spacer(Modifier.height(16.dp))
@@ -266,23 +284,101 @@ private fun IntentionRow(
 }
 
 @Composable
-private fun AddIntentionField(accent: Color, onAdd: (String) -> Unit) {
+private fun AddIntentionForm(accent: Color, onAdd: (String, Int?, Int?, String?) -> Unit) {
     val colors = LocalPautaColors.current
     var text by remember { mutableStateOf("") }
+    var priority by remember { mutableStateOf<Int?>(null) }
+    var target by remember { mutableStateOf("") }
+    var whenSel by remember { mutableStateOf<String?>(null) }
+    val expanded = text.isNotBlank()
+
     fun commit() {
-        if (text.isNotBlank()) { onAdd(text); text = "" }
+        if (text.isBlank()) return
+        onAdd(text.trim(), priority, target.toIntOrNull()?.takeIf { it > 0 }, whenSel)
+        text = ""; priority = null; target = ""; whenSel = null
     }
-    TextField(
-        value = text,
-        onValueChange = { text = it },
-        placeholder = { Text(tr("Nova intenção…"), color = colors.ink4) },
-        singleLine = true,
-        modifier = Modifier.fillMaxWidth(),
-        textStyle = LocalTextStyle.current.copy(color = colors.ink, fontSize = 16.sp),
-        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-        keyboardActions = KeyboardActions(onDone = { commit() }),
-        colors = transparentFieldColors(accent, colors.ink),
-    )
+
+    Column(Modifier.fillMaxWidth()) {
+        TextField(
+            value = text,
+            onValueChange = { text = it },
+            placeholder = { Text(tr("Nova intenção…"), color = colors.ink4) },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+            textStyle = LocalTextStyle.current.copy(color = colors.ink, fontSize = 16.sp),
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+            keyboardActions = KeyboardActions(onDone = { commit() }),
+            colors = transparentFieldColors(accent, colors.ink),
+        )
+        // The priority / time-of-day / duration controls appear once you start
+        // typing, so the empty state stays a single quiet line. // PT: controlos
+        // surgem ao começar a escrever.
+        if (expanded) {
+            Spacer(Modifier.height(10.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Pill("1", priority == 1, accent) { priority = if (priority == 1) null else 1 }
+                Pill("2", priority == 2, accent) { priority = if (priority == 2) null else 2 }
+                Pill("3", priority == 3, accent) { priority = if (priority == 3) null else 3 }
+            }
+            Spacer(Modifier.height(8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Pill(tr("manhã"), whenSel == "manha", accent) { whenSel = if (whenSel == "manha") null else "manha" }
+                Pill(tr("tarde"), whenSel == "tarde", accent) { whenSel = if (whenSel == "tarde") null else "tarde" }
+                Pill(tr("noite"), whenSel == "noite", accent) { whenSel = if (whenSel == "noite") null else "noite" }
+            }
+            Spacer(Modifier.height(8.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                TextField(
+                    value = target,
+                    onValueChange = { target = it.filter { c -> c.isDigit() }.take(3) },
+                    placeholder = { Text(tr("min"), color = colors.ink4) },
+                    singleLine = true,
+                    modifier = Modifier.width(96.dp),
+                    textStyle = LocalTextStyle.current.copy(color = colors.ink, fontSize = 15.sp),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+                    keyboardActions = KeyboardActions(onDone = { commit() }),
+                    colors = transparentFieldColors(accent, colors.ink),
+                )
+                Spacer(Modifier.weight(1f))
+                Text(
+                    text = tr("Adicionar"),
+                    color = accent,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 15.sp,
+                    modifier = Modifier
+                        .clickableNoRipple { commit() }
+                        .padding(8.dp),
+                )
+            }
+        }
+    }
+}
+
+/** A small pill toggle used for priority / time-of-day selection. */
+@Composable
+private fun Pill(label: String, selected: Boolean, accent: Color, onClick: () -> Unit) {
+    val colors = LocalPautaColors.current
+    Box(
+        Modifier
+            .clip(RoundedCornerShape(8.dp))
+            .background(if (selected) accent.copy(alpha = 0.16f) else colors.paper2)
+            .clickableNoRipple(onClick)
+            .padding(horizontal = 12.dp, vertical = 7.dp),
+    ) {
+        Text(
+            text = label,
+            color = if (selected) accent else colors.ink3,
+            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+            fontSize = 13.sp,
+        )
+    }
+}
+
+private fun whenLabel(w: String?): String = when (w) {
+    "manha" -> tr("manhã")
+    "tarde" -> tr("tarde")
+    "noite" -> tr("noite")
+    else -> tr("sem hora")
 }
 
 @Composable

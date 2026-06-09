@@ -12,6 +12,21 @@ data class CarrySource(val dayKey: String, val items: List<IntentionEntity>)
  */
 object HojeLogic {
 
+    /** Time-of-day buckets in canonical display order; null = "sem hora" (last),
+     *  matching the web's grouping. */
+    val WHEN_ORDER: List<String?> = listOf("manha", "tarde", "noite", null)
+
+    /**
+     * Bucket an already priority-sorted list into time-of-day groups, in
+     * canonical order (manhã → tarde → noite → sem hora), dropping empty groups
+     * and preserving each group's incoming order. // PT: agrupa por altura do dia
+     * mantendo a ordem de prioridade dentro de cada grupo.
+     */
+    fun groupByTimeOfDay(sortedByPriority: List<IntentionEntity>): List<Pair<String?, List<IntentionEntity>>> =
+        WHEN_ORDER
+            .map { w -> w to sortedByPriority.filter { it.timeOfDay == w } }
+            .filter { it.second.isNotEmpty() }
+
     /**
      * Mirrors the web's carry-over: scan archived days older than [todayKey],
      * newest first, and return the first day that has unfinished, non-blank

@@ -10,6 +10,23 @@ class HojeLogicTest {
     private fun intent(day: String, text: String, done: Boolean = false, pos: Int = 0) =
         IntentionEntity(id = "i_$day$text", dayKey = day, text = text, done = done, createdAt = 0, position = pos)
 
+    private fun timed(text: String, w: String?) =
+        IntentionEntity(id = "i_$text", dayKey = "2024-01-12", text = text, createdAt = 0, timeOfDay = w)
+
+    @Test fun groupsByTimeOfDayInCanonicalOrderDroppingEmpties() {
+        val sorted = listOf(
+            timed("n1", "noite"),
+            timed("m1", "manha"),
+            timed("x1", null),
+            timed("m2", "manha"),
+        )
+        val groups = HojeLogic.groupByTimeOfDay(sorted)
+        // manhã, noite, sem-hora present (tarde dropped); order canonical.
+        assertEquals(listOf("manha", "noite", null), groups.map { it.first })
+        // within-group incoming order preserved (m1 before m2).
+        assertEquals(listOf("m1", "m2"), groups.first().second.map { it.text })
+    }
+
     @Test fun picksMostRecentPastDayWithUnfinished() {
         val all = listOf(
             intent("2024-01-08", "a", done = true),
