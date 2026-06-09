@@ -21,10 +21,13 @@ import com.pauta.app.domain.HabitCalculator
 import com.pauta.app.domain.HabitModel
 import com.pauta.app.domain.HistoryDay
 import com.pauta.app.i18n.trf
+import android.content.Context
+import com.pauta.app.service.AppUpdater
 import com.pauta.app.service.FocusServiceController
 import com.pauta.app.service.ReminderScheduler
 import com.pauta.app.service.WidgetSnapshot
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -141,6 +144,24 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun addMilestone(goalId: String, text: String) = viewModelScope.launch { repo.addMilestone(goalId, text) }
     fun toggleMilestone(id: String) = viewModelScope.launch { repo.toggleMilestone(id) }
     fun removeMilestone(id: String) = viewModelScope.launch { repo.removeMilestone(id) }
+
+    // ── updater ───────────────────────────────────────────────
+    /** null = unknown, true = checking; the Update when one is found. */
+    val updateChecking: MutableStateFlow<Boolean> = MutableStateFlow(false)
+    val updateChecked: MutableStateFlow<Boolean> = MutableStateFlow(false)
+    val updateAvailable: MutableStateFlow<AppUpdater.Update?> = MutableStateFlow(null)
+
+    fun checkForUpdate() = viewModelScope.launch {
+        updateChecking.value = true
+        updateAvailable.value = AppUpdater.check()
+        updateChecking.value = false
+        updateChecked.value = true
+    }
+
+    fun installUpdate(context: Context) = viewModelScope.launch {
+        val u = updateAvailable.value ?: return@launch
+        AppUpdater.download(context, u.url)?.let { AppUpdater.install(context, it) }
+    }
 
     init {
         viewModelScope.launch { repo.ensurePrefs() }

@@ -49,6 +49,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import com.pauta.app.BuildConfig
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.pauta.app.i18n.tr
@@ -77,6 +78,9 @@ fun SettingsScreen(onClose: () -> Unit) {
     val colors = LocalPautaColors.current
     val vm: AppViewModel = viewModel()
     val prefs by vm.prefs.collectAsStateWithLifecycle()
+    val updChecking by vm.updateChecking.collectAsStateWithLifecycle()
+    val updChecked by vm.updateChecked.collectAsStateWithLifecycle()
+    val updAvailable by vm.updateAvailable.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val notifLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
@@ -174,6 +178,16 @@ fun SettingsScreen(onClose: () -> Unit) {
         Section(tr("Dados"))
         ActionRow(tr("Exportar dados")) { vm.exportBackup { json -> shareBackup(context, json) } }
         ActionRow(tr("Importar dados")) { importLauncher.launch("application/json") }
+
+        Section(tr("Atualizações"))
+        Text("build #${BuildConfig.BUILD_RUN}", color = colors.ink4, fontSize = 13.sp)
+        Spacer(Modifier.height(4.dp))
+        when {
+            updChecking -> Text(tr("A procurar…"), color = colors.ink3, fontSize = 16.sp, modifier = Modifier.padding(vertical = 10.dp))
+            updAvailable != null -> ActionRow(tr("Instalar atualização")) { vm.installUpdate(context) }
+            updChecked -> Text(tr("Está atualizado."), color = colors.ink3, fontSize = 16.sp, modifier = Modifier.padding(vertical = 10.dp))
+            else -> ActionRow(tr("Procurar atualizações")) { vm.checkForUpdate() }
+        }
 
         Spacer(Modifier.height(48.dp))
     }

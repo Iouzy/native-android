@@ -2,4 +2,6 @@
 <paths>
     <!-- Backup files written to cacheDir/backups are shared via the FileProvider. -->
     <cache-path name="backups" path="backups/" />
+    <!-- Downloaded update APK handed to the system installer. -->
+    <cache-path name="updates" path="updates/" />
 </paths>
