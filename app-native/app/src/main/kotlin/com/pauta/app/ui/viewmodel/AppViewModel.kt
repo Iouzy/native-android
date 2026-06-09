@@ -17,10 +17,12 @@ import com.pauta.app.domain.DateUtils
 import com.pauta.app.domain.FocusMath
 import com.pauta.app.domain.HistoryDay
 import com.pauta.app.service.FocusServiceController
+import com.pauta.app.service.ReminderScheduler
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChangedBy
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
@@ -170,7 +172,27 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun setHaptics(value: Boolean) = update { it.copy(haptics = value) }
     fun setParrot(value: Boolean) = update { it.copy(parrot = value) }
 
+    fun setRemindersEnabled(value: Boolean) = update { it.copy(remindersEnabled = value) }
+    fun setPlannerTime(value: String) = update { it.copy(plannerTime = value) }
+    fun setHabitsTime(value: String) = update { it.copy(habitsTime = value) }
+    fun setReflectionTime(value: String) = update { it.copy(reflectionTime = value) }
+
     private fun update(transform: (PrefsEntity) -> PrefsEntity) {
         viewModelScope.launch { repo.updatePrefs(transform) }
+    }
+
+    init {
+        // Keep the AlarmManager reminders in step with the reminder preferences
+        // (and the chosen language for the notification text). // PT: mantém os
+        // lembretes do AlarmManager alinhados com as preferências.
+        viewModelScope.launch {
+            repo.prefs
+                .distinctUntilChangedBy { listOf(it.remindersEnabled, it.plannerTime, it.habitsTime, it.reflectionTime, it.lang) }
+                .collect { p ->
+                    val ctx = getApplication<Application>()
+                    ReminderScheduler.save(ctx, p.remindersEnabled, p.plannerTime, p.habitsTime, p.reflectionTime, p.lang)
+                    ReminderScheduler.reschedule(ctx)
+                }
+        }
     }
 }
