@@ -90,6 +90,8 @@ interface FocusSessionDao {
     @Query("SELECT * FROM focus_sessions WHERE blockId = :blockId ORDER BY position")
     suspend fun getForBlock(blockId: String): List<FocusSessionEntity>
 
+    @Query("SELECT * FROM focus_sessions") fun observeAll(): Flow<List<FocusSessionEntity>>
+
     @Query("SELECT * FROM focus_sessions") suspend fun getAll(): List<FocusSessionEntity>
     @Query("DELETE FROM focus_sessions WHERE blockId = :blockId") suspend fun deleteForBlock(blockId: String)
     @Query("DELETE FROM focus_sessions") suspend fun clear()

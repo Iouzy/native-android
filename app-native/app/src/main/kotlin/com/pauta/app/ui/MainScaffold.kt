@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.pauta.app.i18n.tr
 import com.pauta.app.ui.screens.HojeScreen
+import com.pauta.app.ui.screens.PautaScreen
 import com.pauta.app.ui.theme.LocalPautaColors
 import kotlinx.coroutines.launch
 
@@ -90,6 +91,7 @@ fun MainScaffold(initialTab: Tab = Tab.HOJE) {
             // Pauta → 3, Marés → 4). // PT: ecrãs reais entram tab a tab.
             when (Tab.entries[page]) {
                 Tab.HOJE -> HojeScreen()
+                Tab.PAUTA -> PautaScreen()
                 else -> TabPlaceholder(Tab.entries[page])
             }
         }
