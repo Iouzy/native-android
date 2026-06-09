@@ -88,6 +88,12 @@ fun SettingsScreen(onClose: () -> Unit) {
         }
     }
 
+    var showGoals by remember { mutableStateOf(false) }
+    if (showGoals) {
+        GoalsScreen(onClose = { showGoals = false })
+        return
+    }
+
     BackHandler { onClose() }
 
     Column(
@@ -161,6 +167,9 @@ fun SettingsScreen(onClose: () -> Unit) {
             TimeRow(tr("Marés"), prefs.habitsTime) { vm.setHabitsTime(it) }
             TimeRow(tr("Reflexão"), prefs.reflectionTime) { vm.setReflectionTime(it) }
         }
+
+        Section(tr("Objetivos"))
+        ActionRow(tr("Objetivos trimestrais")) { showGoals = true }
 
         Section(tr("Dados"))
         ActionRow(tr("Exportar dados")) { vm.exportBackup { json -> shareBackup(context, json) } }

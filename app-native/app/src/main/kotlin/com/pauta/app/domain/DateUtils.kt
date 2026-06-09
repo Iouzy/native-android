@@ -81,6 +81,24 @@ object DateUtils {
         return "${d.year}-Q$q"
     }
 
+    /** The current quarter (`YYYY-Qn`). */
+    fun currentQuarter(): String = quarterOf(todayKey())
+
+    private fun quarterParts(q: String): Pair<Int, Int> {
+        val (y, qq) = q.split("-Q")
+        return y.toInt() to qq.toInt()
+    }
+
+    fun nextQuarter(q: String): String {
+        val (y, n) = quarterParts(q)
+        return if (n >= 4) "${y + 1}-Q1" else "$y-Q${n + 1}"
+    }
+
+    fun prevQuarter(q: String): String {
+        val (y, n) = quarterParts(q)
+        return if (n <= 1) "${y - 1}-Q4" else "$y-Q${n - 1}"
+    }
+
     /** Day-of-month (1..31) for a day key. */
     fun dayOfMonth(key: String): Int = LocalDate.parse(key).dayOfMonth
 }
