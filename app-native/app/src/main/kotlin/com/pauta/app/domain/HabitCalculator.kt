@@ -81,6 +81,13 @@ object HabitCalculator {
         else -> null
     }
 
+    /** Is the habit within its active window on [dayKey]? */
+    fun isActiveOn(h: HabitModel, dayKey: String): Boolean {
+        if (dayKey < createdKey(h)) return false
+        val end = endKey(h)
+        return end == null || dayKey <= end
+    }
+
     private fun cadenceUnitShort(c: String) = when (c) {
         "weekly" -> "sem"; "monthly" -> "mês"; else -> "d"
     }

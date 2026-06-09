@@ -6,6 +6,10 @@ import androidx.lifecycle.viewModelScope
 import com.pauta.app.PautaApplication
 import com.pauta.app.data.entity.FocusBlockEntity
 import com.pauta.app.data.entity.FocusSessionEntity
+import com.pauta.app.data.entity.HabitCountEntity
+import com.pauta.app.data.entity.HabitEntity
+import com.pauta.app.data.entity.HabitLogEntity
+import com.pauta.app.data.entity.HabitRespiroEntity
 import com.pauta.app.data.entity.IntentionEntity
 import com.pauta.app.data.entity.PrefsEntity
 import com.pauta.app.domain.CarrySource
@@ -87,6 +91,35 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun deleteBlock(id: String) = viewModelScope.launch { repo.deleteBlock(id) }
     fun setBlockReflection(id: String, text: String) = viewModelScope.launch { repo.setBlockReflection(id, text) }
     fun blockSessions(id: String) = repo.sessions(id)
+
+    // ── Marés ─────────────────────────────────────────────────
+    val habits: StateFlow<List<HabitEntity>> =
+        repo.habits().stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+    val habitLogs: StateFlow<List<HabitLogEntity>> =
+        repo.habitLogs().stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+    val habitRespiros: StateFlow<List<HabitRespiroEntity>> =
+        repo.habitRespiros().stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+    val habitCounts: StateFlow<List<HabitCountEntity>> =
+        repo.habitCounts().stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    fun addHabit(
+        name: String, cadence: String = "daily", anchor: Int? = null, weekdays: List<Int> = emptyList(),
+        target: Int? = null, unit: String = "", clock: String = "", color: String? = null,
+        recurrence: String = "forever", endsAt: Long? = null, time: String = "", description: String = "",
+    ) = viewModelScope.launch {
+        repo.addHabit(name, time, cadence, anchor, weekdays, target, unit, clock, color, recurrence, endsAt, description)
+    }
+
+    fun updateHabit(habit: HabitEntity) = viewModelScope.launch { repo.updateHabit(habit) }
+    fun removeHabit(id: String) = viewModelScope.launch { repo.removeHabit(id) }
+    fun reorderHabits(orderedIds: List<String>) = viewModelScope.launch { repo.reorderHabits(orderedIds) }
+    fun toggleHabitDay(id: String, dayKey: String) = viewModelScope.launch { repo.toggleHabitDay(id, dayKey, todayKey) }
+    fun toggleHabitToday(id: String) = viewModelScope.launch { repo.toggleHabitDay(id, todayKey, todayKey) }
+    fun markRespiro(id: String, dayKey: String, reason: String = "") =
+        viewModelScope.launch { repo.markRespiro(id, dayKey, reason, todayKey) }
+    fun unmarkRespiro(id: String, dayKey: String) = viewModelScope.launch { repo.unmarkRespiro(id, dayKey) }
+    fun setHabitCount(id: String, dayKey: String, n: Int) =
+        viewModelScope.launch { repo.setHabitCount(id, dayKey, n, todayKey) }
 
     init {
         viewModelScope.launch { repo.ensurePrefs() }

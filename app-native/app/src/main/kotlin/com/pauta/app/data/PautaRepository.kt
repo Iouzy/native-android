@@ -3,12 +3,20 @@ package com.pauta.app.data
 import com.pauta.app.data.entity.DayEntity
 import com.pauta.app.data.entity.FocusBlockEntity
 import com.pauta.app.data.entity.FocusSessionEntity
+import com.pauta.app.data.entity.HabitCountEntity
+import com.pauta.app.data.entity.HabitEntity
+import com.pauta.app.data.entity.HabitLogEntity
+import com.pauta.app.data.entity.HabitRespiroEntity
 import com.pauta.app.data.entity.IntentionEntity
 import com.pauta.app.data.entity.PrefsEntity
 import com.pauta.app.domain.CarrySource
+import com.pauta.app.domain.DateUtils
+import com.pauta.app.domain.HabitCalculator
+import com.pauta.app.domain.HabitModel
 import com.pauta.app.domain.HistoryBuilder
 import com.pauta.app.domain.HistoryDay
 import com.pauta.app.domain.HojeLogic
+import com.pauta.app.domain.MarkKind
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
@@ -28,6 +36,8 @@ class PautaRepository(private val db: AppDatabase) {
     private val intentionDao = db.intentionDao()
     private val focusBlockDao = db.focusBlockDao()
     private val focusSessionDao = db.focusSessionDao()
+    private val habitDao = db.habitDao()
+    private val habitMarkDao = db.habitMarkDao()
     private val plannedDao = db.plannedIntentionDao()
 
     // ── ids ───────────────────────────────────────────────────
@@ -319,4 +329,130 @@ class PautaRepository(private val db: AppDatabase) {
         focusSessionDao.insert(FocusSessionEntity(blockId = id, startedAt = startMs, endedAt = endMs, position = 0))
         return id
     }
+
+    // ── Marés: habits + marks ─────────────────────────────────
+    fun habits(): Flow<List<HabitEntity>> = habitDao.observeAll()
+    fun habitLogs(): Flow<List<HabitLogEntity>> = habitMarkDao.observeLogs()
+    fun habitRespiros(): Flow<List<HabitRespiroEntity>> = habitMarkDao.observeRespiros()
+    fun habitCounts(): Flow<List<HabitCountEntity>> = habitMarkDao.observeCounts()
+
+    /** Build the calculator's [HabitModel] (static fields + done/respiro day
+     *  sets) for a habit, from the current marks. */
+    private suspend fun modelOf(h: HabitEntity): HabitModel {
+        val log = habitMarkDao.getAllLogs().asSequence().filter { it.habitId == h.id }.map { it.dayKey }.toSet()
+        val resp = habitMarkDao.getAllRespiros().asSequence().filter { it.habitId == h.id }.map { it.dayKey }.toSet()
+        return HabitModel(
+            id = h.id, createdAt = h.createdAt, cadence = h.cadence, anchor = h.anchor,
+            weekdays = h.weekdays, recurrence = h.recurrence, endsAt = h.endsAt, log = log, respiros = resp,
+        )
+    }
+
+    suspend fun addHabit(
+        name: String,
+        time: String = "",
+        cadence: String = "daily",
+        anchor: Int? = null,
+        weekdays: List<Int> = emptyList(),
+        target: Int? = null,
+        unit: String = "",
+        clock: String = "",
+        color: String? = null,
+        recurrence: String = "forever",
+        endsAt: Long? = null,
+        description: String = "",
+    ): String? {
+        val n = name.trim()
+        if (n.isEmpty()) return null
+        val id = newId("h_")
+        habitDao.upsert(
+            HabitEntity(
+                id = id, name = n, time = time.trim(), description = description.trim(),
+                createdAt = System.currentTimeMillis(), recurrence = recurrence, endsAt = endsAt,
+                cadence = cadence, anchor = anchor, weekdays = weekdays,
+                target = target?.takeIf { it > 1 }, unit = unit.trim(), clock = clock.trim(),
+                color = color?.takeIf { isHexColor(it) }?.trim(),
+                position = habitDao.getAll().size,
+            ),
+        )
+        return id
+    }
+
+    suspend fun updateHabit(habit: HabitEntity) = habitDao.upsert(habit)
+    suspend fun getHabit(id: String): HabitEntity? = habitDao.getById(id)
+
+    suspend fun removeHabit(id: String) {
+        habitMarkDao.run {
+            // marks are sparse rows keyed by habitId; clear this habit's marks.
+            getAllLogs().filter { it.habitId == id }.forEach { removeLog(id, it.dayKey) }
+            getAllRespiros().filter { it.habitId == id }.forEach { removeRespiro(id, it.dayKey) }
+            getAllCounts().filter { it.habitId == id }.forEach { removeCount(id, it.dayKey) }
+        }
+        habitDao.deleteById(id)
+    }
+
+    suspend fun reorderHabits(orderedIds: List<String>) {
+        val byId = habitDao.getAll().associateBy { it.id }
+        orderedIds.forEachIndexed { index, id ->
+            byId[id]?.let { habitDao.upsert(it.copy(position = index)) }
+        }
+    }
+
+    /** Toggle a day's completion, honouring the web's period/anchor rules. */
+    suspend fun toggleHabitDay(id: String, dayKey: String, todayKey: String = DateUtils.todayKey()) {
+        val h = habitDao.getById(id) ?: return
+        val m = modelOf(h)
+        if (!HabitCalculator.isActiveOn(m, dayKey) || dayKey > todayKey) return
+        if (dayKey in m.log) { habitMarkDao.removeLog(id, dayKey); return } // toggle off
+        if (h.cadence != "daily") {
+            val (kind, key) = HabitCalculator.periodMark(m, dayKey)
+            if (kind == MarkKind.DONE && key != dayKey) return
+            if (!HabitCalculator.isAnchorDay(m, dayKey)) return
+            forEachDayInPeriod(m, dayKey) { habitMarkDao.removeRespiro(id, it) }
+        } else {
+            habitMarkDao.removeRespiro(id, dayKey)
+        }
+        habitMarkDao.addLog(HabitLogEntity(habitId = id, dayKey = dayKey))
+    }
+
+    /** Mark a day (or its period) as an honest respiro; clears any completion. */
+    suspend fun markRespiro(id: String, dayKey: String, reason: String = "", todayKey: String = DateUtils.todayKey()) {
+        val h = habitDao.getById(id) ?: return
+        val m = modelOf(h)
+        if (!HabitCalculator.isActiveOn(m, dayKey) || dayKey > todayKey) return
+        if (h.cadence != "daily") {
+            if (HabitCalculator.periodMark(m, dayKey).first == MarkKind.DONE) return
+            if (!HabitCalculator.isAnchorDay(m, dayKey)) return
+            forEachDayInPeriod(m, dayKey) { habitMarkDao.removeRespiro(id, it); habitMarkDao.removeLog(id, it) }
+        } else {
+            habitMarkDao.removeLog(id, dayKey)
+        }
+        habitMarkDao.upsertRespiro(HabitRespiroEntity(habitId = id, dayKey = dayKey, reason = reason.trim(), at = System.currentTimeMillis()))
+    }
+
+    suspend fun unmarkRespiro(id: String, dayKey: String) = habitMarkDao.removeRespiro(id, dayKey)
+
+    /** Set a countable habit's daily tally; syncs the binary log (done at target). */
+    suspend fun setHabitCount(id: String, dayKey: String, n: Int, todayKey: String = DateUtils.todayKey()) {
+        val h = habitDao.getById(id) ?: return
+        val m = modelOf(h)
+        if (!HabitCalculator.isActiveOn(m, dayKey) || dayKey > todayKey) return
+        val target = h.target ?: 1
+        val count = maxOf(0, n)
+        if (count <= 0) {
+            habitMarkDao.removeCount(id, dayKey); habitMarkDao.removeLog(id, dayKey)
+        } else {
+            habitMarkDao.upsertCount(HabitCountEntity(habitId = id, dayKey = dayKey, count = count))
+            if (count >= target) { habitMarkDao.addLog(HabitLogEntity(id, dayKey)); habitMarkDao.removeRespiro(id, dayKey) }
+            else habitMarkDao.removeLog(id, dayKey)
+        }
+    }
+
+    private suspend fun forEachDayInPeriod(m: HabitModel, dayKey: String, action: suspend (String) -> Unit) {
+        val (start, end) = HabitCalculator.periodRange(m, dayKey)
+        var k = start
+        while (k <= end) { action(k); k = DateUtils.addDays(k, 1) }
+    }
+
+    private fun isHexColor(s: String): Boolean =
+        Regex("^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$").matches(s.trim())
 }
