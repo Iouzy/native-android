@@ -83,6 +83,14 @@ object I18n {
         return "${months[month - 1]} · $year"
     }
 
+    /** "Junho" / "June" — web fmtMonthLong (the Marés header). */
+    fun fmtMonthLong(month: Int): String =
+        (if (lang == Lang.EN) MONTHS_LONG_EN else MONTHS_LONG_PT)[month - 1]
+
+    /** "jun" / "Jun" — web fmtMonthShort (chart ticks). */
+    fun fmtMonthShort(month: Int): String =
+        (if (lang == Lang.EN) MONTHS_SHORT_EN else MONTHS_SHORT_PT)[month - 1]
+
     /**
      * English dictionary. Wherever the same Portuguese key exists in the web
      * app's I18N_EN (src/i18n.jsx), the value here is copied verbatim so both
@@ -164,6 +172,46 @@ object I18n {
         // ── Marés ──
         "mês anterior" to "previous month", // native-only
         "mês seguinte" to "next month", // native-only
+        "Maré actual" to "Current tide",
+        "Maré passada" to "Past tide",
+        "marés passadas" to "past tides",
+        "toque" to "tap",
+        "marca feito" to "marks done",
+        "pressão longa" to "long press",
+        "num dia vazio marca respiro" to "on an empty day marks a breath",
+        "dias passados são editáveis — a honestidade é o melhor amigo da maré." to "past days are editable — honesty is the tide's best friend.",
+        "semana {obs}/{total}" to "week {obs}/{total}",
+        "mês {obs}/{total}" to "month {obs}/{total}",
+        "dia {obs}/{total}" to "day {obs}/{total}",
+        "melhor: {n} dias" to "best: {n} days",
+        "remover" to "remove",
+        "Remover esta maré? Todo o histórico será perdido." to "Remove this tide? All history will be lost.",
+        "semanal" to "weekly",
+        "mensal" to "monthly",
+        "dia {n}" to "day {n}",
+        "resp." to "br.",
+        "×" to "×",
+        "em {month}." to "in {month}.",
+        "maré ainda não existia" to "tide didn't exist yet",
+        "marés ainda não existiam" to "tides didn't exist yet",
+        "domingo" to "sunday",
+        "segunda" to "monday",
+        "terça" to "tuesday",
+        "quarta" to "wednesday",
+        "quinta" to "thursday",
+        "sexta" to "friday",
+        "sábado" to "saturday",
+
+        // Marés Passadas (TrendSheet, web-identical).
+        "Marés Passadas" to "Past Tides",
+        "As suas marés ao longo do ano." to "Your tides through the year.",
+        "Sobem e descem. Cada onda é um mês. Toque para ver as marés desse mês." to "They rise and fall. Each wave is a month. Tap to see that month's tides.",
+        "Ainda não há marés suficientes para mostrar uma onda." to "Not enough tides yet to show a wave.",
+        "Volte aqui dentro de alguns meses." to "Come back in a few months.",
+        "o seu posto" to "your rank",
+        "dias feitos" to "days done",
+        "faltam {n} dias para" to "{n} days left until",
+        "abrir este mês" to "open this month", // native-only
         "{p}% de constância" to "{p}% consistency", // native-only
         "Sem marés ainda. Toca em + para criar a primeira." to "No tides yet. Tap + to create the first one.", // native-only
         "Nova maré" to "New tide", // native-only
