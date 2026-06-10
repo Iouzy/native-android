@@ -1,6 +1,7 @@
 package com.pauta.app.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -9,10 +10,12 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -42,21 +45,25 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.pauta.app.data.entity.HabitEntity
 import com.pauta.app.data.entity.IntentionEntity
 import com.pauta.app.domain.CarrySource
 import com.pauta.app.domain.FocusMath
 import com.pauta.app.domain.HabitCalculator
+import com.pauta.app.domain.HabitCalculator.DayState
 import com.pauta.app.domain.HabitModel
 import com.pauta.app.domain.HojeLogic
 import com.pauta.app.i18n.I18n
 import com.pauta.app.i18n.tr
 import com.pauta.app.i18n.trf
+import com.pauta.app.ui.PautaIcons
 import com.pauta.app.ui.clickableNoRipple
 import com.pauta.app.ui.theme.LocalPautaColors
 import com.pauta.app.ui.theme.MonoFamily
@@ -83,6 +90,7 @@ fun HojeScreen() {
     val habits by vm.habits.collectAsStateWithLifecycle()
     val habitLogs by vm.habitLogs.collectAsStateWithLifecycle()
     val habitRespiros by vm.habitRespiros.collectAsStateWithLifecycle()
+    val habitCounts by vm.habitCounts.collectAsStateWithLifecycle()
     val today by vm.todayKey.collectAsStateWithLifecycle()
     var showHistory by remember { mutableStateOf(false) }
 
@@ -143,6 +151,36 @@ fun HojeScreen() {
             letterSpacing = (-0.66).sp, // -0.015em of 44sp
         )
 
+        // Today's tides — the actionable slice of Marés surfaced in Hoje (the
+        // web's todayTides): daily habits always; weekly/monthly only on an
+        // eligible, still-open day. Feeds both the day pulse and the tide strip
+        // so they never diverge. // PT: a fatia acionável das Marés no Hoje.
+        val logsByHabit = remember(habitLogs) { habitLogs.groupBy { it.habitId }.mapValues { e -> e.value.map { it.dayKey }.toSet() } }
+        val respByHabit = remember(habitRespiros) { habitRespiros.groupBy { it.habitId }.mapValues { e -> e.value.map { it.dayKey }.toSet() } }
+        val countsByHabit = remember(habitCounts) {
+            habitCounts.groupBy { it.habitId }.mapValues { e -> e.value.associate { it.dayKey to it.count } }
+        }
+        val todayTides = remember(habits, logsByHabit, respByHabit, countsByHabit, today) {
+            habits.mapNotNull { h ->
+                val model = HabitModel(
+                    id = h.id, createdAt = h.createdAt, cadence = h.cadence, anchor = h.anchor,
+                    weekdays = h.weekdays, recurrence = h.recurrence, endsAt = h.endsAt,
+                    log = logsByHabit[h.id].orEmpty(), respiros = respByHabit[h.id].orEmpty(),
+                )
+                val state = HabitCalculator.dayState(model, today, today)
+                if (state != DayState.DONE && state != DayState.RESPIRO && state != DayState.EMPTY) return@mapNotNull null
+                TideToday(
+                    habit = h,
+                    state = state,
+                    isCount = h.target != null && h.cadence == "daily",
+                    count = countsByHabit[h.id]?.get(today) ?: 0,
+                    target = h.target ?: 1,
+                )
+            }
+        }
+        val tideDone = todayTides.count { it.state == DayState.DONE }
+        val tideDenom = todayTides.count { it.state != DayState.RESPIRO }
+
         // Day pulse — one quiet mono line tying the three tabs together
         // (intentions · focus · tides), exactly like the web header. Respiros
         // stay out of the tide denominator. // PT: pulso do dia.
@@ -154,22 +192,6 @@ fun HojeScreen() {
             System.currentTimeMillis(),
         )
         if (focusMsToday > 0) pulseParts += trf("{d} em foco", "d" to FocusMath.fmtDuration(focusMsToday))
-        val logsByHabit = remember(habitLogs) { habitLogs.groupBy { it.habitId }.mapValues { e -> e.value.map { it.dayKey }.toSet() } }
-        val respByHabit = remember(habitRespiros) { habitRespiros.groupBy { it.habitId }.mapValues { e -> e.value.map { it.dayKey }.toSet() } }
-        var tideDone = 0
-        var tideDenom = 0
-        for (h in habits) {
-            val model = HabitModel(
-                id = h.id, createdAt = h.createdAt, cadence = h.cadence, anchor = h.anchor,
-                weekdays = h.weekdays, recurrence = h.recurrence, endsAt = h.endsAt,
-                log = logsByHabit[h.id].orEmpty(), respiros = respByHabit[h.id].orEmpty(),
-            )
-            when (HabitCalculator.dayState(model, today, today)) {
-                HabitCalculator.DayState.DONE -> { tideDone++; tideDenom++ }
-                HabitCalculator.DayState.EMPTY -> tideDenom++
-                else -> {}
-            }
-        }
         if (tideDenom > 0) pulseParts += trf("{d}/{t} marés", "d" to tideDone, "t" to tideDenom)
         if (pulseParts.isNotEmpty()) {
             Spacer(Modifier.height(10.dp))
@@ -224,20 +246,225 @@ fun HojeScreen() {
             )
         }
 
-        Spacer(Modifier.height(36.dp))
+        // Marés de hoje — placed between intentions and the night reflection so
+        // Hoje reads as one nested day: now → today's rhythm → the night.
+        // // PT: a fatia de hoje das Marés, entre as intenções e a reflexão.
+        if (todayTides.isNotEmpty()) {
+            Spacer(Modifier.height(36.dp))
+            Row(verticalAlignment = Alignment.Bottom) {
+                Text(
+                    text = tr("Marés de hoje").uppercase(),
+                    color = colors.ink3,
+                    fontFamily = MonoFamily,
+                    fontSize = 9.sp,
+                    letterSpacing = 1.8.sp, // 0.2em of 9sp
+                    modifier = Modifier.weight(1f),
+                )
+                if (tideDenom > 0) {
+                    Text(
+                        text = "$tideDone/$tideDenom",
+                        color = colors.ink4,
+                        fontFamily = MonoFamily,
+                        fontSize = 9.sp,
+                        letterSpacing = 0.54.sp, // 0.06em of 9sp
+                    )
+                }
+            }
+            Spacer(Modifier.height(10.dp))
+            todayTides.forEachIndexed { i, tide ->
+                TodayTideRow(
+                    tide = tide,
+                    last = i == todayTides.lastIndex,
+                    onAct = if (tide.state == DayState.RESPIRO) null else {
+                        {
+                            if (tide.isCount) vm.setHabitCount(tide.habit.id, today, tide.count + 1)
+                            else vm.toggleHabitToday(tide.habit.id)
+                        }
+                    },
+                )
+            }
+        }
+
+        // Evening reflection — the web's paper-2 card: mono eyebrow, the serif
+        // question, the day pulse again (the header one has scrolled away), and
+        // the free-form field. // PT: cartão da reflexão, como na web.
+        Spacer(Modifier.height(40.dp))
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(14.dp))
+                .border(1.dp, colors.rule, RoundedCornerShape(14.dp))
+                .background(colors.paper2)
+                .padding(horizontal = 22.dp, vertical = 24.dp),
+        ) {
+            Text(
+                text = tr("Reflexão da noite").uppercase(),
+                color = colors.ink3,
+                fontFamily = MonoFamily,
+                fontSize = 9.sp,
+                letterSpacing = 1.8.sp,
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = "“" + tr("O que valeu hoje?") + "”",
+                color = colors.ink2,
+                fontFamily = SerifFamily,
+                fontStyle = FontStyle.Italic,
+                fontSize = 18.sp,
+            )
+            Spacer(Modifier.height(12.dp))
+            if (pulseParts.isNotEmpty()) {
+                Text(
+                    text = pulseParts.joinToString("   ·   "),
+                    color = colors.ink3,
+                    fontFamily = MonoFamily,
+                    fontSize = 10.5.sp,
+                    letterSpacing = 0.21.sp,
+                )
+                Spacer(Modifier.height(12.dp))
+                Box(Modifier.fillMaxWidth().height(1.dp).background(colors.rule))
+                Spacer(Modifier.height(14.dp))
+            }
+            ReflectionField(
+                value = reflection,
+                accent = colors.accent,
+                onChange = { vm.setReflection(it) },
+            )
+        }
+
+        Spacer(Modifier.height(32.dp))
         Text(
-            text = tr("Reflexão da noite"),
-            color = colors.ink3,
-            fontWeight = FontWeight.Medium,
-            fontSize = 13.sp,
-        )
-        Spacer(Modifier.height(8.dp))
-        ReflectionField(
-            value = reflection,
-            accent = colors.accent,
-            onChange = { vm.setReflection(it) },
+            text = tr("amanhã, recomeça."),
+            color = colors.ink4,
+            fontFamily = MonoFamily,
+            fontSize = 10.sp,
+            letterSpacing = 0.4.sp, // 0.04em of 10sp
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth(),
         )
         Spacer(Modifier.height(48.dp))
+    }
+}
+
+/** One habit's actionable state today, derived from the same HabitCalculator
+ *  math as the Marés grid so the two views never diverge. */
+private data class TideToday(
+    val habit: HabitEntity,
+    val state: DayState,
+    val isCount: Boolean,
+    val count: Int,
+    val target: Int,
+)
+
+/** A row of the "Marés de hoje" strip — the web's TodayTideRow: state circle,
+ *  name (+ clock/time or "respiro" subtitle), and the count for countables.
+ *  Tapping marks done / increments; respiro rows are quiet. */
+@Composable
+private fun TodayTideRow(tide: TideToday, last: Boolean, onAct: (() -> Unit)?) {
+    val colors = LocalPautaColors.current
+    val accent = tide.habit.color
+        ?.takeIf { it.isNotBlank() }
+        ?.let { runCatching { Color(android.graphics.Color.parseColor(it)) }.getOrNull() }
+        ?: colors.accent
+    val isDone = tide.state == DayState.DONE
+    val respiro = tide.state == DayState.RESPIRO
+    val partial = !isDone && !respiro && tide.isCount && tide.count > 0
+
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .then(if (onAct != null) Modifier.clickableNoRipple(onAct) else Modifier),
+    ) {
+        Row(
+            Modifier.padding(vertical = 11.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                Modifier
+                    .size(24.dp)
+                    .clip(CircleShape)
+                    .background(if (isDone) accent else Color.Transparent)
+                    .border(
+                        width = 1.6.dp,
+                        color = when { isDone -> accent; respiro -> colors.ink4; else -> colors.ink3 },
+                        shape = CircleShape,
+                    ),
+                contentAlignment = Alignment.Center,
+            ) {
+                when {
+                    isDone -> Icon(
+                        imageVector = PautaIcons.Check,
+                        contentDescription = null,
+                        tint = colors.paper,
+                        modifier = Modifier.size(13.dp),
+                    )
+                    respiro -> Box(
+                        Modifier
+                            .size(width = 9.dp, height = 2.dp)
+                            .clip(RoundedCornerShape(2.dp))
+                            .background(colors.ink4),
+                    )
+                    partial -> Text(
+                        text = tide.count.toString(),
+                        color = accent,
+                        fontFamily = MonoFamily,
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
+            }
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    text = tide.habit.name,
+                    color = if (isDone || respiro) colors.ink3 else colors.ink,
+                    fontSize = 15.sp,
+                    lineHeight = 19.sp,
+                    textDecoration = if (isDone) TextDecoration.LineThrough else null,
+                )
+                val clock = tide.habit.clock
+                val time = tide.habit.time
+                if (respiro || clock.isNotBlank() || time.isNotBlank()) {
+                    Spacer(Modifier.height(2.dp))
+                    if (respiro) {
+                        Text(
+                            text = tr("respiro"),
+                            color = colors.ink3,
+                            fontFamily = SerifFamily,
+                            fontStyle = FontStyle.Italic,
+                            fontSize = 12.5.sp,
+                        )
+                    } else {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            if (clock.isNotBlank()) {
+                                Text(text = clock, color = colors.ink3, fontFamily = MonoFamily, fontSize = 11.sp)
+                                if (time.isNotBlank()) Spacer(Modifier.width(6.dp))
+                            }
+                            if (time.isNotBlank()) {
+                                Text(
+                                    text = time,
+                                    color = colors.ink3,
+                                    fontFamily = SerifFamily,
+                                    fontStyle = FontStyle.Italic,
+                                    fontSize = 12.5.sp,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+            if (tide.isCount) {
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = "${tide.count}/${tide.target}" + if (tide.habit.unit.isNotBlank()) " ${tide.habit.unit}" else "",
+                    color = if (isDone) accent else colors.ink3,
+                    fontFamily = MonoFamily,
+                    fontSize = 10.sp,
+                    letterSpacing = 0.4.sp,
+                )
+            }
+        }
+        if (!last) Box(Modifier.fillMaxWidth().height(1.dp).background(colors.rule))
     }
 }
 
@@ -433,15 +660,33 @@ private fun whenLabel(w: String?): String = when (w) {
 @Composable
 private fun ReflectionField(value: String, accent: Color, onChange: (String) -> Unit) {
     val colors = LocalPautaColors.current
+    // Borderless serif field inside the reflection card, like the web's bare
+    // AutoTextarea (no underline; the card is the frame).
     TextField(
         value = value,
         onValueChange = onChange,
-        placeholder = { Text(tr("O que valeu hoje?"), color = colors.ink4) },
+        placeholder = {
+            Text(
+                text = tr("Escreva quando quiser. Não precisa de ser longo."),
+                color = colors.ink4,
+                fontFamily = SerifFamily,
+                fontSize = 15.sp,
+            )
+        },
         modifier = Modifier
             .fillMaxWidth()
-            .height(120.dp),
-        textStyle = TextStyle(color = colors.ink, fontSize = 16.sp, lineHeight = 24.sp),
-        colors = transparentFieldColors(accent, colors.ink),
+            .heightIn(min = 72.dp),
+        textStyle = TextStyle(color = colors.ink, fontFamily = SerifFamily, fontSize = 15.sp, lineHeight = 22.sp),
+        colors = TextFieldDefaults.colors(
+            focusedContainerColor = Color.Transparent,
+            unfocusedContainerColor = Color.Transparent,
+            disabledContainerColor = Color.Transparent,
+            cursorColor = accent,
+            focusedIndicatorColor = Color.Transparent,
+            unfocusedIndicatorColor = Color.Transparent,
+            focusedTextColor = colors.ink,
+            unfocusedTextColor = colors.ink,
+        ),
     )
 }
 
