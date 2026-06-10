@@ -261,6 +261,15 @@ class PautaRepository(private val db: AppDatabase) {
         focusBlockDao.upsert(active.copy(status = "paused"))
     }
 
+    /** Attach/replace the note on a block's most recent ended session — the
+     *  pause sheet collects it after the timer has already stopped, so pausing
+     *  loses no seconds while the user types. // PT: nota da pausa, escrita
+     *  depois de o cronómetro já ter parado. */
+    suspend fun setLastSessionNote(blockId: String, note: String) {
+        val last = focusSessionDao.getForBlock(blockId).lastOrNull { it.endedAt != null } ?: return
+        focusSessionDao.update(last.copy(note = note.trim()))
+    }
+
     /** Resume a paused block with a fresh session (auto-pausing any other). */
     suspend fun resumeBlock(blockId: String) {
         val now = System.currentTimeMillis()

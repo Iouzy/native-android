@@ -52,19 +52,18 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.pauta.app.data.entity.HabitEntity
 import com.pauta.app.data.entity.IntentionEntity
 import com.pauta.app.domain.CarrySource
 import com.pauta.app.domain.FocusMath
-import com.pauta.app.domain.HabitCalculator
 import com.pauta.app.domain.HabitCalculator.DayState
-import com.pauta.app.domain.HabitModel
 import com.pauta.app.domain.HojeLogic
 import com.pauta.app.i18n.I18n
 import com.pauta.app.i18n.tr
 import com.pauta.app.i18n.trf
 import com.pauta.app.ui.PautaIcons
+import com.pauta.app.ui.TideToday
 import com.pauta.app.ui.clickableNoRipple
+import com.pauta.app.ui.computeTodayTides
 import com.pauta.app.ui.theme.LocalPautaColors
 import com.pauta.app.ui.theme.MonoFamily
 import com.pauta.app.ui.theme.SerifFamily
@@ -152,31 +151,10 @@ fun HojeScreen() {
         )
 
         // Today's tides — the actionable slice of Marés surfaced in Hoje (the
-        // web's todayTides): daily habits always; weekly/monthly only on an
-        // eligible, still-open day. Feeds both the day pulse and the tide strip
-        // so they never diverge. // PT: a fatia acionável das Marés no Hoje.
-        val logsByHabit = remember(habitLogs) { habitLogs.groupBy { it.habitId }.mapValues { e -> e.value.map { it.dayKey }.toSet() } }
-        val respByHabit = remember(habitRespiros) { habitRespiros.groupBy { it.habitId }.mapValues { e -> e.value.map { it.dayKey }.toSet() } }
-        val countsByHabit = remember(habitCounts) {
-            habitCounts.groupBy { it.habitId }.mapValues { e -> e.value.associate { it.dayKey to it.count } }
-        }
-        val todayTides = remember(habits, logsByHabit, respByHabit, countsByHabit, today) {
-            habits.mapNotNull { h ->
-                val model = HabitModel(
-                    id = h.id, createdAt = h.createdAt, cadence = h.cadence, anchor = h.anchor,
-                    weekdays = h.weekdays, recurrence = h.recurrence, endsAt = h.endsAt,
-                    log = logsByHabit[h.id].orEmpty(), respiros = respByHabit[h.id].orEmpty(),
-                )
-                val state = HabitCalculator.dayState(model, today, today)
-                if (state != DayState.DONE && state != DayState.RESPIRO && state != DayState.EMPTY) return@mapNotNull null
-                TideToday(
-                    habit = h,
-                    state = state,
-                    isCount = h.target != null && h.cadence == "daily",
-                    count = countsByHabit[h.id]?.get(today) ?: 0,
-                    target = h.target ?: 1,
-                )
-            }
+        // web's todayTides). Feeds both the day pulse and the tide strip so
+        // they never diverge. // PT: a fatia acionável das Marés no Hoje.
+        val todayTides = remember(habits, habitLogs, habitRespiros, habitCounts, today) {
+            computeTodayTides(habits, habitLogs, habitRespiros, habitCounts, today)
         }
         val tideDone = todayTides.count { it.state == DayState.DONE }
         val tideDenom = todayTides.count { it.state != DayState.RESPIRO }
@@ -345,16 +323,6 @@ fun HojeScreen() {
         Spacer(Modifier.height(48.dp))
     }
 }
-
-/** One habit's actionable state today, derived from the same HabitCalculator
- *  math as the Marés grid so the two views never diverge. */
-private data class TideToday(
-    val habit: HabitEntity,
-    val state: DayState,
-    val isCount: Boolean,
-    val count: Int,
-    val target: Int,
-)
 
 /** A row of the "Marés de hoje" strip — the web's TodayTideRow: state circle,
  *  name (+ clock/time or "respiro" subtitle), and the count for countables.
