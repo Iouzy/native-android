@@ -648,3 +648,93 @@ fun SwitchSheet(
         PautaButton(tr("Cancelar"), Modifier.fillMaxWidth(), PautaButtonVariant.Ghost) { onClose() }
     }
 }
+
+// ─── MANUAL BLOCK SHEET ────────────────────────────────────
+/** "Registar tempo": log a past focus block by hand (forgot the timer). */
+@Composable
+fun ManualBlockSheet(
+    today: String,
+    onAdd: (title: String, startMs: Long, endMs: Long) -> Unit,
+    onClose: () -> Unit,
+) {
+    val colors = LocalPautaColors.current
+    var title by remember { mutableStateOf("") }
+    var date by remember { mutableStateOf(today) }
+    var start by remember { mutableStateOf("") }
+    var dur by remember { mutableStateOf("") }
+
+    val minutes = dur.toIntOrNull() ?: 0
+    val dateOk = Regex("^\\d{4}-\\d{2}-\\d{2}$").matches(date) &&
+        runCatching { java.time.LocalDate.parse(date) }.isSuccess
+    val startOk = Regex("^\\d{1,2}:\\d{2}$").matches(start)
+    val ready = title.isNotBlank() && dateOk && startOk && minutes in 1..1440
+
+    fun submit() {
+        if (!ready) return
+        val (hh, mm) = start.split(":").map { it.toInt() }
+        val startMs = java.time.LocalDate.parse(date)
+            .atTime(hh.coerceIn(0, 23), mm.coerceIn(0, 59))
+            .atZone(java.time.ZoneId.systemDefault())
+            .toInstant().toEpochMilli()
+        onAdd(title.trim(), startMs, startMs + minutes * 60_000L)
+        onClose()
+    }
+
+    PautaSheet(title = tr("Registar tempo"), onClose = onClose) {
+        Text(
+            text = tr("Esqueceu-se de iniciar o cronómetro? Registe o bloco à mão."),
+            color = colors.ink3,
+            fontFamily = SerifFamily,
+            fontStyle = FontStyle.Italic,
+            fontSize = 13.sp,
+            lineHeight = 18.sp,
+        )
+        Spacer(Modifier.height(14.dp))
+
+        SheetEyebrow(tr("O quê"))
+        Spacer(Modifier.height(6.dp))
+        BoxedField(title, { title = it }, tr("ex.: leitura"), singleLine = true, fontFamily = SansFamily, fontSize = 15.sp)
+
+        Spacer(Modifier.height(14.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(Modifier.weight(1f)) {
+                SheetEyebrow(tr("Data"))
+                Spacer(Modifier.height(6.dp))
+                BoxedField(
+                    date,
+                    { raw -> date = raw.filter { it.isDigit() || it == '-' }.take(10) },
+                    "AAAA-MM-DD",
+                    singleLine = true, fontFamily = SansFamily, fontSize = 15.sp,
+                )
+            }
+            Column(Modifier.width(116.dp)) {
+                SheetEyebrow(tr("Início"))
+                Spacer(Modifier.height(6.dp))
+                BoxedField(
+                    start,
+                    { raw -> start = raw.filter { it.isDigit() || it == ':' }.take(5) },
+                    "HH:MM",
+                    singleLine = true, fontFamily = SansFamily, fontSize = 15.sp,
+                )
+            }
+        }
+
+        Spacer(Modifier.height(14.dp))
+        SheetEyebrow(tr("Duração (min)"))
+        Spacer(Modifier.height(6.dp))
+        Box(Modifier.width(120.dp)) {
+            BoxedField(
+                dur,
+                { raw -> dur = raw.filter { it.isDigit() }.take(4) },
+                "45",
+                singleLine = true, fontFamily = SansFamily, fontSize = 15.sp,
+            )
+        }
+
+        Spacer(Modifier.height(18.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            PautaButton(tr("Cancelar"), Modifier.weight(1f), PautaButtonVariant.Ghost) { onClose() }
+            PautaButton(tr("Adicionar"), Modifier.weight(2f), PautaButtonVariant.Primary, enabled = ready) { submit() }
+        }
+    }
+}

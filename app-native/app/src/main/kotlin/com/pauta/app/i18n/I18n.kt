@@ -177,6 +177,14 @@ object I18n {
         "algo novo (não está no Hoje)" to "something new (not in Today)",
         "ou concluir" to "or finish",
         "primeiro" to "first",
+        "Registar tempo" to "Log time",
+        "Esqueceu-se de iniciar o cronómetro? Registe o bloco à mão." to "Forgot to start the timer? Log the block by hand.",
+        "O quê" to "What",
+        "Data" to "Date",
+        "Início" to "Start",
+        "Duração (min)" to "Duration (min)",
+        "ex.: leitura" to "e.g. reading",
+        "registar" to "log",
 
         // ── Marés ──
         "mês anterior" to "previous month", // native-only
