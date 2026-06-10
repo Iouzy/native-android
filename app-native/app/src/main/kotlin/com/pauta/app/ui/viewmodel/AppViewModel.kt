@@ -124,6 +124,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun concludeBlock(id: String, reflection: String, markIntentionDone: Boolean = false) =
         viewModelScope.launch { repo.concludeBlock(id, reflection, markIntentionDone) }
     fun deleteBlock(id: String) = viewModelScope.launch { repo.deleteBlock(id) }
+    fun addManualBlock(title: String, startMs: Long, endMs: Long) =
+        viewModelScope.launch { repo.addManualBlock(title, startMs, endMs) }
     fun setBlockReflection(id: String, text: String) = viewModelScope.launch { repo.setBlockReflection(id, text) }
     fun blockSessions(id: String) = repo.sessions(id)
 

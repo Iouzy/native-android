@@ -168,6 +168,23 @@ object I18n {
         "marcar" to "mark",
         "como concluído no Hoje" to "as finished in Today",
         "fechar" to "close",
+        "Trocar foco" to "Switch focus",
+        "Trocar" to "Switch",
+        "em curso →" to "in progress →",
+        "Pausar e ir para…" to "Pause and go to…",
+        "ex.: revisar PRs" to "e.g.: review PRs",
+        "OK" to "OK",
+        "algo novo (não está no Hoje)" to "something new (not in Today)",
+        "ou concluir" to "or finish",
+        "primeiro" to "first",
+        "Registar tempo" to "Log time",
+        "Esqueceu-se de iniciar o cronómetro? Registe o bloco à mão." to "Forgot to start the timer? Log the block by hand.",
+        "O quê" to "What",
+        "Data" to "Date",
+        "Início" to "Start",
+        "Duração (min)" to "Duration (min)",
+        "ex.: leitura" to "e.g. reading",
+        "registar" to "log",
 
         // ── Marés ──
         "mês anterior" to "previous month", // native-only

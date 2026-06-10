@@ -1,6 +1,7 @@
 package com.pauta.app.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -40,6 +41,7 @@ import com.pauta.app.i18n.trf
 import com.pauta.app.ui.clickableNoRipple
 import com.pauta.app.ui.computeTodayTides
 import com.pauta.app.ui.theme.LocalPautaColors
+import com.pauta.app.ui.theme.MonoFamily
 import com.pauta.app.ui.theme.SerifFamily
 import com.pauta.app.ui.viewmodel.AppViewModel
 import kotlinx.coroutines.delay
@@ -96,6 +98,8 @@ fun PautaScreen() {
     }
 
     var showStart by remember { mutableStateOf(false) }
+    var showSwitch by remember { mutableStateOf(false) }
+    var showManual by remember { mutableStateOf(false) }
     // The pause sheet opens AFTER the optimistic pause (timer already stopped).
     var pauseNoteFor by remember { mutableStateOf<FocusBlockEntity?>(null) }
     // (block, wasActive): active blocks are optimistically concluded; cancel resumes.
@@ -111,11 +115,27 @@ fun PautaScreen() {
             Spacer(Modifier.height(24.dp))
             Text(tr("Pauta"), color = colors.ink, fontFamily = SerifFamily, fontSize = 30.sp)
             Spacer(Modifier.height(6.dp))
-            Text(
-                text = trf("{n} blocos · {t} de foco hoje", "n" to blocks.size, "t" to FocusMath.fmtDuration(dailyMs)),
-                color = colors.ink3,
-                fontSize = 13.sp,
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = trf("{n} blocos · {t} de foco hoje", "n" to blocks.size, "t" to FocusMath.fmtDuration(dailyMs)),
+                    color = colors.ink3,
+                    fontSize = 13.sp,
+                    modifier = Modifier.weight(1f),
+                )
+                // "registar" — log a past block by hand, like the web's chip.
+                Text(
+                    text = "+ " + tr("registar").uppercase(),
+                    color = colors.ink3,
+                    fontFamily = MonoFamily,
+                    fontSize = 9.sp,
+                    letterSpacing = 1.26.sp, // 0.14em of 9sp
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .border(1.dp, colors.rule, RoundedCornerShape(8.dp))
+                        .clickableNoRipple { showManual = true }
+                        .padding(horizontal = 9.dp, vertical = 6.dp),
+                )
+            }
 
             active?.let { a ->
                 Spacer(Modifier.height(18.dp))
@@ -125,6 +145,7 @@ fun PautaScreen() {
                     // Optimistic pause/conclude: stop the timer first, collect
                     // the note/reflection after — no seconds lost while typing.
                     onPause = { vm.pauseActive(""); pauseNoteFor = a },
+                    onSwitch = { showSwitch = true },
                     onConclude = { vm.concludeActive("", false); concludeFor = a to true },
                 )
             }
@@ -182,6 +203,32 @@ fun PautaScreen() {
             onClose = { showStart = false },
         )
     }
+    if (showSwitch) {
+        active?.let { a ->
+            SwitchSheet(
+                currentBlock = a,
+                intentions = intentions,
+                onPick = { linkedToId, title ->
+                    // startBlock auto-pauses the running block, like the web flow.
+                    vm.startBlock(title, linkedToId)
+                    showSwitch = false
+                },
+                onConcludeFirst = {
+                    vm.concludeActive("", false)
+                    concludeFor = a to true
+                    showSwitch = false
+                },
+                onClose = { showSwitch = false },
+            )
+        }
+    }
+    if (showManual) {
+        ManualBlockSheet(
+            today = today,
+            onAdd = { title, startMs, endMs -> vm.addManualBlock(title, startMs, endMs) },
+            onClose = { showManual = false },
+        )
+    }
     pauseNoteFor?.let { block ->
         PauseSheet(
             block = block,
@@ -225,7 +272,7 @@ private fun LaunchedTick(onTick: (Long) -> Unit) {
 }
 
 @Composable
-private fun ActiveCard(block: FocusBlockEntity, elapsedMs: Long, onPause: () -> Unit, onConclude: () -> Unit) {
+private fun ActiveCard(block: FocusBlockEntity, elapsedMs: Long, onPause: () -> Unit, onSwitch: () -> Unit, onConclude: () -> Unit) {
     val colors = LocalPautaColors.current
     Column(
         Modifier
@@ -244,6 +291,8 @@ private fun ActiveCard(block: FocusBlockEntity, elapsedMs: Long, onPause: () -> 
         Spacer(Modifier.height(16.dp))
         Row {
             ActionText(tr("Pausar"), color = colors.onDark, onClick = onPause)
+            Spacer(Modifier.width(20.dp))
+            ActionText(tr("Trocar"), color = colors.onDark2, onClick = onSwitch)
             Spacer(Modifier.width(20.dp))
             ActionText(tr("Concluir"), color = colors.accentSoft, onClick = onConclude)
         }
