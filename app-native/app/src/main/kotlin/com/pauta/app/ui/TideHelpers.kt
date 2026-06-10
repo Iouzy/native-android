@@ -7,6 +7,7 @@ import com.pauta.app.data.entity.HabitRespiroEntity
 import com.pauta.app.domain.HabitCalculator
 import com.pauta.app.domain.HabitCalculator.DayState
 import com.pauta.app.domain.HabitModel
+import com.pauta.app.domain.MarkKind
 
 /**
  * One habit's actionable state today — the web's habitDayStatus() shape.
@@ -21,6 +22,44 @@ data class TideToday(
     val count: Int,
     val target: Int,
 )
+
+/** A grid/heatmap cell's state — the web's nine. */
+enum class CellState { DONE, EMPTY, RESPIRO, PARTIAL, LOCKED, OFF, PRE, AFTER, FUTURE }
+
+/**
+ * The state of one day's cell for a habit — the web HabitRow's `days` loop,
+ * shared by the month grid and the all-time heatmap so they can never drift.
+ * // PT: estado da célula de um dia, partilhado pela grelha e pelo heatmap.
+ */
+fun cellStateFor(
+    model: HabitModel,
+    cadence: String,
+    isCount: Boolean,
+    countsForHabit: Map<String, Int>,
+    key: String,
+    today: String,
+): CellState {
+    val created = HabitCalculator.createdKey(model)
+    val end = HabitCalculator.endKey(model)
+    return when {
+        key > today -> CellState.FUTURE
+        key < created -> CellState.PRE
+        end != null && key > end -> CellState.AFTER
+        cadence != "daily" -> {
+            val (kind, mk) = HabitCalculator.periodMark(model, key)
+            when (kind) {
+                MarkKind.DONE -> if (mk == key) CellState.DONE else CellState.LOCKED
+                MarkKind.RESPIRO -> if (mk == key) CellState.RESPIRO else CellState.LOCKED
+                else -> if (HabitCalculator.isAnchorDay(model, key)) CellState.EMPTY else CellState.LOCKED
+            }
+        }
+        !HabitCalculator.dailyDueOn(model, key) -> CellState.OFF
+        key in model.log -> CellState.DONE
+        key in model.respiros -> CellState.RESPIRO
+        isCount && (countsForHabit[key] ?: 0) > 0 -> CellState.PARTIAL
+        else -> CellState.EMPTY
+    }
+}
 
 /**
  * The actionable slice of Marés for [today] — daily habits always; weekly/
