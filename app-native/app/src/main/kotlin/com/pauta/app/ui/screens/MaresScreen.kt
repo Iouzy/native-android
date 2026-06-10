@@ -18,20 +18,14 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TextField
-import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -58,8 +52,6 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
@@ -112,6 +104,7 @@ fun MaresScreen() {
     var showTrend by remember { mutableStateOf(false) }
     var removeTarget by remember { mutableStateOf<HabitEntity?>(null) }
     var detailTarget by remember { mutableStateOf<HabitEntity?>(null) }
+    var editTarget by remember { mutableStateOf<HabitEntity?>(null) }
 
     val logsByHabit = remember(logs) { logs.groupBy { it.habitId }.mapValues { e -> e.value.map { it.dayKey }.toSet() } }
     val respByHabit = remember(respiros) { respiros.groupBy { it.habitId }.mapValues { e -> e.value.map { it.dayKey }.toSet() } }
@@ -319,7 +312,16 @@ fun MaresScreen() {
             onIncrementDay = { k, c -> vm.setHabitCount(h.id, k, c + 1) },
             onMarkRespiro = { k -> vm.markRespiro(h.id, k) },
             onUnmarkRespiro = { k -> vm.unmarkRespiro(h.id, k) },
+            onEdit = { editTarget = h; detailTarget = null },
             onClose = { detailTarget = null },
+        )
+    }
+    editTarget?.let { h ->
+        EditHabitSheet(
+            habit = h,
+            onSave = { updated -> vm.updateHabit(updated); editTarget = null },
+            onRemove = { removeTarget = h; editTarget = null },
+            onClose = { editTarget = null },
         )
     }
     if (showTrend) {
@@ -331,12 +333,16 @@ fun MaresScreen() {
         )
     }
     if (showAdd) {
-        AddHabitDialog(
-            onAdd = { name, cadence, target, unit ->
-                vm.addHabit(name = name, cadence = cadence, target = target, unit = unit)
+        AddHabitSheet(
+            onSubmit = { d ->
+                vm.addHabit(
+                    name = d.name, time = d.time, cadence = d.cadence, anchor = d.anchor,
+                    weekdays = d.weekdays, target = d.target, unit = d.unit, clock = d.clock,
+                    recurrence = d.recurrence, endsAt = d.endsAt, description = d.description,
+                )
                 showAdd = false
             },
-            onDismiss = { showAdd = false },
+            onClose = { showAdd = false },
         )
     }
     removeTarget?.let { h ->
@@ -704,81 +710,3 @@ private fun cadenceChipLabel(habit: HabitEntity): String? {
 }
 
 private fun monthLongName(month: Int): String = I18n.fmtMonthLong(month)
-
-@Composable
-private fun AddHabitDialog(onAdd: (String, String, Int?, String) -> Unit, onDismiss: () -> Unit) {
-    val colors = LocalPautaColors.current
-    var name by remember { mutableStateOf("") }
-    var cadence by remember { mutableStateOf("daily") }
-    var target by remember { mutableStateOf("") }
-    var unit by remember { mutableStateOf("") }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        containerColor = colors.paper,
-        title = { Text(tr("Nova maré"), color = colors.ink) },
-        text = {
-            Column {
-                MaresField(name, { name = it }, tr("Nome do hábito"))
-                Spacer(Modifier.height(10.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    SegChip(tr("Diária"), cadence == "daily") { cadence = "daily" }
-                    SegChip(tr("Semanal"), cadence == "weekly") { cadence = "weekly" }
-                    SegChip(tr("Mensal"), cadence == "monthly") { cadence = "monthly" }
-                }
-                if (cadence == "daily") {
-                    Spacer(Modifier.height(10.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Box(Modifier.width(90.dp)) {
-                            MaresField(target, { target = it.filter { c -> c.isDigit() }.take(4) }, tr("meta"), number = true)
-                        }
-                        Box(Modifier.weight(1f)) { MaresField(unit, { unit = it }, tr("unidade (ex: L, km)")) }
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = {
-                if (name.isNotBlank()) onAdd(name.trim(), cadence, target.toIntOrNull()?.takeIf { it > 1 }, unit.trim())
-            }) { Text(tr("Criar"), color = colors.accent) }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(tr("Cancelar"), color = colors.ink3) } },
-    )
-}
-
-@Composable
-private fun SegChip(label: String, selected: Boolean, onClick: () -> Unit) {
-    val colors = LocalPautaColors.current
-    Box(
-        Modifier
-            .clip(RoundedCornerShape(8.dp))
-            .background(if (selected) colors.accent.copy(alpha = 0.16f) else colors.paper2)
-            .clickableNoRipple(onClick)
-            .padding(horizontal = 12.dp, vertical = 7.dp),
-    ) {
-        Text(label, color = if (selected) colors.accent else colors.ink3, fontSize = 13.sp, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal)
-    }
-}
-
-@Composable
-private fun MaresField(value: String, onChange: (String) -> Unit, placeholder: String, number: Boolean = false) {
-    val colors = LocalPautaColors.current
-    TextField(
-        value = value,
-        onValueChange = onChange,
-        placeholder = { Text(placeholder, color = colors.ink4) },
-        singleLine = true,
-        modifier = Modifier.fillMaxWidth(),
-        textStyle = LocalTextStyle.current.copy(color = colors.ink, fontSize = 16.sp),
-        keyboardOptions = if (number) KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done)
-        else KeyboardOptions(imeAction = ImeAction.Done),
-        colors = TextFieldDefaults.colors(
-            focusedContainerColor = Color.Transparent,
-            unfocusedContainerColor = Color.Transparent,
-            cursorColor = colors.accent,
-            focusedIndicatorColor = colors.accent,
-            unfocusedIndicatorColor = colors.rule,
-            focusedTextColor = colors.ink,
-            unfocusedTextColor = colors.ink,
-        ),
-    )
-}

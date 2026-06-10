@@ -248,13 +248,55 @@ object I18n {
         "{p}% de constância" to "{p}% consistency", // native-only
         "Sem marés ainda. Toca em + para criar a primeira." to "No tides yet. Tap + to create the first one.", // native-only
         "Nova maré" to "New tide", // native-only
-        "Nome do hábito" to "Habit name", // native-only
-        "Diária" to "Daily", // native-only
-        "Semanal" to "Weekly", // native-only
-        "Mensal" to "Monthly", // native-only
-        "meta" to "target", // native-only
-        "unidade (ex: L, km)" to "unit (e.g. L, km)", // native-only
-        "Criar" to "Create", // native-only
+
+        // Marés add/edit form (NewHabitForm + HabitEditForm, web-identical).
+        "Nome da maré (ex.: meditar)" to "Tide name (e.g.: meditate)",
+        "Quando? (opcional, ex.: manhã)" to "When? (optional, e.g.: morning)",
+        "+ mais opções (descrição, recorrência)" to "+ more options (description, recurrence)",
+        "Porquê esta maré? (opcional)" to "Why this tide? (optional)",
+        "hora certa" to "exact time",
+        "opcional" to "optional",
+        "frequência" to "frequency",
+        "diária" to "daily",
+        "escolho eu" to "i choose",
+        "dia fixo" to "fixed day",
+        "seg" to "mon",
+        "ter" to "tue",
+        "qua" to "wed",
+        "qui" to "thu",
+        "sex" to "fri",
+        "sáb" to "sat",
+        "dom" to "sun",
+        "dias da semana" to "weekdays",
+        "todos os dias" to "every day",
+        "só nos dias escolhidos" to "only on chosen days",
+        "Repete sempre no mesmo dia. Os outros dias do período ficam bloqueados." to
+            "Always repeats on the same day. The other days of the period are locked.",
+        "Marca um dia qualquer do período. Depois disso, os restantes ficam bloqueados." to
+            "Mark any day of the period. After that, the rest are locked.",
+        "uma meta com quantidade (ex.: 2L de água, 3 treinos)" to "a goal with a quantity (e.g.: 2L of water, 3 workouts)",
+        "meta com quantidade (ex.: 2L de água, 3 treinos)" to "goal with quantity (e.g.: 2L of water, 3 workouts)",
+        "unidade (copos, treinos…)" to "unit (glasses, workouts…)",
+        "do mês" to "of the month",
+        "recorrência" to "recurrence",
+        "permanente" to "permanent",
+        "por um período" to "for a period",
+        "só este mês" to "this month only",
+        "todos os dias, sem fim" to "every day, no end",
+        "durante X dias" to "for X days",
+        "termina no fim do mês" to "ends at the end of the month",
+        "durante" to "for",
+        "nome" to "name",
+        "Cor" to "Colour",
+        "automático" to "automatic",
+        "quando" to "when",
+        "ex.: manhã, antes de dormir" to "e.g.: morning, before bed",
+        "descrição · porquê esta maré?" to "description · why this tide?",
+        "A intenção, o motivo, o sentimento que quer cultivar." to "The intention, the reason, the feeling you want to cultivate.",
+        "Guardar" to "Save",
+        "editar" to "edit",
+        "remover esta maré" to "remove this tide",
+        "Editar maré" to "Edit tide", // native-only
 
         // Tide tiers (names + subtitles, web-identical).
         "Tsunami" to "Tsunami",
