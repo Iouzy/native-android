@@ -70,13 +70,14 @@ import com.pauta.app.data.entity.HabitEntity
 import com.pauta.app.domain.DateUtils
 import com.pauta.app.domain.HabitCalculator
 import com.pauta.app.domain.HabitModel
-import com.pauta.app.domain.MarkKind
 import com.pauta.app.i18n.I18n
 import com.pauta.app.i18n.tr
 import com.pauta.app.i18n.trf
 import com.pauta.app.ui.PautaButton
 import com.pauta.app.ui.PautaButtonVariant
 import com.pauta.app.ui.PautaSheet
+import com.pauta.app.ui.CellState
+import com.pauta.app.ui.cellStateFor
 import com.pauta.app.ui.clickableNoRipple
 import com.pauta.app.ui.combinedClickableNoRipple
 import com.pauta.app.ui.theme.LocalPautaColors
@@ -110,6 +111,7 @@ fun MaresScreen() {
     var showAdd by remember { mutableStateOf(false) }
     var showTrend by remember { mutableStateOf(false) }
     var removeTarget by remember { mutableStateOf<HabitEntity?>(null) }
+    var detailTarget by remember { mutableStateOf<HabitEntity?>(null) }
 
     val logsByHabit = remember(logs) { logs.groupBy { it.habitId }.mapValues { e -> e.value.map { it.dayKey }.toSet() } }
     val respByHabit = remember(respiros) { respiros.groupBy { it.habitId }.mapValues { e -> e.value.map { it.dayKey }.toSet() } }
@@ -271,6 +273,7 @@ fun MaresScreen() {
                                 onRespiro = { dayKey -> vm.markRespiro(h.id, dayKey) },
                                 onUnmarkRespiro = { dayKey -> vm.unmarkRespiro(h.id, dayKey) },
                                 onRemove = { removeTarget = h },
+                                onOpenDetail = { detailTarget = h },
                             )
                         }
                     }
@@ -306,6 +309,19 @@ fun MaresScreen() {
         ) { Icon(Icons.Filled.Add, contentDescription = tr("Nova maré")) }
     }
 
+    detailTarget?.let { h ->
+        HabitDetailSheet(
+            habit = h,
+            model = modelOf(h),
+            countsForHabit = countsByHabit[h.id].orEmpty(),
+            today = today,
+            onToggleDay = { k -> vm.toggleHabitDay(h.id, k) },
+            onIncrementDay = { k, c -> vm.setHabitCount(h.id, k, c + 1) },
+            onMarkRespiro = { k -> vm.markRespiro(h.id, k) },
+            onUnmarkRespiro = { k -> vm.unmarkRespiro(h.id, k) },
+            onClose = { detailTarget = null },
+        )
+    }
     if (showTrend) {
         TrendSheet(
             habits = habits.map { modelOf(it) },
@@ -344,8 +360,6 @@ fun MaresScreen() {
     }
 }
 
-/** Cell states, the web's nine. */
-private enum class CellState { DONE, EMPTY, RESPIRO, PARTIAL, LOCKED, OFF, PRE, AFTER, FUTURE }
 private data class CellDay(val d: Int, val key: String, val state: CellState, val isToday: Boolean, val count: Int)
 
 @Composable
@@ -362,6 +376,7 @@ private fun MaresHabitRow(
     onRespiro: (String) -> Unit,
     onUnmarkRespiro: (String) -> Unit,
     onRemove: () -> Unit,
+    onOpenDetail: () -> Unit,
 ) {
     val colors = LocalPautaColors.current
     val accent = habit.color
@@ -370,8 +385,6 @@ private fun MaresHabitRow(
         ?: colors.accent
 
     val ndays = DateUtils.daysInMonth(year, month)
-    val created = HabitCalculator.createdKey(model)
-    val end = HabitCalculator.endKey(model)
     val isCount = habit.target != null && habit.cadence == "daily"
     val todayCount = countsForHabit[today] ?: 0
 
@@ -387,24 +400,7 @@ private fun MaresHabitRow(
     val days = remember(model, countsForHabit, year, month, today) {
         (1..ndays).map { d ->
             val key = "%04d-%02d-%02d".format(year, month, d)
-            val state = when {
-                key > today -> CellState.FUTURE
-                key < created -> CellState.PRE
-                end != null && key > end -> CellState.AFTER
-                habit.cadence != "daily" -> {
-                    val (kind, mk) = HabitCalculator.periodMark(model, key)
-                    when (kind) {
-                        MarkKind.DONE -> if (mk == key) CellState.DONE else CellState.LOCKED
-                        MarkKind.RESPIRO -> if (mk == key) CellState.RESPIRO else CellState.LOCKED
-                        else -> if (HabitCalculator.isAnchorDay(model, key)) CellState.EMPTY else CellState.LOCKED
-                    }
-                }
-                !HabitCalculator.dailyDueOn(model, key) -> CellState.OFF
-                key in model.log -> CellState.DONE
-                key in model.respiros -> CellState.RESPIRO
-                isCount && (countsForHabit[key] ?: 0) > 0 -> CellState.PARTIAL
-                else -> CellState.EMPTY
-            }
+            val state = cellStateFor(model, habit.cadence, isCount, countsForHabit, key, today)
             CellDay(d, key, state, key == today, countsForHabit[key] ?: 0)
         }
     }
@@ -414,8 +410,8 @@ private fun MaresHabitRow(
             Column(
                 Modifier
                     .weight(1f)
-                    // Long-press the name to remove (the detail sheet arrives next).
-                    .combinedClickableNoRipple(onClick = {}, onLongClick = onRemove),
+                    // Tap the name for the full history; long-press to remove.
+                    .combinedClickableNoRipple(onClick = onOpenDetail, onLongClick = onRemove),
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(

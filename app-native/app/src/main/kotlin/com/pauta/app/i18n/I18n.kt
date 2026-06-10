@@ -212,6 +212,22 @@ object I18n {
         "dias feitos" to "days done",
         "faltam {n} dias para" to "{n} days left until",
         "abrir este mês" to "open this month", // native-only
+
+        // Histórico da maré (HabitDetailSheet, web-identical).
+        "Histórico da maré" to "Tide history",
+        "desde {date} · {n} {unit}" to "since {date} · {n} {unit}",
+        "dia" to "day",
+        "dias" to "days",
+        "maré actual" to "current tide",
+        "respiros" to "breaths",
+        "Total" to "Total",
+        "Actual" to "Current",
+        "Melhor" to "Best",
+        "Respiros" to "Breaths",
+        "→ {name} em {n}d" to "→ {name} in {n}d",
+        "→ {name} em {n} {u}" to "→ {name} in {n} {u}",
+        "Toque num dia para marcar como feito." to "Tap a day to mark it as done.",
+        "Pressão longa num dia falhado para marcar respiro." to "Long press a missed day to mark a breath.",
         "{p}% de constância" to "{p}% consistency", // native-only
         "Sem marés ainda. Toca em + para criar a primeira." to "No tides yet. Tap + to create the first one.", // native-only
         "Nova maré" to "New tide", // native-only
