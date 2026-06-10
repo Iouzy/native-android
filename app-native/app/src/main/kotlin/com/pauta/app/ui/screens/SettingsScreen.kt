@@ -115,7 +115,7 @@ fun SettingsScreen(onClose: () -> Unit) {
             Text(tr("Definições"), color = colors.ink, fontFamily = SerifFamily, fontSize = 26.sp)
         }
 
-        Section(tr("Aspeto"))
+        Section(tr("Aparência"))
         SegmentedRow(
             label = tr("Tema"),
             options = listOf("auto" to tr("Auto"), "light" to tr("Claro"), "dark" to tr("Escuro")),
@@ -151,11 +151,11 @@ fun SettingsScreen(onClose: () -> Unit) {
 
         Section(tr("Acessibilidade"))
         ToggleRow(tr("Alto contraste"), prefs.highContrast) { vm.setHighContrast(it) }
-        ToggleRow(tr("Movimento reduzido"), prefs.reducedMotion) { vm.setReducedMotion(it) }
+        ToggleRow(tr("Reduzir movimento"), prefs.reducedMotion) { vm.setReducedMotion(it) }
 
         Section(tr("Companhia"))
-        ToggleRow(tr("Hápticos"), prefs.haptics) { vm.setHaptics(it) }
-        ToggleRow(tr("Papagaio ajudante (Pip)"), prefs.parrot) { vm.setParrot(it) }
+        ToggleRow(tr("Vibração"), prefs.haptics) { vm.setHaptics(it) }
+        ToggleRow(tr("Papagaio ajudante"), prefs.parrot) { vm.setParrot(it) }
 
         Section(tr("Lembretes"))
         ToggleRow(tr("Lembretes diários"), prefs.remindersEnabled) { enabled ->
@@ -167,9 +167,9 @@ fun SettingsScreen(onClose: () -> Unit) {
             }
         }
         if (prefs.remindersEnabled) {
-            TimeRow(tr("Planeamento"), prefs.plannerTime) { vm.setPlannerTime(it) }
-            TimeRow(tr("Marés"), prefs.habitsTime) { vm.setHabitsTime(it) }
-            TimeRow(tr("Reflexão"), prefs.reflectionTime) { vm.setReflectionTime(it) }
+            TimeRow(tr("Plano do dia"), prefs.plannerTime) { vm.setPlannerTime(it) }
+            TimeRow(tr("Hábitos pendentes"), prefs.habitsTime) { vm.setHabitsTime(it) }
+            TimeRow(tr("Reflexão noturna"), prefs.reflectionTime) { vm.setReflectionTime(it) }
         }
 
         Section(tr("Objetivos"))
@@ -183,10 +183,10 @@ fun SettingsScreen(onClose: () -> Unit) {
         Text("build #${BuildConfig.BUILD_RUN}", color = colors.ink4, fontSize = 13.sp)
         Spacer(Modifier.height(4.dp))
         when {
-            updChecking -> Text(tr("A procurar…"), color = colors.ink3, fontSize = 16.sp, modifier = Modifier.padding(vertical = 10.dp))
-            updAvailable != null -> ActionRow(tr("Instalar atualização")) { vm.installUpdate(context) }
+            updChecking -> Text(tr("A verificar…"), color = colors.ink3, fontSize = 16.sp, modifier = Modifier.padding(vertical = 10.dp))
+            updAvailable != null -> ActionRow(tr("Transferir nova versão")) { vm.installUpdate(context) }
             updChecked -> Text(tr("Está atualizado."), color = colors.ink3, fontSize = 16.sp, modifier = Modifier.padding(vertical = 10.dp))
-            else -> ActionRow(tr("Procurar atualizações")) { vm.checkForUpdate() }
+            else -> ActionRow(tr("Verificar atualizações")) { vm.checkForUpdate() }
         }
 
         Spacer(Modifier.height(48.dp))

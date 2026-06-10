@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -89,11 +88,10 @@ fun PautaScreen() {
         Column(
             Modifier
                 .fillMaxSize()
-                .statusBarsPadding()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 24.dp),
         ) {
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(24.dp))
             Text(tr("Pauta"), color = colors.ink, fontFamily = SerifFamily, fontSize = 30.sp)
             Spacer(Modifier.height(6.dp))
             Text(
@@ -259,14 +257,14 @@ private fun StartDialog(onStart: (String, Int?) -> Unit, onDismiss: () -> Unit) 
         title = { Text(tr("Novo bloco"), color = colors.ink) },
         text = {
             Column {
-                DialogField(title, { title = it }, tr("Em que te vais focar?"))
+                DialogField(title, { title = it }, tr("Em que vais focar?"))
                 Spacer(Modifier.height(8.dp))
                 DialogField(minutes, { minutes = it.filter { c -> c.isDigit() }.take(3) }, tr("alvo em minutos (opcional)"), number = true)
             }
         },
         confirmButton = {
             TextButton(onClick = { if (title.isNotBlank()) onStart(title.trim(), minutes.toIntOrNull()?.takeIf { it > 0 }) }) {
-                Text(tr("Começar"), color = colors.accent)
+                Text(tr("Iniciar agora"), color = colors.accent)
             }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text(tr("Cancelar"), color = colors.ink3) } },
@@ -284,7 +282,7 @@ private fun ConcludeDialog(block: FocusBlockEntity, onConclude: (String, Boolean
         title = { Text(tr("Concluir bloco"), color = colors.ink) },
         text = {
             Column {
-                DialogField(reflection, { reflection = it }, tr("Como correu? (opcional)"))
+                DialogField(reflection, { reflection = it }, tr("O que aconteceu?"))
                 if (block.linkedToId != null) {
                     Spacer(Modifier.height(8.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
