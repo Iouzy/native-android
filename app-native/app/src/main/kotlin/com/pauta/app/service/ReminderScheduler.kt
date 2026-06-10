@@ -31,6 +31,11 @@ object ReminderScheduler {
         REFLECTION(102, "reflectionTime"),
     }
 
+    /** The persisted app language ("pt"/"en") — readable at process start,
+     *  before Room/prefs load, so background components speak the right one. */
+    fun savedLang(context: Context): String =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString("lang", "pt") ?: "pt"
+
     /** Persist the reminder settings (called whenever prefs change). */
     fun save(context: Context, enabled: Boolean, planner: String, habits: String, reflection: String, lang: String) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
@@ -85,11 +90,12 @@ object ReminderScheduler {
     fun ensureChannel(context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val mgr = context.getSystemService(NotificationManager::class.java)
-            if (mgr.getNotificationChannel(CHANNEL) == null) {
-                mgr.createNotificationChannel(
-                    NotificationChannel(CHANNEL, "Lembretes", NotificationManager.IMPORTANCE_HIGH),
-                )
-            }
+            // Re-creating just refreshes the channel's display name, so it
+            // follows the saved language. // PT: recriar só atualiza o nome.
+            val name = if (savedLang(context) == "en") "Reminders" else "Lembretes"
+            mgr.createNotificationChannel(
+                NotificationChannel(CHANNEL, name, NotificationManager.IMPORTANCE_HIGH),
+            )
         }
     }
 
@@ -101,7 +107,7 @@ object ReminderScheduler {
         return when (kind) {
             Kind.PLANNER -> if (en) "Plan your day" to "What matters today?" else "Planeie o seu dia" to "O que importa hoje?"
             Kind.HABITS -> if (en) "Your tides" to "You have tides to complete today." else "As suas marés" to "Tens marés por completar hoje."
-            Kind.REFLECTION -> if (en) "Nightly reflection" to "What was worth it today?" else "Reflexão da noite" to "O que valeu a pena hoje?"
+            Kind.REFLECTION -> if (en) "Nightly reflection" to "What was worth it today?" else "Reflexão da noite" to "O que valeu hoje?"
         }
     }
 }

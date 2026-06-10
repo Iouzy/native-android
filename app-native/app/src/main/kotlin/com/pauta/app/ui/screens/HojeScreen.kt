@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -36,29 +35,34 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.pauta.app.data.entity.IntentionEntity
 import com.pauta.app.domain.CarrySource
+import com.pauta.app.domain.FocusMath
+import com.pauta.app.domain.HabitCalculator
+import com.pauta.app.domain.HabitModel
 import com.pauta.app.domain.HojeLogic
 import com.pauta.app.i18n.I18n
-import com.pauta.app.i18n.Lang
 import com.pauta.app.i18n.tr
 import com.pauta.app.i18n.trf
 import com.pauta.app.ui.clickableNoRipple
 import com.pauta.app.ui.theme.LocalPautaColors
+import com.pauta.app.ui.theme.MonoFamily
 import com.pauta.app.ui.theme.SerifFamily
 import com.pauta.app.ui.viewmodel.AppViewModel
 import java.time.LocalDate
-import java.time.format.DateTimeFormatter
-import java.util.Locale
 
 /**
  * The Hoje (Today) tab — first interactive slice: the date + the question, a day
@@ -75,6 +79,10 @@ fun HojeScreen() {
     val reflection by vm.reflection.collectAsStateWithLifecycle()
     val carry by vm.carry.collectAsStateWithLifecycle()
     val history by vm.history.collectAsStateWithLifecycle()
+    val allSessions by vm.allSessions.collectAsStateWithLifecycle()
+    val habits by vm.habits.collectAsStateWithLifecycle()
+    val habitLogs by vm.habitLogs.collectAsStateWithLifecycle()
+    val habitRespiros by vm.habitRespiros.collectAsStateWithLifecycle()
     var showHistory by remember { mutableStateOf(false) }
 
     // Auto-sort by priority level (1 highest; unset sinks to 4), stable within a
@@ -93,16 +101,19 @@ fun HojeScreen() {
     Column(
         Modifier
             .fillMaxSize()
-            .statusBarsPadding()
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 24.dp),
     ) {
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(24.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
+            // Date line: mono, uppercase, wide tracking — the web header's
+            // `fontSize 10, letterSpacing 0.18em, textTransform uppercase`.
             Text(
-                text = localizedDate().replaceFirstChar { it.uppercase() },
+                text = I18n.fmtDateLong(LocalDate.now()).uppercase(),
                 color = colors.ink3,
-                fontSize = 12.sp,
+                fontFamily = MonoFamily,
+                fontSize = 10.sp,
+                letterSpacing = 1.8.sp, // 0.18em of 10sp
                 modifier = Modifier.weight(1f),
             )
             Text(
@@ -113,20 +124,60 @@ fun HojeScreen() {
             )
         }
         Spacer(Modifier.height(6.dp))
+        // The headline question, with "hoje" in accent italic — the web's
+        // `{tr("O que importa")} <em style={{color: accent}}>{tr("hoje")}</em>?`.
         Text(
-            text = tr("O que importa hoje?"),
+            text = buildAnnotatedString {
+                append(tr("O que importa"))
+                append(" ")
+                withStyle(SpanStyle(color = colors.accent, fontStyle = FontStyle.Italic)) {
+                    append(tr("hoje"))
+                }
+                append("?")
+            },
             color = colors.ink,
             fontFamily = SerifFamily,
-            fontSize = 30.sp,
-            lineHeight = 34.sp,
+            fontSize = 44.sp,
+            lineHeight = 44.sp,
+            letterSpacing = (-0.66).sp, // -0.015em of 44sp
         )
 
-        if (total > 0) {
+        // Day pulse — one quiet mono line tying the three tabs together
+        // (intentions · focus · tides), exactly like the web header. Respiros
+        // stay out of the tide denominator. // PT: pulso do dia.
+        val pulseParts = mutableListOf<String>()
+        if (total > 0) pulseParts += trf("{d}/{t} intenções", "d" to done, "t" to total)
+        val focusMsToday = FocusMath.dailyFocusMs(
+            allSessions.map { FocusMath.FocusSeg(it.startedAt, it.endedAt) },
+            vm.todayKey,
+            System.currentTimeMillis(),
+        )
+        if (focusMsToday > 0) pulseParts += trf("{d} em foco", "d" to FocusMath.fmtDuration(focusMsToday))
+        val logsByHabit = remember(habitLogs) { habitLogs.groupBy { it.habitId }.mapValues { e -> e.value.map { it.dayKey }.toSet() } }
+        val respByHabit = remember(habitRespiros) { habitRespiros.groupBy { it.habitId }.mapValues { e -> e.value.map { it.dayKey }.toSet() } }
+        var tideDone = 0
+        var tideDenom = 0
+        for (h in habits) {
+            val model = HabitModel(
+                id = h.id, createdAt = h.createdAt, cadence = h.cadence, anchor = h.anchor,
+                weekdays = h.weekdays, recurrence = h.recurrence, endsAt = h.endsAt,
+                log = logsByHabit[h.id].orEmpty(), respiros = respByHabit[h.id].orEmpty(),
+            )
+            when (HabitCalculator.dayState(model, vm.todayKey, vm.todayKey)) {
+                HabitCalculator.DayState.DONE -> { tideDone++; tideDenom++ }
+                HabitCalculator.DayState.EMPTY -> tideDenom++
+                else -> {}
+            }
+        }
+        if (tideDenom > 0) pulseParts += trf("{d}/{t} marés", "d" to tideDone, "t" to tideDenom)
+        if (pulseParts.isNotEmpty()) {
             Spacer(Modifier.height(10.dp))
             Text(
-                text = trf("{d}/{t} intenções", "d" to done, "t" to total),
+                text = pulseParts.joinToString("   ·   "),
                 color = colors.ink3,
-                fontSize = 13.sp,
+                fontFamily = MonoFamily,
+                fontSize = 11.sp,
+                letterSpacing = 0.22.sp, // 0.02em of 11sp
             )
         }
 
@@ -217,10 +268,7 @@ private fun CarryBanner(source: CarrySource, onCarry: () -> Unit) {
     }
 }
 
-private fun shortDate(dayKey: String): String {
-    val locale = if (I18n.lang == Lang.EN) Locale.ENGLISH else Locale("pt", "PT")
-    return LocalDate.parse(dayKey).format(DateTimeFormatter.ofPattern("d MMM", locale))
-}
+private fun shortDate(dayKey: String): String = I18n.fmtDateShort(LocalDate.parse(dayKey))
 
 @Composable
 private fun IntentionRow(
@@ -387,7 +435,7 @@ private fun ReflectionField(value: String, accent: Color, onChange: (String) -> 
     TextField(
         value = value,
         onValueChange = onChange,
-        placeholder = { Text(tr("O que valeu a pena hoje?"), color = colors.ink4) },
+        placeholder = { Text(tr("O que valeu hoje?"), color = colors.ink4) },
         modifier = Modifier
             .fillMaxWidth()
             .height(120.dp),
@@ -410,8 +458,3 @@ private fun transparentFieldColors(accent: Color, ink: Color) = TextFieldDefault
     focusedTextColor = ink,
     unfocusedTextColor = ink,
 )
-
-private fun localizedDate(): String {
-    val locale = if (I18n.lang == Lang.EN) Locale.ENGLISH else Locale("pt", "PT")
-    return LocalDate.now().format(DateTimeFormatter.ofPattern("EEEE, d MMM", locale))
-}

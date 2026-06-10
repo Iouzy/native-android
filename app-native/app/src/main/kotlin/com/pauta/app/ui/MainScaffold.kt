@@ -2,32 +2,29 @@ package com.pauta.app.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.runtime.Composable
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.foundation.layout.size
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.pauta.app.ui.screens.SettingsScreen
-import com.pauta.app.ui.viewmodel.AppViewModel
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -40,11 +37,16 @@ import androidx.compose.ui.input.key.type
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.pauta.app.i18n.tr
 import com.pauta.app.ui.screens.HojeScreen
 import com.pauta.app.ui.screens.MaresScreen
 import com.pauta.app.ui.screens.PautaScreen
+import com.pauta.app.ui.screens.SettingsScreen
 import com.pauta.app.ui.theme.LocalPautaColors
+import com.pauta.app.ui.theme.MonoFamily
+import com.pauta.app.ui.viewmodel.AppViewModel
 import kotlinx.coroutines.launch
 
 /** The three tabs, in order. Their labels are the Portuguese source strings
@@ -56,11 +58,13 @@ enum class Tab(val ptLabel: String) {
 }
 
 /**
- * The app shell: a full-bleed pager over the three tabs with a bottom tab bar.
- * Swipe moves between tabs; tapping a tab animates to it; and a hardware
- * keyboard's 1 / 2 / 3 jump straight to Hoje / Pauta / Marés — matching the web
- * app's shortcuts. // PT: casca da app — pager com swipe entre as três tabs,
- * barra inferior, e atalhos físicos 1/2/3 como na web.
+ * The app shell, mirroring the web layout: a status row with the settings gear
+ * at the right, a full-bleed pager over the three tabs, and the bottom tab bar
+ * (icon + uppercase mono label). Swipe moves between tabs; tapping a tab
+ * animates to it; and a hardware keyboard's 1 / 2 / 3 jump straight to Hoje /
+ * Pauta / Marés — matching the web app's shortcuts. // PT: casca da app como na
+ * web — barra de estado com engrenagem, pager com swipe, barra de tabs com
+ * ícone + etiqueta, e atalhos físicos 1/2/3.
  *
  * @param initialTab which tab to open on (a focus shortcut/QS tile opens PAUTA).
  */
@@ -78,44 +82,43 @@ fun MainScaffold(initialTab: Tab = Tab.HOJE) {
     var showSettings by remember { mutableStateOf(false) }
 
     Box(Modifier.fillMaxSize()) {
-    Column(
-        Modifier
-            .fillMaxSize()
-            .background(colors.paper)
-            .focusRequester(focusRequester)
-            .focusable()
-            .onPreviewKeyEvent { ev ->
-                if (ev.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
-                val target = when (ev.key) {
-                    Key.One, Key.NumPad1 -> Tab.HOJE
-                    Key.Two, Key.NumPad2 -> Tab.PAUTA
-                    Key.Three, Key.NumPad3 -> Tab.MARES
-                    else -> null
+        Column(
+            Modifier
+                .fillMaxSize()
+                .background(colors.paper)
+                .focusRequester(focusRequester)
+                .focusable()
+                .onPreviewKeyEvent { ev ->
+                    if (ev.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                    val target = when (ev.key) {
+                        Key.One, Key.NumPad1 -> Tab.HOJE
+                        Key.Two, Key.NumPad2 -> Tab.PAUTA
+                        Key.Three, Key.NumPad3 -> Tab.MARES
+                        else -> null
+                    }
+                    if (target != null) {
+                        scope.launch { pager.animateScrollToPage(target.ordinal) }
+                        true
+                    } else false
+                },
+        ) {
+            StatusRow(onMenu = { showSettings = true })
+            HorizontalPager(
+                state = pager,
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+            ) { page ->
+                when (Tab.entries[page]) {
+                    Tab.HOJE -> HojeScreen()
+                    Tab.PAUTA -> PautaScreen()
+                    Tab.MARES -> MaresScreen()
                 }
-                if (target != null) {
-                    scope.launch { pager.animateScrollToPage(target.ordinal) }
-                    true
-                } else false
             }
-    ) {
-        HorizontalPager(
-            state = pager,
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth(),
-        ) { page ->
-            // Real screens replace the placeholders tab by tab (Hoje → Phase 2,
-            // Pauta → 3, Marés → 4). // PT: ecrãs reais entram tab a tab.
-            when (Tab.entries[page]) {
-                Tab.HOJE -> HojeScreen()
-                Tab.PAUTA -> PautaScreen()
-                Tab.MARES -> MaresScreen()
-            }
-        }
-        TabBar(
-            current = Tab.entries[pager.currentPage],
-            onSelect = { tab -> scope.launch { pager.animateScrollToPage(tab.ordinal) } },
-        )
+            TabBar(
+                current = Tab.entries[pager.currentPage],
+                onSelect = { tab -> scope.launch { pager.animateScrollToPage(tab.ordinal) } },
+            )
         }
 
         // Pip lives just above the tab bar in the bottom-right corner.
@@ -125,22 +128,9 @@ fun MainScaffold(initialTab: Tab = Tab.HOJE) {
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
                     .navigationBarsPadding()
-                    .padding(end = 10.dp, bottom = 64.dp),
+                    .padding(end = 10.dp, bottom = 80.dp),
             )
         }
-
-        // A quiet settings gear in the opposite (bottom-left) corner.
-        Icon(
-            imageVector = Icons.Filled.Settings,
-            contentDescription = tr("Definições"),
-            tint = colors.ink4,
-            modifier = Modifier
-                .align(Alignment.BottomStart)
-                .navigationBarsPadding()
-                .padding(start = 18.dp, bottom = 70.dp)
-                .size(22.dp)
-                .clickableNoRipple { showSettings = true },
-        )
 
         if (showSettings) {
             SettingsScreen(onClose = { showSettings = false })
@@ -148,19 +138,26 @@ fun MainScaffold(initialTab: Tab = Tab.HOJE) {
     }
 }
 
+/** The web's `.statusbar` row: just the quiet settings affordance, pushed to
+ *  the right, under the (transparent) system status bar. */
 @Composable
-private fun TabPlaceholder(tab: Tab) {
+private fun StatusRow(onMenu: () -> Unit) {
     val colors = LocalPautaColors.current
-    Box(
+    Row(
         Modifier
-            .fillMaxSize()
+            .fillMaxWidth()
             .statusBarsPadding()
-            .padding(24.dp),
-        contentAlignment = Alignment.Center,
+            .padding(start = 24.dp, end = 24.dp, top = 14.dp),
+        horizontalArrangement = Arrangement.End,
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        androidx.compose.material3.Text(
-            text = "${tr(tab.ptLabel)} · ${tr("Em construção")}",
-            color = colors.ink3,
+        Icon(
+            imageVector = PautaIcons.Gear,
+            contentDescription = tr("Definições"),
+            tint = colors.ink2,
+            modifier = Modifier
+                .size(16.dp)
+                .clickableNoRipple(onMenu),
         )
     }
 }
@@ -168,32 +165,54 @@ private fun TabPlaceholder(tab: Tab) {
 @Composable
 private fun TabBar(current: Tab, onSelect: (Tab) -> Unit) {
     val colors = LocalPautaColors.current
-    Box(
+    Column(
         Modifier
             .fillMaxWidth()
             .background(colors.tabbarBg),
     ) {
+        // border-top: 1px solid var(--rule)
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .height(1.dp)
+                .background(colors.rule),
+        )
         Row(
             Modifier
                 .fillMaxWidth()
+                .padding(start = 16.dp, end = 16.dp, top = 8.dp)
                 .navigationBarsPadding()
-                .height(56.dp),
+                .padding(bottom = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Tab.entries.forEach { tab ->
                 val selected = tab == current
-                Box(
+                val tint = if (selected) colors.accent else colors.ink3
+                Column(
                     Modifier
                         .weight(1f)
-                        .fillMaxSize()
-                        .clickableNoRipple { onSelect(tab) },
-                    contentAlignment = Alignment.Center,
+                        .clickableNoRipple { onSelect(tab) }
+                        .padding(vertical = 6.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    androidx.compose.material3.Text(
-                        text = tr(tab.ptLabel),
-                        color = if (selected) colors.accent else colors.ink3,
+                    Icon(
+                        imageVector = when (tab) {
+                            Tab.HOJE -> PautaIcons.Hoje
+                            Tab.PAUTA -> PautaIcons.Pauta
+                            Tab.MARES -> PautaIcons.Mares
+                        },
+                        contentDescription = null,
+                        tint = tint,
+                        modifier = Modifier.size(22.dp),
+                    )
+                    Spacer(Modifier.height(3.dp))
+                    Text(
+                        text = tr(tab.ptLabel).uppercase(),
+                        color = tint,
+                        fontFamily = MonoFamily,
+                        fontSize = 10.sp,
+                        letterSpacing = 0.8.sp, // 0.08em of 10sp
                         fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-                        fontSize = 15.sp,
                     )
                 }
             }

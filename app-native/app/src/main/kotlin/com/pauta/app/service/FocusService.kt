@@ -13,6 +13,7 @@ import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import com.pauta.app.MainActivity
 import com.pauta.app.R
+import com.pauta.app.i18n.tr
 
 /**
  * Foreground service that owns the ongoing focus-timer notification — a live
@@ -56,8 +57,8 @@ class FocusService : Service() {
             // earlier sessions of this block.
             .setWhen(System.currentTimeMillis() - elapsedMs)
             .setContentIntent(open)
-            .addAction(0, "Pausar", broadcast(FocusActionReceiver.ACTION_PAUSE))
-            .addAction(0, "Concluir", broadcast(FocusActionReceiver.ACTION_CONCLUDE))
+            .addAction(0, tr("Pausar"), broadcast(FocusActionReceiver.ACTION_PAUSE))
+            .addAction(0, tr("Concluir"), broadcast(FocusActionReceiver.ACTION_CONCLUDE))
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
             .build()
     }
@@ -76,13 +77,14 @@ class FocusService : Service() {
     private fun ensureChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val mgr = getSystemService(NotificationManager::class.java)
-            if (mgr.getNotificationChannel(CHANNEL_ID) == null) {
-                mgr.createNotificationChannel(
-                    NotificationChannel(CHANNEL_ID, "Foco", NotificationManager.IMPORTANCE_LOW).apply {
-                        setShowBadge(false)
-                    },
-                )
-            }
+            // Re-creating an existing channel just updates its name, so the
+            // channel label follows the app language. // PT: recriar o canal só
+            // atualiza o nome — acompanha a língua da app.
+            mgr.createNotificationChannel(
+                NotificationChannel(CHANNEL_ID, tr("Foco"), NotificationManager.IMPORTANCE_LOW).apply {
+                    setShowBadge(false)
+                },
+            )
         }
     }
 
