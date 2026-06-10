@@ -66,6 +66,7 @@ fun PautaScreen() {
     val blocks by vm.blocks.collectAsStateWithLifecycle()
     val active by vm.activeBlock.collectAsStateWithLifecycle()
     val allSessions by vm.allSessions.collectAsStateWithLifecycle()
+    val today by vm.todayKey.collectAsStateWithLifecycle()
 
     // 1s clock tick driving the live timer; restarts when the active block changes.
     var now by remember { mutableStateOf(System.currentTimeMillis()) }
@@ -75,8 +76,8 @@ fun PautaScreen() {
     fun blockMs(id: String): Long =
         FocusMath.blockElapsedMs(segsByBlock[id].orEmpty().map { FocusMath.FocusSeg(it.startedAt, it.endedAt) }, now)
 
-    val dailyMs = remember(allSessions, now) {
-        FocusMath.dailyFocusMs(allSessions.map { FocusMath.FocusSeg(it.startedAt, it.endedAt) }, vm.todayKey, now)
+    val dailyMs = remember(allSessions, now, today) {
+        FocusMath.dailyFocusMs(allSessions.map { FocusMath.FocusSeg(it.startedAt, it.endedAt) }, today, now)
     }
     val paused = blocks.filter { it.status == "paused" }
     val done = blocks.filter { it.status == "done" }

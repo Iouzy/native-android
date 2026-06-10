@@ -53,24 +53,46 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         repo.prefs.stateIn(viewModelScope, SharingStarted.Eagerly, PrefsEntity())
 
     // ── Hoje ──────────────────────────────────────────────────
-    // Today's key, computed once on creation. (Live midnight rollover lands with
-    // the week planner in a later increment.) // PT: chave de hoje.
-    val todayKey: String = DateUtils.todayKey()
+    // Today's key as LIVE state: re-checked by a half-minute ticker and on every
+    // resume, so crossing midnight (or a timezone/clock change) rolls the whole
+    // app into the new day without a restart — every day-keyed flow below
+    // switches with it, like the web app re-rendering off dayKeyOf(now).
+    // // PT: chave de hoje como estado vivo — a app vira o dia sem reiniciar.
+    private val _todayKey = MutableStateFlow(DateUtils.todayKey())
+    val todayKey: StateFlow<String> = _todayKey
 
+    /** Re-evaluate the current day; on a flip, move the key and run the daily
+     *  rollover (promote the week plan, clear stale plans). Cheap to call often. */
+    fun maybeRollover() {
+        val now = DateUtils.todayKey()
+        if (now != _todayKey.value) {
+            _todayKey.value = now
+            viewModelScope.launch { repo.runRollover(now) }
+        }
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
     val intentions: StateFlow<List<IntentionEntity>> =
-        repo.intentions(todayKey).stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+        todayKey.flatMapLatest { repo.intentions(it) }
+            .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     val reflection: StateFlow<String> =
-        repo.dayReflection(todayKey).stateIn(viewModelScope, SharingStarted.Eagerly, "")
+        todayKey.flatMapLatest { repo.dayReflection(it) }
+            .stateIn(viewModelScope, SharingStarted.Eagerly, "")
 
     /** Unfinished intentions from the most recent past day, offered as a one-tap
      *  carry-over (null = nothing to bring forward). */
+    @OptIn(ExperimentalCoroutinesApi::class)
     val carry: StateFlow<CarrySource?> =
-        repo.carrySource(todayKey).stateIn(viewModelScope, SharingStarted.Eagerly, null)
+        todayKey.flatMapLatest { repo.carrySource(it) }
+            .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     /** Read-only history of past days with content, newest first. */
+    @OptIn(ExperimentalCoroutinesApi::class)
     val history: StateFlow<List<HistoryDay>> =
-        repo.history(todayKey).stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+        todayKey.flatMapLatest { repo.history(it) }
+            .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     // ── Pauta ─────────────────────────────────────────────────
     val blocks: StateFlow<List<FocusBlockEntity>> =
@@ -124,13 +146,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun updateHabit(habit: HabitEntity) = viewModelScope.launch { repo.updateHabit(habit) }
     fun removeHabit(id: String) = viewModelScope.launch { repo.removeHabit(id) }
     fun reorderHabits(orderedIds: List<String>) = viewModelScope.launch { repo.reorderHabits(orderedIds) }
-    fun toggleHabitDay(id: String, dayKey: String) = viewModelScope.launch { repo.toggleHabitDay(id, dayKey, todayKey) }
-    fun toggleHabitToday(id: String) = viewModelScope.launch { repo.toggleHabitDay(id, todayKey, todayKey) }
+    fun toggleHabitDay(id: String, dayKey: String) = viewModelScope.launch { repo.toggleHabitDay(id, dayKey, todayKey.value) }
+    fun toggleHabitToday(id: String) = viewModelScope.launch { repo.toggleHabitDay(id, todayKey.value, todayKey.value) }
     fun markRespiro(id: String, dayKey: String, reason: String = "") =
-        viewModelScope.launch { repo.markRespiro(id, dayKey, reason, todayKey) }
+        viewModelScope.launch { repo.markRespiro(id, dayKey, reason, todayKey.value) }
     fun unmarkRespiro(id: String, dayKey: String) = viewModelScope.launch { repo.unmarkRespiro(id, dayKey) }
     fun setHabitCount(id: String, dayKey: String, n: Int) =
-        viewModelScope.launch { repo.setHabitCount(id, dayKey, n, todayKey) }
+        viewModelScope.launch { repo.setHabitCount(id, dayKey, n, todayKey.value) }
 
     // ── Objetivos ─────────────────────────────────────────────
     val goals: StateFlow<List<GoalEntity>> =
@@ -166,7 +188,16 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     init {
         viewModelScope.launch { repo.ensurePrefs() }
         // Promote any week-ahead plan for today and clear stale plans on launch.
-        viewModelScope.launch { repo.runRollover(todayKey) }
+        viewModelScope.launch { repo.runRollover(todayKey.value) }
+        // The midnight ticker: while the process lives, re-check the day every
+        // half-minute (resume gives an immediate check via maybeRollover()).
+        // // PT: relógio da meia-noite — vira o dia com a app aberta.
+        viewModelScope.launch {
+            while (true) {
+                kotlinx.coroutines.delay(30_000)
+                maybeRollover()
+            }
+        }
         // Keep the foreground focus-timer notification in sync with the running
         // block: start it (with the block's accumulated elapsed) when one is
         // active, tear it down when none is. Emits only on block lifecycle changes
@@ -186,22 +217,24 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                     }
                 }
         }
-        // Keep the home-screen widget's three stat lines fresh as data changes.
-        // // PT: mantém as três linhas do widget atualizadas.
+        // Keep the home-screen widget's three stat lines fresh as data changes —
+        // and as the day itself changes (todayKey is one of the inputs).
+        // // PT: mantém as três linhas do widget atualizadas, mesmo ao virar o dia.
         viewModelScope.launch {
+            val habitMarks = combine(repo.habitLogs(), repo.habitRespiros()) { logs, resps -> logs to resps }
             combine(
-                repo.intentions(todayKey), repo.allSessions(), repo.habits(), repo.habitLogs(), repo.habitRespiros(),
-            ) { ints, sess, habs, logs, resps ->
+                todayKey, intentions, repo.allSessions(), repo.habits(), habitMarks,
+            ) { today, ints, sess, habs, (logs, resps) ->
                 val now = System.currentTimeMillis()
                 val intDone = ints.count { it.done }
-                val focusMin = FocusMath.dailyFocusMs(sess.map { FocusMath.FocusSeg(it.startedAt, it.endedAt) }, todayKey, now) / 60_000L
+                val focusMin = FocusMath.dailyFocusMs(sess.map { FocusMath.FocusSeg(it.startedAt, it.endedAt) }, today, now) / 60_000L
                 val logSet = logs.groupBy { it.habitId }.mapValues { e -> e.value.map { it.dayKey }.toSet() }
                 val respSet = resps.groupBy { it.habitId }.mapValues { e -> e.value.map { it.dayKey }.toSet() }
                 var mDone = 0
                 var mTotal = 0
                 for (h in habs) {
                     val m = HabitModel(h.id, h.createdAt, h.cadence, h.anchor, h.weekdays, h.recurrence, h.endsAt, logSet[h.id].orEmpty(), respSet[h.id].orEmpty())
-                    when (HabitCalculator.dayState(m, todayKey, todayKey)) {
+                    when (HabitCalculator.dayState(m, today, today)) {
                         HabitCalculator.DayState.DONE, HabitCalculator.DayState.RESPIRO -> { mDone++; mTotal++ }
                         HabitCalculator.DayState.EMPTY -> mTotal++
                         else -> {}
@@ -218,11 +251,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Bring the offered carry-over items into today. */
     fun carryOver() = viewModelScope.launch {
-        carry.value?.let { repo.carryOver(todayKey, it.items) }
+        carry.value?.let { repo.carryOver(todayKey.value, it.items) }
     }
 
     fun addIntention(text: String, priority: Int? = null, targetMin: Int? = null, timeOfDay: String? = null) =
-        viewModelScope.launch { repo.addIntention(todayKey, text, priority, targetMin, timeOfDay) }
+        viewModelScope.launch { repo.addIntention(todayKey.value, text, priority, targetMin, timeOfDay) }
 
     fun toggleIntention(id: String) = viewModelScope.launch { repo.toggleIntention(id) }
     fun removeIntention(id: String) = viewModelScope.launch { repo.removeIntention(id) }
@@ -230,11 +263,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch { repo.setIntentionPriority(id, priority) }
     fun setIntentionText(id: String, text: String) =
         viewModelScope.launch { repo.setIntentionText(id, text) }
-    fun setReflection(text: String) = viewModelScope.launch { repo.setReflection(todayKey, text) }
+    fun setReflection(text: String) = viewModelScope.launch { repo.setReflection(todayKey.value, text) }
 
     /** Produce the pauta.v4 backup JSON, then hand it to [onReady] (for sharing). */
     fun exportBackup(onReady: (String) -> Unit) =
-        viewModelScope.launch { onReady(repo.exportJson(todayKey)) }
+        viewModelScope.launch { onReady(repo.exportJson(todayKey.value)) }
 
     /** Replace all data from a pauta.v4 backup; reports success to [onDone]. */
     fun importBackup(text: String, onDone: (Boolean) -> Unit) = viewModelScope.launch {

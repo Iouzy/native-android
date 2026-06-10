@@ -83,6 +83,7 @@ fun HojeScreen() {
     val habits by vm.habits.collectAsStateWithLifecycle()
     val habitLogs by vm.habitLogs.collectAsStateWithLifecycle()
     val habitRespiros by vm.habitRespiros.collectAsStateWithLifecycle()
+    val today by vm.todayKey.collectAsStateWithLifecycle()
     var showHistory by remember { mutableStateOf(false) }
 
     // Auto-sort by priority level (1 highest; unset sinks to 4), stable within a
@@ -109,7 +110,7 @@ fun HojeScreen() {
             // Date line: mono, uppercase, wide tracking — the web header's
             // `fontSize 10, letterSpacing 0.18em, textTransform uppercase`.
             Text(
-                text = I18n.fmtDateLong(LocalDate.now()).uppercase(),
+                text = I18n.fmtDateLong(LocalDate.parse(today)).uppercase(),
                 color = colors.ink3,
                 fontFamily = MonoFamily,
                 fontSize = 10.sp,
@@ -149,7 +150,7 @@ fun HojeScreen() {
         if (total > 0) pulseParts += trf("{d}/{t} intenções", "d" to done, "t" to total)
         val focusMsToday = FocusMath.dailyFocusMs(
             allSessions.map { FocusMath.FocusSeg(it.startedAt, it.endedAt) },
-            vm.todayKey,
+            today,
             System.currentTimeMillis(),
         )
         if (focusMsToday > 0) pulseParts += trf("{d} em foco", "d" to FocusMath.fmtDuration(focusMsToday))
@@ -163,7 +164,7 @@ fun HojeScreen() {
                 weekdays = h.weekdays, recurrence = h.recurrence, endsAt = h.endsAt,
                 log = logsByHabit[h.id].orEmpty(), respiros = respByHabit[h.id].orEmpty(),
             )
-            when (HabitCalculator.dayState(model, vm.todayKey, vm.todayKey)) {
+            when (HabitCalculator.dayState(model, today, today)) {
                 HabitCalculator.DayState.DONE -> { tideDone++; tideDenom++ }
                 HabitCalculator.DayState.EMPTY -> tideDenom++
                 else -> {}
