@@ -15,15 +15,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TextField
-import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -34,18 +28,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.pauta.app.data.entity.FocusBlockEntity
 import com.pauta.app.domain.FocusMath
+import com.pauta.app.domain.HabitCalculator.DayState
 import com.pauta.app.i18n.tr
 import com.pauta.app.i18n.trf
 import com.pauta.app.ui.clickableNoRipple
+import com.pauta.app.ui.computeTodayTides
 import com.pauta.app.ui.theme.LocalPautaColors
 import com.pauta.app.ui.theme.SerifFamily
 import com.pauta.app.ui.viewmodel.AppViewModel
@@ -67,6 +60,11 @@ fun PautaScreen() {
     val active by vm.activeBlock.collectAsStateWithLifecycle()
     val allSessions by vm.allSessions.collectAsStateWithLifecycle()
     val today by vm.todayKey.collectAsStateWithLifecycle()
+    val intentions by vm.intentions.collectAsStateWithLifecycle()
+    val habits by vm.habits.collectAsStateWithLifecycle()
+    val habitLogs by vm.habitLogs.collectAsStateWithLifecycle()
+    val habitRespiros by vm.habitRespiros.collectAsStateWithLifecycle()
+    val habitCounts by vm.habitCounts.collectAsStateWithLifecycle()
 
     // 1s clock tick driving the live timer; restarts when the active block changes.
     var now by remember { mutableStateOf(System.currentTimeMillis()) }
@@ -82,8 +80,26 @@ fun PautaScreen() {
     val paused = blocks.filter { it.status == "paused" }
     val done = blocks.filter { it.status == "done" }
 
+    // Sheet feeds, mirroring tab-pauta.jsx: distinct projects, the 5 most
+    // recent distinct titles as templates, and the still-pending tides.
+    val projects = remember(blocks) { blocks.mapNotNull { it.project }.distinct() }
+    val recentBlocks = remember(blocks) {
+        val seen = mutableSetOf<String>()
+        blocks.filter { it.status == "done" || it.status == "paused" }
+            .sortedByDescending { it.createdAt }
+            .filter { seen.add(it.title) }
+            .take(5)
+    }
+    val pendingTides = remember(habits, habitLogs, habitRespiros, habitCounts, today) {
+        computeTodayTides(habits, habitLogs, habitRespiros, habitCounts, today)
+            .filter { it.state == DayState.EMPTY }
+    }
+
     var showStart by remember { mutableStateOf(false) }
-    var concludeTarget by remember { mutableStateOf<FocusBlockEntity?>(null) }
+    // The pause sheet opens AFTER the optimistic pause (timer already stopped).
+    var pauseNoteFor by remember { mutableStateOf<FocusBlockEntity?>(null) }
+    // (block, wasActive): active blocks are optimistically concluded; cancel resumes.
+    var concludeFor by remember { mutableStateOf<Pair<FocusBlockEntity, Boolean>?>(null) }
 
     Box(Modifier.fillMaxSize()) {
         Column(
@@ -106,8 +122,10 @@ fun PautaScreen() {
                 ActiveCard(
                     block = a,
                     elapsedMs = blockMs(a.id),
-                    onPause = { vm.pauseActive() },
-                    onConclude = { concludeTarget = a },
+                    // Optimistic pause/conclude: stop the timer first, collect
+                    // the note/reflection after — no seconds lost while typing.
+                    onPause = { vm.pauseActive(""); pauseNoteFor = a },
+                    onConclude = { vm.concludeActive("", false); concludeFor = a to true },
                 )
             }
 
@@ -120,7 +138,7 @@ fun PautaScreen() {
                         trailing = {
                             ActionText(tr("Retomar")) { vm.resumeBlock(b.id) }
                             Spacer(Modifier.width(14.dp))
-                            ActionText(tr("Concluir")) { concludeTarget = b }
+                            ActionText(tr("Concluir")) { concludeFor = b to false }
                         },
                     )
                 }
@@ -151,20 +169,47 @@ fun PautaScreen() {
     }
 
     if (showStart) {
-        StartDialog(
-            onStart = { title, targetMin -> vm.startBlock(title, targetMin = targetMin); showStart = false },
-            onDismiss = { showStart = false },
+        StartSheet(
+            intentions = intentions,
+            projects = projects,
+            recentBlocks = recentBlocks,
+            hasActive = active != null,
+            activeTitle = active?.title.orEmpty(),
+            onStart = { title, linkedToId, project, targetMin ->
+                vm.startBlock(title, linkedToId, project, targetMin)
+                showStart = false
+            },
+            onClose = { showStart = false },
         )
     }
-    concludeTarget?.let { target ->
-        ConcludeDialog(
-            block = target,
-            onConclude = { reflection, markDone ->
-                if (active?.id == target.id) vm.concludeActive(reflection, markDone)
-                else vm.concludeBlock(target.id, reflection, markDone)
-                concludeTarget = null
+    pauseNoteFor?.let { block ->
+        PauseSheet(
+            block = block,
+            onResume = { vm.resumeBlock(block.id); pauseNoteFor = null },
+            onConfirm = { note ->
+                if (note.isNotBlank()) vm.setLastSessionNote(block.id, note)
+                pauseNoteFor = null
             },
-            onDismiss = { concludeTarget = null },
+        )
+    }
+    concludeFor?.let { (block, wasActive) ->
+        ConcludeSheet(
+            block = block,
+            totalMs = blockMs(block.id),
+            intention = block.linkedToId?.let { id -> intentions.firstOrNull { it.id == id } },
+            todayTides = pendingTides,
+            wasActive = wasActive,
+            onConfirm = { reflection, markDone, tideIds ->
+                vm.concludeBlock(block.id, reflection, markDone)
+                // Drawn from the pending set, so toggling marks done — never
+                // un-does an already-done tide.
+                tideIds.forEach { vm.toggleHabitToday(it) }
+                concludeFor = null
+            },
+            onCancel = {
+                if (wasActive) vm.resumeBlock(block.id)
+                concludeFor = null
+            },
         )
     }
 }
@@ -244,84 +289,5 @@ private fun ActionText(label: String, color: Color = LocalPautaColors.current.ac
         fontWeight = FontWeight.SemiBold,
         fontSize = 14.sp,
         modifier = Modifier.clickableNoRipple(onClick),
-    )
-}
-
-@Composable
-private fun StartDialog(onStart: (String, Int?) -> Unit, onDismiss: () -> Unit) {
-    val colors = LocalPautaColors.current
-    var title by remember { mutableStateOf("") }
-    var minutes by remember { mutableStateOf("") }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        containerColor = colors.paper,
-        title = { Text(tr("Novo bloco"), color = colors.ink) },
-        text = {
-            Column {
-                DialogField(title, { title = it }, tr("Em que vais focar?"))
-                Spacer(Modifier.height(8.dp))
-                DialogField(minutes, { minutes = it.filter { c -> c.isDigit() }.take(3) }, tr("alvo em minutos (opcional)"), number = true)
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = { if (title.isNotBlank()) onStart(title.trim(), minutes.toIntOrNull()?.takeIf { it > 0 }) }) {
-                Text(tr("Iniciar agora"), color = colors.accent)
-            }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(tr("Cancelar"), color = colors.ink3) } },
-    )
-}
-
-@Composable
-private fun ConcludeDialog(block: FocusBlockEntity, onConclude: (String, Boolean) -> Unit, onDismiss: () -> Unit) {
-    val colors = LocalPautaColors.current
-    var reflection by remember { mutableStateOf("") }
-    var markDone by remember { mutableStateOf(false) }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        containerColor = colors.paper,
-        title = { Text(tr("Concluir bloco"), color = colors.ink) },
-        text = {
-            Column {
-                DialogField(reflection, { reflection = it }, tr("O que aconteceu?"))
-                if (block.linkedToId != null) {
-                    Spacer(Modifier.height(8.dp))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Checkbox(checked = markDone, onCheckedChange = { markDone = it })
-                        Text(tr("Marcar a intenção como feita"), color = colors.ink2, fontSize = 14.sp)
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = { onConclude(reflection.trim(), markDone) }) {
-                Text(tr("Concluir"), color = colors.accent)
-            }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(tr("Cancelar"), color = colors.ink3) } },
-    )
-}
-
-@Composable
-private fun DialogField(value: String, onChange: (String) -> Unit, placeholder: String, number: Boolean = false) {
-    val colors = LocalPautaColors.current
-    TextField(
-        value = value,
-        onValueChange = onChange,
-        placeholder = { Text(placeholder, color = colors.ink4) },
-        singleLine = true,
-        modifier = Modifier.fillMaxWidth(),
-        textStyle = LocalTextStyle.current.copy(color = colors.ink, fontSize = 16.sp),
-        keyboardOptions = if (number) KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done)
-        else KeyboardOptions(imeAction = ImeAction.Done),
-        colors = TextFieldDefaults.colors(
-            focusedContainerColor = Color.Transparent,
-            unfocusedContainerColor = Color.Transparent,
-            cursorColor = colors.accent,
-            focusedIndicatorColor = colors.accent,
-            unfocusedIndicatorColor = colors.rule,
-            focusedTextColor = colors.ink,
-            unfocusedTextColor = colors.ink,
-        ),
     )
 }

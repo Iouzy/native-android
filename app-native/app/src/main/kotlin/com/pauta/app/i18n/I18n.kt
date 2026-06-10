@@ -132,15 +132,34 @@ object I18n {
         "Começar bloco" to "Start a block", // native-only
         "Novo bloco" to "New block",
         "Em que vais focar?" to "What will you focus on?",
-        "alvo em minutos (opcional)" to "target in minutes (optional)", // native-only
         "Iniciar agora" to "Start now",
         "Cancelar" to "Cancel",
         "Concluir bloco" to "Finish block",
         "O que aconteceu?" to "What happened?",
-        "Marcar a intenção como feita" to "Mark the intention as done", // native-only
         "alvo {t}" to "target {t}", // native-only
         "Pausar" to "Pause",
         "Foco" to "Focus",
+
+        // Pauta sheets (sheets.jsx, web-identical).
+        "\"{t}\" será automaticamente pausado." to "\"{t}\" will be automatically paused.",
+        "ex.: escrever capítulo 3" to "e.g.: write chapter 3",
+        "ou continue com…" to "or continue with…",
+        "retomar de antes" to "resume from before",
+        "projecto (opcional)" to "project (optional)",
+        "ex.: Livro, Cliente X, Casa" to "e.g.: Book, Client X, House",
+        "duração (opcional)" to "duration (optional)",
+        "Sem limite" to "No limit",
+        "Pausar bloco" to "Pause block",
+        "pausado" to "paused",
+        "O que ficou em mente? (opcional)" to "What's on your mind? (optional)",
+        "ex.: travei no segundo parágrafo" to "e.g.: got stuck on the second paragraph",
+        "Confirmar" to "Confirm",
+        "✓ {d} em foco" to "✓ {d} in focus",
+        "Planeado {p} · real {a}" to "Planned {p} · actual {a}",
+        "ex.: terminei o esqueleto. ficou faltando a conclusão." to "e.g.: finished the outline. still missing the conclusion.",
+        "marcar" to "mark",
+        "como concluído no Hoje" to "as finished in Today",
+        "fechar" to "close",
 
         // ── Marés ──
         "mês anterior" to "previous month", // native-only

@@ -116,6 +116,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch { repo.startBlock(title, linkedToId, project, targetMin) }
 
     fun pauseActive(note: String = "") = viewModelScope.launch { repo.pauseActive(note) }
+    fun setLastSessionNote(blockId: String, note: String) =
+        viewModelScope.launch { repo.setLastSessionNote(blockId, note) }
     fun resumeBlock(id: String) = viewModelScope.launch { repo.resumeBlock(id) }
     fun concludeActive(reflection: String, markIntentionDone: Boolean = false) =
         viewModelScope.launch { repo.concludeActive(reflection, markIntentionDone) }
