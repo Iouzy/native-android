@@ -87,6 +87,10 @@ object I18n {
     fun fmtMonthLong(month: Int): String =
         (if (lang == Lang.EN) MONTHS_LONG_EN else MONTHS_LONG_PT)[month - 1]
 
+    /** "jun" / "Jun" — web fmtMonthShort (chart ticks). */
+    fun fmtMonthShort(month: Int): String =
+        (if (lang == Lang.EN) MONTHS_SHORT_EN else MONTHS_SHORT_PT)[month - 1]
+
     /**
      * English dictionary. Wherever the same Portuguese key exists in the web
      * app's I18N_EN (src/i18n.jsx), the value here is copied verbatim so both
@@ -197,6 +201,17 @@ object I18n {
         "quinta" to "thursday",
         "sexta" to "friday",
         "sábado" to "saturday",
+
+        // Marés Passadas (TrendSheet, web-identical).
+        "Marés Passadas" to "Past Tides",
+        "As suas marés ao longo do ano." to "Your tides through the year.",
+        "Sobem e descem. Cada onda é um mês. Toque para ver as marés desse mês." to "They rise and fall. Each wave is a month. Tap to see that month's tides.",
+        "Ainda não há marés suficientes para mostrar uma onda." to "Not enough tides yet to show a wave.",
+        "Volte aqui dentro de alguns meses." to "Come back in a few months.",
+        "o seu posto" to "your rank",
+        "dias feitos" to "days done",
+        "faltam {n} dias para" to "{n} days left until",
+        "abrir este mês" to "open this month", // native-only
         "{p}% de constância" to "{p}% consistency", // native-only
         "Sem marés ainda. Toca em + para criar a primeira." to "No tides yet. Tap + to create the first one.", // native-only
         "Nova maré" to "New tide", // native-only

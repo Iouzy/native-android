@@ -108,6 +108,7 @@ fun MaresScreen() {
     var year by remember { mutableIntStateOf(nowYm.year) }
     var month by remember { mutableIntStateOf(nowYm.monthValue) }
     var showAdd by remember { mutableStateOf(false) }
+    var showTrend by remember { mutableStateOf(false) }
     var removeTarget by remember { mutableStateOf<HabitEntity?>(null) }
 
     val logsByHabit = remember(logs) { logs.groupBy { it.habitId }.mapValues { e -> e.value.map { it.dayKey }.toSet() } }
@@ -190,7 +191,10 @@ fun MaresScreen() {
                             letterSpacing = (-0.57).sp, // -0.015em of 38sp
                         )
                     }
-                    Column(horizontalAlignment = Alignment.End) {
+                    Column(
+                        horizontalAlignment = Alignment.End,
+                        modifier = Modifier.clickableNoRipple { showTrend = true },
+                    ) {
                         Text(
                             text = buildAnnotatedString {
                                 if (overall == null) append("—") else {
@@ -302,6 +306,14 @@ fun MaresScreen() {
         ) { Icon(Icons.Filled.Add, contentDescription = tr("Nova maré")) }
     }
 
+    if (showTrend) {
+        TrendSheet(
+            habits = habits.map { modelOf(it) },
+            today = today,
+            onPickMonth = { y, m -> year = y; month = m },
+            onClose = { showTrend = false },
+        )
+    }
     if (showAdd) {
         AddHabitDialog(
             onAdd = { name, cadence, target, unit ->
