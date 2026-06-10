@@ -38,6 +38,7 @@ import com.pauta.app.i18n.trf
 import com.pauta.app.ui.CellState
 import com.pauta.app.ui.PautaSheet
 import com.pauta.app.ui.cellStateFor
+import com.pauta.app.ui.clickableNoRipple
 import com.pauta.app.ui.combinedClickableNoRipple
 import com.pauta.app.ui.theme.LocalPautaColors
 import com.pauta.app.ui.theme.MonoFamily
@@ -49,7 +50,7 @@ import java.time.LocalDate
  * HabitDetailSheet): serif header with "desde {date} · {n} dias", the current-
  * tier card with the distance to the next tier, the all-time heatmap (weeks as
  * columns, same cell states and gestures as the grid), and the Total / Actual /
- * Melhor / Respiros stat row. The edit form arrives separately. // PT: a
+ * Melhor / Respiros stat row. "editar" hands off to EditHabitSheet. // PT: a
  * história completa de uma maré.
  */
 @Composable
@@ -62,6 +63,7 @@ fun HabitDetailSheet(
     onIncrementDay: (String, Int) -> Unit,
     onMarkRespiro: (String) -> Unit,
     onUnmarkRespiro: (String) -> Unit,
+    onEdit: () -> Unit,
     onClose: () -> Unit,
 ) {
     val colors = LocalPautaColors.current
@@ -86,8 +88,30 @@ fun HabitDetailSheet(
     val perLen = when (current.unit) { "sem" -> 7; "mês" -> 30; else -> 1 }
 
     PautaSheet(title = tr("Histórico da maré"), onClose = onClose) {
-        // Header.
-        Text(habit.name, color = colors.ink, fontFamily = SerifFamily, fontSize = 26.sp, lineHeight = 29.sp)
+        // Header, with the "editar" pill on the right (web's edit entry).
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = habit.name,
+                color = colors.ink,
+                fontFamily = SerifFamily,
+                fontSize = 26.sp,
+                lineHeight = 29.sp,
+                modifier = Modifier.weight(1f),
+            )
+            Spacer(Modifier.width(10.dp))
+            Text(
+                text = tr("editar").uppercase(),
+                color = colors.ink3,
+                fontFamily = MonoFamily,
+                fontSize = 9.sp,
+                letterSpacing = 1.35.sp,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(999.dp))
+                    .border(1.dp, colors.rule, RoundedCornerShape(999.dp))
+                    .clickableNoRipple(onEdit)
+                    .padding(horizontal = 10.dp, vertical = 5.dp),
+            )
+        }
         if (habit.time.isNotBlank()) {
             Spacer(Modifier.height(2.dp))
             Text(habit.time, color = colors.ink3, fontFamily = SerifFamily, fontStyle = FontStyle.Italic, fontSize = 14.sp)
