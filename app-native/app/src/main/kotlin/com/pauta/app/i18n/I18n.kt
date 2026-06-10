@@ -114,6 +114,10 @@ object I18n {
         "Ainda sem intenções para hoje." to "No intentions for today yet.", // native-only
         "Reflexão da noite" to "Evening reflection",
         "O que valeu hoje?" to "What was worth it today?",
+        "Marés de hoje" to "Today's tides",
+        "respiro" to "breath",
+        "Escreva quando quiser. Não precisa de ser longo." to "Write whenever you like. It needn't be long.",
+        "amanhã, recomeça." to "tomorrow, begin again.",
         "Apagar" to "Delete", // native-only
         "Ainda sem dias anteriores." to "No previous days yet.", // native-only
         "Reflexão" to "Reflection",
