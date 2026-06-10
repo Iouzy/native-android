@@ -508,3 +508,143 @@ private fun SelectPill(label: String, selected: Boolean, accent: Color, large: B
         )
     }
 }
+
+// ─── SWITCH SHEET ──────────────────────────────────────────
+/** "Trocar foco": pause the running block and jump to an open intention or to
+ *  something new; or conclude the current block first. */
+@Composable
+fun SwitchSheet(
+    currentBlock: FocusBlockEntity,
+    intentions: List<IntentionEntity>,
+    onPick: (linkedToId: String?, title: String) -> Unit,
+    onConcludeFirst: () -> Unit,
+    onClose: () -> Unit,
+) {
+    val colors = LocalPautaColors.current
+    var adding by remember { mutableStateOf(false) }
+    var newTitle by remember { mutableStateOf("") }
+    val available = intentions.filter { !it.done && it.id != currentBlock.linkedToId }
+
+    PautaSheet(title = tr("Trocar foco"), onClose = onClose) {
+        Text(
+            text = tr("em curso →"),
+            color = colors.ink3,
+            fontFamily = SerifFamily,
+            fontStyle = FontStyle.Italic,
+            fontSize = 13.sp,
+        )
+        Spacer(Modifier.height(4.dp))
+        Text(
+            text = currentBlock.title,
+            color = colors.ink,
+            fontFamily = SerifFamily,
+            fontSize = 20.sp,
+            lineHeight = 24.sp,
+        )
+        Spacer(Modifier.height(18.dp))
+
+        SheetEyebrow(tr("Pausar e ir para…"))
+        Spacer(Modifier.height(10.dp))
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            available.forEach { i ->
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(colors.paper)
+                        .border(1.dp, colors.rule, RoundedCornerShape(10.dp))
+                        .clickableNoRipple { onPick(i.id, i.text) }
+                        .padding(horizontal = 14.dp, vertical = 13.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Text("›", color = colors.ink3, fontSize = 15.sp)
+                    Text(i.text, color = colors.ink, fontSize = 15.sp, modifier = Modifier.weight(1f))
+                }
+            }
+            if (adding) {
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(colors.paper)
+                        .border(1.dp, colors.accent, RoundedCornerShape(10.dp))
+                        .padding(horizontal = 14.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Box(Modifier.weight(1f)) {
+                        BasicTextField(
+                            value = newTitle,
+                            onValueChange = { newTitle = it },
+                            singleLine = true,
+                            textStyle = TextStyle(color = colors.ink, fontFamily = SansFamily, fontSize = 15.sp),
+                            cursorBrush = SolidColor(colors.accent),
+                            modifier = Modifier.fillMaxWidth(),
+                            decorationBox = { inner ->
+                                Box {
+                                    if (newTitle.isEmpty()) {
+                                        Text(tr("ex.: revisar PRs"), color = colors.ink4, fontSize = 15.sp)
+                                    }
+                                    inner()
+                                }
+                            },
+                        )
+                    }
+                    Text(
+                        text = tr("OK"),
+                        color = colors.paper,
+                        fontFamily = MonoFamily,
+                        fontSize = 11.sp,
+                        letterSpacing = 0.88.sp,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(999.dp))
+                            .background(colors.accent.copy(alpha = if (newTitle.isBlank()) 0.4f else 1f))
+                            .clickableNoRipple { if (newTitle.isNotBlank()) onPick(null, newTitle.trim()) }
+                            .padding(horizontal = 12.dp, vertical = 6.dp),
+                    )
+                }
+            } else {
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(10.dp))
+                        .border(1.dp, colors.rule, RoundedCornerShape(10.dp))
+                        .clickableNoRipple { adding = true }
+                        .padding(horizontal = 14.dp, vertical = 13.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Text("+", color = colors.ink3, fontSize = 15.sp)
+                    Text(tr("algo novo (não está no Hoje)"), color = colors.ink3, fontSize = 14.sp)
+                }
+            }
+        }
+
+        Spacer(Modifier.height(22.dp))
+        Box(Modifier.fillMaxWidth().height(1.dp).background(colors.rule))
+        Spacer(Modifier.height(16.dp))
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .clickableNoRipple(onConcludeFirst)
+                .padding(vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Icon(PautaIcons.Check, contentDescription = null, tint = colors.ink2, modifier = Modifier.size(12.dp))
+            Text(
+                text = buildAnnotatedString {
+                    append(tr("ou concluir") + " ")
+                    withStyle(SpanStyle(fontFamily = SerifFamily)) { append("\"" + currentBlock.title + "\"") }
+                    append(" " + tr("primeiro"))
+                },
+                color = colors.ink2,
+                fontSize = 14.sp,
+            )
+        }
+
+        Spacer(Modifier.height(14.dp))
+        PautaButton(tr("Cancelar"), Modifier.fillMaxWidth(), PautaButtonVariant.Ghost) { onClose() }
+    }
+}

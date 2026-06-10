@@ -168,6 +168,15 @@ object I18n {
         "marcar" to "mark",
         "como concluído no Hoje" to "as finished in Today",
         "fechar" to "close",
+        "Trocar foco" to "Switch focus",
+        "Trocar" to "Switch",
+        "em curso →" to "in progress →",
+        "Pausar e ir para…" to "Pause and go to…",
+        "ex.: revisar PRs" to "e.g.: review PRs",
+        "OK" to "OK",
+        "algo novo (não está no Hoje)" to "something new (not in Today)",
+        "ou concluir" to "or finish",
+        "primeiro" to "first",
 
         // ── Marés ──
         "mês anterior" to "previous month", // native-only

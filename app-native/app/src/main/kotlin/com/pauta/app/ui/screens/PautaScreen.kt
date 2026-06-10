@@ -96,6 +96,7 @@ fun PautaScreen() {
     }
 
     var showStart by remember { mutableStateOf(false) }
+    var showSwitch by remember { mutableStateOf(false) }
     // The pause sheet opens AFTER the optimistic pause (timer already stopped).
     var pauseNoteFor by remember { mutableStateOf<FocusBlockEntity?>(null) }
     // (block, wasActive): active blocks are optimistically concluded; cancel resumes.
@@ -125,6 +126,7 @@ fun PautaScreen() {
                     // Optimistic pause/conclude: stop the timer first, collect
                     // the note/reflection after — no seconds lost while typing.
                     onPause = { vm.pauseActive(""); pauseNoteFor = a },
+                    onSwitch = { showSwitch = true },
                     onConclude = { vm.concludeActive("", false); concludeFor = a to true },
                 )
             }
@@ -182,6 +184,25 @@ fun PautaScreen() {
             onClose = { showStart = false },
         )
     }
+    if (showSwitch) {
+        active?.let { a ->
+            SwitchSheet(
+                currentBlock = a,
+                intentions = intentions,
+                onPick = { linkedToId, title ->
+                    // startBlock auto-pauses the running block, like the web flow.
+                    vm.startBlock(title, linkedToId)
+                    showSwitch = false
+                },
+                onConcludeFirst = {
+                    vm.concludeActive("", false)
+                    concludeFor = a to true
+                    showSwitch = false
+                },
+                onClose = { showSwitch = false },
+            )
+        }
+    }
     pauseNoteFor?.let { block ->
         PauseSheet(
             block = block,
@@ -225,7 +246,7 @@ private fun LaunchedTick(onTick: (Long) -> Unit) {
 }
 
 @Composable
-private fun ActiveCard(block: FocusBlockEntity, elapsedMs: Long, onPause: () -> Unit, onConclude: () -> Unit) {
+private fun ActiveCard(block: FocusBlockEntity, elapsedMs: Long, onPause: () -> Unit, onSwitch: () -> Unit, onConclude: () -> Unit) {
     val colors = LocalPautaColors.current
     Column(
         Modifier
@@ -244,6 +265,8 @@ private fun ActiveCard(block: FocusBlockEntity, elapsedMs: Long, onPause: () -> 
         Spacer(Modifier.height(16.dp))
         Row {
             ActionText(tr("Pausar"), color = colors.onDark, onClick = onPause)
+            Spacer(Modifier.width(20.dp))
+            ActionText(tr("Trocar"), color = colors.onDark2, onClick = onSwitch)
             Spacer(Modifier.width(20.dp))
             ActionText(tr("Concluir"), color = colors.accentSoft, onClick = onConclude)
         }
