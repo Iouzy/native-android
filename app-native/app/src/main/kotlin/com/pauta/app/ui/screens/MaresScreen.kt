@@ -78,7 +78,7 @@ fun MaresScreen() {
     val logs by vm.habitLogs.collectAsStateWithLifecycle()
     val respiros by vm.habitRespiros.collectAsStateWithLifecycle()
 
-    val today = vm.todayKey
+    val today by vm.todayKey.collectAsStateWithLifecycle()
     val nowYm = remember { YearMonth.now() }
     var year by remember { mutableIntStateOf(nowYm.year) }
     var month by remember { mutableIntStateOf(nowYm.monthValue) }
