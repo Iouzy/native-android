@@ -7,7 +7,9 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -20,10 +22,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -38,6 +38,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.RoundRect
@@ -54,8 +55,10 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Popup
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.pauta.app.data.entity.HabitEntity
@@ -162,6 +165,8 @@ fun MaresScreen() {
                         val ym = YearMonth.of(year, month).plusMonths(1); year = ym.year; month = ym.monthValue
                     },
                 )
+                Spacer(Modifier.width(10.dp))
+                GridLegend()
             }
 
             Column(Modifier.padding(horizontal = 24.dp)) {
@@ -215,7 +220,44 @@ fun MaresScreen() {
                 Spacer(Modifier.height(22.dp))
 
                 if (habits.isEmpty()) {
-                    Text(tr("Sem marés ainda. Toca em + para criar a primeira."), color = colors.ink4, fontSize = 14.sp)
+                    // The web's empty state: an intro phrase, the explanation,
+                    // and the "Marés comuns" starter chips. // PT: estado vazio
+                    // com frase, explicação e marés comuns.
+                    Text(
+                        text = tr(introPhraseFor(today)),
+                        color = colors.ink3,
+                        fontFamily = SerifFamily,
+                        fontStyle = FontStyle.Italic,
+                        fontSize = 17.sp,
+                        lineHeight = 24.sp,
+                    )
+                    Spacer(Modifier.height(16.dp))
+                    Text(
+                        text = tr("Adicione comportamentos que quer praticar regularmente. Cada mês tem o seu grid."),
+                        color = colors.ink3,
+                        fontFamily = SerifFamily,
+                        fontStyle = FontStyle.Italic,
+                        fontSize = 14.sp,
+                        lineHeight = 20.sp,
+                    )
+                    Spacer(Modifier.height(14.dp))
+                    Text(
+                        text = tr("Marés comuns").uppercase(),
+                        color = colors.ink4,
+                        fontFamily = MonoFamily,
+                        fontSize = 9.sp,
+                        letterSpacing = 1.44.sp, // 0.16em of 9sp
+                    )
+                    Spacer(Modifier.height(9.dp))
+                    @OptIn(ExperimentalLayoutApi::class)
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        listOf("Beber água", "Ler", "Meditar", "Exercício", "Dormir cedo").forEach { name ->
+                            StarterChip(tr(name)) { vm.addHabit(name = tr(name)) }
+                        }
+                    }
                 } else {
                     // Como funciona — persistent, subtle hint.
                     Column(
@@ -290,16 +332,25 @@ fun MaresScreen() {
                         )
                     }
                 }
+
+                // The web's dashed full-width "adicionar maré" button.
+                Spacer(Modifier.height(20.dp))
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .dashedRectBorder(colors.rule, 12.dp)
+                        .clickableNoRipple { showAdd = true }
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text("+", color = colors.ink3, fontSize = 16.sp, lineHeight = 16.sp)
+                    Text(tr("adicionar maré"), color = colors.ink3, fontSize = 14.sp)
+                }
             }
             Spacer(Modifier.height(96.dp))
         }
-
-        FloatingActionButton(
-            onClick = { showAdd = true },
-            containerColor = colors.accent,
-            contentColor = colors.onDark,
-            modifier = Modifier.align(Alignment.BottomEnd).padding(24.dp),
-        ) { Icon(Icons.Filled.Add, contentDescription = tr("Nova maré")) }
     }
 
     detailTarget?.let { h ->
@@ -710,3 +761,175 @@ private fun cadenceChipLabel(habit: HabitEntity): String? {
 }
 
 private fun monthLongName(month: Int): String = I18n.fmtMonthLong(month)
+
+/** The empty state's intro phrase (mares-phrases.jsx `intro`), picked
+ *  deterministically by day so it doesn't change every render. */
+private val INTRO_PHRASES = listOf(
+    "As marés têm história. Sobem e descem ao longo do ano.",
+    "Toda onda começa pequena.",
+    "Pés na água. O resto vem com o tempo.",
+)
+
+private fun introPhraseFor(dayKey: String): String =
+    INTRO_PHRASES[((dayKey.hashCode() % INTRO_PHRASES.size) + INTRO_PHRASES.size) % INTRO_PHRASES.size]
+
+/** A dashed rounded-rect outline (the web's `border: 1.5px dashed var(--rule)`). */
+private fun Modifier.dashedRectBorder(color: Color, radius: androidx.compose.ui.unit.Dp): Modifier = this.then(
+    Modifier.drawBehind {
+        drawRoundRect(
+            color = color,
+            cornerRadius = CornerRadius(radius.toPx()),
+            style = Stroke(
+                width = 1.5.dp.toPx(),
+                pathEffect = PathEffect.dashPathEffect(floatArrayOf(8f, 8f)),
+            ),
+        )
+    },
+)
+
+// ─── Grid legend ───────────────────────────────────────────
+// tab-mares.jsx GridLegend: a small toggle (three mini swatches + "legenda")
+// opening a popover that explains all nine cell states. // PT: a legenda da
+// grelha, igual à web.
+@Composable
+private fun GridLegend() {
+    val colors = LocalPautaColors.current
+    var open by remember { mutableStateOf(false) }
+    Box {
+        Row(
+            Modifier
+                .clip(RoundedCornerShape(8.dp))
+                .background(if (open) colors.paper2 else Color.Transparent)
+                .border(1.dp, colors.rule, RoundedCornerShape(8.dp))
+                .clickableNoRipple { open = !open }
+                .padding(horizontal = 8.dp, vertical = 5.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(5.dp),
+        ) {
+            LegendSwatch { drawDone(colors.ink) }
+            LegendSwatch { drawEmptyBox(colors.ink3) }
+            LegendSwatch { drawPre(colors.ink3) }
+            Text(
+                text = tr("legenda").uppercase(),
+                color = colors.ink3,
+                fontFamily = MonoFamily,
+                fontSize = 9.sp,
+                letterSpacing = 0.72.sp, // 0.08em of 9sp
+                modifier = Modifier.padding(start = 3.dp),
+            )
+        }
+        if (open) {
+            Popup(
+                alignment = Alignment.TopEnd,
+                offset = IntOffset(0, with(LocalDensity.current) { 34.dp.roundToPx() }),
+                onDismissRequest = { open = false },
+            ) {
+                Column(
+                    Modifier
+                        .width(210.dp)
+                        .shadow(12.dp, RoundedCornerShape(10.dp))
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(colors.paper)
+                        .border(1.dp, colors.rule, RoundedCornerShape(10.dp))
+                        .padding(horizontal = 14.dp, vertical = 12.dp),
+                ) {
+                    LegendRow(tr("feito")) { drawDone(colors.ink) }
+                    LegendRow(tr("feito hoje")) { drawDoneToday(colors.accent) }
+                    LegendRow(tr("não feito")) { drawEmptyBox(colors.ink3) }
+                    LegendRow(tr("hoje (por fazer)")) { drawTodayPending(colors.accent) }
+                    LegendRow(tr("respiro")) { drawRespiro(colors.ink3, colors.accent) }
+                    LegendRow(tr("antes da maré")) { drawPre(colors.ink3) }
+                    LegendRow(tr("fora do horário")) { drawOff(colors.rule) }
+                    LegendRow(tr("ainda não chegou"), last = true) { drawFuture(colors.rule) }
+                    Spacer(Modifier.height(10.dp))
+                    Box(Modifier.fillMaxWidth().height(1.dp).background(colors.rule))
+                    Spacer(Modifier.height(10.dp))
+                    Text(
+                        text = tr("Pressão longa num dia não feito para marcar respiro."),
+                        color = colors.ink3,
+                        fontFamily = SerifFamily,
+                        fontStyle = FontStyle.Italic,
+                        fontSize = 11.sp,
+                        lineHeight = 15.sp,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun LegendSwatch(draw: androidx.compose.ui.graphics.drawscope.DrawScope.() -> Unit) {
+    androidx.compose.foundation.Canvas(Modifier.size(9.dp)) { draw() }
+}
+
+@Composable
+private fun LegendRow(label: String, last: Boolean = false, draw: androidx.compose.ui.graphics.drawscope.DrawScope.() -> Unit) {
+    val colors = LocalPautaColors.current
+    Column {
+        Row(
+            Modifier.fillMaxWidth().padding(vertical = 5.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Box(Modifier.width(12.dp), contentAlignment = Alignment.Center) { LegendSwatch(draw) }
+            Text(
+                text = label,
+                color = colors.ink2,
+                fontFamily = MonoFamily,
+                fontSize = 11.sp,
+                letterSpacing = 0.22.sp, // 0.02em of 11sp
+            )
+        }
+        if (!last) Box(Modifier.fillMaxWidth().height(1.dp).background(colors.rule))
+    }
+}
+
+// Tiny 9×9 swatch painters mirroring the web's legend kinds.
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.swatchRadius() = CornerRadius(2.dp.toPx())
+
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawDone(ink: Color) {
+    drawRoundRect(ink, cornerRadius = swatchRadius())
+}
+
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawDoneToday(accent: Color) {
+    drawRoundRect(accent.copy(alpha = 0.2f), cornerRadius = CornerRadius(3.dp.toPx()), topLeft = Offset(-1.5.dp.toPx(), -1.5.dp.toPx()), size = Size(size.width + 3.dp.toPx(), size.height + 3.dp.toPx()))
+    drawRoundRect(accent, cornerRadius = swatchRadius())
+}
+
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawEmptyBox(ink3: Color) {
+    drawRoundRect(ink3, cornerRadius = swatchRadius(), style = Stroke(width = 1.dp.toPx()))
+}
+
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawTodayPending(accent: Color) {
+    drawRoundRect(accent, cornerRadius = swatchRadius(), style = Stroke(width = 1.5.dp.toPx()))
+}
+
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawRespiro(ink3: Color, accent: Color) {
+    drawRoundRect(ink3, cornerRadius = swatchRadius(), style = Stroke(width = 1.dp.toPx()))
+    val path = Path().apply { addRoundRect(RoundRect(0f, 0f, size.width, size.height, swatchRadius())) }
+    clipPath(path) {
+        var x = -size.height
+        while (x < size.width) {
+            drawLine(accent.copy(alpha = 0.7f), Offset(x, size.height), Offset(x + size.height, 0f), strokeWidth = 1.dp.toPx())
+            x += 3.dp.toPx()
+        }
+    }
+}
+
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawPre(ink3: Color) {
+    drawRoundRect(ink3.copy(alpha = 0.5f), cornerRadius = swatchRadius(), style = Stroke(width = 1.dp.toPx()))
+    drawCircle(ink3.copy(alpha = 0.7f), radius = 1.25.dp.toPx(), center = Offset(size.width / 2, size.height / 2))
+}
+
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawOff(rule: Color) {
+    val w = 7.dp.toPx(); val h = 2.dp.toPx()
+    drawRoundRect(rule, topLeft = Offset((size.width - w) / 2, (size.height - h) / 2), size = Size(w, h), cornerRadius = CornerRadius(1.dp.toPx()))
+}
+
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawFuture(rule: Color) {
+    drawRoundRect(
+        rule.copy(alpha = 0.5f), cornerRadius = swatchRadius(),
+        style = Stroke(width = 1.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(3f, 3f))),
+    )
+}

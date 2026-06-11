@@ -330,6 +330,21 @@ class PautaRepository(private val db: AppDatabase) {
         focusBlockDao.getById(id)?.let { focusBlockDao.upsert(it.copy(title = t)) }
     }
 
+    /** The web's updateBlock(): edit title / project / soft target after the
+     *  fact (EditBlockSheet). // PT: editar um bloco depois de criado. */
+    suspend fun updateBlock(id: String, title: String, project: String?, targetMs: Long?) {
+        val b = focusBlockDao.getById(id) ?: return
+        val t = title.trim().ifEmpty { b.title }
+        focusBlockDao.upsert(b.copy(title = t, project = project?.trim()?.takeIf { it.isNotEmpty() }, targetMs = targetMs))
+    }
+
+    /** Edit the note of one specific session row — the timeline's inline
+     *  "adicionar nota…". // PT: nota de uma sessão concreta, pela linha. */
+    suspend fun setSessionNote(rowId: Long, note: String) {
+        val s = focusSessionDao.getAll().firstOrNull { it.rowId == rowId } ?: return
+        focusSessionDao.update(s.copy(note = note.trim()))
+    }
+
     suspend fun setBlockReflection(id: String, text: String) {
         focusBlockDao.getById(id)?.let { focusBlockDao.upsert(it.copy(reflection = text.trim())) }
     }

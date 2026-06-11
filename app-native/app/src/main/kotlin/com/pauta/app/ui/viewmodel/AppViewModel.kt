@@ -35,6 +35,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChangedBy
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -52,6 +53,12 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     val prefs: StateFlow<PrefsEntity> =
         repo.prefs.stateIn(viewModelScope, SharingStarted.Eagerly, PrefsEntity())
+
+    /** False until the first real prefs row arrives from Room — gates the
+     *  onboarding overlay so it never flashes for an existing user while the
+     *  defaults are in place. // PT: evita o flash do onboarding ao arrancar. */
+    val prefsReady: StateFlow<Boolean> =
+        repo.prefs.map { true }.stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
     // ── Hoje ──────────────────────────────────────────────────
     // Today's key as LIVE state: re-checked by a half-minute ticker and on every
@@ -125,6 +132,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun concludeBlock(id: String, reflection: String, markIntentionDone: Boolean = false) =
         viewModelScope.launch { repo.concludeBlock(id, reflection, markIntentionDone) }
     fun deleteBlock(id: String) = viewModelScope.launch { repo.deleteBlock(id) }
+    fun updateBlock(id: String, title: String, project: String?, targetMs: Long?) =
+        viewModelScope.launch { repo.updateBlock(id, title, project, targetMs) }
+    fun setSessionNote(rowId: Long, note: String) = viewModelScope.launch { repo.setSessionNote(rowId, note) }
     fun addManualBlock(title: String, startMs: Long, endMs: Long) =
         viewModelScope.launch { repo.addManualBlock(title, startMs, endMs) }
     fun setBlockReflection(id: String, text: String) = viewModelScope.launch { repo.setBlockReflection(id, text) }
@@ -296,6 +306,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun setReducedMotion(value: Boolean) = update { it.copy(reducedMotion = value) }
     fun setHaptics(value: Boolean) = update { it.copy(haptics = value) }
     fun setParrot(value: Boolean) = update { it.copy(parrot = value) }
+    fun setOnboardingSeen() = update { it.copy(onboardingSeen = true) }
 
     fun setRemindersEnabled(value: Boolean) = update { it.copy(remindersEnabled = value) }
     fun setPlannerTime(value: String) = update { it.copy(plannerTime = value) }

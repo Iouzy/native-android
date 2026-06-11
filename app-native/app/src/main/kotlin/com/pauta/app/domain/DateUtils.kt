@@ -33,6 +33,12 @@ object DateUtils {
     fun dayKeyOf(ms: Long): String =
         Instant.ofEpochMilli(ms).atZone(zone).toLocalDate().toString()
 
+    /** The web's fmtClock(): local wall-clock `HH:MM` for a timestamp. */
+    fun fmtClock(ms: Long): String {
+        val t = Instant.ofEpochMilli(ms).atZone(zone).toLocalTime()
+        return "%02d:%02d".format(t.hour, t.minute)
+    }
+
     /** Epoch millis at local midnight (start) of a day key. */
     fun startOfDayMs(key: String): Long =
         LocalDate.parse(key).atStartOfDay(zone).toInstant().toEpochMilli()
