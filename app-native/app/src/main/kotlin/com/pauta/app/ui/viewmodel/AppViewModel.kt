@@ -13,6 +13,7 @@ import com.pauta.app.data.entity.HabitLogEntity
 import com.pauta.app.data.entity.HabitRespiroEntity
 import com.pauta.app.data.entity.IntentionEntity
 import com.pauta.app.data.entity.MilestoneEntity
+import com.pauta.app.data.entity.PlannedIntentionEntity
 import com.pauta.app.data.entity.PrefsEntity
 import com.pauta.app.domain.CarrySource
 import com.pauta.app.domain.DateUtils
@@ -268,6 +269,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun setIntentionText(id: String, text: String) =
         viewModelScope.launch { repo.setIntentionText(id, text) }
     fun setReflection(text: String) = viewModelScope.launch { repo.setReflection(todayKey.value, text) }
+
+    /** Week-ahead plans (become intentions when their day arrives). */
+    val plans: StateFlow<List<PlannedIntentionEntity>> =
+        repo.plans().stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    fun addPlan(dayKey: String, text: String) = viewModelScope.launch { repo.addPlan(dayKey, text) }
+    fun removePlan(id: String) = viewModelScope.launch { repo.removePlan(id) }
 
     /** Produce the pauta.v4 backup JSON, then hand it to [onReady] (for sharing). */
     fun exportBackup(onReady: (String) -> Unit) =

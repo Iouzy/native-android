@@ -129,6 +129,13 @@ object I18n {
         "Apagar" to "Delete", // native-only
         "Ainda sem dias anteriores." to "No previous days yet.", // native-only
         "Reflexão" to "Reflection",
+        "dias anteriores" to "previous days",
+        "a semana" to "the week",
+        "A semana" to "The week",
+        "Deixe preparado o que importa nos próximos dias. Cada plano vira as intenções desse dia quando ele chegar." to "Set up what matters over the next days. Each plan becomes that day's intentions when it arrives.",
+        "planear intenção…" to "plan an intention…",
+        "Marca um dia qualquer do período. Depois disso, os restantes ficam bloqueados." to "Mark any day of the period. After that, the rest are locked.",
+        "Repete sempre no mesmo dia. Os outros dias do período ficam bloqueados." to "Always repeats on the same day. The other days of the period are locked.",
 
         // ── Pauta ──
         "{n} blocos · {t} de foco hoje" to "{n} blocks · {t} of focus today", // native-only
