@@ -26,10 +26,12 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.foundation.text.KeyboardOptions
@@ -97,6 +99,32 @@ fun SettingsScreen(onClose: () -> Unit) {
     }
 
     var showGoals by remember { mutableStateOf(false) }
+    var showResetConfirm by remember { mutableStateOf(false) }
+
+    if (showResetConfirm) {
+        AlertDialog(
+            onDismissRequest = { showResetConfirm = false },
+            title = { Text(tr("Apagar tudo"), color = colors.ink) },
+            text = {
+                Text(
+                    tr("Apagar tudo e recomeçar? Isto não pode ser desfeito."),
+                    color = colors.ink2,
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { vm.resetAll(); showResetConfirm = false }) {
+                    Text(tr("Apagar"), color = colors.accent)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showResetConfirm = false }) {
+                    Text(tr("Cancelar"), color = colors.ink3)
+                }
+            },
+            containerColor = colors.paper2,
+        )
+    }
+
     if (showGoals) {
         GoalsScreen(onClose = { showGoals = false })
         return
@@ -172,6 +200,7 @@ fun SettingsScreen(onClose: () -> Unit) {
 
         Section(tr("Foco"))
         ToggleRow(tr("Manter ecrã ligado"), prefs.keepAwake) { vm.setKeepAwake(it) }
+        ToggleRow(tr("Som ao concluir"), prefs.sound) { vm.setSound(it) }
 
         Section(tr("Companhia"))
         ToggleRow(tr("Vibração"), prefs.haptics) { vm.setHaptics(it) }
@@ -235,16 +264,19 @@ fun SettingsScreen(onClose: () -> Unit) {
             else -> ActionRow(tr("Verificar atualizações")) { vm.checkForUpdate() }
         }
 
+        Section(tr("Zona perigosa"))
+        ActionRow(tr("Apagar tudo"), danger = true) { showResetConfirm = true }
+
         Spacer(Modifier.height(48.dp))
     }
 }
 
 @Composable
-private fun ActionRow(label: String, onClick: () -> Unit) {
+private fun ActionRow(label: String, danger: Boolean = false, onClick: () -> Unit) {
     val colors = LocalPautaColors.current
     Text(
         text = label,
-        color = colors.accent,
+        color = if (danger) Color(0xFFE53935) else colors.accent,
         fontSize = 16.sp,
         modifier = Modifier
             .fillMaxWidth()

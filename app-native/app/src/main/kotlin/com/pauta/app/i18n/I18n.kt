@@ -418,6 +418,11 @@ object I18n {
         "Dados" to "Data",
         "Exportar dados" to "Export data",
         "Importar dados" to "Import data",
+        "Som ao concluir" to "Completion sound", // native-only
+        "Zona perigosa" to "Danger zone", // native-only
+        "Apagar tudo" to "Delete everything", // native-only
+        "Apagar tudo e recomeçar? Isto não pode ser desfeito." to "Delete everything and start over? This can't be undone.",
+
         "Atualizações" to "Updates", // native-only
         "A verificar…" to "Checking…",
         "Transferir nova versão" to "Download new version",

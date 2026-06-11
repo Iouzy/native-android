@@ -309,6 +309,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun addPlan(dayKey: String, text: String) = viewModelScope.launch { repo.addPlan(dayKey, text) }
     fun removePlan(id: String) = viewModelScope.launch { repo.removePlan(id) }
 
+    /** Wipe all user data (intentions, blocks, habits, goals…); prefs are kept. */
+    fun resetAll() = viewModelScope.launch { repo.resetAll() }
+
     /** Produce the pauta.v4 backup JSON, then hand it to [onReady] (for sharing). */
     fun exportBackup(onReady: (String) -> Unit) =
         viewModelScope.launch { onReady(repo.exportJson(todayKey.value)) }
@@ -327,6 +330,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun setKeepAwake(value: Boolean) = update { it.copy(keepAwake = value) }
     fun setReducedMotion(value: Boolean) = update { it.copy(reducedMotion = value) }
     fun setHaptics(value: Boolean) = update { it.copy(haptics = value) }
+    fun setSound(value: Boolean) = update { it.copy(sound = value) }
     fun setParrot(value: Boolean) = update { it.copy(parrot = value) }
     fun setOnboardingSeen() = update { it.copy(onboardingSeen = true) }
 

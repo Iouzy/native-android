@@ -577,6 +577,17 @@ class PautaRepository(private val db: AppDatabase) {
     /** The pauta.v4 backup JSON (web-compatible). */
     suspend fun exportJson(todayKey: String): String = WebBackup.export(snapshot(todayKey))
 
+    /** Wipe all user data — equivalent to the web's resetAll(). Preferences are
+     *  left intact (the user's theme/language/accent are not their data). */
+    suspend fun resetAll() {
+        intentionDao.clear(); dayDao.clear()
+        focusSessionDao.clear(); focusBlockDao.clear()
+        habitMarkDao.clearLogs(); habitMarkDao.clearRespiros(); habitMarkDao.clearCounts(); habitDao.clear()
+        goalDao.clearMilestones(); goalDao.clearGoals()
+        routineDao.clearItems(); routineDao.clearRoutines()
+        plannedDao.clear()
+    }
+
     /** Replace all data with the contents of a pauta.v4 backup (web or native). */
     suspend fun importJson(text: String) {
         val s = WebBackup.import(text)
