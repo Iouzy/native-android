@@ -150,6 +150,13 @@ fun MainScaffold(initialTab: Tab = Tab.HOJE) {
         if (showSettings) {
             SettingsScreen(onClose = { showSettings = false })
         }
+
+        // First-run welcome carousel — drawn last so it covers tabs, Pip and
+        // settings; gated on prefsReady so it never flashes for existing users.
+        val prefsReady by vm.prefsReady.collectAsStateWithLifecycle()
+        if (prefsReady && !prefs.onboardingSeen) {
+            OnboardingOverlay(onDone = { vm.setOnboardingSeen() })
+        }
     }
 }
 
