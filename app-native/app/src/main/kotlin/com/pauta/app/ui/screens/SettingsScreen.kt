@@ -87,6 +87,7 @@ fun SettingsScreen(onClose: () -> Unit) {
     val updDownloading by vm.updateDownloading.collectAsStateWithLifecycle()
     val updDownloadProgress by vm.updateDownloadProgress.collectAsStateWithLifecycle()
     val updDownloadError by vm.updateDownloadError.collectAsStateWithLifecycle()
+    val updNeedsPerm by vm.updateNeedsPerm.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val notifLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
@@ -259,7 +260,30 @@ fun SettingsScreen(onClose: () -> Unit) {
                 ActionRow(tr("Tentar outra vez")) { vm.installUpdate(context) }
             }
             updChecking -> Text(tr("A verificar…"), color = colors.ink3, fontSize = 16.sp, modifier = Modifier.padding(vertical = 10.dp))
-            updAvailable != null -> ActionRow(tr("Transferir nova versão")) { vm.installUpdate(context) }
+            updAvailable != null -> Column {
+                ActionRow(tr("Transferir nova versão")) { vm.installUpdate(context) }
+                if (updNeedsPerm) {
+                    // We just opened the "install unknown apps" toggle — ask the
+                    // user to allow it and tap again. // PT: permitir e tocar de novo.
+                    Text(
+                        text = tr("Permite instalar apps desta origem e toca outra vez."),
+                        color = colors.accent,
+                        fontSize = 13.sp,
+                        lineHeight = 18.sp,
+                        modifier = Modifier.padding(bottom = 6.dp),
+                    )
+                }
+                // One-time gotcha for builds signed before the project settled on a
+                // fixed key — same italic hint the web shows under the button.
+                Text(
+                    text = tr("Se a instalação falhar com «conflito com um pacote existente»: exporta uma cópia de segurança, desinstala a app e instala de novo. Só é preciso uma vez — daí em diante as atualizações mantêm os teus dados."),
+                    color = colors.ink3,
+                    fontFamily = SerifFamily,
+                    fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
+                    fontSize = 12.sp,
+                    lineHeight = 17.sp,
+                )
+            }
             updChecked -> Text(tr("Está atualizado."), color = colors.ink3, fontSize = 16.sp, modifier = Modifier.padding(vertical = 10.dp))
             else -> ActionRow(tr("Verificar atualizações")) { vm.checkForUpdate() }
         }

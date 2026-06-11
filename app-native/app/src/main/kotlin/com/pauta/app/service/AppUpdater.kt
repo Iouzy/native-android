@@ -133,4 +133,21 @@ object AppUpdater {
     /** Whether the OS will let us install (Android 8+ gates "unknown apps"). */
     fun canInstall(context: Context): Boolean =
         Build.VERSION.SDK_INT < Build.VERSION_CODES.O || context.packageManager.canRequestPackageInstalls()
+
+    /** Open the system "install unknown apps" toggle for this app so the user can
+     *  allow it and tap download again. Without the grant the installer intent
+     *  silently does nothing — exactly why the button could look like it did
+     *  nothing on a fresh install. // PT: abre a definição "instalar apps
+     *  desconhecidas" desta app. */
+    fun openInstallSettings(context: Context) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+        runCatching {
+            context.startActivity(
+                Intent(
+                    android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                    android.net.Uri.parse("package:${context.packageName}"),
+                ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            )
+        }
+    }
 }

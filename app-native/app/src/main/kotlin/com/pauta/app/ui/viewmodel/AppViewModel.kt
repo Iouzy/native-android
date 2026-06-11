@@ -198,16 +198,31 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val updateDownloadProgress: MutableStateFlow<Int?> = MutableStateFlow(null)
     /** True after a download attempt fails so the UI can offer a retry. */
     val updateDownloadError: MutableStateFlow<Boolean> = MutableStateFlow(false)
+    /** Android refused: "install unknown apps" isn't allowed for this app yet —
+     *  we sent the user to the toggle; they should allow it and tap again. */
+    val updateNeedsPerm: MutableStateFlow<Boolean> = MutableStateFlow(false)
 
     fun checkForUpdate() = viewModelScope.launch {
         updateChecking.value = true
         updateAvailable.value = AppUpdater.check()
         updateChecking.value = false
         updateChecked.value = true
+        updateDownloadError.value = false
+        updateNeedsPerm.value = false
     }
 
     fun installUpdate(context: Context) = viewModelScope.launch {
         val u = updateAvailable.value ?: return@launch
+        if (updateDownloading.value) return@launch // already downloading
+        // Gate on the "install unknown apps" permission first: without it the
+        // installer intent silently does nothing, so send the user to the system
+        // toggle and ask them to tap again — same flow as the web UpdateChecker.
+        if (!AppUpdater.canInstall(context)) {
+            updateNeedsPerm.value = true
+            AppUpdater.openInstallSettings(context)
+            return@launch
+        }
+        updateNeedsPerm.value = false
         updateDownloading.value = true
         updateDownloadProgress.value = null
         updateDownloadError.value = false
