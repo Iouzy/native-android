@@ -195,16 +195,47 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val updateChecked: MutableStateFlow<Boolean> = MutableStateFlow(false)
     val updateAvailable: MutableStateFlow<AppUpdater.Update?> = MutableStateFlow(null)
 
+    /** Download progress: null = idle, -1 = downloading (size unknown), 0–100 = percent. */
+    val updateDownloading: MutableStateFlow<Int?> = MutableStateFlow(null)
+
+    /** The download failed — show the error and let the user retry. */
+    val updateDlError: MutableStateFlow<Boolean> = MutableStateFlow(false)
+
+    /** Android refused: "install unknown apps" not allowed for this app yet. */
+    val updateNeedsPerm: MutableStateFlow<Boolean> = MutableStateFlow(false)
+
     fun checkForUpdate() = viewModelScope.launch {
         updateChecking.value = true
         updateAvailable.value = AppUpdater.check()
         updateChecking.value = false
         updateChecked.value = true
+        updateDlError.value = false
+        updateNeedsPerm.value = false
     }
 
+    /** The web UpdateChecker's flow: gate on the "install unknown apps"
+     *  permission first (send the user to the toggle and ask them to tap
+     *  again), then download with visible progress, then hand the APK to the
+     *  installer — every failure is surfaced, nothing is silent.
+     *  // PT: transferir com progresso visível; nenhum erro fica em silêncio. */
     fun installUpdate(context: Context) = viewModelScope.launch {
         val u = updateAvailable.value ?: return@launch
-        AppUpdater.download(context, u.url)?.let { AppUpdater.install(context, it) }
+        if (updateDownloading.value != null) return@launch // already downloading
+        if (!AppUpdater.canInstall(context)) {
+            updateNeedsPerm.value = true
+            AppUpdater.openInstallSettings(context)
+            return@launch
+        }
+        updateNeedsPerm.value = false
+        updateDlError.value = false
+        updateDownloading.value = -1
+        val file = AppUpdater.download(context, u.url) { pct -> updateDownloading.value = pct ?: -1 }
+        updateDownloading.value = null
+        if (file == null) {
+            updateDlError.value = true
+        } else {
+            AppUpdater.install(context, file)
+        }
     }
 
     init {

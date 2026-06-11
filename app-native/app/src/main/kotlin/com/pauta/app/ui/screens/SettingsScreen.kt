@@ -81,6 +81,9 @@ fun SettingsScreen(onClose: () -> Unit) {
     val updChecking by vm.updateChecking.collectAsStateWithLifecycle()
     val updChecked by vm.updateChecked.collectAsStateWithLifecycle()
     val updAvailable by vm.updateAvailable.collectAsStateWithLifecycle()
+    val updDownloading by vm.updateDownloading.collectAsStateWithLifecycle()
+    val updDlError by vm.updateDlError.collectAsStateWithLifecycle()
+    val updNeedsPerm by vm.updateNeedsPerm.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val notifLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
@@ -200,7 +203,47 @@ fun SettingsScreen(onClose: () -> Unit) {
         Spacer(Modifier.height(4.dp))
         when {
             updChecking -> Text(tr("A verificar…"), color = colors.ink3, fontSize = 16.sp, modifier = Modifier.padding(vertical = 10.dp))
-            updAvailable != null -> ActionRow(tr("Transferir nova versão")) { vm.installUpdate(context) }
+            updDownloading != null -> Text(
+                text = if (updDownloading!! >= 0) {
+                    com.pauta.app.i18n.trf("A transferir atualização… {n}%", "n" to updDownloading!!)
+                } else {
+                    tr("A transferir atualização…")
+                },
+                color = colors.ink3,
+                fontSize = 16.sp,
+                modifier = Modifier.padding(vertical = 10.dp),
+            )
+            updAvailable != null -> Column {
+                ActionRow(tr("Transferir nova versão")) { vm.installUpdate(context) }
+                if (updNeedsPerm) {
+                    Text(
+                        text = tr("Permite instalar apps desta origem e toca outra vez."),
+                        color = colors.accent,
+                        fontSize = 13.sp,
+                        lineHeight = 18.sp,
+                        modifier = Modifier.padding(bottom = 6.dp),
+                    )
+                }
+                if (updDlError) {
+                    Text(
+                        text = tr("Não foi possível transferir a atualização."),
+                        color = colors.accent,
+                        fontSize = 13.sp,
+                        lineHeight = 18.sp,
+                        modifier = Modifier.padding(bottom = 6.dp),
+                    )
+                }
+                // One-time gotcha for builds signed before the fixed key — same
+                // hint the web shows. // PT: o mesmo aviso da app web.
+                Text(
+                    text = tr("Se a instalação falhar com «conflito com um pacote existente»: exporta uma cópia de segurança, desinstala a app e instala de novo. Só é preciso uma vez — daí em diante as atualizações mantêm os teus dados."),
+                    color = colors.ink3,
+                    fontFamily = SerifFamily,
+                    fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
+                    fontSize = 12.sp,
+                    lineHeight = 17.sp,
+                )
+            }
             updChecked -> Text(tr("Está atualizado."), color = colors.ink3, fontSize = 16.sp, modifier = Modifier.padding(vertical = 10.dp))
             else -> ActionRow(tr("Verificar atualizações")) { vm.checkForUpdate() }
         }

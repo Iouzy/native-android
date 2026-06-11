@@ -51,17 +51,41 @@ object AppUpdater {
         }.getOrNull()
     }
 
-    /** Download the release APK to the cache. */
-    suspend fun download(context: Context, url: String): File? = withContext(Dispatchers.IO) {
-        runCatching {
-            val dir = File(context.cacheDir, "updates").apply { mkdirs() }
-            val file = File(dir, "pauta-update.apk")
-            (URL(url).openConnection() as HttpURLConnection).inputStream.use { input ->
-                file.outputStream().use { out -> input.copyTo(out) }
-            }
-            file
-        }.getOrNull()
-    }
+    /** Download the release APK to the cache, reporting 0–100 progress (null
+     *  percent when the server doesn't send a length). Returns null on any
+     *  failure — the caller surfaces the error. // PT: transfere o APK com
+     *  progresso; null em falha. */
+    suspend fun download(context: Context, url: String, onProgress: (Int?) -> Unit = {}): File? =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val dir = File(context.cacheDir, "updates").apply { mkdirs() }
+                val file = File(dir, "pauta-update.apk")
+                val conn = (URL(url).openConnection() as HttpURLConnection).apply {
+                    connectTimeout = 15_000; readTimeout = 30_000
+                }
+                val total = conn.contentLengthLong
+                conn.inputStream.use { input ->
+                    file.outputStream().use { out ->
+                        val buf = ByteArray(64 * 1024)
+                        var read = 0L
+                        var lastPct = -1
+                        while (true) {
+                            val n = input.read(buf)
+                            if (n < 0) break
+                            out.write(buf, 0, n)
+                            read += n
+                            if (total > 0) {
+                                val pct = ((read * 100) / total).toInt().coerceIn(0, 100)
+                                if (pct != lastPct) { lastPct = pct; onProgress(pct) }
+                            } else {
+                                onProgress(null)
+                            }
+                        }
+                    }
+                }
+                file
+            }.getOrNull()
+        }
 
     /** Hand the APK to the system installer (in-place upgrade). */
     fun install(context: Context, file: File) {
@@ -77,4 +101,19 @@ object AppUpdater {
     /** Whether the OS will let us install (Android 8+ gates "unknown apps"). */
     fun canInstall(context: Context): Boolean =
         Build.VERSION.SDK_INT < Build.VERSION_CODES.O || context.packageManager.canRequestPackageInstalls()
+
+    /** Open the system "install unknown apps" toggle for this app, so the user
+     *  can allow it and tap download again. // PT: abre a definição "instalar
+     *  apps desconhecidas" desta app. */
+    fun openInstallSettings(context: Context) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+        runCatching {
+            context.startActivity(
+                Intent(
+                    android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                    android.net.Uri.parse("package:${context.packageName}"),
+                ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            )
+        }
+    }
 }

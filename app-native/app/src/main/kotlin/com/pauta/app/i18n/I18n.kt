@@ -424,6 +424,13 @@ object I18n {
         "Está atualizado." to "Up to date.",
         "Verificar atualizações" to "Check for updates",
 
+        // ── Updater feedback (web values from src/i18n.jsx) ──
+        "A transferir atualização… {n}%" to "Downloading update… {n}%",
+        "A transferir atualização…" to "Downloading update…",
+        "Permite instalar apps desta origem e toca outra vez." to "Allow installing apps from this source, then tap again.",
+        "Não foi possível transferir a atualização." to "Couldn't download the update.",
+        "Se a instalação falhar com «conflito com um pacote existente»: exporta uma cópia de segurança, desinstala a app e instala de novo. Só é preciso uma vez — daí em diante as atualizações mantêm os teus dados." to "If the install fails with “conflicts with an existing package”: export a backup, uninstall the app, and install again. You only need to do this once — after that, updates keep your data.",
+
         // ── Widget ──
         "Foco {m}m" to "Focus {m}m",
 
