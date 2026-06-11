@@ -407,11 +407,11 @@ fun ConcludeSheet(
     }
 }
 
-// ─── shared field atoms ───────────────────────────────────
+// ─── shared field atoms (also used by the Marés forms) ────
 
 /** The start sheet's headline input: borderless with a 1.5dp ink underline. */
 @Composable
-private fun UnderlineField(value: String, onChange: (String) -> Unit, placeholder: String) {
+internal fun UnderlineField(value: String, onChange: (String) -> Unit, placeholder: String) {
     val colors = LocalPautaColors.current
     Column(Modifier.fillMaxWidth()) {
         BasicTextField(
@@ -440,7 +440,7 @@ private fun UnderlineField(value: String, onChange: (String) -> Unit, placeholde
  *  multiline by default (the pause/conclude notes), sans single-line for the
  *  project field. */
 @Composable
-private fun BoxedField(
+internal fun BoxedField(
     value: String,
     onChange: (String) -> Unit,
     placeholder: String,
@@ -479,7 +479,7 @@ private fun BoxedField(
 /** A wrap-flow of selectable pills (projects, durations, tides). */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun ChipFlow(content: @Composable () -> Unit) {
+internal fun ChipFlow(content: @Composable () -> Unit) {
     FlowRow(
         horizontalArrangement = Arrangement.spacedBy(6.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp),
@@ -491,7 +491,7 @@ private fun ChipFlow(content: @Composable () -> Unit) {
 /** The web's outline pill toggle: rule border, accent border + accent-tinted
  *  background when selected. */
 @Composable
-private fun SelectPill(label: String, selected: Boolean, accent: Color, large: Boolean = false, onClick: () -> Unit) {
+internal fun SelectPill(label: String, selected: Boolean, accent: Color, large: Boolean = false, onClick: () -> Unit) {
     val colors = LocalPautaColors.current
     Box(
         Modifier
