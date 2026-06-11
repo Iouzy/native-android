@@ -192,6 +192,7 @@ object I18n {
         "Duração (min)" to "Duration (min)",
         "ex.: leitura" to "e.g. reading",
         "registar" to "log",
+        "limpar" to "clear",
 
         // ── Marés ──
         "mês anterior" to "previous month", // native-only
