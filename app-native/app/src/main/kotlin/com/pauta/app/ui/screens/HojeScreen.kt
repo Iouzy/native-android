@@ -94,6 +94,7 @@ fun HojeScreen() {
     val plans by vm.plans.collectAsStateWithLifecycle()
     var showHistory by remember { mutableStateOf(false) }
     var showWeek by remember { mutableStateOf(false) }
+    var showInsights by remember { mutableStateOf(false) }
 
     // Auto-sort by priority level (1 highest; unset sinks to 4), stable within a
     // level via stored position — matching the web list.
@@ -126,10 +127,12 @@ fun HojeScreen() {
                 letterSpacing = 1.8.sp, // 0.18em of 10sp
                 modifier = Modifier.weight(1f),
             )
-            // The web's header chips: history + the week planner.
+            // The web's header chips: history + the week planner + the review.
             HeaderChip(tr("dias anteriores") + " \u2197") { showHistory = true }
             Spacer(Modifier.width(6.dp))
             HeaderChip(tr("a semana") + " \u2197") { showWeek = true }
+            Spacer(Modifier.width(6.dp))
+            HeaderChip(tr("revis\u00e3o") + " \u2197") { showInsights = true }
         }
         Spacer(Modifier.height(6.dp))
         // The headline question, with "hoje" in accent italic — the web's
@@ -331,6 +334,9 @@ fun HojeScreen() {
             onRemove = { id -> vm.removePlan(id) },
             onClose = { showWeek = false },
         )
+    }
+    if (showInsights) {
+        InsightsSheet(onClose = { showInsights = false })
     }
 }
 

@@ -349,6 +349,46 @@ object I18n {
         "Sem objetivos neste trimestre." to "No goals this quarter.", // native-only
         "Novo marco…" to "New milestone…", // native-only
 
+        // ── Revisão (InsightsSheet, web-identical) ──
+        "Revisão" to "Review",
+        "revisão" to "review",
+        "A sua semana, de relance." to "Your week, at a glance.",
+        "Sem julgamento. Só o que aconteceu, para reparar no padrão." to "No judgement. Just what happened, to notice the pattern.",
+        "Mês" to "Month",
+        "Padrões" to "Patterns",
+        "Melhor hora do dia" to "Best hour of the day",
+        "Hábitos × foco" to "Habits × focus",
+        "Calendário de foco" to "Focus calendar",
+        "foco" to "focus",
+        "foco · {n} {label}" to "focus · {n} {label}",
+        "dias activos" to "active days",
+        "dia activo" to "active day",
+        "intenções feitas" to "intentions done",
+        "hábitos · {n} feitos" to "habits · {n} done",
+        "↑ +{pct}% foco vs. semana anterior ({prev})" to "↑ +{pct}% focus vs. previous week ({prev})",
+        "↓ {pct}% foco vs. semana anterior ({prev})" to "↓ {pct}% focus vs. previous week ({prev})",
+        "= mesmo foco da semana anterior ({prev})" to "= same focus as previous week ({prev})",
+        "Pico: {d} com {t} em foco." to "Peak: {d} with {t} in focus.", // native-only composite
+        "Escreveu {n} {label}." to "You wrote {n} {label}.",
+        "reflexão" to "reflection",
+        "reflexões" to "reflections",
+        "Marés esta semana" to "Tides this week",
+        "1 respiro esta semana. Honesto." to "1 breath this week. Honest.",
+        "{n} respiros esta semana. Honesto." to "{n} breaths this week. Honest.",
+        "Ainda sem blocos suficientes para encontrar a sua melhor hora." to "Not enough blocks yet to find your best hour.",
+        "a sua hora mais focada" to "your most focused hour",
+        "Sem padrões suficientes ainda. Continue a registar hábitos e blocos — em poucas semanas aparecem aqui ligações." to
+            "Not enough patterns yet. Keep logging habits and blocks — in a few weeks connections will appear here.",
+        "Nos dias com" to "On days with",
+        ", foca" to ", focus",
+        "Ainda a juntar padrões. Continue a usar a app — em poucos dias aparecem aqui." to
+            "Still gathering patterns. Keep using the app — they'll show up in a few days.",
+        "A tua maré mais constante é {name} — {n} dias seguidos." to "Your most constant tide is {name} — {n} days running.",
+        "Focas mais por volta das {h}h." to "You focus most around {h}h.",
+        "Concluíste {pct}% das intenções de prioridade alta." to "You completed {pct}% of your high-priority intentions.",
+        "d,s,t,q,q,s,s" to "s,m,t,w,t,f,s",
+        "{focus} em foco · {days} {label}" to "{focus} in focus · {days} {label}",
+
         // ── Definições ──
         "Aparência" to "Appearance",
         "Tema" to "Theme",
