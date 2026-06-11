@@ -24,6 +24,11 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlin.random.Random
+import java.io.File
+import java.security.MessageDigest
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 /**
  * The single gateway between the UI/ViewModel and the Room database — the native
@@ -610,4 +615,162 @@ class PautaRepository(private val db: AppDatabase) {
         plannedDao.insertAll(s.plans)
         prefsDao.upsert(s.prefs)
     }
+
+    /** Load demo data (mirrors the web store's seed()). Prefs are preserved. */
+    suspend fun reseed(todayKey: String) {
+        resetAll()
+        val now = System.currentTimeMillis()
+        val day = 86_400_000L
+        fun daysAgo(n: Int) = now - n * day
+        fun at(daysBack: Int, h: Int, m: Int): Long {
+            val base = daysAgo(daysBack)
+            val midnight = base - (base % day)
+            return midnight + h * 3_600_000L + m * 60_000L
+        }
+
+        // ── Habits (5) ────────────────────────────────────────────────────
+        data class SeedHabit(val id: String, val name: String, val time: String, val ageDays: Int, val pct: Int, val todayDone: Boolean)
+        val seedHabits = listOf(
+            SeedHabit("h1", "Caminhada", "manhã", 60, 87, false),
+            SeedHabit("h2", "Leitura", "antes de dormir", 60, 90, true),
+            SeedHabit("h3", "Sem telemóvel após as 22h", "noite", 45, 57, false),
+            SeedHabit("h4", "Beber 2L de água", "ao longo do dia", 90, 87, true),
+            SeedHabit("h5", "Diário", "antes de dormir", 4, 75, false),
+        )
+        val rng = Random(42) // deterministic seed for reproducible demo data
+        val logs = mutableListOf<HabitLogEntity>()
+        seedHabits.forEachIndexed { idx, sh ->
+            habitDao.upsert(HabitEntity(id = sh.id, name = sh.name, time = sh.time, createdAt = daysAgo(sh.ageDays), position = idx))
+            for (i in sh.ageDays - 1 downTo 0) {
+                val k = DateUtils.addDays(todayKey, -i)
+                if (i == 0) { if (sh.todayDone) logs += HabitLogEntity(sh.id, k) }
+                else if (rng.nextInt(100) < sh.pct) logs += HabitLogEntity(sh.id, k)
+            }
+        }
+        habitMarkDao.insertLogs(logs)
+
+        // ── Today's intentions ────────────────────────────────────────────
+        intentionDao.insertAll(listOf(
+            IntentionEntity("i1", todayKey, "Estudar 45 min para o teste", false, priority = 1, createdAt = now, position = 0),
+            IntentionEntity("i2", todayKey, "Tratar das compras da semana", false, priority = 2, createdAt = now, position = 1),
+            IntentionEntity("i3", todayKey, "Rever os apontamentos da semana", true, createdAt = now, position = 2),
+        ))
+
+        // ── Yesterday ─────────────────────────────────────────────────────
+        val yKey = DateUtils.addDays(todayKey, -1)
+        val yTime = daysAgo(1)
+        intentionDao.insertAll(listOf(
+            IntentionEntity("iy1", yKey, "Planear a semana", true, createdAt = yTime, position = 0),
+            IntentionEntity("iy2", yKey, "Caminhada longa", true, createdAt = yTime, position = 1),
+            IntentionEntity("iy3", yKey, "Ler 30 páginas", false, createdAt = yTime, position = 2),
+        ))
+        dayDao.upsert(DayEntity(yKey, "Dia mais leve do que parecia. A caminhada desbloqueou-me a cabeça."))
+
+        // ── Past sparse days ──────────────────────────────────────────────
+        for (i in 2..6) {
+            if (i % 2 != 0) continue
+            val k = DateUtils.addDays(todayKey, -i)
+            val t = daysAgo(i)
+            intentionDao.insertAll(listOf(
+                IntentionEntity("ix${i}a", k, if (i == 4) "Preparar a apresentação" else "Rever a matéria", true, createdAt = t, position = 0),
+                IntentionEntity("ix${i}b", k, "Estudar durante 45 minutos", i == 2, createdAt = t, position = 1),
+            ))
+            if (i == 4) dayDao.upsert(DayEntity(k, "Apresentação ficou mais clara. Falta praticar."))
+        }
+
+        // ── Focus blocks ──────────────────────────────────────────────────
+        val blocks = mutableListOf<FocusBlockEntity>()
+        val sessions = mutableListOf<FocusSessionEntity>()
+        fun addBlock(id: String, title: String, linkedTo: String?, daysBack: Int, h: Int, m: Int, durMin: Int, status: String, reflection: String = "") {
+            val s = at(daysBack, h, m)
+            blocks += FocusBlockEntity(id = id, title = title, linkedToId = linkedTo, status = status, reflection = reflection, createdAt = s)
+            sessions += FocusSessionEntity(blockId = id, startedAt = s, endedAt = s + durMin * 60_000L)
+        }
+        addBlock("b1", "Arrumar a cozinha", null, 0, 8, 15, 32, "done", "Demorou menos do que parecia.")
+        addBlock("b2a", "Estudar 45 min para o teste", "i1", 0, 9, 5, 40, "paused")
+        sessions += FocusSessionEntity(blockId = "b2a", startedAt = at(0, 11, 10), endedAt = at(0, 11, 55))
+        addBlock("b3", "Rever os apontamentos da semana", "i3", 0, 10, 0, 30, "done", "Fiz um resumo de uma página.")
+        addBlock("by1", "Planear a semana", null, 1, 9, 0, 40, "done", "Defini três coisas para a semana.")
+        addBlock("by2", "Caminhada longa", null, 1, 12, 0, 55, "done", "Ouvi música e arejei a cabeça.")
+        for (i in 2..13) {
+            if (i % 2 == 0 || i == 5 || i == 9) {
+                val dur = 25 + (i * 7) % 50
+                val title = if (i % 3 == 0) "Organizar a casa" else if (i % 2 == 0) "Leitura" else "Estudo"
+                addBlock("bp$i", title, null, i, 10, 0, dur, "done")
+            }
+        }
+        blocks.forEach { focusBlockDao.upsert(it) }
+        focusSessionDao.insertAll(sessions)
+
+        // ── Goals ──────────────────────────────────────────────────────────
+        val q = DateUtils.currentQuarter()
+        goalDao.insertGoals(listOf(
+            GoalEntity("g1", "Aprender a tocar guitarra", false, q, createdAt = daysAgo(20)),
+            GoalEntity("g2", "Correr 5 km sem parar", false, q, createdAt = daysAgo(10)),
+        ))
+    }
+
+    // ── PIN lock ───────────────────────────────────────────────────────────
+
+    fun hashPin(pin: String, salt: String): String {
+        val digest = MessageDigest.getInstance("SHA-256")
+        return digest.digest((salt + pin).toByteArray()).joinToString("") { "%02x".format(it) }
+    }
+
+    fun generateSalt(): String {
+        val bytes = ByteArray(8)
+        java.security.SecureRandom().nextBytes(bytes)
+        return bytes.joinToString("") { "%02x".format(it) }
+    }
+
+    suspend fun setPin(pin: String) {
+        val salt = generateSalt()
+        val hash = hashPin(pin, salt)
+        updatePrefs { it.copy(pinHash = hash, pinSalt = salt) }
+    }
+
+    suspend fun clearPin() = updatePrefs { it.copy(pinHash = null, pinSalt = null) }
+
+    suspend fun verifyPin(pin: String): Boolean {
+        val p = prefsDao.get() ?: return false
+        val salt = p.pinSalt ?: return false
+        val stored = p.pinHash ?: return false
+        return hashPin(pin, salt) == stored
+    }
+
+    // ── Auto-backup ────────────────────────────────────────────────────────
+
+    suspend fun setAutoBackup(value: String) = updatePrefs { it.copy(autoBackup = value) }
+
+    suspend fun maybeAutoBackup(filesDir: File, todayKey: String) {
+        val p = prefs.value
+        val cadenceMs: Long = when (p.autoBackup) {
+            "30m"    -> 30 * 60_000L
+            "hourly" -> 60 * 60_000L
+            "daily"  -> 24 * 60 * 60_000L
+            "weekly" -> 7 * 24 * 60 * 60_000L
+            else     -> return
+        }
+        val now = System.currentTimeMillis()
+        if (now - p.lastAutoBackupMs < cadenceMs) return
+
+        val json = exportJson(todayKey)
+        val dir = File(filesDir, "autobackups").apply { mkdirs() }
+        val ts = SimpleDateFormat("yyyy-MM-dd-HH-mm", Locale.getDefault()).format(Date(now))
+        File(dir, "pauta-auto-$ts.json").writeText(json)
+
+        // Keep only the last 5 auto-backups.
+        dir.listFiles()
+            ?.sortedByDescending { it.lastModified() }
+            ?.drop(5)
+            ?.forEach { it.delete() }
+
+        updatePrefs { it.copy(lastAutoBackupMs = now) }
+    }
+
+    fun listAutoBackups(filesDir: File): List<File> =
+        File(filesDir, "autobackups")
+            .listFiles()
+            ?.sortedByDescending { it.lastModified() }
+            ?: emptyList()
 }

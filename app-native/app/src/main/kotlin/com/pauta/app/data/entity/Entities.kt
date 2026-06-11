@@ -184,10 +184,13 @@ data class PrefsEntity(
     val keepAwake: Boolean = true,
     val immersive: Boolean = false,
     val autoBackup: String = "off",     // "off" | "30m" | "hourly" | "daily" | "weekly"
+    val lastAutoBackupMs: Long = 0,
     val parrot: Boolean = true,
     val onboardingSeen: Boolean = false,
     val remindersEnabled: Boolean = false,
     val plannerTime: String = "08:00",
     val habitsTime: String = "09:00",
     val reflectionTime: String = "21:30",
+    val pinHash: String? = null,        // SHA-256(salt+PIN), hex; null = no PIN lock
+    val pinSalt: String? = null,        // random 8-byte salt, hex
 )

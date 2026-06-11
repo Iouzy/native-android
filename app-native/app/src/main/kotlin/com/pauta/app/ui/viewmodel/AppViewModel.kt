@@ -34,6 +34,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChangedBy
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
@@ -239,6 +240,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     init {
         viewModelScope.launch { repo.ensurePrefs() }
+        // Once the real prefs row arrives, gate the PIN unlock screen.
+        viewModelScope.launch { prefsReady.first { it }; needsUnlock.value = prefs.value.pinHash != null }
         // Promote any week-ahead plan for today and clear stale plans on launch.
         viewModelScope.launch { repo.runRollover(todayKey.value) }
         // The midnight ticker: while the process lives, re-check the day every
@@ -326,6 +329,29 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Wipe all user data (intentions, blocks, habits, goals…); prefs are kept. */
     fun resetAll() = viewModelScope.launch { repo.resetAll() }
+
+    // ── PIN lock ──────────────────────────────────────────────
+    /** True from cold-start until the user verifies PIN; false = no lock or unlocked. */
+    val needsUnlock: MutableStateFlow<Boolean> = MutableStateFlow(false)
+
+    fun unlockApp() { needsUnlock.value = false }
+    fun setPinCode(pin: String) = viewModelScope.launch { repo.setPin(pin) }
+    fun clearPinCode() = viewModelScope.launch { repo.clearPin() }
+
+    fun verifyPinCode(pin: String): Boolean {
+        val p = prefs.value
+        val salt = p.pinSalt ?: return false
+        val stored = p.pinHash ?: return false
+        return repo.hashPin(pin, salt) == stored
+    }
+
+    // ── Demo data ─────────────────────────────────────────────
+    fun reseed() = viewModelScope.launch { repo.reseed(todayKey.value) }
+
+    // ── Auto-backup ───────────────────────────────────────────
+    fun setAutoBackupCadence(value: String) = update { it.copy(autoBackup = value) }
+    fun maybeAutoBackup(context: Context) =
+        viewModelScope.launch { repo.maybeAutoBackup(context.filesDir, todayKey.value) }
 
     /** Produce the pauta.v4 backup JSON, then hand it to [onReady] (for sharing). */
     fun exportBackup(onReady: (String) -> Unit) =

@@ -71,6 +71,58 @@ object InsightsMath {
         val highPrioPct: Int?,
     )
 
+    data class YearReview(
+        val year: Int,
+        val focusMs: Long,
+        val blockCount: Int,
+        val intTotal: Int,
+        val intDone: Int,
+        val tideDoneDays: Int,   // unique days with at least one habit done
+        val topHabitName: String?,
+        val topHabitStreak: Int,
+        val reflections: Int,
+    )
+
+    /** Aggregate stats for a full calendar year, matching the web YearReviewSheet. */
+    fun yearReview(
+        blocks: List<BlockSegs>,
+        habits: List<NamedHabit>,
+        intentions: List<IntentionEntity>,
+        reflectionByDay: Map<String, String>,
+        year: Int,
+        now: Long,
+    ): YearReview {
+        val prefix = "%04d-".format(year)
+
+        var focusMs = 0L
+        var blockCount = 0
+        for (b in blocks) {
+            if (b.segs.any { it.startedAt != 0L && DateUtils.dayKeyOf(it.startedAt).startsWith(prefix) }) {
+                blockCount++
+                focusMs += FocusMath.blockElapsedMs(b.segs, now)
+            }
+        }
+
+        val yearInts = intentions.filter { it.dayKey.startsWith(prefix) }
+        val intTotal = yearInts.size
+        val intDone = yearInts.count { it.done }
+
+        val doneDays = habits.flatMapTo(mutableSetOf<String>()) { nh ->
+            nh.model.log.filter { it.startsWith(prefix) }
+        }.size
+
+        var topName: String? = null
+        var topStreak = 0
+        for (nh in habits) {
+            val s = HabitCalculator.streak(nh.model, DateUtils.todayKey()).days
+            if (s > topStreak) { topStreak = s; topName = nh.name }
+        }
+
+        val reflections = reflectionByDay.entries.count { (k, v) -> k.startsWith(prefix) && v.isNotBlank() }
+
+        return YearReview(year, focusMs, blockCount, intTotal, intDone, doneDays, topName, topStreak, reflections)
+    }
+
     /** dailyFocusMs over every block's sessions (web dailyFocusMs(blocks, k)). */
     fun dailyFocus(blocks: List<BlockSegs>, dayKey: String, now: Long): Long {
         var ms = 0L

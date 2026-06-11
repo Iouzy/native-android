@@ -5,6 +5,8 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import com.pauta.app.data.dao.DayDao
 import com.pauta.app.data.dao.FocusBlockDao
 import com.pauta.app.data.dao.FocusSessionDao
@@ -52,7 +54,7 @@ import com.pauta.app.data.entity.RoutineItemEntity
         PlannedIntentionEntity::class,
         PrefsEntity::class,
     ],
-    version = 1,
+    version = 2,
     exportSchema = false,
 )
 @TypeConverters(Converters::class)
@@ -71,13 +73,21 @@ abstract class AppDatabase : RoomDatabase() {
     companion object {
         @Volatile private var instance: AppDatabase? = null
 
+        private val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE prefs ADD COLUMN lastAutoBackupMs INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE prefs ADD COLUMN pinHash TEXT")
+                db.execSQL("ALTER TABLE prefs ADD COLUMN pinSalt TEXT")
+            }
+        }
+
         fun get(context: Context): AppDatabase =
             instance ?: synchronized(this) {
                 instance ?: Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
                     "pauta.db",
-                ).build().also { instance = it }
+                ).addMigrations(MIGRATION_1_2).build().also { instance = it }
             }
     }
 }
