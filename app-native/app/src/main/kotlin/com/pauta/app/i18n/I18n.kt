@@ -361,6 +361,12 @@ object I18n {
         "Acessibilidade" to "Accessibility",
         "Alto contraste" to "High contrast",
         "Reduzir movimento" to "Reduce motion",
+        "Tamanho do texto" to "Text size",
+        "Normal" to "Normal",
+        "Grande" to "Large",
+        "Maior" to "Larger",
+        "Ecrã inteiro" to "Fullscreen",
+        "Manter ecrã ligado" to "Keep screen on",
         "Companhia" to "Company", // native-only
         "Vibração" to "Haptics",
         "Papagaio ajudante" to "Parrot helper",

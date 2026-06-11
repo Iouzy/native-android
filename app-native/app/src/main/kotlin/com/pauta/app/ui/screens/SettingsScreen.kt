@@ -140,6 +140,8 @@ fun SettingsScreen(onClose: () -> Unit) {
                 }
             }
         }
+        Spacer(Modifier.height(6.dp))
+        ToggleRow(tr("Ecrã inteiro"), prefs.immersive) { vm.setImmersive(it) }
 
         Section(tr("Idioma"))
         SegmentedRow(
@@ -150,8 +152,22 @@ fun SettingsScreen(onClose: () -> Unit) {
         )
 
         Section(tr("Acessibilidade"))
+        SegmentedRow(
+            label = tr("Tamanho do texto"),
+            options = listOf("1.0" to tr("Normal"), "1.15" to tr("Grande"), "1.3" to tr("Maior")),
+            selected = when {
+                prefs.textScale >= 1.3f -> "1.3"
+                prefs.textScale >= 1.15f -> "1.15"
+                else -> "1.0"
+            },
+            onSelect = { vm.setTextScale(it.toFloat()) },
+        )
+        Spacer(Modifier.height(6.dp))
         ToggleRow(tr("Alto contraste"), prefs.highContrast) { vm.setHighContrast(it) }
         ToggleRow(tr("Reduzir movimento"), prefs.reducedMotion) { vm.setReducedMotion(it) }
+
+        Section(tr("Foco"))
+        ToggleRow(tr("Manter ecrã ligado"), prefs.keepAwake) { vm.setKeepAwake(it) }
 
         Section(tr("Companhia"))
         ToggleRow(tr("Vibração"), prefs.haptics) { vm.setHaptics(it) }

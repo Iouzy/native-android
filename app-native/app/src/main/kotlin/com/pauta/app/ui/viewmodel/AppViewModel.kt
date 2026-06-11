@@ -290,6 +290,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun setAccent(hex: String?) = update { it.copy(accent = hex) }
     fun setLang(value: String) = update { it.copy(lang = value) }
     fun setHighContrast(value: Boolean) = update { it.copy(highContrast = value) }
+    fun setTextScale(value: Float) = update { it.copy(textScale = value) }
+    fun setImmersive(value: Boolean) = update { it.copy(immersive = value) }
+    fun setKeepAwake(value: Boolean) = update { it.copy(keepAwake = value) }
     fun setReducedMotion(value: Boolean) = update { it.copy(reducedMotion = value) }
     fun setHaptics(value: Boolean) = update { it.copy(haptics = value) }
     fun setParrot(value: Boolean) = update { it.copy(parrot = value) }
