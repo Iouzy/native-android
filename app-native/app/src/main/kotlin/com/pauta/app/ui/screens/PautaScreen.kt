@@ -2,8 +2,11 @@ package com.pauta.app.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -11,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -27,13 +31,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.pauta.app.data.entity.FocusBlockEntity
+import com.pauta.app.data.entity.IntentionEntity
+import com.pauta.app.domain.DateUtils
 import com.pauta.app.domain.FocusMath
 import com.pauta.app.domain.HabitCalculator.DayState
 import com.pauta.app.i18n.tr
@@ -76,11 +84,24 @@ fun PautaScreen() {
     fun blockMs(id: String): Long =
         FocusMath.blockElapsedMs(segsByBlock[id].orEmpty().map { FocusMath.FocusSeg(it.startedAt, it.endedAt) }, now)
 
-    val dailyMs = remember(allSessions, now, today) {
-        FocusMath.dailyFocusMs(allSessions.map { FocusMath.FocusSeg(it.startedAt, it.endedAt) }, today, now)
+    // Filter — the web's {kind, id, label}: project / intention / block chips
+    // narrow the paused+done lists and the header counts; the active card stays.
+    var filter by remember { mutableStateOf<PautaFilter?>(null) }
+    fun matches(b: FocusBlockEntity): Boolean = when (filter?.kind) {
+        "project" -> b.project == filter?.id
+        "intention" -> b.linkedToId == filter?.id
+        "block" -> b.id == filter?.id
+        else -> true
     }
-    val paused = blocks.filter { it.status == "paused" }
-    val done = blocks.filter { it.status == "done" }
+    val filteredBlocks = blocks.filter { matches(it) }
+    val paused = filteredBlocks.filter { it.status == "paused" }
+    val done = filteredBlocks.filter { it.status == "done" }
+    // Daily focus narrowed to the filtered blocks (all blocks when no filter).
+    val filteredIds = filteredBlocks.map { it.id }.toSet()
+    val filteredDailyMs = FocusMath.dailyFocusMs(
+        allSessions.filter { it.blockId in filteredIds }.map { FocusMath.FocusSeg(it.startedAt, it.endedAt) },
+        today, now,
+    )
 
     // Sheet feeds, mirroring tab-pauta.jsx: distinct projects, the 5 most
     // recent distinct titles as templates, and the still-pending tides.
@@ -117,7 +138,7 @@ fun PautaScreen() {
             Spacer(Modifier.height(6.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = trf("{n} blocos · {t} de foco hoje", "n" to blocks.size, "t" to FocusMath.fmtDuration(dailyMs)),
+                    text = trf("{n} blocos · {t} de foco hoje", "n" to filteredBlocks.size, "t" to FocusMath.fmtDuration(filteredDailyMs)),
                     color = colors.ink3,
                     fontSize = 13.sp,
                     modifier = Modifier.weight(1f),
@@ -134,6 +155,19 @@ fun PautaScreen() {
                         .border(1.dp, colors.rule, RoundedCornerShape(8.dp))
                         .clickableNoRipple { showManual = true }
                         .padding(horizontal = 9.dp, vertical = 6.dp),
+                )
+            }
+
+            // Filter chips — today's intentions, projects, unlinked block titles.
+            val todayBlocks = blocks.filter { DateUtils.dayKeyOf(it.createdAt) == today }
+            if (intentions.isNotEmpty() || filter != null) {
+                Spacer(Modifier.height(8.dp))
+                PautaFilterChips(
+                    intentions = intentions,
+                    todayBlocks = todayBlocks,
+                    projects = projects,
+                    filter = filter,
+                    onFilter = { filter = it },
                 )
             }
 
@@ -340,3 +374,105 @@ private fun ActionText(label: String, color: Color = LocalPautaColors.current.ac
         modifier = Modifier.clickableNoRipple(onClick),
     )
 }
+
+/** The web's Pauta filter: {kind: "project" | "intention" | "block", id, label}. */
+private data class PautaFilter(val kind: String, val id: String, val label: String)
+
+/** sub-components.jsx FilterChips: project chips ("# name"), today's intention
+ *  chips, unlinked block-title chips (dashed), and "limpar" when active. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun PautaFilterChips(
+    intentions: List<IntentionEntity>,
+    todayBlocks: List<FocusBlockEntity>,
+    projects: List<String>,
+    filter: PautaFilter?,
+    onFilter: (PautaFilter?) -> Unit,
+) {
+    val colors = LocalPautaColors.current
+    // Unique titles among today's blocks NOT linked to intentions.
+    val unlinked = remember(todayBlocks) {
+        val seen = LinkedHashMap<String, String>()
+        for (b in todayBlocks) if (b.linkedToId == null && b.title !in seen) seen[b.title] = b.id
+        seen.entries.map { it.key to it.value }
+    }
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        projects.forEach { pr ->
+            val active = filter?.kind == "project" && filter.id == pr
+            FilterChip("# $pr", active = active, muted = false) {
+                onFilter(if (active) null else PautaFilter("project", pr, pr))
+            }
+        }
+        intentions.forEach { i ->
+            val active = filter?.kind == "intention" && filter.id == i.id
+            FilterChip(i.text, active = active, muted = false) {
+                onFilter(if (active) null else PautaFilter("intention", i.id, i.text))
+            }
+        }
+        unlinked.forEach { (title, id) ->
+            val active = filter?.kind == "block" && filter.label == title
+            FilterChip(title, active = active, muted = true) {
+                onFilter(if (active) null else PautaFilter("block", id, title))
+            }
+        }
+        if (filter != null) {
+            Text(
+                text = "\u00d7 " + tr("limpar"),
+                color = colors.ink3,
+                fontFamily = MonoFamily,
+                fontSize = 10.sp,
+                letterSpacing = 0.6.sp, // 0.06em of 10sp
+                modifier = Modifier
+                    .clickableNoRipple { onFilter(null) }
+                    .padding(horizontal = 10.dp, vertical = 6.dp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun FilterChip(label: String, active: Boolean, muted: Boolean, onClick: () -> Unit) {
+    val colors = LocalPautaColors.current
+    val bg = when {
+        active -> colors.accent
+        muted -> Color.Transparent
+        else -> colors.paper2
+    }
+    Text(
+        text = label,
+        color = if (active) colors.onDark else colors.ink2,
+        fontSize = 12.sp,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        modifier = Modifier
+            .widthIn(max = 180.dp)
+            .clip(RoundedCornerShape(999.dp))
+            .background(bg)
+            .then(
+                if (muted && !active) {
+                    Modifier.dashedBorder(colors.rule)
+                } else {
+                    Modifier.border(1.dp, if (active) colors.accent else colors.rule, RoundedCornerShape(999.dp))
+                },
+            )
+            .clickableNoRipple(onClick)
+            .padding(horizontal = 11.dp, vertical = 5.dp),
+    )
+}
+
+/** A 1dp dashed pill outline (the web's `border: 1px dashed var(--rule)`). */
+private fun Modifier.dashedBorder(color: Color): Modifier = this.then(
+    Modifier.drawBehind {
+        drawRoundRect(
+            color = color,
+            cornerRadius = androidx.compose.ui.geometry.CornerRadius(size.height / 2),
+            style = androidx.compose.ui.graphics.drawscope.Stroke(
+                width = 1.dp.toPx(),
+                pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(6f, 6f)),
+            ),
+        )
+    },
+)

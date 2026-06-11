@@ -3,6 +3,14 @@ package com.pauta.app
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import android.view.WindowManager
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.SideEffect
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -47,12 +55,38 @@ class MainActivity : ComponentActivity() {
                 else -> ThemeMode.AUTO
             }
 
-            PautaTheme(
-                mode = mode,
-                accent = parseAccentOrDefault(prefs.accent),
-                highContrast = prefs.highContrast,
-            ) {
-                MainScaffold(initialTab = startTab)
+            // Accessibility text size: scale the font density like the web's
+            // html{font-size: textScale}. // PT: tamanho do texto.
+            val density = LocalDensity.current
+            val scaled = Density(density.density, density.fontScale * prefs.textScale)
+
+            // Fullscreen + keep-awake follow the live preferences.
+            val activeBlock by vm.activeBlock.collectAsStateWithLifecycle()
+            SideEffect {
+                val controller = WindowCompat.getInsetsController(window, window.decorView)
+                if (prefs.immersive) {
+                    controller.systemBarsBehavior =
+                        WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                    controller.hide(WindowInsetsCompat.Type.systemBars())
+                } else {
+                    controller.show(WindowInsetsCompat.Type.systemBars())
+                }
+                // Don't let the phone sleep while a block is running (web keepAwake).
+                if (prefs.keepAwake && activeBlock != null) {
+                    window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                } else {
+                    window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                }
+            }
+
+            CompositionLocalProvider(LocalDensity provides scaled) {
+                PautaTheme(
+                    mode = mode,
+                    accent = parseAccentOrDefault(prefs.accent),
+                    highContrast = prefs.highContrast,
+                ) {
+                    MainScaffold(initialTab = startTab)
+                }
             }
         }
     }

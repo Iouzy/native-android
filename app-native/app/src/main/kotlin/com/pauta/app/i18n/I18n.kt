@@ -192,6 +192,7 @@ object I18n {
         "Duração (min)" to "Duration (min)",
         "ex.: leitura" to "e.g. reading",
         "registar" to "log",
+        "limpar" to "clear",
 
         // ── Marés ──
         "mês anterior" to "previous month", // native-only
@@ -360,6 +361,12 @@ object I18n {
         "Acessibilidade" to "Accessibility",
         "Alto contraste" to "High contrast",
         "Reduzir movimento" to "Reduce motion",
+        "Tamanho do texto" to "Text size",
+        "Normal" to "Normal",
+        "Grande" to "Large",
+        "Maior" to "Larger",
+        "Ecrã inteiro" to "Fullscreen",
+        "Manter ecrã ligado" to "Keep screen on",
         "Companhia" to "Company", // native-only
         "Vibração" to "Haptics",
         "Papagaio ajudante" to "Parrot helper",
