@@ -138,6 +138,10 @@ class PautaRepository(private val db: AppDatabase) {
         intentionDao.observeAll().map { HojeLogic.carrySource(it, todayKey) }
 
     // ── history ───────────────────────────────────────────────
+    /** Every intention ever / every day row — the Revisão sheet's raw inputs. */
+    fun allIntentions(): Flow<List<IntentionEntity>> = intentionDao.observeAll()
+    fun allDays(): Flow<List<DayEntity>> = dayDao.observeAll()
+
     /** Read-only history of past days with content, newest first. */
     fun history(todayKey: String): Flow<List<HistoryDay>> =
         combine(dayDao.observeAll(), intentionDao.observeAll()) { days, intentions ->

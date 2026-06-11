@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.pauta.app.PautaApplication
+import com.pauta.app.data.entity.DayEntity
 import com.pauta.app.data.entity.FocusBlockEntity
 import com.pauta.app.data.entity.FocusSessionEntity
 import com.pauta.app.data.entity.GoalEntity
@@ -95,6 +96,12 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val carry: StateFlow<CarrySource?> =
         todayKey.flatMapLatest { repo.carrySource(it) }
             .stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
+    /** All-time intentions + day rows — the Revisão (insights) sheet's inputs. */
+    val allIntentions: StateFlow<List<IntentionEntity>> =
+        repo.allIntentions().stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+    val allDays: StateFlow<List<DayEntity>> =
+        repo.allDays().stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     /** Read-only history of past days with content, newest first. */
     @OptIn(ExperimentalCoroutinesApi::class)
