@@ -53,6 +53,7 @@ import com.pauta.app.BuildConfig
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.pauta.app.i18n.tr
+import com.pauta.app.i18n.trf
 import com.pauta.app.ui.clickableNoRipple
 import com.pauta.app.ui.theme.LocalPautaColors
 import com.pauta.app.ui.theme.SerifFamily
@@ -81,6 +82,9 @@ fun SettingsScreen(onClose: () -> Unit) {
     val updChecking by vm.updateChecking.collectAsStateWithLifecycle()
     val updChecked by vm.updateChecked.collectAsStateWithLifecycle()
     val updAvailable by vm.updateAvailable.collectAsStateWithLifecycle()
+    val updDownloading by vm.updateDownloading.collectAsStateWithLifecycle()
+    val updDownloadProgress by vm.updateDownloadProgress.collectAsStateWithLifecycle()
+    val updDownloadError by vm.updateDownloadError.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val notifLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
@@ -196,9 +200,35 @@ fun SettingsScreen(onClose: () -> Unit) {
         ActionRow(tr("Importar dados")) { importLauncher.launch("application/json") }
 
         Section(tr("Atualizações"))
-        Text("build #${BuildConfig.BUILD_RUN}", color = colors.ink4, fontSize = 13.sp)
+        // Show a date-based version label when the build timestamp is stamped by
+        // CI (same pattern as the web app's "Versão de YYYY-MM-DD"). Fall back to
+        // the run number for local/unstamped builds. // PT: data da versão como na web.
+        val versionLabel = if (BuildConfig.BUILD_TS > 0L) {
+            val d = java.time.Instant.ofEpochSecond(BuildConfig.BUILD_TS)
+                .atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+            trf("Versão de {date}", "date" to d.toString())
+        } else {
+            "build #${BuildConfig.BUILD_RUN}"
+        }
+        Text(versionLabel, color = colors.ink4, fontSize = 13.sp)
         Spacer(Modifier.height(4.dp))
         when {
+            updDownloading -> {
+                val label = if (updDownloadProgress != null)
+                    trf("A transferir atualização… {n}%", "n" to updDownloadProgress!!)
+                else tr("A transferir atualização…")
+                Text(label, color = colors.ink3, fontSize = 16.sp, modifier = Modifier.padding(vertical = 10.dp))
+            }
+            updDownloadError -> {
+                Text(
+                    tr("Não foi possível transferir a atualização."),
+                    color = colors.accent,
+                    fontSize = 14.sp,
+                    modifier = Modifier.padding(vertical = 4.dp),
+                )
+                Spacer(Modifier.height(4.dp))
+                ActionRow(tr("Tentar outra vez")) { vm.installUpdate(context) }
+            }
             updChecking -> Text(tr("A verificar…"), color = colors.ink3, fontSize = 16.sp, modifier = Modifier.padding(vertical = 10.dp))
             updAvailable != null -> ActionRow(tr("Transferir nova versão")) { vm.installUpdate(context) }
             updChecked -> Text(tr("Está atualizado."), color = colors.ink3, fontSize = 16.sp, modifier = Modifier.padding(vertical = 10.dp))

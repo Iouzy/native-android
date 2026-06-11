@@ -423,6 +423,11 @@ object I18n {
         "Transferir nova versão" to "Download new version",
         "Está atualizado." to "Up to date.",
         "Verificar atualizações" to "Check for updates",
+        "Versão de {date}" to "Version {date}",
+        "A transferir atualização…" to "Downloading update…",
+        "A transferir atualização… {n}%" to "Downloading update… {n}%",
+        "Não foi possível transferir a atualização." to "Couldn't download the update.",
+        "Tentar outra vez" to "Try again",
 
         // ── Widget ──
         "Foco {m}m" to "Focus {m}m",

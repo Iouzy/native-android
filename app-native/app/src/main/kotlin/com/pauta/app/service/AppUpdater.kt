@@ -51,17 +51,73 @@ object AppUpdater {
         }.getOrNull()
     }
 
-    /** Download the release APK to the cache. */
-    suspend fun download(context: Context, url: String): File? = withContext(Dispatchers.IO) {
-        runCatching {
-            val dir = File(context.cacheDir, "updates").apply { mkdirs() }
-            val file = File(dir, "pauta-update.apk")
-            (URL(url).openConnection() as HttpURLConnection).inputStream.use { input ->
-                file.outputStream().use { out -> input.copyTo(out) }
-            }
-            file
-        }.getOrNull()
-    }
+    /** Download the release APK to the cache; reports progress (0–100) via [onProgress].
+     *  GitHub release assets redirect (302) to a CDN host. HttpURLConnection's built-in
+     *  redirect following can silently produce 0-byte files on some Android versions when
+     *  the redirect crosses hosts, so we follow the redirect chain manually — same
+     *  approach as the Capacitor AppUpdaterPlugin. */
+    suspend fun download(context: Context, url: String, onProgress: (Int) -> Unit = {}): File? =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val dir = File(context.cacheDir, "updates").apply { mkdirs() }
+                val file = File(dir, "pauta-update.apk")
+                if (file.exists()) file.delete()
+
+                var current = url
+                var redirects = 0
+                val conn: HttpURLConnection
+                while (true) {
+                    val c = (URL(current).openConnection() as HttpURLConnection).apply {
+                        instanceFollowRedirects = false
+                        connectTimeout = 30_000
+                        readTimeout = 30_000
+                        setRequestProperty("Accept", "application/octet-stream")
+                    }
+                    val code = c.responseCode
+                    if (code in 300..399 && redirects < 5) {
+                        val loc = c.getHeaderField("Location")
+                        c.disconnect()
+                        if (loc.isNullOrBlank()) throw RuntimeException("redirect without Location")
+                        current = loc
+                        redirects++
+                        continue
+                    }
+                    if (code != HttpURLConnection.HTTP_OK) {
+                        c.disconnect()
+                        throw RuntimeException("HTTP $code")
+                    }
+                    conn = c
+                    break
+                }
+
+                val total = conn.contentLength.toLong()
+                try {
+                    conn.inputStream.use { input ->
+                        file.outputStream().use { output ->
+                            val buf = ByteArray(64 * 1024)
+                            var downloaded = 0L
+                            var lastPct = -1
+                            while (true) {
+                                val read = input.read(buf)
+                                if (read == -1) break
+                                output.write(buf, 0, read)
+                                downloaded += read
+                                if (total > 0) {
+                                    val pct = (downloaded * 100 / total).toInt()
+                                    if (pct != lastPct) {
+                                        lastPct = pct
+                                        onProgress(pct)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } finally {
+                    conn.disconnect()
+                }
+                file
+            }.getOrNull()
+        }
 
     /** Hand the APK to the system installer (in-place upgrade). */
     fun install(context: Context, file: File) {

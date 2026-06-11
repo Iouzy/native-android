@@ -190,10 +190,14 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun removeMilestone(id: String) = viewModelScope.launch { repo.removeMilestone(id) }
 
     // ── updater ───────────────────────────────────────────────
-    /** null = unknown, true = checking; the Update when one is found. */
     val updateChecking: MutableStateFlow<Boolean> = MutableStateFlow(false)
     val updateChecked: MutableStateFlow<Boolean> = MutableStateFlow(false)
     val updateAvailable: MutableStateFlow<AppUpdater.Update?> = MutableStateFlow(null)
+    val updateDownloading: MutableStateFlow<Boolean> = MutableStateFlow(false)
+    /** 0–100 while the APK streams; null when the size is unknown. */
+    val updateDownloadProgress: MutableStateFlow<Int?> = MutableStateFlow(null)
+    /** True after a download attempt fails so the UI can offer a retry. */
+    val updateDownloadError: MutableStateFlow<Boolean> = MutableStateFlow(false)
 
     fun checkForUpdate() = viewModelScope.launch {
         updateChecking.value = true
@@ -204,7 +208,18 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun installUpdate(context: Context) = viewModelScope.launch {
         val u = updateAvailable.value ?: return@launch
-        AppUpdater.download(context, u.url)?.let { AppUpdater.install(context, it) }
+        updateDownloading.value = true
+        updateDownloadProgress.value = null
+        updateDownloadError.value = false
+        val file = AppUpdater.download(context, u.url) { pct ->
+            updateDownloadProgress.value = pct
+        }
+        updateDownloading.value = false
+        if (file != null) {
+            AppUpdater.install(context, file)
+        } else {
+            updateDownloadError.value = true
+        }
     }
 
     init {

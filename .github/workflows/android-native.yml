@@ -46,7 +46,7 @@ jobs:
       - name: Build debug APK
         run: |
           cd app-native
-          ./gradlew :app:assembleDebug -PbuildRun=${{ github.run_number }}
+          ./gradlew :app:assembleDebug -PbuildRun=${{ github.run_number }} -PbuildTs=$(date +%s)
 
       - name: Stage APK
         run: cp app-native/app/build/outputs/apk/debug/app-debug.apk "pauta-native-v${{ github.run_number }}.apk"
