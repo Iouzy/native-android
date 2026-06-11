@@ -114,7 +114,7 @@ object InsightsMath {
         var topName: String? = null
         var topStreak = 0
         for (nh in habits) {
-            val s = HabitCalculator.streak(nh.model, DateUtils.todayKey()).days
+            val s = HabitCalculator.currentStreak(nh.model, DateUtils.todayKey()).days
             if (s > topStreak) { topStreak = s; topName = nh.name }
         }
 

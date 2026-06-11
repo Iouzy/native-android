@@ -743,7 +743,7 @@ class PautaRepository(private val db: AppDatabase) {
     suspend fun setAutoBackup(value: String) = updatePrefs { it.copy(autoBackup = value) }
 
     suspend fun maybeAutoBackup(filesDir: File, todayKey: String) {
-        val p = prefs.value
+        val p = prefsDao.get() ?: return
         val cadenceMs: Long = when (p.autoBackup) {
             "30m"    -> 30 * 60_000L
             "hourly" -> 60 * 60_000L
