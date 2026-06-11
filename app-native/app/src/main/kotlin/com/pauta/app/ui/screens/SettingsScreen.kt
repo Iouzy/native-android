@@ -1,18 +1,24 @@
 package com.pauta.app.ui.screens
 
 import android.Manifest
+import android.app.PendingIntent
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
+import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.FileProvider
 import java.io.File
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -27,6 +33,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
@@ -45,37 +52,39 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import com.pauta.app.BuildConfig
+import com.pauta.app.MainActivity
+import com.pauta.app.R
+import com.pauta.app.service.ReminderScheduler
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.pauta.app.i18n.tr
 import com.pauta.app.i18n.trf
 import com.pauta.app.ui.clickableNoRipple
 import com.pauta.app.ui.theme.LocalPautaColors
+import com.pauta.app.ui.theme.MonoFamily
 import com.pauta.app.ui.theme.SerifFamily
 import com.pauta.app.ui.viewmodel.AppViewModel
 
-/** Accent presets offered in Settings (null = the build default terracotta). */
+/** Accent palette matching the web app (first entry = build-default terracota). */
 private val ACCENT_PRESETS = listOf(
-    null to "#B8533A",   // padrão (terracotta)
-    "#2563EB" to "#2563EB",
-    "#0E7C66" to "#0E7C66",
-    "#7C5CBF" to "#7C5CBF",
-    "#C2410C" to "#C2410C",
-    "#9333EA" to "#9333EA",
+    null      to "#B8533A",  // Terracota (padrão)
+    "#5A6B3E" to "#5A6B3E",  // Salva
+    "#3D5A80" to "#3D5A80",  // Índigo
+    "#2E6E6A" to "#2E6E6A",  // Oceano
+    "#8E5A8E" to "#8E5A8E",  // Ameixa
+    "#A6792E" to "#A6792E",  // Âmbar
+    "#1A1815" to "#1A1815",  // Tinta
 )
 
-/**
- * Settings as a full-surface overlay: appearance (theme / accent / contrast /
- * reduced motion), language, haptics and Pip. Reminders, export/import and the
- * updater layer on here next. // PT: definições — aspeto, idioma, hápticos, Pip.
- */
 @Composable
 fun SettingsScreen(onClose: () -> Unit) {
     val colors = LocalPautaColors.current
@@ -89,6 +98,7 @@ fun SettingsScreen(onClose: () -> Unit) {
     val updDownloadError by vm.updateDownloadError.collectAsStateWithLifecycle()
     val updNeedsPerm by vm.updateNeedsPerm.collectAsStateWithLifecycle()
     val context = LocalContext.current
+
     val notifLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri != null) {
@@ -100,7 +110,9 @@ fun SettingsScreen(onClose: () -> Unit) {
     }
 
     var showGoals by remember { mutableStateOf(false) }
+    var showInsights by remember { mutableStateOf(false) }
     var showResetConfirm by remember { mutableStateOf(false) }
+    var testNotifMsg by remember { mutableStateOf<String?>(null) }
 
     if (showResetConfirm) {
         AlertDialog(
@@ -126,6 +138,11 @@ fun SettingsScreen(onClose: () -> Unit) {
         )
     }
 
+    if (showInsights) {
+        InsightsSheet(onClose = { showInsights = false })
+        return
+    }
+
     if (showGoals) {
         GoalsScreen(onClose = { showGoals = false })
         return
@@ -142,171 +159,389 @@ fun SettingsScreen(onClose: () -> Unit) {
             .padding(horizontal = 24.dp),
     ) {
         Spacer(Modifier.height(16.dp))
+
+        // Navigation header
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("←", color = colors.accent, fontSize = 22.sp, modifier = Modifier.clickableNoRipple(onClose))
+            Text(
+                "←",
+                color = colors.accent,
+                fontSize = 22.sp,
+                modifier = Modifier.clickableNoRipple(onClose),
+            )
             Spacer(Modifier.width(14.dp))
             Text(tr("Definições"), color = colors.ink, fontFamily = SerifFamily, fontSize = 26.sp)
         }
 
-        Section(tr("Aparência"))
-        SegmentedRow(
-            label = tr("Tema"),
-            options = listOf("auto" to tr("Auto"), "light" to tr("Claro"), "dark" to tr("Escuro")),
-            selected = prefs.theme,
-            onSelect = { vm.setTheme(it) },
-        )
-        Spacer(Modifier.height(14.dp))
-        Text(tr("Cor de destaque"), color = colors.ink2, fontSize = 14.sp)
-        Spacer(Modifier.height(8.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            ACCENT_PRESETS.forEach { (value, hex) ->
-                val selected = prefs.accent == value
-                Box(
-                    Modifier
-                        .size(30.dp)
-                        .clip(CircleShape)
-                        .background(parseHex(hex))
-                        .clickableNoRipple { vm.setAccent(value) },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    if (selected) Box(Modifier.size(10.dp).clip(CircleShape).background(Color.White))
-                }
-            }
-        }
-        Spacer(Modifier.height(6.dp))
-        ToggleRow(tr("Ecrã inteiro"), prefs.immersive) { vm.setImmersive(it) }
-
-        Section(tr("Idioma"))
-        SegmentedRow(
-            label = tr("Língua"),
-            options = listOf("pt" to "Português", "en" to "English"),
-            selected = prefs.lang,
-            onSelect = { vm.setLang(it) },
-        )
-
-        Section(tr("Acessibilidade"))
-        SegmentedRow(
-            label = tr("Tamanho do texto"),
-            options = listOf("1.0" to tr("Normal"), "1.15" to tr("Grande"), "1.3" to tr("Maior")),
-            selected = when {
-                prefs.textScale >= 1.3f -> "1.3"
-                prefs.textScale >= 1.15f -> "1.15"
-                else -> "1.0"
-            },
-            onSelect = { vm.setTextScale(it.toFloat()) },
-        )
-        Spacer(Modifier.height(6.dp))
-        ToggleRow(tr("Alto contraste"), prefs.highContrast) { vm.setHighContrast(it) }
-        ToggleRow(tr("Reduzir movimento"), prefs.reducedMotion) { vm.setReducedMotion(it) }
-
-        Section(tr("Foco"))
-        ToggleRow(tr("Manter ecrã ligado"), prefs.keepAwake) { vm.setKeepAwake(it) }
-        ToggleRow(tr("Som ao concluir"), prefs.sound) { vm.setSound(it) }
-
-        Section(tr("Companhia"))
-        ToggleRow(tr("Vibração"), prefs.haptics) { vm.setHaptics(it) }
-        ToggleRow(tr("Papagaio ajudante"), prefs.parrot) { vm.setParrot(it) }
-
-        Section(tr("Lembretes"))
-        ToggleRow(tr("Lembretes diários"), prefs.remindersEnabled) { enabled ->
-            vm.setRemindersEnabled(enabled)
-            if (enabled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-                ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        // Hero — app identity, matches web DataSheet hero header
+        Spacer(Modifier.height(18.dp))
+        Row(
+            Modifier.fillMaxWidth().padding(bottom = 18.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                Modifier
+                    .size(44.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(colors.accent.copy(alpha = 0.08f))
+                    .border(1.dp, colors.accent.copy(alpha = 0.2f), RoundedCornerShape(12.dp)),
+                contentAlignment = Alignment.Center,
             ) {
-                notifLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-            }
-        }
-        if (prefs.remindersEnabled) {
-            TimeRow(tr("Plano do dia"), prefs.plannerTime) { vm.setPlannerTime(it) }
-            TimeRow(tr("Hábitos pendentes"), prefs.habitsTime) { vm.setHabitsTime(it) }
-            TimeRow(tr("Reflexão noturna"), prefs.reflectionTime) { vm.setReflectionTime(it) }
-        }
-
-        Section(tr("Objetivos"))
-        ActionRow(tr("Objetivos trimestrais")) { showGoals = true }
-
-        Section(tr("Dados"))
-        ActionRow(tr("Exportar dados")) { vm.exportBackup { json -> shareBackup(context, json) } }
-        ActionRow(tr("Importar dados")) { importLauncher.launch("application/json") }
-
-        Section(tr("Atualizações"))
-        // Show a date-based version label when the build timestamp is stamped by
-        // CI (same pattern as the web app's "Versão de YYYY-MM-DD"). Fall back to
-        // the run number for local/unstamped builds. // PT: data da versão como na web.
-        val versionLabel = if (BuildConfig.BUILD_TS > 0L) {
-            val d = java.time.Instant.ofEpochSecond(BuildConfig.BUILD_TS)
-                .atZone(java.time.ZoneId.systemDefault()).toLocalDate()
-            trf("Versão de {date}", "date" to d.toString())
-        } else {
-            "build #${BuildConfig.BUILD_RUN}"
-        }
-        Text(versionLabel, color = colors.ink4, fontSize = 13.sp)
-        Spacer(Modifier.height(4.dp))
-        when {
-            updDownloading -> {
-                val label = if (updDownloadProgress != null)
-                    trf("A transferir atualização… {n}%", "n" to updDownloadProgress!!)
-                else tr("A transferir atualização…")
-                Text(label, color = colors.ink3, fontSize = 16.sp, modifier = Modifier.padding(vertical = 10.dp))
-            }
-            updDownloadError -> {
                 Text(
-                    tr("Não foi possível transferir a atualização."),
+                    "P",
                     color = colors.accent,
-                    fontSize = 14.sp,
-                    modifier = Modifier.padding(vertical = 4.dp),
+                    fontFamily = SerifFamily,
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold,
                 )
-                Spacer(Modifier.height(4.dp))
-                ActionRow(tr("Tentar outra vez")) { vm.installUpdate(context) }
             }
-            updChecking -> Text(tr("A verificar…"), color = colors.ink3, fontSize = 16.sp, modifier = Modifier.padding(vertical = 10.dp))
-            updAvailable != null -> Column {
-                ActionRow(tr("Transferir nova versão")) { vm.installUpdate(context) }
-                if (updNeedsPerm) {
-                    // We just opened the "install unknown apps" toggle — ask the
-                    // user to allow it and tap again. // PT: permitir e tocar de novo.
-                    Text(
-                        text = tr("Permite instalar apps desta origem e toca outra vez."),
-                        color = colors.accent,
-                        fontSize = 13.sp,
-                        lineHeight = 18.sp,
-                        modifier = Modifier.padding(bottom = 6.dp),
-                    )
-                }
-                // One-time gotcha for builds signed before the project settled on a
-                // fixed key — same italic hint the web shows under the button.
+            Spacer(Modifier.width(14.dp))
+            Column {
+                Text("Pauta", color = colors.ink, fontFamily = SerifFamily, fontSize = 24.sp)
                 Text(
-                    text = tr("Se a instalação falhar com «conflito com um pacote existente»: exporta uma cópia de segurança, desinstala a app e instala de novo. Só é preciso uma vez — daí em diante as atualizações mantêm os teus dados."),
+                    tr("Hoje · Pauta · Marés"),
                     color = colors.ink3,
                     fontFamily = SerifFamily,
-                    fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
-                    fontSize = 12.sp,
-                    lineHeight = 17.sp,
+                    fontStyle = FontStyle.Italic,
+                    fontSize = 13.sp,
                 )
             }
-            updChecked -> Text(tr("Está atualizado."), color = colors.ink3, fontSize = 16.sp, modifier = Modifier.padding(vertical = 10.dp))
-            else -> ActionRow(tr("Verificar atualizações")) { vm.checkForUpdate() }
+        }
+        HorizontalDivider(color = colors.rule)
+
+        // ── ANÁLISE ──────────────────────────────────────────────────────
+        Section(tr("Análise"))
+        SectionCard {
+            ActionRow(
+                label = tr("Revisão semanal"),
+                subtitle = tr("Foco, hábitos e padrões dos últimos 7 dias."),
+            ) { showInsights = true }
         }
 
+        // ── APARÊNCIA ────────────────────────────────────────────────────
+        Section(tr("Aparência"))
+        SectionCard {
+            SegmentedRow(
+                label = tr("Língua"),
+                options = listOf("pt" to "Português", "en" to "English"),
+                selected = prefs.lang,
+                onSelect = { vm.setLang(it) },
+            )
+            CardDivider()
+            SegmentedRow(
+                label = tr("Tema"),
+                options = listOf("auto" to tr("Auto"), "light" to tr("Claro"), "dark" to tr("Escuro")),
+                selected = prefs.theme,
+                onSelect = { vm.setTheme(it) },
+            )
+            CardDivider()
+            Column(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                Text(tr("Cor de destaque"), color = colors.ink2, fontSize = 14.sp)
+                Spacer(Modifier.height(8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    ACCENT_PRESETS.forEach { (value, hex) ->
+                        val selected = prefs.accent == value
+                        Box(
+                            Modifier
+                                .size(30.dp)
+                                .clip(CircleShape)
+                                .background(parseHex(hex))
+                                .clickableNoRipple { vm.setAccent(value) },
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            if (selected) Box(Modifier.size(10.dp).clip(CircleShape).background(Color.White))
+                        }
+                    }
+                }
+            }
+            CardDivider()
+            ToggleRow(
+                label = tr("Vibração"),
+                checked = prefs.haptics,
+                subtitle = tr("Pequeno toque ao concluir."),
+            ) { vm.setHaptics(it) }
+            CardDivider()
+            ToggleRow(
+                label = tr("Papagaio ajudante"),
+                checked = prefs.parrot,
+                subtitle = tr("O Pip aparece com dicas e piadas. Toca-lhe para mais."),
+            ) { vm.setParrot(it) }
+            CardDivider()
+            ToggleRow(
+                label = tr("Ecrã inteiro"),
+                checked = prefs.immersive,
+                subtitle = tr("Esconde as barras do sistema. Deslize da margem para as ver."),
+            ) { vm.setImmersive(it) }
+        }
+
+        // ── ACESSIBILIDADE ───────────────────────────────────────────────
+        Section(tr("Acessibilidade"))
+        SectionCard {
+            SegmentedRow(
+                label = tr("Tamanho do texto"),
+                options = listOf("1.0" to tr("Normal"), "1.15" to tr("Grande"), "1.3" to tr("Maior")),
+                selected = when {
+                    prefs.textScale >= 1.3f -> "1.3"
+                    prefs.textScale >= 1.15f -> "1.15"
+                    else -> "1.0"
+                },
+                onSelect = { vm.setTextScale(it.toFloat()) },
+            )
+            CardDivider()
+            ToggleRow(
+                label = tr("Alto contraste"),
+                checked = prefs.highContrast,
+                subtitle = tr("Reforça o texto e as linhas. Segue o sistema por omissão."),
+            ) { vm.setHighContrast(it) }
+            CardDivider()
+            ToggleRow(
+                label = tr("Reduzir movimento"),
+                checked = prefs.reducedMotion,
+                subtitle = tr("Desliga animações. Segue o sistema por omissão."),
+            ) { vm.setReducedMotion(it) }
+        }
+
+        // ── FOCO ─────────────────────────────────────────────────────────
+        Section(tr("Foco"))
+        SectionCard {
+            ToggleRow(
+                label = tr("Manter ecrã ligado"),
+                checked = prefs.keepAwake,
+                subtitle = tr("Não deixa o telemóvel adormecer durante um bloco."),
+            ) { vm.setKeepAwake(it) }
+            CardDivider()
+            ToggleRow(
+                label = tr("Som ao concluir"),
+                checked = prefs.sound,
+                subtitle = tr("Um sino suave ao terminar um bloco ou atingir a meta."),
+            ) { vm.setSound(it) }
+        }
+
+        // ── LEMBRETES ────────────────────────────────────────────────────
+        Section(tr("Lembretes"))
+        SectionCard {
+            ToggleRow(
+                label = tr("Notificações"),
+                checked = prefs.remindersEnabled,
+                subtitle = tr("Avisos locais enquanto a app está aberta."),
+                onChange = { enabled ->
+                    vm.setRemindersEnabled(enabled)
+                    if (enabled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                        ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+                    ) {
+                        notifLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    }
+                },
+            )
+            if (prefs.remindersEnabled) {
+                CardDivider()
+                TimeRow(tr("Plano do dia"), prefs.plannerTime) { vm.setPlannerTime(it) }
+                TimeRow(tr("Hábitos pendentes"), prefs.habitsTime) { vm.setHabitsTime(it) }
+                TimeRow(tr("Reflexão noturna"), prefs.reflectionTime) { vm.setReflectionTime(it) }
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    tr("Sem servidor: os avisos só chegam com a app aberta no telemóvel."),
+                    color = colors.ink3,
+                    fontFamily = SerifFamily,
+                    fontStyle = FontStyle.Italic,
+                    fontSize = 12.sp,
+                    lineHeight = 17.sp,
+                    modifier = Modifier.padding(bottom = 8.dp),
+                )
+                Text(
+                    tr("Testar notificação"),
+                    color = colors.ink2,
+                    fontFamily = MonoFamily,
+                    fontSize = 10.sp,
+                    letterSpacing = 0.08.sp,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .border(1.dp, colors.rule, RoundedCornerShape(8.dp))
+                        .clickableNoRipple {
+                            testNotifMsg = null
+                            val ok = sendTestReminder(context)
+                            testNotifMsg = if (ok)
+                                tr("Notificação de teste enviada.")
+                            else
+                                tr("Não foi possível enviar a notificação de teste.")
+                        }
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                )
+                if (testNotifMsg != null) {
+                    Spacer(Modifier.height(6.dp))
+                    Text(testNotifMsg!!, color = colors.ink3, fontSize = 12.sp)
+                }
+                Spacer(Modifier.height(4.dp))
+            }
+        }
+
+        // ── OBJETIVOS (native-only) ───────────────────────────────────────
+        Section(tr("Objetivos"))
+        SectionCard {
+            ActionRow(tr("Objetivos trimestrais")) { showGoals = true }
+        }
+
+        // ── DADOS ────────────────────────────────────────────────────────
+        Section(tr("Dados"))
+        SectionCard {
+            ActionRow(
+                label = tr("Exportar dados"),
+                subtitle = tr("Transfere um ficheiro .json com tudo."),
+            ) { vm.exportBackup { json -> shareBackup(context, json) } }
+            CardDivider()
+            ActionRow(
+                label = tr("Enviar para a nuvem"),
+                subtitle = tr("Partilha a cópia para o Drive, Dropbox, Ficheiros…"),
+            ) { vm.exportBackup { json -> shareBackup(context, json) } }
+            CardDivider()
+            ActionRow(
+                label = tr("Importar dados"),
+                subtitle = tr("Restaura a partir de um ficheiro .json."),
+            ) { importLauncher.launch("application/json") }
+        }
+
+        // ── ATUALIZAÇÕES ─────────────────────────────────────────────────
+        Section(tr("Atualizações"))
+        SectionCard {
+            val versionLabel = if (BuildConfig.BUILD_TS > 0L) {
+                val d = java.time.Instant.ofEpochSecond(BuildConfig.BUILD_TS)
+                    .atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+                trf("Versão de {date}", "date" to d.toString())
+            } else {
+                "build #${BuildConfig.BUILD_RUN}"
+            }
+            Text(
+                versionLabel,
+                color = colors.ink4,
+                fontSize = 13.sp,
+                modifier = Modifier.padding(vertical = 8.dp),
+            )
+            when {
+                updDownloading -> {
+                    val label = if (updDownloadProgress != null)
+                        trf("A transferir atualização… {n}%", "n" to updDownloadProgress!!)
+                    else tr("A transferir atualização…")
+                    Text(label, color = colors.ink3, fontSize = 16.sp, modifier = Modifier.padding(vertical = 10.dp))
+                }
+                updDownloadError -> {
+                    Text(
+                        tr("Não foi possível transferir a atualização."),
+                        color = colors.accent,
+                        fontSize = 14.sp,
+                        modifier = Modifier.padding(vertical = 4.dp),
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    ActionRow(tr("Tentar outra vez")) { vm.installUpdate(context) }
+                }
+                updChecking -> Text(
+                    tr("A verificar…"),
+                    color = colors.ink3,
+                    fontSize = 16.sp,
+                    modifier = Modifier.padding(vertical = 10.dp),
+                )
+                updAvailable != null -> Column {
+                    ActionRow(tr("Transferir nova versão")) { vm.installUpdate(context) }
+                    if (updNeedsPerm) {
+                        Text(
+                            text = tr("Permite instalar apps desta origem e toca outra vez."),
+                            color = colors.accent,
+                            fontSize = 13.sp,
+                            lineHeight = 18.sp,
+                            modifier = Modifier.padding(bottom = 6.dp),
+                        )
+                    }
+                    Text(
+                        text = tr("Se a instalação falhar com «conflito com um pacote existente»: exporta uma cópia de segurança, desinstala a app e instala de novo. Só é preciso uma vez — daí em diante as atualizações mantêm os teus dados."),
+                        color = colors.ink3,
+                        fontFamily = SerifFamily,
+                        fontStyle = FontStyle.Italic,
+                        fontSize = 12.sp,
+                        lineHeight = 17.sp,
+                    )
+                }
+                updChecked -> Text(
+                    tr("Está atualizado."),
+                    color = colors.ink3,
+                    fontSize = 16.sp,
+                    modifier = Modifier.padding(vertical = 10.dp),
+                )
+                else -> ActionRow(tr("Verificar atualizações")) { vm.checkForUpdate() }
+            }
+        }
+
+        // ── ZONA PERIGOSA ────────────────────────────────────────────────
         Section(tr("Zona perigosa"))
-        ActionRow(tr("Apagar tudo"), danger = true) { showResetConfirm = true }
+        SectionCard {
+            ActionRow(
+                label = tr("Apagar tudo"),
+                subtitle = tr("Remove permanentemente todos os dados."),
+                danger = true,
+            ) { showResetConfirm = true }
+        }
+
+        // Footer — source code link, matches web DataSheet footer
+        Spacer(Modifier.height(24.dp))
+        HorizontalDivider(color = colors.rule)
+        Spacer(Modifier.height(16.dp))
+        Text(
+            tr("Código-fonte e instruções:"),
+            color = colors.ink3,
+            fontFamily = SerifFamily,
+            fontStyle = FontStyle.Italic,
+            fontSize = 12.sp,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Spacer(Modifier.height(4.dp))
+        Text(
+            "github.com/Iouzy/psychic-guide ↗",
+            color = colors.accent,
+            fontFamily = MonoFamily,
+            fontSize = 11.sp,
+            textAlign = TextAlign.Center,
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickableNoRipple {
+                    runCatching {
+                        context.startActivity(
+                            Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/Iouzy/psychic-guide"))
+                                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        )
+                    }
+                },
+        )
 
         Spacer(Modifier.height(48.dp))
     }
 }
 
-@Composable
-private fun ActionRow(label: String, danger: Boolean = false, onClick: () -> Unit) {
-    val colors = LocalPautaColors.current
-    Text(
-        text = label,
-        color = if (danger) Color(0xFFE53935) else colors.accent,
-        fontSize = 16.sp,
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickableNoRipple(onClick)
-            .padding(vertical = 10.dp),
+/** Fires a single test notification through the reminder channel. Returns false if permission is missing. */
+private fun sendTestReminder(context: android.content.Context): Boolean {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+        ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+    ) return false
+
+    ReminderScheduler.ensureChannel(context)
+    val lang = ReminderScheduler.savedLang(context)
+    val title = if (lang == "en") "Pauta · test" else "Pauta · teste"
+    val body = if (lang == "en") "Notifications are working." else "As notificações estão a funcionar."
+
+    var flags = PendingIntent.FLAG_UPDATE_CURRENT
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) flags = flags or PendingIntent.FLAG_IMMUTABLE
+    val open = PendingIntent.getActivity(
+        context, 998,
+        Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
+        flags,
     )
+    val notif = NotificationCompat.Builder(context, ReminderScheduler.channelId())
+        .setSmallIcon(R.drawable.ic_stat_focus)
+        .setContentTitle(title)
+        .setContentText(body)
+        .setAutoCancel(true)
+        .setPriority(NotificationCompat.PRIORITY_HIGH)
+        .setContentIntent(open)
+        .build()
+
+    return runCatching { NotificationManagerCompat.from(context).notify(998, notif) }.isSuccess
 }
 
 /** Write the backup JSON to a cache file and fire a share sheet via FileProvider. */
@@ -335,7 +570,6 @@ private fun TimeRow(label: String, value: String, onCommit: (String) -> Unit) {
         TextField(
             value = text,
             onValueChange = { raw ->
-                // Keep digits + a single colon, max HH:MM.
                 text = raw.filter { it.isDigit() || it == ':' }.take(5)
                 if (Regex("^\\d{1,2}:\\d{2}$").matches(text)) onCommit(text)
             },
@@ -360,18 +594,88 @@ private fun TimeRow(label: String, value: String, onCommit: (String) -> Unit) {
 private fun Section(title: String) {
     val colors = LocalPautaColors.current
     Spacer(Modifier.height(26.dp))
-    Text(title.uppercase(), color = colors.ink3, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-    Spacer(Modifier.height(10.dp))
+    Text(
+        title.uppercase(),
+        color = colors.ink3,
+        fontSize = 11.sp,
+        fontWeight = FontWeight.SemiBold,
+    )
+    Spacer(Modifier.height(8.dp))
+}
+
+/** Rounded card grouping rows — matches the web DataGroup visual. */
+@Composable
+private fun SectionCard(content: @Composable ColumnScope.() -> Unit) {
+    val colors = LocalPautaColors.current
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(colors.paper2)
+            .border(1.dp, colors.rule, RoundedCornerShape(12.dp))
+            .padding(horizontal = 14.dp),
+        content = content,
+    )
+}
+
+/** Thin rule between card items. */
+@Composable
+private fun CardDivider() {
+    val colors = LocalPautaColors.current
+    HorizontalDivider(color = colors.rule.copy(alpha = 0.6f))
 }
 
 @Composable
-private fun ToggleRow(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+private fun ActionRow(
+    label: String,
+    subtitle: String? = null,
+    danger: Boolean = false,
+    onClick: () -> Unit,
+) {
+    val colors = LocalPautaColors.current
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .clickableNoRipple(onClick)
+            .padding(vertical = 10.dp),
+    ) {
+        Text(
+            text = label,
+            color = if (danger) Color(0xFFE53935) else colors.accent,
+            fontSize = 16.sp,
+        )
+        if (subtitle != null) {
+            Spacer(Modifier.height(2.dp))
+            Text(
+                text = subtitle,
+                color = colors.ink3,
+                fontSize = 12.sp,
+                lineHeight = 16.sp,
+            )
+        }
+    }
+}
+
+@Composable
+private fun ToggleRow(
+    label: String,
+    checked: Boolean,
+    subtitle: String? = null,
+    onChange: (Boolean) -> Unit,
+) {
     val colors = LocalPautaColors.current
     Row(
         Modifier.fillMaxWidth().padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(label, color = colors.ink, fontSize = 16.sp, modifier = Modifier.weight(1f))
+        Column(Modifier.weight(1f)) {
+            Text(label, color = colors.ink, fontSize = 16.sp)
+            if (subtitle != null) {
+                Spacer(Modifier.height(2.dp))
+                Text(subtitle, color = colors.ink3, fontSize = 12.sp, lineHeight = 16.sp)
+            }
+        }
+        Spacer(Modifier.width(8.dp))
         Switch(
             checked = checked,
             onCheckedChange = onChange,
@@ -386,7 +690,12 @@ private fun ToggleRow(label: String, checked: Boolean, onChange: (Boolean) -> Un
 }
 
 @Composable
-private fun SegmentedRow(label: String, options: List<Pair<String, String>>, selected: String, onSelect: (String) -> Unit) {
+private fun SegmentedRow(
+    label: String,
+    options: List<Pair<String, String>>,
+    selected: String,
+    onSelect: (String) -> Unit,
+) {
     val colors = LocalPautaColors.current
     Column(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
         Text(label, color = colors.ink2, fontSize = 14.sp)
@@ -397,7 +706,8 @@ private fun SegmentedRow(label: String, options: List<Pair<String, String>>, sel
                 Box(
                     Modifier
                         .clip(RoundedCornerShape(8.dp))
-                        .background(if (isSel) colors.accent.copy(alpha = 0.16f) else colors.paper2)
+                        .background(if (isSel) colors.accent.copy(alpha = 0.16f) else colors.paper)
+                        .border(1.dp, if (isSel) colors.accent.copy(alpha = 0.3f) else colors.rule, RoundedCornerShape(8.dp))
                         .clickableNoRipple { onSelect(value) }
                         .padding(horizontal = 14.dp, vertical = 8.dp),
                 ) {

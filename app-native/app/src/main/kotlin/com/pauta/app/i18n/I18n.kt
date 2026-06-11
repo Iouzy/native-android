@@ -390,6 +390,10 @@ object I18n {
         "{focus} em foco · {days} {label}" to "{focus} in focus · {days} {label}",
 
         // ── Definições ──
+        "Análise" to "Analysis",
+        "Revisão semanal" to "Weekly review",
+        "Foco, hábitos e padrões dos últimos 7 dias." to "Focus, habits and patterns from the last 7 days.",
+        "Hoje · Pauta · Marés" to "Today · Pauta · Tides",
         "Aparência" to "Appearance",
         "Tema" to "Theme",
         "Auto" to "Auto",
@@ -398,30 +402,49 @@ object I18n {
         "Cor de destaque" to "Accent colour",
         "Idioma" to "Language",
         "Língua" to "Language", // native-only
+        "Pequeno toque ao concluir." to "A small tap when done.",
+        "O Pip aparece com dicas e piadas. Toca-lhe para mais." to "Pip shows tips and jokes. Tap it for more.",
+        "Esconde as barras do sistema. Deslize da margem para as ver." to "Hides system bars. Swipe from the edge to see them.",
         "Acessibilidade" to "Accessibility",
         "Alto contraste" to "High contrast",
+        "Reforça o texto e as linhas. Segue o sistema por omissão." to "Strengthens text and lines. Follows the system by default.",
         "Reduzir movimento" to "Reduce motion",
+        "Desliga animações. Segue o sistema por omissão." to "Turns off animations. Follows the system by default.",
         "Tamanho do texto" to "Text size",
         "Normal" to "Normal",
         "Grande" to "Large",
         "Maior" to "Larger",
         "Ecrã inteiro" to "Fullscreen",
         "Manter ecrã ligado" to "Keep screen on",
+        "Não deixa o telemóvel adormecer durante um bloco." to "Keeps the phone awake during a block.",
         "Companhia" to "Company", // native-only
         "Vibração" to "Haptics",
         "Papagaio ajudante" to "Parrot helper",
+        "Som ao concluir" to "Completion sound",
+        "Um sino suave ao terminar um bloco ou atingir a meta." to "A soft chime when finishing a block or hitting the goal.",
         "Lembretes" to "Reminders",
+        "Notificações" to "Notifications",
+        "Avisos locais enquanto a app está aberta." to "Local alerts while the app is open.",
+        "Sem servidor: os avisos só chegam com a app aberta no telemóvel." to "No server: alerts only arrive with the app open on your phone.",
+        "Testar notificação" to "Test notification",
+        "Notificação de teste enviada." to "Test notification sent.",
+        "Não foi possível enviar a notificação de teste." to "Couldn't send the test notification.",
         "Lembretes diários" to "Daily reminders", // native-only
         "Plano do dia" to "Today's plan",
         "Hábitos pendentes" to "Pending habits",
         "Reflexão noturna" to "Nightly reflection",
         "Dados" to "Data",
         "Exportar dados" to "Export data",
+        "Transfere um ficheiro .json com tudo." to "Downloads a .json file with everything.",
+        "Enviar para a nuvem" to "Send to cloud",
+        "Partilha a cópia para o Drive, Dropbox, Ficheiros…" to "Share the backup to Drive, Dropbox, Files…",
         "Importar dados" to "Import data",
-        "Som ao concluir" to "Completion sound", // native-only
+        "Restaura a partir de um ficheiro .json." to "Restores from a .json file.",
         "Zona perigosa" to "Danger zone", // native-only
         "Apagar tudo" to "Delete everything", // native-only
+        "Remove permanentemente todos os dados." to "Permanently removes all data.",
         "Apagar tudo e recomeçar? Isto não pode ser desfeito." to "Delete everything and start over? This can't be undone.",
+        "Código-fonte e instruções:" to "Source code and instructions:",
 
         "Atualizações" to "Updates", // native-only
         "A verificar…" to "Checking…",
