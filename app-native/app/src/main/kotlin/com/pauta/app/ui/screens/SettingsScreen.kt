@@ -26,10 +26,12 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.foundation.text.KeyboardOptions
@@ -53,6 +55,7 @@ import com.pauta.app.BuildConfig
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.pauta.app.i18n.tr
+import com.pauta.app.i18n.trf
 import com.pauta.app.ui.clickableNoRipple
 import com.pauta.app.ui.theme.LocalPautaColors
 import com.pauta.app.ui.theme.SerifFamily
@@ -81,6 +84,10 @@ fun SettingsScreen(onClose: () -> Unit) {
     val updChecking by vm.updateChecking.collectAsStateWithLifecycle()
     val updChecked by vm.updateChecked.collectAsStateWithLifecycle()
     val updAvailable by vm.updateAvailable.collectAsStateWithLifecycle()
+    val updDownloading by vm.updateDownloading.collectAsStateWithLifecycle()
+    val updDownloadProgress by vm.updateDownloadProgress.collectAsStateWithLifecycle()
+    val updDownloadError by vm.updateDownloadError.collectAsStateWithLifecycle()
+    val updNeedsPerm by vm.updateNeedsPerm.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val notifLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
@@ -93,6 +100,32 @@ fun SettingsScreen(onClose: () -> Unit) {
     }
 
     var showGoals by remember { mutableStateOf(false) }
+    var showResetConfirm by remember { mutableStateOf(false) }
+
+    if (showResetConfirm) {
+        AlertDialog(
+            onDismissRequest = { showResetConfirm = false },
+            title = { Text(tr("Apagar tudo"), color = colors.ink) },
+            text = {
+                Text(
+                    tr("Apagar tudo e recomeçar? Isto não pode ser desfeito."),
+                    color = colors.ink2,
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { vm.resetAll(); showResetConfirm = false }) {
+                    Text(tr("Apagar"), color = colors.accent)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showResetConfirm = false }) {
+                    Text(tr("Cancelar"), color = colors.ink3)
+                }
+            },
+            containerColor = colors.paper2,
+        )
+    }
+
     if (showGoals) {
         GoalsScreen(onClose = { showGoals = false })
         return
@@ -168,6 +201,7 @@ fun SettingsScreen(onClose: () -> Unit) {
 
         Section(tr("Foco"))
         ToggleRow(tr("Manter ecrã ligado"), prefs.keepAwake) { vm.setKeepAwake(it) }
+        ToggleRow(tr("Som ao concluir"), prefs.sound) { vm.setSound(it) }
 
         Section(tr("Companhia"))
         ToggleRow(tr("Vibração"), prefs.haptics) { vm.setHaptics(it) }
@@ -196,25 +230,77 @@ fun SettingsScreen(onClose: () -> Unit) {
         ActionRow(tr("Importar dados")) { importLauncher.launch("application/json") }
 
         Section(tr("Atualizações"))
-        Text("build #${BuildConfig.BUILD_RUN}", color = colors.ink4, fontSize = 13.sp)
+        // Show a date-based version label when the build timestamp is stamped by
+        // CI (same pattern as the web app's "Versão de YYYY-MM-DD"). Fall back to
+        // the run number for local/unstamped builds. // PT: data da versão como na web.
+        val versionLabel = if (BuildConfig.BUILD_TS > 0L) {
+            val d = java.time.Instant.ofEpochSecond(BuildConfig.BUILD_TS)
+                .atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+            trf("Versão de {date}", "date" to d.toString())
+        } else {
+            "build #${BuildConfig.BUILD_RUN}"
+        }
+        Text(versionLabel, color = colors.ink4, fontSize = 13.sp)
         Spacer(Modifier.height(4.dp))
         when {
+            updDownloading -> {
+                val label = if (updDownloadProgress != null)
+                    trf("A transferir atualização… {n}%", "n" to updDownloadProgress!!)
+                else tr("A transferir atualização…")
+                Text(label, color = colors.ink3, fontSize = 16.sp, modifier = Modifier.padding(vertical = 10.dp))
+            }
+            updDownloadError -> {
+                Text(
+                    tr("Não foi possível transferir a atualização."),
+                    color = colors.accent,
+                    fontSize = 14.sp,
+                    modifier = Modifier.padding(vertical = 4.dp),
+                )
+                Spacer(Modifier.height(4.dp))
+                ActionRow(tr("Tentar outra vez")) { vm.installUpdate(context) }
+            }
             updChecking -> Text(tr("A verificar…"), color = colors.ink3, fontSize = 16.sp, modifier = Modifier.padding(vertical = 10.dp))
-            updAvailable != null -> ActionRow(tr("Transferir nova versão")) { vm.installUpdate(context) }
+            updAvailable != null -> Column {
+                ActionRow(tr("Transferir nova versão")) { vm.installUpdate(context) }
+                if (updNeedsPerm) {
+                    // We just opened the "install unknown apps" toggle — ask the
+                    // user to allow it and tap again. // PT: permitir e tocar de novo.
+                    Text(
+                        text = tr("Permite instalar apps desta origem e toca outra vez."),
+                        color = colors.accent,
+                        fontSize = 13.sp,
+                        lineHeight = 18.sp,
+                        modifier = Modifier.padding(bottom = 6.dp),
+                    )
+                }
+                // One-time gotcha for builds signed before the project settled on a
+                // fixed key — same italic hint the web shows under the button.
+                Text(
+                    text = tr("Se a instalação falhar com «conflito com um pacote existente»: exporta uma cópia de segurança, desinstala a app e instala de novo. Só é preciso uma vez — daí em diante as atualizações mantêm os teus dados."),
+                    color = colors.ink3,
+                    fontFamily = SerifFamily,
+                    fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
+                    fontSize = 12.sp,
+                    lineHeight = 17.sp,
+                )
+            }
             updChecked -> Text(tr("Está atualizado."), color = colors.ink3, fontSize = 16.sp, modifier = Modifier.padding(vertical = 10.dp))
             else -> ActionRow(tr("Verificar atualizações")) { vm.checkForUpdate() }
         }
+
+        Section(tr("Zona perigosa"))
+        ActionRow(tr("Apagar tudo"), danger = true) { showResetConfirm = true }
 
         Spacer(Modifier.height(48.dp))
     }
 }
 
 @Composable
-private fun ActionRow(label: String, onClick: () -> Unit) {
+private fun ActionRow(label: String, danger: Boolean = false, onClick: () -> Unit) {
     val colors = LocalPautaColors.current
     Text(
         text = label,
-        color = colors.accent,
+        color = if (danger) Color(0xFFE53935) else colors.accent,
         fontSize = 16.sp,
         modifier = Modifier
             .fillMaxWidth()

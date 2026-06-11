@@ -190,21 +190,51 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun removeMilestone(id: String) = viewModelScope.launch { repo.removeMilestone(id) }
 
     // ── updater ───────────────────────────────────────────────
-    /** null = unknown, true = checking; the Update when one is found. */
     val updateChecking: MutableStateFlow<Boolean> = MutableStateFlow(false)
     val updateChecked: MutableStateFlow<Boolean> = MutableStateFlow(false)
     val updateAvailable: MutableStateFlow<AppUpdater.Update?> = MutableStateFlow(null)
+    val updateDownloading: MutableStateFlow<Boolean> = MutableStateFlow(false)
+    /** 0–100 while the APK streams; null when the size is unknown. */
+    val updateDownloadProgress: MutableStateFlow<Int?> = MutableStateFlow(null)
+    /** True after a download attempt fails so the UI can offer a retry. */
+    val updateDownloadError: MutableStateFlow<Boolean> = MutableStateFlow(false)
+    /** Android refused: "install unknown apps" isn't allowed for this app yet —
+     *  we sent the user to the toggle; they should allow it and tap again. */
+    val updateNeedsPerm: MutableStateFlow<Boolean> = MutableStateFlow(false)
 
     fun checkForUpdate() = viewModelScope.launch {
         updateChecking.value = true
         updateAvailable.value = AppUpdater.check()
         updateChecking.value = false
         updateChecked.value = true
+        updateDownloadError.value = false
+        updateNeedsPerm.value = false
     }
 
     fun installUpdate(context: Context) = viewModelScope.launch {
         val u = updateAvailable.value ?: return@launch
-        AppUpdater.download(context, u.url)?.let { AppUpdater.install(context, it) }
+        if (updateDownloading.value) return@launch // already downloading
+        // Gate on the "install unknown apps" permission first: without it the
+        // installer intent silently does nothing, so send the user to the system
+        // toggle and ask them to tap again — same flow as the web UpdateChecker.
+        if (!AppUpdater.canInstall(context)) {
+            updateNeedsPerm.value = true
+            AppUpdater.openInstallSettings(context)
+            return@launch
+        }
+        updateNeedsPerm.value = false
+        updateDownloading.value = true
+        updateDownloadProgress.value = null
+        updateDownloadError.value = false
+        val file = AppUpdater.download(context, u.url) { pct ->
+            updateDownloadProgress.value = pct
+        }
+        updateDownloading.value = false
+        if (file != null) {
+            AppUpdater.install(context, file)
+        } else {
+            updateDownloadError.value = true
+        }
     }
 
     init {
@@ -294,6 +324,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun addPlan(dayKey: String, text: String) = viewModelScope.launch { repo.addPlan(dayKey, text) }
     fun removePlan(id: String) = viewModelScope.launch { repo.removePlan(id) }
 
+    /** Wipe all user data (intentions, blocks, habits, goals…); prefs are kept. */
+    fun resetAll() = viewModelScope.launch { repo.resetAll() }
+
     /** Produce the pauta.v4 backup JSON, then hand it to [onReady] (for sharing). */
     fun exportBackup(onReady: (String) -> Unit) =
         viewModelScope.launch { onReady(repo.exportJson(todayKey.value)) }
@@ -312,6 +345,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun setKeepAwake(value: Boolean) = update { it.copy(keepAwake = value) }
     fun setReducedMotion(value: Boolean) = update { it.copy(reducedMotion = value) }
     fun setHaptics(value: Boolean) = update { it.copy(haptics = value) }
+    fun setSound(value: Boolean) = update { it.copy(sound = value) }
     fun setParrot(value: Boolean) = update { it.copy(parrot = value) }
     fun setOnboardingSeen() = update { it.copy(onboardingSeen = true) }
 

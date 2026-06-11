@@ -418,11 +418,23 @@ object I18n {
         "Dados" to "Data",
         "Exportar dados" to "Export data",
         "Importar dados" to "Import data",
+        "Som ao concluir" to "Completion sound", // native-only
+        "Zona perigosa" to "Danger zone", // native-only
+        "Apagar tudo" to "Delete everything", // native-only
+        "Apagar tudo e recomeçar? Isto não pode ser desfeito." to "Delete everything and start over? This can't be undone.",
+
         "Atualizações" to "Updates", // native-only
         "A verificar…" to "Checking…",
         "Transferir nova versão" to "Download new version",
         "Está atualizado." to "Up to date.",
         "Verificar atualizações" to "Check for updates",
+        "Versão de {date}" to "Version {date}",
+        "A transferir atualização…" to "Downloading update…",
+        "A transferir atualização… {n}%" to "Downloading update… {n}%",
+        "Não foi possível transferir a atualização." to "Couldn't download the update.",
+        "Tentar outra vez" to "Try again",
+        "Permite instalar apps desta origem e toca outra vez." to "Allow installing apps from this source, then tap again.",
+        "Se a instalação falhar com «conflito com um pacote existente»: exporta uma cópia de segurança, desinstala a app e instala de novo. Só é preciso uma vez — daí em diante as atualizações mantêm os teus dados." to "If the install fails with “conflicts with an existing package”: export a backup, uninstall the app, and install again. You only need to do this once — after that, updates keep your data.",
 
         // ── Widget ──
         "Foco {m}m" to "Focus {m}m",

@@ -20,6 +20,12 @@ val epochMinutes = (Date().time / 60_000).toInt()
 // run do CI; o updater compara-o com o da release publicada.
 val buildRun = (project.findProperty("buildRun") as String?)?.toIntOrNull() ?: 0
 
+// Wall-clock build timestamp in epoch seconds (0 locally when buildTs is not
+// passed). Exposed as BuildConfig.BUILD_TS so Settings can show a YYYY-MM-DD
+// date label that matches the web app's "Versão de …" line. // PT: timestamp
+// da build em segundos; Settings mostra uma data em vez de um número de run.
+val buildTs = (project.findProperty("buildTs") as String?)?.toLongOrNull() ?: 0L
+
 android {
     namespace = "com.pauta.app"
     compileSdk = 35
@@ -32,6 +38,7 @@ android {
         versionName = "1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("int", "BUILD_RUN", "$buildRun")
+        buildConfigField("long", "BUILD_TS", "${buildTs}L")
     }
 
     signingConfigs {
