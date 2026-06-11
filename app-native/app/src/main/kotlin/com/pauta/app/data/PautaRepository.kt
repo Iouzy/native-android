@@ -10,6 +10,7 @@ import com.pauta.app.data.entity.HabitLogEntity
 import com.pauta.app.data.entity.HabitRespiroEntity
 import com.pauta.app.data.entity.IntentionEntity
 import com.pauta.app.data.entity.MilestoneEntity
+import com.pauta.app.data.entity.PlannedIntentionEntity
 import com.pauta.app.data.entity.PrefsEntity
 import com.pauta.app.domain.CarrySource
 import com.pauta.app.domain.DateUtils
@@ -164,6 +165,29 @@ class PautaRepository(private val db: AppDatabase) {
             )
         }
     }
+
+    // ── week-ahead plans ──────────────────────────────────────
+    /** Every planned (week-ahead) item, ordered by day then position. */
+    fun plans(): Flow<List<PlannedIntentionEntity>> = plannedDao.observeAll()
+
+    /** Plan an intention for a future day; it becomes a real intention when the
+     *  day arrives (runRollover). // PT: plano que vira intenção no proprio dia. */
+    suspend fun addPlan(dayKey: String, text: String) {
+        val t = text.trim()
+        if (t.isEmpty()) return
+        val pos = plannedDao.getForDay(dayKey).size
+        plannedDao.upsert(
+            PlannedIntentionEntity(
+                id = newId("p_"),
+                dayKey = dayKey,
+                text = t,
+                createdAt = System.currentTimeMillis(),
+                position = pos,
+            ),
+        )
+    }
+
+    suspend fun removePlan(id: String) = plannedDao.deleteById(id)
 
     // ── rollover ──────────────────────────────────────────────
     /** Midnight rollover: promote a week-ahead plan for today into today's

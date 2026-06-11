@@ -91,7 +91,9 @@ fun HojeScreen() {
     val habitRespiros by vm.habitRespiros.collectAsStateWithLifecycle()
     val habitCounts by vm.habitCounts.collectAsStateWithLifecycle()
     val today by vm.todayKey.collectAsStateWithLifecycle()
+    val plans by vm.plans.collectAsStateWithLifecycle()
     var showHistory by remember { mutableStateOf(false) }
+    var showWeek by remember { mutableStateOf(false) }
 
     // Auto-sort by priority level (1 highest; unset sinks to 4), stable within a
     // level via stored position — matching the web list.
@@ -124,12 +126,10 @@ fun HojeScreen() {
                 letterSpacing = 1.8.sp, // 0.18em of 10sp
                 modifier = Modifier.weight(1f),
             )
-            Text(
-                text = tr("Histórico"),
-                color = colors.ink3,
-                fontSize = 12.sp,
-                modifier = Modifier.clickableNoRipple { showHistory = true },
-            )
+            // The web's header chips: history + the week planner.
+            HeaderChip(tr("dias anteriores") + " \u2197") { showHistory = true }
+            Spacer(Modifier.width(6.dp))
+            HeaderChip(tr("a semana") + " \u2197") { showWeek = true }
         }
         Spacer(Modifier.height(6.dp))
         // The headline question, with "hoje" in accent italic — the web's
@@ -322,6 +322,34 @@ fun HojeScreen() {
         )
         Spacer(Modifier.height(48.dp))
     }
+
+    if (showWeek) {
+        WeekAheadSheet(
+            today = today,
+            plans = plans,
+            onAdd = { dayKey, text -> vm.addPlan(dayKey, text) },
+            onRemove = { id -> vm.removePlan(id) },
+            onClose = { showWeek = false },
+        )
+    }
+}
+
+/** A small mono uppercase chip, as in the web header ("dias anteriores ↗"). */
+@Composable
+private fun HeaderChip(label: String, onClick: () -> Unit) {
+    val colors = LocalPautaColors.current
+    Text(
+        text = label.uppercase(),
+        color = colors.ink3,
+        fontFamily = MonoFamily,
+        fontSize = 9.sp,
+        letterSpacing = 1.26.sp, // 0.14em of 9sp
+        modifier = Modifier
+            .clip(RoundedCornerShape(8.dp))
+            .border(1.dp, colors.rule, RoundedCornerShape(8.dp))
+            .clickableNoRipple(onClick)
+            .padding(horizontal = 10.dp, vertical = 6.dp),
+    )
 }
 
 /** A row of the "Marés de hoje" strip — the web's TodayTideRow: state circle,
