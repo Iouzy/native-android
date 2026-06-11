@@ -3,6 +3,32 @@
 Guidance for working in this repository. Read this before making changes — the
 architecture is deliberately unusual and several conventions are easy to break.
 
+## ⚠️ Active scope: native APK only (`app-native/`)
+
+**All current and upcoming work is on the native Android app under `app-native/`
+(Kotlin + Jetpack Compose). Stay in that directory.** Do NOT read or modify the
+web app (`src/`, `index.html`, `vendor/`, `scripts/`, `tools/`, the
+`android.yml` workflow, etc.) — it is the legacy shipping build and reading it
+just burns context.
+
+Practical rules for this phase:
+- **Read only what you need inside `app-native/`.** Don't sweep the web `src/`
+  tree. The native module already mirrors the web app's behaviour — treat the
+  Kotlin code (and `app-native/README.md`) as the source of truth.
+- The web `src/*.jsx` files are the *original* spec but are already ported. Open
+  one **only** if you need a specific behaviour reference for a parity bug, and
+  read just that slice — never the whole tree.
+- Native build/test: `cd app-native && ./gradlew :app:assembleDebug` and
+  `./gradlew :app:testDebugUnitTest`. The web gate (`npm run check`) does NOT
+  apply to native-only changes.
+- Native CI is `.github/workflows/android-native.yml`; it ships the rolling
+  `latest-native` GitHub Release that the native in-app updater pulls. Ignore
+  `android.yml` / the `latest` release (those are the web build).
+
+The rest of this file documents the web app for historical context. Skim the
+`app-native/` pointers and skip the web-specific sections unless a task
+explicitly needs them.
+
 ## What this is
 
 **Pauta** is a private, offline-first daily-planning app: write intentions, run
