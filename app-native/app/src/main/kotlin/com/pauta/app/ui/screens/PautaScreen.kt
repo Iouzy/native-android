@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -25,10 +26,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -175,130 +176,151 @@ fun PautaScreen() {
     fun concludeOptimistic(a: FocusBlockEntity) { vm.concludeActive("", false); concludeFor = a to true }
 
     Box(Modifier.fillMaxSize()) {
-        Column(
-            Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 24.dp),
+        LazyColumn(
+            Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(horizontal = 24.dp),
         ) {
             // ── Header — eyebrow date + serif count line + the two chips ──
-            Spacer(Modifier.height(22.dp))
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
-                Column(Modifier.weight(1f)) {
-                    val todayDate = LocalDate.parse(today)
-                    PeriodLabel(
-                        prefix = I18n.fmtWeekdayDay(todayDate) + " ",
-                        month = I18n.fmtMonthShort(todayDate.monthValue),
-                    )
-                    Spacer(Modifier.height(6.dp))
-                    Text(
-                        text = buildAnnotatedString {
-                            append("$distinctBlockCount ")
-                            append(if (distinctBlockCount == 1) tr("bloco") else tr("blocos"))
-                            append(". ")
-                            withStyle(SpanStyle(color = colors.accent, fontStyle = FontStyle.Italic)) {
-                                append(FocusMath.fmtDuration(totalFocus))
-                            }
-                            append(" " + tr("em foco."))
-                        },
-                        color = colors.ink,
-                        fontFamily = SerifFamily,
-                        fontSize = 30.sp,
-                        lineHeight = 30.sp,
-                        letterSpacing = (-0.3).sp, // -0.01em of 30sp
-                    )
-                }
-                Spacer(Modifier.width(14.dp))
-                Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    HeaderChip(tr("histórico") + " ↗") { showHistory = true }
-                    HeaderChip("+ " + tr("registar")) { showManual = true }
-                }
-            }
-            Spacer(Modifier.height(18.dp))
-
-            // ── Active block / start CTA ──
-            active?.let { a ->
-                ActiveBlockCard(
-                    block = a,
-                    sessions = sessionsOf(a.id),
-                    now = now,
-                    intention = a.linkedToId?.let { id -> intentions.firstOrNull { it.id == id } },
-                    reducedMotion = prefs.reducedMotion,
-                    onReached = {
-                        val min = a.targetMs?.let { (it / 60_000L).toInt() } ?: 0
-                        reachedPrompt = min
-                    },
-                    onPause = { pauseWithNote(a) },
-                    onSwitch = { showSwitch = true },
-                    onConclude = { concludeOptimistic(a) },
-                    onCancel = { discardFor = a },
-                    onZen = { zen = true },
-                )
+            item(key = "header") {
                 Spacer(Modifier.height(22.dp))
-            }
-            if (active == null) {
-                StartCtaCard { showStart = true }
-                Spacer(Modifier.height(22.dp))
-            }
-
-            // ── Paused blocks ──
-            if (pausedBlocks.isNotEmpty()) {
-                MonoSectionLabel(tr("Em pausa"))
-                Spacer(Modifier.height(10.dp))
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    pausedBlocks.forEach { b ->
-                        PausedBlockCard(
-                            block = b,
-                            sessions = sessionsOf(b.id),
-                            now = now,
-                            onResume = { vm.resumeBlock(b.id) },
-                            onEdit = { editFor = b },
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
+                    Column(Modifier.weight(1f)) {
+                        val todayDate = LocalDate.parse(today)
+                        PeriodLabel(
+                            prefix = I18n.fmtWeekdayDay(todayDate) + " ",
+                            month = I18n.fmtMonthShort(todayDate.monthValue),
+                        )
+                        Spacer(Modifier.height(6.dp))
+                        Text(
+                            text = buildAnnotatedString {
+                                append("$distinctBlockCount ")
+                                append(if (distinctBlockCount == 1) tr("bloco") else tr("blocos"))
+                                append(". ")
+                                withStyle(SpanStyle(color = colors.accent, fontStyle = FontStyle.Italic)) {
+                                    append(FocusMath.fmtDuration(totalFocus))
+                                }
+                                append(" " + tr("em foco."))
+                            },
+                            color = colors.ink,
+                            fontFamily = SerifFamily,
+                            fontSize = 30.sp,
+                            lineHeight = 30.sp,
+                            letterSpacing = (-0.3).sp, // -0.01em of 30sp
                         )
                     }
+                    Spacer(Modifier.width(14.dp))
+                    Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        HeaderChip(tr("histórico") + " ↗") { showHistory = true }
+                        HeaderChip("+ " + tr("registar")) { showManual = true }
+                    }
                 }
-                Spacer(Modifier.height(22.dp))
+                Spacer(Modifier.height(18.dp))
+            }
+
+            // ── Active block / start CTA ──
+            item(key = "active-or-start") {
+                active?.let { a ->
+                    ActiveBlockCard(
+                        block = a,
+                        sessions = sessionsOf(a.id),
+                        now = now,
+                        intention = a.linkedToId?.let { id -> intentions.firstOrNull { it.id == id } },
+                        reducedMotion = prefs.reducedMotion,
+                        onReached = {
+                            val min = a.targetMs?.let { (it / 60_000L).toInt() } ?: 0
+                            reachedPrompt = min
+                        },
+                        onPause = { pauseWithNote(a) },
+                        onSwitch = { showSwitch = true },
+                        onConclude = { concludeOptimistic(a) },
+                        onCancel = { discardFor = a },
+                        onZen = { zen = true },
+                    )
+                    Spacer(Modifier.height(22.dp))
+                }
+                if (active == null) {
+                    StartCtaCard { showStart = true }
+                    Spacer(Modifier.height(22.dp))
+                }
+            }
+
+            // ── Paused blocks ── keyed cards so A3 can animate them.
+            if (pausedBlocks.isNotEmpty()) {
+                item(key = "paused-header") {
+                    MonoSectionLabel(tr("Em pausa"))
+                    Spacer(Modifier.height(10.dp))
+                }
+                itemsIndexed(pausedBlocks, key = { _, b -> "paused-${b.id}" }) { index, b ->
+                    if (index > 0) Spacer(Modifier.height(8.dp))
+                    PausedBlockCard(
+                        block = b,
+                        sessions = sessionsOf(b.id),
+                        now = now,
+                        onResume = { vm.resumeBlock(b.id) },
+                        onEdit = { editFor = b },
+                    )
+                }
+                item(key = "paused-footer") { Spacer(Modifier.height(22.dp)) }
             }
 
             // ── Filter chips ──
-            val todayBlocks = blocks.filter { DateUtils.dayKeyOf(it.createdAt) == today }
             if (intentions.isNotEmpty() || filter != null) {
-                PautaFilterChips(
-                    intentions = intentions,
-                    todayBlocks = todayBlocks,
-                    projects = projects,
-                    filter = filter,
-                    onFilter = { filter = it },
-                )
-                Spacer(Modifier.height(6.dp))
+                item(key = "filter-chips") {
+                    val todayBlocks = blocks.filter { DateUtils.dayKeyOf(it.createdAt) == today }
+                    PautaFilterChips(
+                        intentions = intentions,
+                        todayBlocks = todayBlocks,
+                        projects = projects,
+                        filter = filter,
+                        onFilter = { filter = it },
+                    )
+                    Spacer(Modifier.height(6.dp))
+                }
             }
 
             // ── Timeline ──
-            Spacer(Modifier.height(18.dp))
-            MonoSectionLabel(if (filter != null) tr("Filtrado") else tr("Hoje"))
-            Spacer(Modifier.height(14.dp))
+            item(key = "timeline-header") {
+                Spacer(Modifier.height(18.dp))
+                MonoSectionLabel(if (filter != null) tr("Filtrado") else tr("Hoje"))
+                Spacer(Modifier.height(14.dp))
+            }
             if (events.isEmpty()) {
-                Text(
-                    text = if (filter != null) tr("Nada por aqui ainda.") else tr("Ainda nenhum bloco hoje. Comece quando quiser."),
-                    color = colors.ink3,
-                    fontFamily = SerifFamily,
-                    fontStyle = FontStyle.Italic,
-                    fontSize = 15.sp,
-                    lineHeight = 21.sp,
-                )
-                if (filter == null) {
-                    Spacer(Modifier.height(14.dp))
-                    StarterChip(tr("Começar um bloco de foco")) { showStart = true }
+                item(key = "timeline-empty") {
+                    Text(
+                        text = if (filter != null) tr("Nada por aqui ainda.") else tr("Ainda nenhum bloco hoje. Comece quando quiser."),
+                        color = colors.ink3,
+                        fontFamily = SerifFamily,
+                        fontStyle = FontStyle.Italic,
+                        fontSize = 15.sp,
+                        lineHeight = 21.sp,
+                    )
+                    if (filter == null) {
+                        Spacer(Modifier.height(14.dp))
+                        StarterChip(tr("Começar um bloco de foco")) { showStart = true }
+                    }
                 }
             } else {
-                TimelineList(
-                    events = events,
-                    blockById = blockById,
-                    onFilterBlock = { id, label -> filter = PautaFilter("block", id, label) },
-                    onEditBlock = { id -> editFor = blockById[id] },
-                    onEditNote = { rowId, text -> vm.setSessionNote(rowId, text) },
-                )
+                // Timeline events as keyed items; connectUp/connectDown still read
+                // the neighbours by index, exactly like TimelineList. // PT: eventos
+                // da linha do tempo como itens com chave.
+                itemsIndexed(events, key = { _, e -> "${e.sessionRowId}-${e.kind}" }) { i, e ->
+                    val block = blockById[e.blockId]
+                    if (block != null) {
+                        TimelineRow(
+                            event = e,
+                            block = block,
+                            isLast = i == events.size - 1,
+                            connectUp = i > 0 && events[i - 1].blockId == e.blockId,
+                            connectDown = i < events.size - 1 && events[i + 1].blockId == e.blockId,
+                            onFilter = { filter = PautaFilter("block", e.blockId, block.title) },
+                            onEdit = { editFor = blockById[e.blockId] },
+                            onEditNote = { rowId, text -> vm.setSessionNote(rowId, text) },
+                        )
+                    }
+                }
             }
-            Spacer(Modifier.height(96.dp))
+
+            item(key = "bottom") { Spacer(Modifier.height(96.dp)) }
         }
 
         // In-app goal-reached prompt, mirroring the native heads-up notification.

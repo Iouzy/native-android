@@ -76,7 +76,7 @@ cost. Running a task on a stronger model than suggested is always fine.
 - **Accept:** every listed interaction ticks with the pref on; silent when off.
 - Note: `prefs.sound` is equally dead — out of scope here (see F-extra note).
 
-### A2 · LazyColumn migration — Status: pending
+### A2 · LazyColumn migration — Status: in-progress (PR #104)
 - **Why:** Hoje intentions, Marés habits and the Pauta timeline render in plain
   `Column`s inside `verticalScroll` — no item animations possible, janky at
   scale.
@@ -313,3 +313,4 @@ cost. Running a task on a stronger model than suggested is always fine.
 ## Log (append one line per shipped task: date · task · PR · note)
 
 <!-- e.g. 2026-06-15 · A1 · #97 · haptics helper + 6 call sites -->
+2026-06-12 · A2 · #104 · Hoje/Marés/Pauta tabs → single LazyColumn, stable item keys (unblocks A3)
