@@ -446,6 +446,58 @@ object I18n {
         "Apagar tudo e recomeçar? Isto não pode ser desfeito." to "Delete everything and start over? This can't be undone.",
         "Código-fonte e instruções:" to "Source code and instructions:",
 
+        // ── Análise extra rows ──
+        "Retrospetiva do ano" to "Year in review", // native-only
+        "Resumo anual de foco, hábitos e intenções." to "Annual summary of focus, habits and intentions.", // native-only
+        "Como funcionam as marés" to "How tides work", // native-only
+        "Streaks, níveis e respiros explicados." to "Streaks, levels and breaths explained.", // native-only
+
+        // ── Privacidade / PIN ──
+        "Privacidade" to "Privacy", // native-only
+        "Bloqueio por PIN" to "PIN lock", // native-only
+        "Protege a app com um código de 4+ dígitos." to "Protects the app with a 4+ digit code.", // native-only
+        "Desativar bloqueio por PIN" to "Disable PIN lock", // native-only
+        "Introduz o PIN atual para remover o bloqueio." to "Enter your current PIN to remove the lock.", // native-only
+        "Introduz o teu PIN" to "Enter your PIN", // native-only
+        "Confirma o PIN para desativar" to "Confirm PIN to disable", // native-only
+        "Confirma o novo PIN" to "Confirm new PIN", // native-only
+        "Cria um novo PIN" to "Create a new PIN", // native-only
+        "Mínimo 4 dígitos" to "Minimum 4 digits", // native-only
+        "PIN demasiado curto" to "PIN too short", // native-only
+        "PIN incorrecto" to "Incorrect PIN", // native-only
+        "Os PINs não coincidem" to "PINs don't match", // native-only
+
+        // ── Cópia automática ──
+        "Cópia automática" to "Auto backup", // native-only
+        "Guarda automaticamente quando abres a app." to "Saves automatically when you open the app.", // native-only
+        "Frequência" to "Frequency", // native-only
+        "Diária" to "Daily", // native-only
+        "Semanal" to "Weekly", // native-only
+        "Por hora" to "Hourly", // native-only
+
+        // ── Retrospetiva do ano ──
+        "horas de foco" to "hours of focus", // native-only
+        "intenções" to "intentions", // native-only
+        "dias com marés" to "days with tides", // native-only
+        "Melhor streak" to "Best streak", // native-only
+        "{n} dias — {name}" to "{n} days — {name}", // native-only
+        "Reflexões" to "Reflections", // native-only
+        "{n} reflexões escritas" to "{n} reflections written", // native-only
+        "Maré mais alta" to "Highest tide", // native-only (year review label; distinct from tier name)
+        "Sem dados para este ano." to "No data for this year.", // native-only
+
+        // ── Como funcionam as marés ──
+        "Cada hábito tem uma maré — uma forma de ver até onde chegaste." to "Each habit has a tide — a way to see how far you've come.", // native-only
+        "Nível do navegador" to "Navigator level", // native-only
+        "Soma de todos os dias marcados em todos os hábitos." to "Sum of all days marked across all habits.", // native-only
+        "Um dia de respiro conta para a streak mas não entra no cálculo de conclusão. Usa-o quando precisas de uma pausa honesta — a tua maré não quebra." to "A breath day counts toward the streak but not the completion calculation. Use it when you need an honest break — your tide won't break.", // native-only
+
+        // ── Recarregar exemplo ──
+        "Recarregar exemplo" to "Reload sample", // native-only
+        "Repõe os dados de exemplo para explorar a app." to "Restores the sample data to explore the app.", // native-only
+        "Recarregar o exemplo? Os dados actuais serão substituídos." to "Reload the sample? Your current data will be replaced.", // native-only
+        "Recarregar" to "Reload", // native-only
+
         "Atualizações" to "Updates", // native-only
         "A verificar…" to "Checking…",
         "Transferir nova versão" to "Download new version",

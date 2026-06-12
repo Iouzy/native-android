@@ -40,6 +40,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -47,6 +48,8 @@ import com.pauta.app.i18n.tr
 import com.pauta.app.ui.screens.HojeScreen
 import com.pauta.app.ui.screens.MaresScreen
 import com.pauta.app.ui.screens.PautaScreen
+import com.pauta.app.ui.screens.PinMode
+import com.pauta.app.ui.screens.PinScreen
 import com.pauta.app.ui.screens.SettingsScreen
 import com.pauta.app.ui.theme.LocalPautaColors
 import com.pauta.app.ui.theme.MonoFamily
@@ -83,14 +86,20 @@ fun MainScaffold(initialTab: Tab = Tab.HOJE) {
 
     val vm: AppViewModel = viewModel()
     val prefs by vm.prefs.collectAsStateWithLifecycle()
+    val needsUnlock by vm.needsUnlock.collectAsStateWithLifecycle()
     var showSettings by remember { mutableStateOf(false) }
+    val context = LocalContext.current
 
     // Coming back to the app re-checks the day at once (the in-process ticker
-    // covers the foreground case). // PT: ao voltar à app, vira logo o dia.
+    // covers the foreground case) and triggers the auto-backup if due.
+    // // PT: ao voltar à app, vira logo o dia e faz cópia automática se for altura.
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) vm.maybeRollover()
+            if (event == Lifecycle.Event.ON_RESUME) {
+                vm.maybeRollover()
+                vm.maybeAutoBackup(context)
+            }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
@@ -149,6 +158,12 @@ fun MainScaffold(initialTab: Tab = Tab.HOJE) {
 
         if (showSettings) {
             SettingsScreen(onClose = { showSettings = false })
+        }
+
+        // PIN lock overlay — shown after cold-start when a PIN is configured.
+        // // PT: ecrã de bloqueio por PIN ao arrancar a app.
+        if (needsUnlock && prefs.pinHash != null) {
+            PinScreen(mode = PinMode.LOCK, onSuccess = { vm.unlockApp() })
         }
 
         // First-run welcome carousel — drawn last so it covers tabs, Pip and

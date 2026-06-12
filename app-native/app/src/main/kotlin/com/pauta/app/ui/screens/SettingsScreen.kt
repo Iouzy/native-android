@@ -111,7 +111,12 @@ fun SettingsScreen(onClose: () -> Unit) {
 
     var showGoals by remember { mutableStateOf(false) }
     var showInsights by remember { mutableStateOf(false) }
+    var showYearReview by remember { mutableStateOf(false) }
+    var showTierGuide by remember { mutableStateOf(false) }
+    var showPinSet by remember { mutableStateOf(false) }
+    var showPinDisable by remember { mutableStateOf(false) }
     var showResetConfirm by remember { mutableStateOf(false) }
+    var showReseedConfirm by remember { mutableStateOf(false) }
     var testNotifMsg by remember { mutableStateOf<String?>(null) }
 
     if (showResetConfirm) {
@@ -138,6 +143,25 @@ fun SettingsScreen(onClose: () -> Unit) {
         )
     }
 
+    if (showReseedConfirm) {
+        AlertDialog(
+            onDismissRequest = { showReseedConfirm = false },
+            title = { Text(tr("Recarregar exemplo"), color = colors.ink) },
+            text = { Text(tr("Recarregar o exemplo? Os dados actuais serão substituídos."), color = colors.ink2) },
+            confirmButton = {
+                TextButton(onClick = { vm.reseed(); showReseedConfirm = false }) {
+                    Text(tr("Recarregar"), color = colors.accent)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showReseedConfirm = false }) {
+                    Text(tr("Cancelar"), color = colors.ink3)
+                }
+            },
+            containerColor = colors.paper2,
+        )
+    }
+
     if (showInsights) {
         InsightsSheet(onClose = { showInsights = false })
         return
@@ -145,6 +169,26 @@ fun SettingsScreen(onClose: () -> Unit) {
 
     if (showGoals) {
         GoalsScreen(onClose = { showGoals = false })
+        return
+    }
+
+    if (showYearReview) {
+        YearReviewScreen(onClose = { showYearReview = false })
+        return
+    }
+
+    if (showTierGuide) {
+        TierGuideScreen(onClose = { showTierGuide = false })
+        return
+    }
+
+    if (showPinSet) {
+        PinScreen(PinMode.SET, onSuccess = { showPinSet = false }, onCancel = { showPinSet = false })
+        return
+    }
+
+    if (showPinDisable) {
+        PinScreen(PinMode.DISABLE, onSuccess = { showPinDisable = false }, onCancel = { showPinDisable = false })
         return
     }
 
@@ -215,6 +259,32 @@ fun SettingsScreen(onClose: () -> Unit) {
                 label = tr("Revisão semanal"),
                 subtitle = tr("Foco, hábitos e padrões dos últimos 7 dias."),
             ) { showInsights = true }
+            CardDivider()
+            ActionRow(
+                label = tr("Retrospetiva do ano"),
+                subtitle = tr("Resumo anual de foco, hábitos e intenções."),
+            ) { showYearReview = true }
+            CardDivider()
+            ActionRow(
+                label = tr("Como funcionam as marés"),
+                subtitle = tr("Streaks, níveis e respiros explicados."),
+            ) { showTierGuide = true }
+        }
+
+        // ── PRIVACIDADE ──────────────────────────────────────────────────
+        Section(tr("Privacidade"))
+        SectionCard {
+            if (prefs.pinHash == null) {
+                ActionRow(
+                    label = tr("Bloqueio por PIN"),
+                    subtitle = tr("Protege a app com um código de 4+ dígitos."),
+                ) { showPinSet = true }
+            } else {
+                ActionRow(
+                    label = tr("Desativar bloqueio por PIN"),
+                    subtitle = tr("Introduz o PIN atual para remover o bloqueio."),
+                ) { showPinDisable = true }
+            }
         }
 
         // ── APARÊNCIA ────────────────────────────────────────────────────
@@ -383,6 +453,25 @@ fun SettingsScreen(onClose: () -> Unit) {
         // ── DADOS ────────────────────────────────────────────────────────
         Section(tr("Dados"))
         SectionCard {
+            ToggleRow(
+                label = tr("Cópia automática"),
+                checked = prefs.autoBackup != "off",
+                subtitle = tr("Guarda automaticamente quando abres a app."),
+            ) { enabled -> vm.setAutoBackupCadence(if (enabled) "daily" else "off") }
+            if (prefs.autoBackup != "off") {
+                CardDivider()
+                SegmentedRow(
+                    label = tr("Frequência"),
+                    options = listOf(
+                        "daily" to tr("Diária"),
+                        "weekly" to tr("Semanal"),
+                        "hourly" to tr("Por hora"),
+                    ),
+                    selected = prefs.autoBackup,
+                    onSelect = { vm.setAutoBackupCadence(it) },
+                )
+            }
+            CardDivider()
             ActionRow(
                 label = tr("Exportar dados"),
                 subtitle = tr("Transfere um ficheiro .json com tudo."),
@@ -471,6 +560,11 @@ fun SettingsScreen(onClose: () -> Unit) {
         // ── ZONA PERIGOSA ────────────────────────────────────────────────
         Section(tr("Zona perigosa"))
         SectionCard {
+            ActionRow(
+                label = tr("Recarregar exemplo"),
+                subtitle = tr("Repõe os dados de exemplo para explorar a app."),
+            ) { showReseedConfirm = true }
+            CardDivider()
             ActionRow(
                 label = tr("Apagar tudo"),
                 subtitle = tr("Remove permanentemente todos os dados."),
