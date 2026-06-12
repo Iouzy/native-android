@@ -2,35 +2,32 @@
 
 Guidance for working in this repository.
 
-## ⚠️ Active scope: native APK only (`app-native/`)
-
-**All current work is on the native Android app under `app-native/` (Kotlin +
-Jetpack Compose). Stay in that directory.** Do NOT read or modify the legacy web
-build (`src/`, `index.html`, `vendor/`, `scripts/`, `tools/`, `native/android/`,
-the `android.yml` workflow) — reading it just burns context.
-
-- **Read only what you need inside `app-native/`.** Don't sweep the web `src/`
-  tree. The native module already mirrors the web app's behaviour — the Kotlin
-  code and `app-native/README.md` are the source of truth.
-- The web `src/*.jsx` files are the original spec but are already ported. Open a
-  single file **only** for a specific parity-bug reference, and read just that
-  slice — never the whole tree.
-- Web-build details (the no-bundler React app, `npm run check`, the `latest`
-  release) live in **`docs/WEB_LEGACY.md`**. Don't load it unless a task truly
-  touches the web tree.
-
 ## What this is
 
-**Pauta** is a private, offline-first daily planner: write intentions, run focus
-blocks, track habits. No account, no server, no tracking. `app-native/` is a
-from-scratch Kotlin/Jetpack Compose rewrite (appId `com.pauta.app`) reaching
-faithful parity with the original web app. Three tabs:
+**Pauta** is a private, offline-first daily planner — a native Android app
+(Kotlin + Jetpack Compose, appId `com.pauta.app`) living in **`app-native/`**:
+write intentions, run focus blocks, track habits. No account, no server, no
+tracking. Three tabs:
 
 | Tab     | Meaning                                                   |
 |---------|-----------------------------------------------------------|
 | Hoje    | Today's intentions + nightly reflection                   |
 | Pauta   | Focus blocks with a start/pause/resume/conclude timer     |
 | Marés   | Habits ("tides") with daily/weekly/monthly cadence        |
+
+The original web app (the spec this module was ported from, full parity
+reached) was retired in June 2026. Its complete history is archived on the
+branch **`web-legacy-final`** (commit `d8de027`) — e.g.
+`git show web-legacy-final:src/App.jsx` if a parity question ever needs it.
+Don't resurrect web files; the Kotlin code is the source of truth.
+
+## Roadmap — `docs/NATIVE_IMPROVEMENTS.md`
+
+The active task file: ~20 self-contained improvement tasks (A1…T2), each sized
+for one session/PR, with per-task specs, guardrails, status tracking and a
+suggested model. When asked to "do task X" or "do the next pending task": read
+that file, do ONLY that task following its spec + Global guardrails, ship via
+the workflow below, and update the task's Status + Log in the same PR.
 
 ## Architecture (`app-native/`)
 
@@ -39,22 +36,22 @@ faithful parity with the original web app. Three tabs:
   · Coroutines. Charts and the Pip mascot are pure Compose Canvas. No network or
   charting deps — the in-app updater (GitHub Releases) is the only network call.
 - **State is one place:** `AppViewModel` (an `AndroidViewModel`) over
-  `PautaRepository` over Room DAOs — the native equivalent of the web's
-  `useStore()`. Reads are `Flow`s surfaced with `collectAsStateWithLifecycle`;
-  writes are suspending repo methods. Treat state as immutable.
-- **Data is `pauta.v4`-compatible:** `data/WebBackup.kt` imports/exports the same
-  backup JSON the web app does — round-trips must stay lossless. Room entities in
-  `data/entity/Entities.kt` mirror the web schema 1:1 (string ids, ms timestamps,
-  `YYYY-MM-DD` local day keys).
+  `PautaRepository` over Room DAOs. Reads are `Flow`s surfaced with
+  `collectAsStateWithLifecycle`; writes are suspending repo methods. Treat state
+  as immutable.
+- **Data is `pauta.v4`-compatible:** `data/WebBackup.kt` imports/exports the
+  backup JSON format the retired web app used — round-trips must stay lossless.
+  Room entities in `data/entity/Entities.kt` mirror that schema 1:1 (string ids,
+  ms timestamps, `YYYY-MM-DD` local day keys).
 
 ## Conventions
 
 - **i18n: Portuguese (pt-PT) is the source language.** Wrap every user-facing
   string in `tr("…")` / `trf("… {n} …", "n" to n)` from `com.pauta.app.i18n`. The
   PT string *is* the key; add the English value to the `EN` map in
-  `i18n/I18n.kt`. Missing keys fall back to PT. Mark native-only keys with a
-  `// native-only` comment, and copy web EN values verbatim where the key exists
-  on the web. Avoid duplicate keys in the `EN` map.
+  `i18n/I18n.kt`. Missing keys fall back to PT. Mark new keys with a
+  `// native-only` comment; keys ported from the web app keep their original EN
+  values verbatim. Avoid duplicate keys in the `EN` map.
 - **Theme tokens, not hardcoded colours:** read `LocalPautaColors.current`
   (`paper`, `paper2`, `ink`/`ink2`/`ink3`/`ink4`, `rule`, `accent`, `onDark`…)
   and the font families `SerifFamily` / `MonoFamily` / `SansFamily`. A literal
@@ -78,20 +75,16 @@ Requires JDK 17 + the Android SDK (`compileSdk 35`). If the SDK isn't available
 locally (common in this environment — Gradle errors with "SDK location not
 found"), skip the local build and rely on CI to compile/test.
 
-## CI / releases (native)
+## CI / releases
 
 `.github/workflows/android-native.yml` triggers on `app-native/**` (and its own
 file): it runs the unit tests (the gate), then builds the APK with
 `-PbuildRun=<run> -PbuildTs=<epoch>`. **On `main` only** it prunes old assets and
-publishes the rolling **`latest-native`** GitHub Release — the tag the native
-in-app updater polls. Feature branches build/test but don't publish.
+publishes the rolling **`latest-native`** GitHub Release — the tag the in-app
+updater polls. Feature branches build/test but don't publish. (The legacy web
+workflow and its `latest` release were retired with the web tree.)
 
-Ignore the web `android.yml` / the `latest` release — those ship the web build.
-Note `android.yml` still *runs* on every push (so a native PR shows its `build`
-job too); native-only changes don't touch `src/`, so it should stay green on its
-own.
-
-## Workflow — how to ship native changes
+## Workflow — how to ship changes
 
 Handle the full cycle autonomously (autonomous squash-merges are authorised):
 
@@ -121,7 +114,7 @@ directly — always go through a PR so CI runs first.
 - `ui/viewmodel/AppViewModel.kt` — the single ViewModel (prefs + all tab state +
   updater).
 - `ui/theme/` — `LocalPautaColors`, accent, typography.
-- `data/PautaRepository.kt` — the gateway over Room (the `useStore()` analogue).
+- `data/PautaRepository.kt` — the gateway over Room.
 - `data/AppDatabase.kt`, `data/dao/Daos.kt`, `data/entity/Entities.kt` — Room.
 - `data/WebBackup.kt` — `pauta.v4` import/export.
 - `domain/` — pure math/logic (`DateUtils`, `FocusMath`, `HabitCalculator`,
@@ -130,5 +123,4 @@ directly — always go through a PR so CI runs first.
 - `service/` — `AppUpdater` (in-app update), `FocusService` + focus notification,
   `ReminderScheduler`/`ReminderReceiver` (AlarmManager), widget, QS tile, boot.
 - `app-native/README.md` — the module's own overview and non-negotiables.
-- `docs/WEB_LEGACY.md` — the legacy web build's guidance (load only if needed).
-</content>
+- `docs/NATIVE_IMPROVEMENTS.md` — the active improvement roadmap (see above).

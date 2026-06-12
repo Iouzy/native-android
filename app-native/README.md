@@ -1,10 +1,10 @@
 # Pauta — native (Kotlin + Jetpack Compose)
 
 A from-scratch native Android rewrite of Pauta, replacing the Capacitor/WebView
-build. The **web app (repo root `src/`, `index.html`) remains the specification
-and the shipping release** until the cutover phase; this module is built to reach
-faithful parity with it — same tabs, sheets, phrases, animations, and the Pip
-mascot — not merely a feature checklist.
+build. Faithful parity with the original web app has been reached — same tabs,
+sheets, phrases, animations, and the Pip mascot — and the web build was retired
+in June 2026 (its full history lives on the `web-legacy-final` branch). This
+module **is** the shipping app.
 
 ## Non-negotiables preserved
 - Name **Pauta**, appId **com.pauta.app**
@@ -36,6 +36,8 @@ Coroutines · Splashscreen. Charts and Pip are pure Compose Canvas — no networ
 third-party charting deps.
 
 ## Status
-Phase 0 — clean project foundation: build config, theme tokens, i18n scaffold,
-3-tab navigation shell with swipe + keyboard shortcuts. Tab content, data layer,
-and everything else land in subsequent phases. See `docs/NATIVE_MIGRATION_PLAN.md`.
+Feature-complete parity with the retired web app: all three tabs, sheets and
+forms, settings, insights/reviews, quarterly goals, week-ahead planning, PIN
+lock, reminders, home widget, QS tile, in-app updater and `pauta.v4` backups.
+Active work is tracked in `docs/NATIVE_IMPROVEMENTS.md` — one self-contained
+task per session/PR.
