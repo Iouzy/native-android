@@ -70,6 +70,7 @@ import com.pauta.app.i18n.tr
 import com.pauta.app.i18n.trf
 import com.pauta.app.ui.PautaButton
 import com.pauta.app.ui.PautaButtonVariant
+import com.pauta.app.ui.PeriodLabel
 import com.pauta.app.ui.PautaSheet
 import com.pauta.app.ui.CellState
 import com.pauta.app.ui.cellStateFor
@@ -148,17 +149,19 @@ fun MaresScreen() {
                         val ym = YearMonth.of(year, month).minusMonths(1); year = ym.year; month = ym.monthValue
                     },
                 )
-                Text(
-                    text = I18n.fmtMonthYear(year, month),
-                    color = colors.ink3,
-                    fontFamily = MonoFamily,
-                    fontSize = 11.sp,
-                    letterSpacing = 0.44.sp,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier
+                Box(
+                    Modifier
                         .weight(1f)
                         .clickableNoRipple { year = nowYm.year; month = nowYm.monthValue },
-                )
+                    contentAlignment = Alignment.Center,
+                ) {
+                    // Accent "JUN '26" period label — the web MonthStrip styling,
+                    // shared with Hoje/Pauta. // PT: mês em destaque, como nas outras tabs.
+                    PeriodLabel(
+                        month = I18n.fmtMonthShort(month),
+                        suffix = "'%02d".format(year % 100),
+                    )
+                }
                 Icon(
                     Icons.Filled.ChevronRight, contentDescription = tr("mês seguinte"), tint = colors.ink3,
                     modifier = Modifier.size(26.dp).clickableNoRipple {

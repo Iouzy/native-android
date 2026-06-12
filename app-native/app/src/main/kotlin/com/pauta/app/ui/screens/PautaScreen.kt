@@ -66,6 +66,7 @@ import com.pauta.app.domain.HabitCalculator.DayState
 import com.pauta.app.i18n.I18n
 import com.pauta.app.i18n.tr
 import com.pauta.app.i18n.trf
+import com.pauta.app.ui.PeriodLabel
 import com.pauta.app.ui.clickableNoRipple
 import com.pauta.app.ui.computeTodayTides
 import com.pauta.app.ui.theme.LocalPautaColors
@@ -184,12 +185,10 @@ fun PautaScreen() {
             Spacer(Modifier.height(22.dp))
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
                 Column(Modifier.weight(1f)) {
-                    Text(
-                        text = trf("Pauta · {d}", "d" to I18n.fmtDateLong(LocalDate.parse(today))).uppercase(),
-                        color = colors.ink3,
-                        fontFamily = MonoFamily,
-                        fontSize = 10.sp,
-                        letterSpacing = 1.8.sp, // 0.18em of 10sp
+                    val todayDate = LocalDate.parse(today)
+                    PeriodLabel(
+                        prefix = I18n.fmtWeekdayDay(todayDate) + " ",
+                        month = I18n.fmtMonthShort(todayDate.monthValue),
                     )
                     Spacer(Modifier.height(6.dp))
                     Text(

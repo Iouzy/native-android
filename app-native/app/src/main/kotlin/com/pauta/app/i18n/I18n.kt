@@ -71,6 +71,10 @@ object I18n {
         return "${dayName(date)}, ${date.dayOfMonth} ${months[date.monthValue - 1]}"
     }
 
+    /** "quarta, 10" / "Wednesday, 10" — the dim weekday+day prefix of the
+     *  period eyebrow (the accent month token is rendered separately). */
+    fun fmtWeekdayDay(date: LocalDate): String = "${dayName(date)}, ${date.dayOfMonth}"
+
     /** "10 jun" / "10 Jun" — web fmtDateShort. */
     fun fmtDateShort(date: LocalDate): String {
         val months = if (lang == Lang.EN) MONTHS_SHORT_EN else MONTHS_SHORT_PT

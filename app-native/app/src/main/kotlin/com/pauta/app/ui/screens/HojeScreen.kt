@@ -64,6 +64,7 @@ import com.pauta.app.i18n.I18n
 import com.pauta.app.i18n.tr
 import com.pauta.app.i18n.trf
 import com.pauta.app.ui.PautaIcons
+import com.pauta.app.ui.PeriodLabel
 import com.pauta.app.ui.TideToday
 import com.pauta.app.ui.clickableNoRipple
 import com.pauta.app.ui.computeTodayTides
@@ -139,70 +140,71 @@ fun HojeScreen() {
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 24.dp),
     ) {
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(22.dp))
 
-        // Row 1 — date with left/right day-navigation arrows.
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(26.dp), contentAlignment = Alignment.Center) {
-                if (canGoBack) {
-                    Icon(
-                        Icons.Filled.ChevronLeft,
-                        contentDescription = tr("dia anterior"),
-                        tint = colors.ink3,
-                        modifier = Modifier.size(22.dp).clickableNoRipple { selectedDayOffset-- },
+        // Header — web-style two columns: the date (top-left, with the 7-day
+        // back-nav) and the big serif question fill the left; the three actions
+        // stack as quiet outlined chips top-right, exactly like the Pauta tab.
+        // // PT: cabeçalho em duas colunas, como na web — data à esquerda, ações à direita.
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
+            Column(Modifier.weight(1f)) {
+                val selDate = LocalDate.parse(selectedDayKey)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (canGoBack) {
+                        Icon(
+                            Icons.Filled.ChevronLeft,
+                            contentDescription = tr("dia anterior"),
+                            tint = colors.ink3,
+                            modifier = Modifier.size(20.dp).clickableNoRipple { selectedDayOffset-- },
+                        )
+                        Spacer(Modifier.width(2.dp))
+                    }
+                    PeriodLabel(
+                        prefix = I18n.fmtWeekdayDay(selDate) + " ",
+                        month = I18n.fmtMonthShort(selDate.monthValue),
+                    )
+                    if (canGoForward) {
+                        Spacer(Modifier.width(2.dp))
+                        Icon(
+                            Icons.Filled.ChevronRight,
+                            contentDescription = tr("dia seguinte"),
+                            tint = colors.ink3,
+                            modifier = Modifier.size(20.dp).clickableNoRipple { selectedDayOffset++ },
+                        )
+                    }
+                }
+                if (isToday) {
+                    Spacer(Modifier.height(10.dp))
+                    // The headline question, with "hoje" in accent italic — the web's
+                    // `{tr("O que importa")} <em style={{color: accent}}>{tr("hoje")}</em>?`.
+                    Text(
+                        text = buildAnnotatedString {
+                            append(tr("O que importa"))
+                            append(" ")
+                            withStyle(SpanStyle(color = colors.accent, fontStyle = FontStyle.Italic)) {
+                                append(tr("hoje"))
+                            }
+                            append("?")
+                        },
+                        color = colors.ink,
+                        fontFamily = SerifFamily,
+                        fontSize = 44.sp,
+                        lineHeight = 44.sp,
+                        letterSpacing = (-0.66).sp, // -0.015em of 44sp
                     )
                 }
             }
-            Text(
-                text = I18n.fmtDateLong(LocalDate.parse(selectedDayKey)).uppercase(),
-                color = colors.ink3,
-                fontFamily = MonoFamily,
-                fontSize = 10.sp,
-                letterSpacing = 1.8.sp,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.weight(1f),
-            )
-            Box(Modifier.size(26.dp), contentAlignment = Alignment.Center) {
-                if (canGoForward) {
-                    Icon(
-                        Icons.Filled.ChevronRight,
-                        contentDescription = tr("dia seguinte"),
-                        tint = colors.ink3,
-                        modifier = Modifier.size(22.dp).clickableNoRipple { selectedDayOffset++ },
-                    )
-                }
+            Spacer(Modifier.width(14.dp))
+            Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                HeaderChip(tr("dias anteriores") + " ↗") { showHistory = true }
+                HeaderChip(tr("a semana") + " ↗") { showWeek = true }
+                HeaderChip(tr("revisão") + " ↗") { showInsights = true }
             }
         }
-
-        // Row 2 — three chips evenly spread across the full width.
-        Spacer(Modifier.height(8.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            HeaderChip(tr("dias anteriores") + " ↗", Modifier.weight(1f)) { showHistory = true }
-            HeaderChip(tr("a semana") + " ↗", Modifier.weight(1f)) { showWeek = true }
-            HeaderChip(tr("revisão") + " ↗", Modifier.weight(1f)) { showInsights = true }
-        }
-
-        Spacer(Modifier.height(6.dp))
 
         if (isToday) {
             // ── Today's interactive view ──────────────────────────────
-            // The headline question, with "hoje" in accent italic — the web's
-            // `{tr("O que importa")} <em style={{color: accent}}>{tr("hoje")}</em>?`.
-            Text(
-                text = buildAnnotatedString {
-                    append(tr("O que importa"))
-                    append(" ")
-                    withStyle(SpanStyle(color = colors.accent, fontStyle = FontStyle.Italic)) {
-                        append(tr("hoje"))
-                    }
-                    append("?")
-                },
-                color = colors.ink,
-                fontFamily = SerifFamily,
-                fontSize = 44.sp,
-                lineHeight = 44.sp,
-                letterSpacing = (-0.66).sp, // -0.015em of 44sp
-            )
+            Spacer(Modifier.height(8.dp))
 
             // Today's tides — the actionable slice of Marés surfaced in Hoje (the
             // web's todayTides). Feeds both the day pulse and the tide strip so
@@ -436,10 +438,10 @@ fun HojeScreen() {
     }
 }
 
-/** A small mono uppercase chip. Accepts an optional [modifier] so call sites
- *  can pass [Modifier.weight] for even distribution across a row. */
+/** The header's bordered mono chips, stacked top-right ("DIAS ANTERIORES ↗",
+ *  "A SEMANA ↗", "REVISÃO ↗") — the same treatment as the Pauta tab. */
 @Composable
-private fun HeaderChip(label: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
+private fun HeaderChip(label: String, onClick: () -> Unit) {
     val colors = LocalPautaColors.current
     Text(
         text = label.uppercase(),
@@ -447,8 +449,7 @@ private fun HeaderChip(label: String, modifier: Modifier = Modifier, onClick: ()
         fontFamily = MonoFamily,
         fontSize = 9.sp,
         letterSpacing = 1.26.sp, // 0.14em of 9sp
-        textAlign = TextAlign.Center,
-        modifier = modifier
+        modifier = Modifier
             .clip(RoundedCornerShape(8.dp))
             .border(1.dp, colors.rule, RoundedCornerShape(8.dp))
             .clickableNoRipple(onClick)
