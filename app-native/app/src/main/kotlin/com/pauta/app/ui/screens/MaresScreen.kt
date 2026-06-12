@@ -15,12 +15,14 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
@@ -130,50 +132,54 @@ fun MaresScreen() {
     val overall = HabitCalculator.overallPctInMonth(models, year, month, today)
 
     Box(Modifier.fillMaxSize()) {
-        Column(
-            Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState()),
+        // A single LazyColumn; horizontal content padding replaces the per-section
+        // padding the old Column applied. The per-habit month strip stays a nested
+        // horizontalScroll Row inside its item. // PT: LazyColumn única; tiras
+        // mensais continuam em scroll horizontal dentro do item.
+        LazyColumn(
+            Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(horizontal = 24.dp),
         ) {
-            Spacer(Modifier.height(8.dp))
+            item(key = "top") { Spacer(Modifier.height(8.dp)) }
+
             // Month navigation (stands in for the web's MonthStrip).
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(
-                    Icons.Filled.ChevronLeft, contentDescription = tr("mês anterior"), tint = colors.ink3,
-                    modifier = Modifier.size(26.dp).clickableNoRipple {
-                        val ym = YearMonth.of(year, month).minusMonths(1); year = ym.year; month = ym.monthValue
-                    },
-                )
-                Box(
-                    Modifier
-                        .weight(1f)
-                        .clickableNoRipple { year = nowYm.year; month = nowYm.monthValue },
-                    contentAlignment = Alignment.Center,
+            item(key = "month-nav") {
+                Row(
+                    Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    // Accent "JUN '26" period label — the web MonthStrip styling,
-                    // shared with Hoje/Pauta. // PT: mês em destaque, como nas outras tabs.
-                    PeriodLabel(
-                        month = I18n.fmtMonthShort(month),
-                        suffix = "'%02d".format(year % 100),
+                    Icon(
+                        Icons.Filled.ChevronLeft, contentDescription = tr("mês anterior"), tint = colors.ink3,
+                        modifier = Modifier.size(26.dp).clickableNoRipple {
+                            val ym = YearMonth.of(year, month).minusMonths(1); year = ym.year; month = ym.monthValue
+                        },
                     )
+                    Box(
+                        Modifier
+                            .weight(1f)
+                            .clickableNoRipple { year = nowYm.year; month = nowYm.monthValue },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        // Accent "JUN '26" period label — the web MonthStrip styling,
+                        // shared with Hoje/Pauta. // PT: mês em destaque, como nas outras tabs.
+                        PeriodLabel(
+                            month = I18n.fmtMonthShort(month),
+                            suffix = "'%02d".format(year % 100),
+                        )
+                    }
+                    Icon(
+                        Icons.Filled.ChevronRight, contentDescription = tr("mês seguinte"), tint = colors.ink3,
+                        modifier = Modifier.size(26.dp).clickableNoRipple {
+                            val ym = YearMonth.of(year, month).plusMonths(1); year = ym.year; month = ym.monthValue
+                        },
+                    )
+                    Spacer(Modifier.width(10.dp))
+                    GridLegend()
                 }
-                Icon(
-                    Icons.Filled.ChevronRight, contentDescription = tr("mês seguinte"), tint = colors.ink3,
-                    modifier = Modifier.size(26.dp).clickableNoRipple {
-                        val ym = YearMonth.of(year, month).plusMonths(1); year = ym.year; month = ym.monthValue
-                    },
-                )
-                Spacer(Modifier.width(10.dp))
-                GridLegend()
             }
 
-            Column(Modifier.padding(horizontal = 24.dp)) {
-                // Header — eyebrow + serif month, with the overall % at the right.
+            // Header — eyebrow + serif month, with the overall % at the right.
+            item(key = "header") {
                 Spacer(Modifier.height(18.dp))
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
                     Column(Modifier.weight(1f)) {
@@ -221,11 +227,13 @@ fun MaresScreen() {
                     }
                 }
                 Spacer(Modifier.height(22.dp))
+            }
 
-                if (habits.isEmpty()) {
-                    // The web's empty state: an intro phrase, the explanation,
-                    // and the "Marés comuns" starter chips. // PT: estado vazio
-                    // com frase, explicação e marés comuns.
+            if (habits.isEmpty()) {
+                // The web's empty state: an intro phrase, the explanation,
+                // and the "Marés comuns" starter chips. // PT: estado vazio
+                // com frase, explicação e marés comuns.
+                item(key = "empty") {
                     Text(
                         text = tr(introPhraseFor(today)),
                         color = colors.ink3,
@@ -261,8 +269,10 @@ fun MaresScreen() {
                             StarterChip(tr(name)) { vm.addHabit(name = tr(name)) }
                         }
                     }
-                } else {
-                    // Como funciona — persistent, subtle hint.
+                }
+            } else {
+                // Como funciona — persistent, subtle hint.
+                item(key = "hint") {
                     Column(
                         Modifier
                             .fillMaxWidth()
@@ -295,28 +305,32 @@ fun MaresScreen() {
                         )
                     }
                     Spacer(Modifier.height(18.dp))
+                }
 
-                    Column(verticalArrangement = Arrangement.spacedBy(22.dp)) {
-                        visibleHabits.forEach { h ->
-                            MaresHabitRow(
-                                habit = h,
-                                model = modelOf(h),
-                                countsForHabit = countsByHabit[h.id].orEmpty(),
-                                year = year,
-                                month = month,
-                                today = today,
-                                isCurrentMonth = isCurrentMonth,
-                                onToggle = { dayKey -> vm.toggleHabitDay(h.id, dayKey) },
-                                onIncrement = { dayKey, current -> vm.setHabitCount(h.id, dayKey, current + 1) },
-                                onRespiro = { dayKey -> vm.markRespiro(h.id, dayKey) },
-                                onUnmarkRespiro = { dayKey -> vm.unmarkRespiro(h.id, dayKey) },
-                                onRemove = { removeTarget = h },
-                                onOpenDetail = { detailTarget = h },
-                            )
-                        }
-                    }
+                // One item per tide, keyed by id; a 22dp gap before every row but
+                // the first reproduces the old spacedBy(22). // PT: um item por
+                // maré, com chave estável.
+                itemsIndexed(visibleHabits, key = { _, h -> "habit-${h.id}" }) { index, h ->
+                    if (index > 0) Spacer(Modifier.height(22.dp))
+                    MaresHabitRow(
+                        habit = h,
+                        model = modelOf(h),
+                        countsForHabit = countsByHabit[h.id].orEmpty(),
+                        year = year,
+                        month = month,
+                        today = today,
+                        isCurrentMonth = isCurrentMonth,
+                        onToggle = { dayKey -> vm.toggleHabitDay(h.id, dayKey) },
+                        onIncrement = { dayKey, current -> vm.setHabitCount(h.id, dayKey, current + 1) },
+                        onRespiro = { dayKey -> vm.markRespiro(h.id, dayKey) },
+                        onUnmarkRespiro = { dayKey -> vm.unmarkRespiro(h.id, dayKey) },
+                        onRemove = { removeTarget = h },
+                        onOpenDetail = { detailTarget = h },
+                    )
+                }
 
-                    if (habits.size > visibleHabits.size) {
+                if (habits.size > visibleHabits.size) {
+                    item(key = "hidden-note") {
                         val hidden = habits.size - visibleHabits.size
                         Spacer(Modifier.height(18.dp))
                         Box(Modifier.fillMaxWidth().height(1.dp).background(colors.rule))
@@ -335,8 +349,10 @@ fun MaresScreen() {
                         )
                     }
                 }
+            }
 
-                // The web's dashed full-width "adicionar maré" button.
+            // The web's dashed full-width "adicionar maré" button.
+            item(key = "add") {
                 Spacer(Modifier.height(20.dp))
                 Row(
                     Modifier
@@ -352,7 +368,8 @@ fun MaresScreen() {
                     Text(tr("adicionar maré"), color = colors.ink3, fontSize = 14.sp)
                 }
             }
-            Spacer(Modifier.height(96.dp))
+
+            item(key = "bottom") { Spacer(Modifier.height(96.dp)) }
         }
     }
 

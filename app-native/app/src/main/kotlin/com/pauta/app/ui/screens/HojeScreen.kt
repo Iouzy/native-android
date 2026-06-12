@@ -5,6 +5,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -14,12 +15,13 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ChevronLeft
@@ -134,135 +136,144 @@ fun HojeScreen() {
         return
     }
 
-    Column(
-        Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 24.dp),
-    ) {
-        Spacer(Modifier.height(22.dp))
+    // Today-derived state, hoisted out of the LazyColumn so several items can
+    // share it: the day pulse shows above the list and again in the reflection
+    // card, and the tide rows reuse the same computeTodayTides slice.
+    // // PT: estado derivado de hoje, partilhado pelos itens da lista.
+    val todayTides = remember(habits, habitLogs, habitRespiros, habitCounts, today) {
+        computeTodayTides(habits, habitLogs, habitRespiros, habitCounts, today)
+    }
+    val tideDone = todayTides.count { it.state == DayState.DONE }
+    val tideDenom = todayTides.count { it.state != DayState.RESPIRO }
+    val focusMsToday = FocusMath.dailyFocusMs(
+        allSessions.map { FocusMath.FocusSeg(it.startedAt, it.endedAt) },
+        today,
+        System.currentTimeMillis(),
+    )
+    // Day pulse — one quiet mono line tying the three tabs together
+    // (intentions · focus · tides). Respiros stay out of the tide denominator.
+    // // PT: pulso do dia.
+    val pulseParts = buildList {
+        if (total > 0) add(trf("{d}/{t} intenções", "d" to done, "t" to total))
+        if (focusMsToday > 0) add(trf("{d} em foco", "d" to FocusMath.fmtDuration(focusMsToday)))
+        if (tideDenom > 0) add(trf("{d}/{t} marés", "d" to tideDone, "t" to tideDenom))
+    }
+    val groups = remember(sorted) { HojeLogic.groupByTimeOfDay(sorted) }
+    val showHeaders = groups.size > 1
 
+    // A single LazyColumn so list rows can carry stable keys (and, in A3,
+    // animateItem). Horizontal content padding stands in for the old Column
+    // padding. // PT: uma LazyColumn única, com chaves estáveis nas linhas.
+    LazyColumn(
+        Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(horizontal = 24.dp),
+    ) {
         // Header — web-style two columns: the date (top-left, with the 7-day
         // back-nav) and the big serif question fill the left; the three actions
         // stack as quiet outlined chips top-right, exactly like the Pauta tab.
         // // PT: cabeçalho em duas colunas, como na web — data à esquerda, ações à direita.
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
-            Column(Modifier.weight(1f)) {
-                val selDate = LocalDate.parse(selectedDayKey)
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (canGoBack) {
-                        Icon(
-                            Icons.Filled.ChevronLeft,
-                            contentDescription = tr("dia anterior"),
-                            tint = colors.ink3,
-                            modifier = Modifier.size(20.dp).clickableNoRipple { selectedDayOffset-- },
+        item(key = "header") {
+            Spacer(Modifier.height(22.dp))
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
+                Column(Modifier.weight(1f)) {
+                    val selDate = LocalDate.parse(selectedDayKey)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (canGoBack) {
+                            Icon(
+                                Icons.Filled.ChevronLeft,
+                                contentDescription = tr("dia anterior"),
+                                tint = colors.ink3,
+                                modifier = Modifier.size(20.dp).clickableNoRipple { selectedDayOffset-- },
+                            )
+                            Spacer(Modifier.width(2.dp))
+                        }
+                        PeriodLabel(
+                            prefix = I18n.fmtWeekdayDay(selDate) + " ",
+                            month = I18n.fmtMonthShort(selDate.monthValue),
                         )
-                        Spacer(Modifier.width(2.dp))
+                        if (canGoForward) {
+                            Spacer(Modifier.width(2.dp))
+                            Icon(
+                                Icons.Filled.ChevronRight,
+                                contentDescription = tr("dia seguinte"),
+                                tint = colors.ink3,
+                                modifier = Modifier.size(20.dp).clickableNoRipple { selectedDayOffset++ },
+                            )
+                        }
                     }
-                    PeriodLabel(
-                        prefix = I18n.fmtWeekdayDay(selDate) + " ",
-                        month = I18n.fmtMonthShort(selDate.monthValue),
-                    )
-                    if (canGoForward) {
-                        Spacer(Modifier.width(2.dp))
-                        Icon(
-                            Icons.Filled.ChevronRight,
-                            contentDescription = tr("dia seguinte"),
-                            tint = colors.ink3,
-                            modifier = Modifier.size(20.dp).clickableNoRipple { selectedDayOffset++ },
+                    if (isToday) {
+                        Spacer(Modifier.height(10.dp))
+                        // The headline question, with "hoje" in accent italic — the web's
+                        // `{tr("O que importa")} <em style={{color: accent}}>{tr("hoje")}</em>?`.
+                        Text(
+                            text = buildAnnotatedString {
+                                append(tr("O que importa"))
+                                append(" ")
+                                withStyle(SpanStyle(color = colors.accent, fontStyle = FontStyle.Italic)) {
+                                    append(tr("hoje"))
+                                }
+                                append("?")
+                            },
+                            color = colors.ink,
+                            fontFamily = SerifFamily,
+                            fontSize = 44.sp,
+                            lineHeight = 44.sp,
+                            letterSpacing = (-0.66).sp, // -0.015em of 44sp
                         )
                     }
                 }
-                if (isToday) {
-                    Spacer(Modifier.height(10.dp))
-                    // The headline question, with "hoje" in accent italic — the web's
-                    // `{tr("O que importa")} <em style={{color: accent}}>{tr("hoje")}</em>?`.
-                    Text(
-                        text = buildAnnotatedString {
-                            append(tr("O que importa"))
-                            append(" ")
-                            withStyle(SpanStyle(color = colors.accent, fontStyle = FontStyle.Italic)) {
-                                append(tr("hoje"))
-                            }
-                            append("?")
-                        },
-                        color = colors.ink,
-                        fontFamily = SerifFamily,
-                        fontSize = 44.sp,
-                        lineHeight = 44.sp,
-                        letterSpacing = (-0.66).sp, // -0.015em of 44sp
-                    )
+                Spacer(Modifier.width(14.dp))
+                Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    HeaderChip(tr("dias anteriores") + " ↗") { showHistory = true }
+                    HeaderChip(tr("a semana") + " ↗") { showWeek = true }
+                    HeaderChip(tr("revisão") + " ↗") { showInsights = true }
                 }
-            }
-            Spacer(Modifier.width(14.dp))
-            Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                HeaderChip(tr("dias anteriores") + " ↗") { showHistory = true }
-                HeaderChip(tr("a semana") + " ↗") { showWeek = true }
-                HeaderChip(tr("revisão") + " ↗") { showInsights = true }
             }
         }
 
         if (isToday) {
             // ── Today's interactive view ──────────────────────────────
-            Spacer(Modifier.height(8.dp))
-
-            // Today's tides — the actionable slice of Marés surfaced in Hoje (the
-            // web's todayTides). Feeds both the day pulse and the tide strip so
-            // they never diverge. // PT: a fatia acionável das Marés no Hoje.
-            val todayTides = remember(habits, habitLogs, habitRespiros, habitCounts, today) {
-                computeTodayTides(habits, habitLogs, habitRespiros, habitCounts, today)
-            }
-            val tideDone = todayTides.count { it.state == DayState.DONE }
-            val tideDenom = todayTides.count { it.state != DayState.RESPIRO }
-
-            // Day pulse — one quiet mono line tying the three tabs together
-            // (intentions · focus · tides), exactly like the web header. Respiros
-            // stay out of the tide denominator. // PT: pulso do dia.
-            val pulseParts = mutableListOf<String>()
-            if (total > 0) pulseParts += trf("{d}/{t} intenções", "d" to done, "t" to total)
-            val focusMsToday = FocusMath.dailyFocusMs(
-                allSessions.map { FocusMath.FocusSeg(it.startedAt, it.endedAt) },
-                today,
-                System.currentTimeMillis(),
-            )
-            if (focusMsToday > 0) pulseParts += trf("{d} em foco", "d" to FocusMath.fmtDuration(focusMsToday))
-            if (tideDenom > 0) pulseParts += trf("{d}/{t} marés", "d" to tideDone, "t" to tideDenom)
-            if (pulseParts.isNotEmpty()) {
-                Spacer(Modifier.height(10.dp))
-                Text(
-                    text = pulseParts.joinToString("   ·   "),
-                    color = colors.ink3,
-                    fontFamily = MonoFamily,
-                    fontSize = 11.sp,
-                    letterSpacing = 0.22.sp, // 0.02em of 11sp
-                )
-            }
-
-            carry?.let { source ->
-                Spacer(Modifier.height(16.dp))
-                CarryBanner(source = source, onCarry = { vm.carryOver() })
-            }
-
-            Spacer(Modifier.height(18.dp))
-            AddIntentionForm(
-                accent = colors.accent,
-                onAdd = { text, priority, target, w -> vm.addIntention(text, priority, target, w) },
-            )
-
-            Spacer(Modifier.height(8.dp))
-            val groups = remember(sorted) { HojeLogic.groupByTimeOfDay(sorted) }
-            val showHeaders = groups.size > 1
-            groups.forEach { (w, items) ->
-                if (showHeaders) {
+            // Day pulse + carry banner + add form sit above the intention list as
+            // one quiet block. // PT: pulso, faixa de arrasto e formulário.
+            item(key = "today-top") {
+                Spacer(Modifier.height(8.dp))
+                if (pulseParts.isNotEmpty()) {
                     Spacer(Modifier.height(10.dp))
                     Text(
-                        text = whenLabel(w),
+                        text = pulseParts.joinToString("   ·   "),
                         color = colors.ink3,
-                        fontWeight = FontWeight.Medium,
-                        fontSize = 12.sp,
+                        fontFamily = MonoFamily,
+                        fontSize = 11.sp,
+                        letterSpacing = 0.22.sp, // 0.02em of 11sp
                     )
                 }
-                items.forEach { item ->
+                carry?.let { source ->
+                    Spacer(Modifier.height(16.dp))
+                    CarryBanner(source = source, onCarry = { vm.carryOver() })
+                }
+                Spacer(Modifier.height(18.dp))
+                AddIntentionForm(
+                    accent = colors.accent,
+                    onAdd = { text, priority, target, w -> vm.addIntention(text, priority, target, w) },
+                )
+                Spacer(Modifier.height(8.dp))
+            }
+
+            // Intentions, grouped by time-of-day; rows keyed by id so A3 can
+            // animate add/remove. // PT: intenções por período, com chaves estáveis.
+            groups.forEach { (w, groupItems) ->
+                if (showHeaders) {
+                    item(key = "when-$w") {
+                        Spacer(Modifier.height(10.dp))
+                        Text(
+                            text = whenLabel(w),
+                            color = colors.ink3,
+                            fontWeight = FontWeight.Medium,
+                            fontSize = 12.sp,
+                        )
+                    }
+                }
+                items(groupItems, key = { "intent-${it.id}" }) { item ->
                     IntentionRow(
                         item = item,
                         onToggle = { vm.toggleIntention(item.id) },
@@ -272,40 +283,44 @@ fun HojeScreen() {
                 }
             }
             if (total == 0) {
-                Spacer(Modifier.height(16.dp))
-                Text(
-                    text = tr("Ainda sem intenções para hoje."),
-                    color = colors.ink4,
-                    fontSize = 14.sp,
-                )
+                item(key = "no-intentions") {
+                    Spacer(Modifier.height(16.dp))
+                    Text(
+                        text = tr("Ainda sem intenções para hoje."),
+                        color = colors.ink4,
+                        fontSize = 14.sp,
+                    )
+                }
             }
 
             // Marés de hoje — placed between intentions and the night reflection so
             // Hoje reads as one nested day: now → today's rhythm → the night.
             // // PT: a fatia de hoje das Marés, entre as intenções e a reflexão.
             if (todayTides.isNotEmpty()) {
-                Spacer(Modifier.height(36.dp))
-                Row(verticalAlignment = Alignment.Bottom) {
-                    Text(
-                        text = tr("Marés de hoje").uppercase(),
-                        color = colors.ink3,
-                        fontFamily = MonoFamily,
-                        fontSize = 9.sp,
-                        letterSpacing = 1.8.sp, // 0.2em of 9sp
-                        modifier = Modifier.weight(1f),
-                    )
-                    if (tideDenom > 0) {
+                item(key = "tides-header") {
+                    Spacer(Modifier.height(36.dp))
+                    Row(verticalAlignment = Alignment.Bottom) {
                         Text(
-                            text = "$tideDone/$tideDenom",
-                            color = colors.ink4,
+                            text = tr("Marés de hoje").uppercase(),
+                            color = colors.ink3,
                             fontFamily = MonoFamily,
                             fontSize = 9.sp,
-                            letterSpacing = 0.54.sp, // 0.06em of 9sp
+                            letterSpacing = 1.8.sp, // 0.2em of 9sp
+                            modifier = Modifier.weight(1f),
                         )
+                        if (tideDenom > 0) {
+                            Text(
+                                text = "$tideDone/$tideDenom",
+                                color = colors.ink4,
+                                fontFamily = MonoFamily,
+                                fontSize = 9.sp,
+                                letterSpacing = 0.54.sp, // 0.06em of 9sp
+                            )
+                        }
                     }
+                    Spacer(Modifier.height(10.dp))
                 }
-                Spacer(Modifier.height(10.dp))
-                todayTides.forEachIndexed { i, tide ->
+                itemsIndexed(todayTides, key = { _, tide -> "tide-${tide.habit.id}" }) { i, tide ->
                     TodayTideRow(
                         tide = tide,
                         last = i == todayTides.lastIndex,
@@ -322,106 +337,112 @@ fun HojeScreen() {
             // Evening reflection — the web's paper-2 card: mono eyebrow, the serif
             // question, the day pulse again (the header one has scrolled away), and
             // the free-form field. // PT: cartão da reflexão, como na web.
-            Spacer(Modifier.height(40.dp))
-            Column(
-                Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(14.dp))
-                    .border(1.dp, colors.rule, RoundedCornerShape(14.dp))
-                    .background(colors.paper2)
-                    .padding(horizontal = 22.dp, vertical = 24.dp),
-            ) {
-                Text(
-                    text = tr("Reflexão da noite").uppercase(),
-                    color = colors.ink3,
-                    fontFamily = MonoFamily,
-                    fontSize = 9.sp,
-                    letterSpacing = 1.8.sp,
-                )
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    text = "“" + tr("O que valeu hoje?") + "”",
-                    color = colors.ink2,
-                    fontFamily = SerifFamily,
-                    fontStyle = FontStyle.Italic,
-                    fontSize = 18.sp,
-                )
-                Spacer(Modifier.height(12.dp))
-                if (pulseParts.isNotEmpty()) {
+            item(key = "reflection") {
+                Spacer(Modifier.height(40.dp))
+                Column(
+                    Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(14.dp))
+                        .border(1.dp, colors.rule, RoundedCornerShape(14.dp))
+                        .background(colors.paper2)
+                        .padding(horizontal = 22.dp, vertical = 24.dp),
+                ) {
                     Text(
-                        text = pulseParts.joinToString("   ·   "),
+                        text = tr("Reflexão da noite").uppercase(),
                         color = colors.ink3,
                         fontFamily = MonoFamily,
-                        fontSize = 10.5.sp,
-                        letterSpacing = 0.21.sp,
+                        fontSize = 9.sp,
+                        letterSpacing = 1.8.sp,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = "“" + tr("O que valeu hoje?") + "”",
+                        color = colors.ink2,
+                        fontFamily = SerifFamily,
+                        fontStyle = FontStyle.Italic,
+                        fontSize = 18.sp,
                     )
                     Spacer(Modifier.height(12.dp))
-                    Box(Modifier.fillMaxWidth().height(1.dp).background(colors.rule))
-                    Spacer(Modifier.height(14.dp))
+                    if (pulseParts.isNotEmpty()) {
+                        Text(
+                            text = pulseParts.joinToString("   ·   "),
+                            color = colors.ink3,
+                            fontFamily = MonoFamily,
+                            fontSize = 10.5.sp,
+                            letterSpacing = 0.21.sp,
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        Box(Modifier.fillMaxWidth().height(1.dp).background(colors.rule))
+                        Spacer(Modifier.height(14.dp))
+                    }
+                    ReflectionField(
+                        value = reflection,
+                        accent = colors.accent,
+                        onChange = { vm.setReflection(it) },
+                    )
                 }
-                ReflectionField(
-                    value = reflection,
-                    accent = colors.accent,
-                    onChange = { vm.setReflection(it) },
+
+                Spacer(Modifier.height(32.dp))
+                Text(
+                    text = tr("amanhã, recomeça."),
+                    color = colors.ink4,
+                    fontFamily = MonoFamily,
+                    fontSize = 10.sp,
+                    letterSpacing = 0.4.sp, // 0.04em of 10sp
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
                 )
             }
-
-            Spacer(Modifier.height(32.dp))
-            Text(
-                text = tr("amanhã, recomeça."),
-                color = colors.ink4,
-                fontFamily = MonoFamily,
-                fontSize = 10.sp,
-                letterSpacing = 0.4.sp, // 0.04em of 10sp
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth(),
-            )
         } else {
             // ── Past-day read-only snapshot ───────────────────────────
             if (pastSorted.isEmpty() && pastReflection.isBlank()) {
-                Spacer(Modifier.height(32.dp))
-                Text(
-                    text = tr("Sem conteúdo neste dia."),
-                    color = colors.ink4,
-                    fontSize = 14.sp,
-                )
+                item(key = "past-empty") {
+                    Spacer(Modifier.height(32.dp))
+                    Text(
+                        text = tr("Sem conteúdo neste dia."),
+                        color = colors.ink4,
+                        fontSize = 14.sp,
+                    )
+                }
             } else {
                 if (pastSorted.isNotEmpty()) {
-                    Spacer(Modifier.height(18.dp))
-                    pastSorted.forEach { item -> PastIntentionRow(item) }
+                    item(key = "past-top") { Spacer(Modifier.height(18.dp)) }
+                    items(pastSorted, key = { "past-${it.id}" }) { item -> PastIntentionRow(item) }
                 }
                 if (pastReflection.isNotBlank()) {
-                    Spacer(Modifier.height(32.dp))
-                    Column(
-                        Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(14.dp))
-                            .border(1.dp, colors.rule, RoundedCornerShape(14.dp))
-                            .background(colors.paper2)
-                            .padding(horizontal = 22.dp, vertical = 24.dp),
-                    ) {
-                        Text(
-                            text = tr("Reflexão da noite").uppercase(),
-                            color = colors.ink3,
-                            fontFamily = MonoFamily,
-                            fontSize = 9.sp,
-                            letterSpacing = 1.8.sp,
-                        )
-                        Spacer(Modifier.height(10.dp))
-                        Text(
-                            text = "“" + pastReflection + "”",
-                            color = colors.ink2,
-                            fontFamily = SerifFamily,
-                            fontStyle = FontStyle.Italic,
-                            fontSize = 15.sp,
-                            lineHeight = 22.sp,
-                        )
+                    item(key = "past-reflection") {
+                        Spacer(Modifier.height(32.dp))
+                        Column(
+                            Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(14.dp))
+                                .border(1.dp, colors.rule, RoundedCornerShape(14.dp))
+                                .background(colors.paper2)
+                                .padding(horizontal = 22.dp, vertical = 24.dp),
+                        ) {
+                            Text(
+                                text = tr("Reflexão da noite").uppercase(),
+                                color = colors.ink3,
+                                fontFamily = MonoFamily,
+                                fontSize = 9.sp,
+                                letterSpacing = 1.8.sp,
+                            )
+                            Spacer(Modifier.height(10.dp))
+                            Text(
+                                text = "“" + pastReflection + "”",
+                                color = colors.ink2,
+                                fontFamily = SerifFamily,
+                                fontStyle = FontStyle.Italic,
+                                fontSize = 15.sp,
+                                lineHeight = 22.sp,
+                            )
+                        }
                     }
                 }
             }
         }
 
-        Spacer(Modifier.height(48.dp))
+        item(key = "bottom") { Spacer(Modifier.height(48.dp)) }
     }
 
     if (showWeek) {
