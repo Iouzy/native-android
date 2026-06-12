@@ -1,10 +1,13 @@
 package com.pauta.app.ui.screens
 
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateIntAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -138,6 +141,13 @@ fun PautaScreen() {
         allSessions.filter { it.blockId in eventBlockIds }.map { FocusMath.FocusSeg(it.startedAt, it.endedAt) },
         today, now,
     )
+    // A3: the headline block count ticks up to its new value when a block is
+    // started or concluded (snap when reduced motion). // PT: a contagem sobe.
+    val animBlockCount by animateIntAsState(
+        targetValue = distinctBlockCount,
+        animationSpec = if (prefs.reducedMotion) snap() else tween(450, easing = FastOutSlowInEasing),
+        label = "pauta-blocks",
+    )
 
     val pausedBlocks = blocks.filter {
         it.status == "paused" && DateUtils.dayKeyOf(it.createdAt) == today && matches(it)
@@ -193,8 +203,8 @@ fun PautaScreen() {
                         Spacer(Modifier.height(6.dp))
                         Text(
                             text = buildAnnotatedString {
-                                append("$distinctBlockCount ")
-                                append(if (distinctBlockCount == 1) tr("bloco") else tr("blocos"))
+                                append("$animBlockCount ")
+                                append(if (animBlockCount == 1) tr("bloco") else tr("blocos"))
                                 append(". ")
                                 withStyle(SpanStyle(color = colors.accent, fontStyle = FontStyle.Italic)) {
                                     append(FocusMath.fmtDuration(totalFocus))
