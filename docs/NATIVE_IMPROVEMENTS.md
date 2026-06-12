@@ -46,6 +46,17 @@ Source paths below are relative to
 
 `pending` · `in-progress (PR #n)` · `done (PR #n)` · `skipped (reason)`
 
+## Suggested model per task
+
+All three models have the same 1M-token context window — pick by capability vs
+cost. Running a task on a stronger model than suggested is always fine.
+
+| Model | Use for | Tasks |
+|---|---|---|
+| **Claude Fable 5** | hardest / architectural / design-taste work | A5, A8, B1, C1, F1, F2 |
+| **Opus 4.8** | the default executor for well-specified builds | A2, A3, A6, A7, C2, C4, D1, D2, E1 |
+| **Sonnet 4.6** | small, mechanical, tightly-specified tasks | A1, A4, B2, C3, E2, T1, T2 |
+
 ---
 
 ## Phase A — feel (highest payoff; order matters: A1, A2 unblock A3)
