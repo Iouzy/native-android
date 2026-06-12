@@ -196,6 +196,7 @@ object I18n {
         "O quê" to "What",
         "Data" to "Date",
         "Início" to "Start",
+        "Escolher hora" to "Pick time", // native-only
         "Duração (min)" to "Duration (min)",
         "ex.: leitura" to "e.g. reading",
         "registar" to "log",

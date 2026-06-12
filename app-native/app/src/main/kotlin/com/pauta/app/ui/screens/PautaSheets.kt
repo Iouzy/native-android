@@ -18,8 +18,12 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TimePicker
+import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -36,6 +40,7 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.unit.sp
 import com.pauta.app.data.entity.FocusBlockEntity
 import com.pauta.app.data.entity.IntentionEntity
@@ -660,8 +665,13 @@ fun ManualBlockSheet(
     val colors = LocalPautaColors.current
     var title by remember { mutableStateOf("") }
     var date by remember { mutableStateOf(today) }
-    var start by remember { mutableStateOf("") }
+    // Default the start to the current time so the common "just now" case needs
+    // no typing at all. // PT: arranca na hora actual para registo rápido.
+    var start by remember {
+        mutableStateOf(java.time.LocalTime.now().let { "%02d:%02d".format(it.hour, it.minute) })
+    }
     var dur by remember { mutableStateOf("") }
+    var showTimePicker by remember { mutableStateOf(false) }
 
     val minutes = dur.toIntOrNull() ?: 0
     val dateOk = Regex("^\\d{4}-\\d{2}-\\d{2}$").matches(date) &&
@@ -707,15 +717,42 @@ fun ManualBlockSheet(
                     singleLine = true, fontFamily = SansFamily, fontSize = 15.sp,
                 )
             }
-            Column(Modifier.width(116.dp)) {
+            Column(Modifier.width(150.dp)) {
                 SheetEyebrow(tr("Início"))
                 Spacer(Modifier.height(6.dp))
-                BoxedField(
-                    start,
-                    { raw -> start = raw.filter { it.isDigit() || it == ':' }.take(5) },
-                    "HH:MM",
-                    singleLine = true, fontFamily = SansFamily, fontSize = 15.sp,
-                )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    // Type digits only — the ":" is inserted automatically.
+                    // // PT: só dígitos; os dois pontos entram sozinhos.
+                    Box(Modifier.weight(1f)) {
+                        BoxedField(
+                            start,
+                            { raw -> start = formatClockInput(raw) },
+                            "HH:MM",
+                            singleLine = true, fontFamily = SansFamily, fontSize = 15.sp,
+                        )
+                    }
+                    // Or pick the hour/minute visually, no typing needed.
+                    // // PT: ou escolher num relógio, sem escrever.
+                    Box(
+                        Modifier
+                            .size(44.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(colors.paper2)
+                            .border(1.dp, colors.rule, RoundedCornerShape(10.dp))
+                            .clickableNoRipple { showTimePicker = true },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            imageVector = PautaIcons.Pauta,
+                            contentDescription = tr("Escolher hora"),
+                            tint = colors.ink3,
+                            modifier = Modifier.size(20.dp),
+                        )
+                    }
+                }
             }
         }
 
@@ -735,6 +772,68 @@ fun ManualBlockSheet(
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             PautaButton(tr("Cancelar"), Modifier.weight(1f), PautaButtonVariant.Ghost) { onClose() }
             PautaButton(tr("Adicionar"), Modifier.weight(2f), PautaButtonVariant.Primary, enabled = ready) { submit() }
+        }
+    }
+
+    if (showTimePicker) {
+        val (initH, initM) = parseClock(start) ?: java.time.LocalTime.now().let { it.hour to it.minute }
+        StartTimeDialog(
+            initialHour = initH,
+            initialMinute = initM,
+            onConfirm = { h, m -> start = "%02d:%02d".format(h, m); showTimePicker = false },
+            onDismiss = { showTimePicker = false },
+        )
+    }
+}
+
+/** Format raw keystrokes as "HH:MM": digits only, the colon inserted for the
+ *  user after the hour so they never type it by hand. */
+private fun formatClockInput(raw: String): String {
+    val d = raw.filter { it.isDigit() }.take(4)
+    return if (d.length <= 2) d else d.take(2) + ":" + d.drop(2)
+}
+
+/** Parse "HH:MM" into hour/minute, or null when incomplete/out of range. */
+private fun parseClock(s: String): Pair<Int, Int>? {
+    val m = Regex("^(\\d{1,2}):(\\d{2})$").find(s) ?: return null
+    val h = m.groupValues[1].toInt()
+    val min = m.groupValues[2].toInt()
+    return if (h in 0..23 && min in 0..59) h to min else null
+}
+
+/** A compact 24h clock picker in a paper-tinted dialog — lets the user choose
+ *  the start time without typing. // PT: relógio para escolher a hora sem escrever. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun StartTimeDialog(
+    initialHour: Int,
+    initialMinute: Int,
+    onConfirm: (Int, Int) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val colors = LocalPautaColors.current
+    val state = rememberTimePickerState(
+        initialHour = initialHour,
+        initialMinute = initialMinute,
+        is24Hour = true,
+    )
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(shape = RoundedCornerShape(20.dp), color = colors.paper) {
+            Column(
+                Modifier.padding(20.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                SheetEyebrow(tr("Início"))
+                Spacer(Modifier.height(16.dp))
+                TimePicker(state = state)
+                Spacer(Modifier.height(12.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    PautaButton(tr("Cancelar"), Modifier.weight(1f), PautaButtonVariant.Ghost) { onDismiss() }
+                    PautaButton(tr("Confirmar"), Modifier.weight(1f), PautaButtonVariant.Primary) {
+                        onConfirm(state.hour, state.minute)
+                    }
+                }
+            }
         }
     }
 }
