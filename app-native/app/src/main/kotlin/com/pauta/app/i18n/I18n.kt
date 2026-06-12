@@ -128,6 +128,9 @@ object I18n {
         "amanhã, recomeça." to "tomorrow, begin again.",
         "Apagar" to "Delete", // native-only
         "Ainda sem dias anteriores." to "No previous days yet.", // native-only
+        "dia anterior" to "previous day", // native-only
+        "dia seguinte" to "next day", // native-only
+        "Sem conteúdo neste dia." to "No content for this day.", // native-only
         "Reflexão" to "Reflection",
         "dias anteriores" to "previous days",
         "a semana" to "the week",
