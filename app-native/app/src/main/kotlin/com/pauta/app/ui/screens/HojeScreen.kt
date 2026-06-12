@@ -68,6 +68,7 @@ import com.pauta.app.ui.PeriodLabel
 import com.pauta.app.ui.TideToday
 import com.pauta.app.ui.clickableNoRipple
 import com.pauta.app.ui.computeTodayTides
+import com.pauta.app.ui.rememberHaptics
 import com.pauta.app.ui.theme.LocalPautaColors
 import com.pauta.app.ui.theme.MonoFamily
 import com.pauta.app.ui.theme.SerifFamily
@@ -97,6 +98,8 @@ fun HojeScreen() {
     val habitCounts by vm.habitCounts.collectAsStateWithLifecycle()
     val today by vm.todayKey.collectAsStateWithLifecycle()
     val plans by vm.plans.collectAsStateWithLifecycle()
+    val prefs by vm.prefs.collectAsStateWithLifecycle()
+    val haptics = rememberHaptics(prefs.haptics)
     var showHistory by remember { mutableStateOf(false) }
     var showWeek by remember { mutableStateOf(false) }
     var showInsights by remember { mutableStateOf(false) }
@@ -265,7 +268,7 @@ fun HojeScreen() {
                 items.forEach { item ->
                     IntentionRow(
                         item = item,
-                        onToggle = { vm.toggleIntention(item.id) },
+                        onToggle = { haptics.tick(); vm.toggleIntention(item.id) },
                         onDelete = { vm.removeIntention(item.id) },
                         onCyclePriority = { vm.setIntentionPriority(item.id, nextPriority(item.priority)) },
                     )
@@ -311,6 +314,7 @@ fun HojeScreen() {
                         last = i == todayTides.lastIndex,
                         onAct = if (tide.state == DayState.RESPIRO) null else {
                             {
+                                haptics.tick()
                                 if (tide.isCount) vm.setHabitCount(tide.habit.id, today, tide.count + 1)
                                 else vm.toggleHabitToday(tide.habit.id)
                             }

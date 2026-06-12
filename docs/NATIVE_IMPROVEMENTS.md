@@ -61,7 +61,7 @@ cost. Running a task on a stronger model than suggested is always fine.
 
 ## Phase A — feel (highest payoff; order matters: A1, A2 unblock A3)
 
-### A1 · Wire up haptics (the pref exists but is dead) — Status: pending
+### A1 · Wire up haptics (the pref exists but is dead) — Status: in-progress (PR pending)
 - **Why:** `PrefsEntity.haptics` defaults `true` and Settings shows the toggle,
   but no code in the app fires a single haptic (verified: zero
   `HapticFeedback`/`Vibrator` usages).
@@ -313,3 +313,4 @@ cost. Running a task on a stronger model than suggested is always fine.
 ## Log (append one line per shipped task: date · task · PR · note)
 
 <!-- e.g. 2026-06-15 · A1 · #97 · haptics helper + 6 call sites -->
+2026-06-12 · A1 · PR pending · PautaHaptics helper (tick/longPress); wired in MainScaffold (tab), HojeScreen (toggle + tide), MaresScreen (cell tap + respiro), PautaScreen/PautaSheets (start/pause/resume/conclude), PinScreen (keypad + submit)

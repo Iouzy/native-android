@@ -70,12 +70,14 @@ import com.pauta.app.i18n.tr
 import com.pauta.app.i18n.trf
 import com.pauta.app.ui.PautaButton
 import com.pauta.app.ui.PautaButtonVariant
+import com.pauta.app.ui.PautaHaptics
 import com.pauta.app.ui.PeriodLabel
 import com.pauta.app.ui.PautaSheet
 import com.pauta.app.ui.CellState
 import com.pauta.app.ui.cellStateFor
 import com.pauta.app.ui.clickableNoRipple
 import com.pauta.app.ui.combinedClickableNoRipple
+import com.pauta.app.ui.rememberHaptics
 import com.pauta.app.ui.theme.LocalPautaColors
 import com.pauta.app.ui.theme.MonoFamily
 import com.pauta.app.ui.theme.SerifFamily
@@ -100,6 +102,8 @@ fun MaresScreen() {
     val respiros by vm.habitRespiros.collectAsStateWithLifecycle()
     val counts by vm.habitCounts.collectAsStateWithLifecycle()
     val today by vm.todayKey.collectAsStateWithLifecycle()
+    val prefs by vm.prefs.collectAsStateWithLifecycle()
+    val haptics = rememberHaptics(prefs.haptics)
 
     val nowYm = remember(today) { YearMonth.parse(today.substring(0, 7)) }
     var year by remember { mutableIntStateOf(nowYm.year) }
@@ -306,6 +310,7 @@ fun MaresScreen() {
                                 month = month,
                                 today = today,
                                 isCurrentMonth = isCurrentMonth,
+                                haptics = haptics,
                                 onToggle = { dayKey -> vm.toggleHabitDay(h.id, dayKey) },
                                 onIncrement = { dayKey, current -> vm.setHabitCount(h.id, dayKey, current + 1) },
                                 onRespiro = { dayKey -> vm.markRespiro(h.id, dayKey) },
@@ -431,6 +436,7 @@ private fun MaresHabitRow(
     month: Int,
     today: String,
     isCurrentMonth: Boolean,
+    haptics: PautaHaptics,
     onToggle: (String) -> Unit,
     onIncrement: (String, Int) -> Unit,
     onRespiro: (String) -> Unit,
@@ -600,13 +606,19 @@ private fun MaresHabitRow(
                     accent = accent,
                     target = if (isCount) habit.target else null,
                     onTap = {
+                        haptics.tick()
                         when {
                             isCount -> if (day.state == CellState.RESPIRO) onUnmarkRespiro(day.key) else onIncrement(day.key, day.count)
                             day.state == CellState.EMPTY || day.state == CellState.DONE -> onToggle(day.key)
                             day.state == CellState.RESPIRO -> onUnmarkRespiro(day.key)
                         }
                     },
-                    onLongPress = { if (day.state == CellState.EMPTY) onRespiro(day.key) },
+                    onLongPress = {
+                        if (day.state == CellState.EMPTY) {
+                            haptics.longPress()
+                            onRespiro(day.key)
+                        }
+                    },
                 )
             }
         }
