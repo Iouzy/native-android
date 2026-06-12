@@ -27,6 +27,10 @@ function TabHoje({ store, accentColor, onJumpToPauta, onOpenInsights }) {
   const [savingRoutine, setSavingRoutine] = useState(false);
   const [routineName, setRoutineName] = useState("");
   const [weekOpen, setWeekOpen] = useState(false);
+  // Inline day back-nav (like the Marés month nav): null = today; otherwise a
+  // dayKey within the last 7 days, browsed read-only in place. The full archive
+  // stays in the "Dias anteriores" sheet. / Navegação rápida pelos últimos 7 dias.
+  const [viewDayKey, setViewDayKey] = useState(null);
 
   const totalFocusToday = useMemo(() => {
     const key = dayKeyOf(Date.now());
@@ -101,6 +105,31 @@ function TabHoje({ store, accentColor, onJumpToPauta, onOpenInsights }) {
     if (window.haptic) window.haptic(8);
   };
 
+  // Day back-nav helpers. The quick nav only reaches back 7 calendar days; older
+  // days live in the full "Dias anteriores" sheet. YYYY-MM-DD keys compare
+  // lexically, so string comparison is a valid date order. / Recuo de 7 dias.
+  const todayKey = today.dayKey;
+  const minNavKey = addDaysToKey(todayKey, -7);
+  const goPrevDay = () => {
+    const prev = addDaysToKey(viewDayKey || todayKey, -1);
+    if (prev >= minNavKey) { setViewDayKey(prev); if (window.haptic) window.haptic(6); }
+  };
+  const goNextDay = () => {
+    if (!viewDayKey) return;
+    const next = addDaysToKey(viewDayKey, 1);
+    setViewDayKey(next >= todayKey ? null : next);
+    if (window.haptic) window.haptic(6);
+  };
+  // Shared style for the three evenly-spaced header actions. / Ações do cabeçalho.
+  const headerActionBtn = {
+    flex: 1, border: "1px solid var(--rule)", background: "transparent",
+    borderRadius: 9, padding: "9px 6px", cursor: "pointer",
+    fontFamily: "var(--mono)", fontSize: 9, letterSpacing: "0.1em",
+    textTransform: "uppercase", color: "var(--ink-3)",
+    display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 5,
+    whiteSpace: "nowrap", overflow: "hidden",
+  };
+
   const resetForm = () => { setNewText(""); setNewPriority(2); setNewTarget(""); setNewWhen(null); setAdding(false); };
   const commitNew = () => {
     if (newText.trim()) {
@@ -116,66 +145,81 @@ function TabHoje({ store, accentColor, onJumpToPauta, onOpenInsights }) {
 
   return (
     <div className="scroll" style={{ flex: 1, overflowY: "auto", padding: "8px 24px 40px", position: "relative", zIndex: 1 }}>
-      {/* Header */}
-      <div style={{ paddingTop: 16, paddingBottom: 24, display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 14 }}>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontFamily: "var(--mono)", fontSize: 10, letterSpacing: "0.18em", textTransform: "uppercase", color: "var(--ink-3)", marginBottom: 6 }}>
-            {fmtDateLong(Date.now())}
-          </div>
-          <h1 style={{ fontFamily: "var(--serif)", fontSize: 44, lineHeight: 1.0, margin: 0, fontWeight: 400, letterSpacing: "-0.015em" }}>
-            {tr("O que importa")} <em style={{ color: accentColor }}>{tr("hoje")}</em>?
-          </h1>
-          {(() => {
-            // One quiet line tying the three tabs together (intentions · focus ·
-            // tides). Tapping it opens the weekly review (Insights) — a quiet way
-            // in, so the review isn't buried in Settings. / Pulso do dia.
-            if (pulseParts.length === 0) return null;
-            const text = pulseParts.join("   ·   ");
-            if (onOpenInsights) {
-              return (
-                <button onClick={onOpenInsights} className="tap" title={tr("ver revisão")}
-                  style={{
-                    marginTop: 10, border: "none", background: "transparent", padding: 0, cursor: "pointer",
-                    fontFamily: "var(--mono)", fontSize: 11, color: "var(--ink-3)", letterSpacing: "0.02em", textAlign: "left",
-                  }}>
-                  {text} <span style={{ color: "var(--ink-4)" }}>↗</span>
-                </button>
-              );
-            }
-            return (
-              <div style={{ marginTop: 10, fontFamily: "var(--mono)", fontSize: 11, color: "var(--ink-3)", letterSpacing: "0.02em" }}>
-                {text}
-              </div>
-            );
-          })()}
+      {viewDayKey ? (
+        <HojeHistoryDetail
+          dayKey={viewDayKey}
+          day={(state.days || {})[viewDayKey] || { intentions: [], reflection: "" }}
+          blocks={blocks}
+          accentColor={accentColor}
+          setDayReflection={setDayReflection}
+          onBack={() => setViewDayKey(null)}
+          pager
+          onPrev={goPrevDay}
+          onNext={goNextDay}
+          canPrev={addDaysToKey(viewDayKey, -1) >= minNavKey}
+        />
+      ) : (
+      <>
+      {/* Header — date + title get the full width; the three actions sit in their
+          own evenly-spaced row below, and the day back-nav (top-left) steps into
+          the previous days. / Cabeçalho arejado, ações distribuídas. */}
+      <div style={{ paddingTop: 16, paddingBottom: 20 }}>
+        {/* Day back-nav — recuar pelos últimos 7 dias, como a navegação das Marés.
+            O arquivo completo fica em "Dias anteriores". */}
+        <div style={{ marginBottom: 14 }}>
+          <button onClick={goPrevDay} className="tap" title={tr("ver dia anterior")} aria-label={tr("ver dia anterior")}
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 7,
+              border: "1px solid var(--rule)", background: "transparent",
+              borderRadius: 999, padding: "6px 14px 6px 11px", cursor: "pointer",
+              fontFamily: "var(--mono)", fontSize: 9.5, letterSpacing: "0.14em",
+              textTransform: "uppercase", color: "var(--ink-3)",
+            }}>
+            <span style={{ fontSize: 16, lineHeight: 1, marginTop: -2 }}>‹</span>
+            {tr("dia anterior")}
+          </button>
         </div>
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8, flexShrink: 0, marginTop: 2 }}>
-          <button onClick={() => setHistoryOpen(true)} className="tap" title={tr("ver dias anteriores")}
-            style={{
-              border: "1px solid var(--rule)", background: "transparent",
-              borderRadius: 8, padding: "6px 10px",
-              fontFamily: "var(--mono)", fontSize: 9, letterSpacing: "0.14em",
-              textTransform: "uppercase", color: "var(--ink-3)", cursor: "pointer",
-            }}>
-            {tr("dias anteriores")} ↗
+
+        <div style={{ fontFamily: "var(--mono)", fontSize: 10, letterSpacing: "0.18em", textTransform: "uppercase", color: "var(--ink-3)", marginBottom: 6 }}>
+          {fmtDateLong(Date.now())}
+        </div>
+        <h1 style={{ fontFamily: "var(--serif)", fontSize: 44, lineHeight: 1.0, margin: 0, fontWeight: 400, letterSpacing: "-0.015em" }}>
+          {tr("O que importa")} <em style={{ color: accentColor }}>{tr("hoje")}</em>?
+        </h1>
+        {(() => {
+          // One quiet line tying the three tabs together (intentions · focus ·
+          // tides). Tapping it opens the weekly review (Insights) — a quiet way
+          // in, so the review isn't buried in Settings. / Pulso do dia.
+          if (pulseParts.length === 0) return null;
+          const text = pulseParts.join("   ·   ");
+          if (onOpenInsights) {
+            return (
+              <button onClick={onOpenInsights} className="tap" title={tr("ver revisão")}
+                style={{
+                  marginTop: 10, border: "none", background: "transparent", padding: 0, cursor: "pointer",
+                  fontFamily: "var(--mono)", fontSize: 11, color: "var(--ink-3)", letterSpacing: "0.02em", textAlign: "left",
+                }}>
+                {text} <span style={{ color: "var(--ink-4)" }}>↗</span>
+              </button>
+            );
+          }
+          return (
+            <div style={{ marginTop: 10, fontFamily: "var(--mono)", fontSize: 11, color: "var(--ink-3)", letterSpacing: "0.02em" }}>
+              {text}
+            </div>
+          );
+        })()}
+
+        {/* Actions — evenly spaced across the row (flex: 1 each). / Ações distribuídas. */}
+        <div style={{ display: "flex", gap: 8, marginTop: 20 }}>
+          <button onClick={() => setHistoryOpen(true)} className="tap" title={tr("ver dias anteriores")} style={headerActionBtn}>
+            {tr("dias anteriores")} <span style={{ color: "var(--ink-4)" }}>↗</span>
           </button>
-          <button onClick={() => setWeekOpen(true)} className="tap" title={tr("planear a semana")}
-            style={{
-              border: "1px solid var(--rule)", background: "transparent",
-              borderRadius: 8, padding: "6px 10px",
-              fontFamily: "var(--mono)", fontSize: 9, letterSpacing: "0.14em",
-              textTransform: "uppercase", color: "var(--ink-3)", cursor: "pointer",
-            }}>
-            {tr("a semana")} ↗
+          <button onClick={() => setWeekOpen(true)} className="tap" title={tr("planear a semana")} style={headerActionBtn}>
+            {tr("a semana")} <span style={{ color: "var(--ink-4)" }}>↗</span>
           </button>
-          <button onClick={shareDay} className="tap" title={tr("partilhar o dia")} aria-label={tr("partilhar o dia")}
-            style={{
-              border: "1px solid var(--rule)", background: "transparent",
-              borderRadius: 8, padding: "6px 9px", color: "var(--ink-3)", cursor: "pointer",
-              display: "inline-flex", alignItems: "center", gap: 6,
-              fontFamily: "var(--mono)", fontSize: 9, letterSpacing: "0.14em", textTransform: "uppercase",
-            }}>
-            <Icon.Upload size={12}/> {tr("partilhar")}
+          <button onClick={shareDay} className="tap" title={tr("partilhar o dia")} aria-label={tr("partilhar o dia")} style={headerActionBtn}>
+            <Icon.Upload size={11}/> {tr("partilhar")}
           </button>
         </div>
       </div>
@@ -430,6 +474,8 @@ function TabHoje({ store, accentColor, onJumpToPauta, onOpenInsights }) {
       }}>
         {tr("amanhã, recomeça.")}
       </div>
+      </>
+      )}
 
       {/* History sheet */}
       <HojeHistorySheet
@@ -629,29 +675,76 @@ function HojeHistorySheet({ open, onClose, days, blocks, keys, openedDayKey, onO
   );
 }
 
-function HojeHistoryDetail({ dayKey, day, blocks, accentColor, setDayReflection, onBack }) {
+function HojeHistoryDetail({ dayKey, day, blocks, accentColor, setDayReflection, onBack, pager, onPrev, onNext, canPrev }) {
   const focusMs = dailyFocusMs(blocks, dayKey);
   const blocksDay = blocks.filter(b => b.sessions.some(s => dayKeyOf(s.startedAt) === dayKey));
+  // In pager mode (inline Hoje back-nav) the header is a ‹ date › day-stepper
+  // with a "back to today" reset; in sheet mode it's the original "‹ dias" back
+  // button to the day list. / Cabeçalho: paginador de dias ou voltar à lista.
+  const chevronBtn = (onClick, dir, disabled) => (
+    <button onClick={onClick} disabled={disabled} className="tap"
+      title={dir < 0 ? tr("ver dia anterior") : tr("ver dia seguinte")}
+      aria-label={dir < 0 ? tr("ver dia anterior") : tr("ver dia seguinte")}
+      style={{
+        width: 40, height: 40, flexShrink: 0,
+        border: "1px solid var(--rule)", background: "var(--paper-2)",
+        borderRadius: 10, color: disabled ? "var(--ink-4)" : "var(--ink-2)",
+        cursor: disabled ? "default" : "pointer", opacity: disabled ? 0.4 : 1,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        fontSize: 20, lineHeight: 1,
+      }}>
+      {dir < 0 ? "‹" : "›"}
+    </button>
+  );
   return (
     <div>
-      <button onClick={onBack} className="tap"
-        style={{
-          display: "inline-flex", alignItems: "center", gap: 7,
-          border: "1px solid var(--rule)", background: "var(--paper-2)",
-          borderRadius: 999, padding: "9px 15px 9px 11px",
-          fontFamily: "var(--mono)", fontSize: 12, letterSpacing: "0.08em",
-          color: "var(--ink-2)", textTransform: "uppercase", cursor: "pointer",
-          marginBottom: 16,
+      {pager ? (
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+            {chevronBtn(onPrev, -1, !canPrev)}
+            <div style={{ flex: 1, textAlign: "center", minWidth: 0 }}>
+              <div style={{
+                fontFamily: "var(--mono)", fontSize: 9, letterSpacing: "0.16em",
+                textTransform: "uppercase", color: "var(--ink-3)",
+              }}>
+                {fmtDateLong(tsFromDayKey(dayKey))}
+              </div>
+            </div>
+            {chevronBtn(onNext, 1, false)}
+          </div>
+          <div style={{ textAlign: "center", marginTop: 10 }}>
+            <button onClick={onBack} className="tap"
+              style={{
+                border: "none", background: "transparent", cursor: "pointer",
+                fontFamily: "var(--mono)", fontSize: 10, letterSpacing: "0.1em",
+                textTransform: "uppercase", color: accentColor,
+              }}>
+              {tr("voltar a hoje")} ↺
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button onClick={onBack} className="tap"
+          style={{
+            display: "inline-flex", alignItems: "center", gap: 7,
+            border: "1px solid var(--rule)", background: "var(--paper-2)",
+            borderRadius: 999, padding: "9px 15px 9px 11px",
+            fontFamily: "var(--mono)", fontSize: 12, letterSpacing: "0.08em",
+            color: "var(--ink-2)", textTransform: "uppercase", cursor: "pointer",
+            marginBottom: 16,
+          }}>
+          <span style={{ fontSize: 17, lineHeight: 1, marginTop: -2 }}>‹</span>
+          {tr("dias")}
+        </button>
+      )}
+      {!pager && (
+        <div style={{
+          fontFamily: "var(--mono)", fontSize: 9, letterSpacing: "0.16em",
+          textTransform: "uppercase", color: "var(--ink-3)", marginBottom: 4,
         }}>
-        <span style={{ fontSize: 17, lineHeight: 1, marginTop: -2 }}>‹</span>
-        {tr("dias")}
-      </button>
-      <div style={{
-        fontFamily: "var(--mono)", fontSize: 9, letterSpacing: "0.16em",
-        textTransform: "uppercase", color: "var(--ink-3)", marginBottom: 4,
-      }}>
-        {fmtDateLong(tsFromDayKey(dayKey))}
-      </div>
+          {fmtDateLong(tsFromDayKey(dayKey))}
+        </div>
+      )}
       <div style={{
         fontFamily: "var(--serif)", fontSize: 24, lineHeight: 1.15,
         color: "var(--ink)", letterSpacing: "-0.01em", marginBottom: 18,
