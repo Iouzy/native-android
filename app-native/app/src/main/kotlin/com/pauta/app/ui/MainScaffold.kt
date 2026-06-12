@@ -46,6 +46,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.pauta.app.i18n.tr
 import com.pauta.app.ui.screens.HojeScreen
+import com.pauta.app.ui.rememberHaptics
 import com.pauta.app.ui.screens.MaresScreen
 import com.pauta.app.ui.screens.PautaScreen
 import com.pauta.app.ui.screens.PinMode
@@ -86,6 +87,7 @@ fun MainScaffold(initialTab: Tab = Tab.HOJE) {
 
     val vm: AppViewModel = viewModel()
     val prefs by vm.prefs.collectAsStateWithLifecycle()
+    val haptics = rememberHaptics(prefs.haptics)
     val needsUnlock by vm.needsUnlock.collectAsStateWithLifecycle()
     var showSettings by remember { mutableStateOf(false) }
     val context = LocalContext.current
@@ -141,7 +143,7 @@ fun MainScaffold(initialTab: Tab = Tab.HOJE) {
             }
             TabBar(
                 current = Tab.entries[pager.currentPage],
-                onSelect = { tab -> scope.launch { pager.animateScrollToPage(tab.ordinal) } },
+                onSelect = { tab -> haptics.tick(); scope.launch { pager.animateScrollToPage(tab.ordinal) } },
             )
         }
 

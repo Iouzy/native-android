@@ -29,9 +29,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.pauta.app.i18n.tr
 import com.pauta.app.ui.clickableNoRipple
+import com.pauta.app.ui.rememberHaptics
 import com.pauta.app.ui.theme.LocalPautaColors
 import com.pauta.app.ui.theme.MonoFamily
 import com.pauta.app.ui.theme.SerifFamily
@@ -54,6 +56,8 @@ fun PinScreen(
 ) {
     val colors = LocalPautaColors.current
     val vm: AppViewModel = viewModel()
+    val prefs by vm.prefs.collectAsStateWithLifecycle()
+    val haptics = rememberHaptics(prefs.haptics)
 
     var pin by remember { mutableStateOf("") }
     var confirm by remember { mutableStateOf("") }
@@ -76,6 +80,7 @@ fun PinScreen(
     val current = if (mode == PinMode.SET && confirmStage) confirm else pin
 
     fun onKey(digit: String) {
+        haptics.tick()
         errorMsg = null
         if (mode == PinMode.SET && confirmStage) {
             if (confirm.length < 8) confirm += digit
@@ -85,6 +90,7 @@ fun PinScreen(
     }
 
     fun onDelete() {
+        haptics.tick()
         errorMsg = null
         if (mode == PinMode.SET && confirmStage) {
             if (confirm.isNotEmpty()) confirm = confirm.dropLast(1)
@@ -94,6 +100,7 @@ fun PinScreen(
     }
 
     fun onSubmit() {
+        haptics.tick()
         errorMsg = null
         when (mode) {
             PinMode.LOCK -> {

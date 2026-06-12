@@ -68,6 +68,7 @@ import com.pauta.app.i18n.tr
 import com.pauta.app.i18n.trf
 import com.pauta.app.ui.PeriodLabel
 import com.pauta.app.ui.clickableNoRipple
+import com.pauta.app.ui.rememberHaptics
 import com.pauta.app.ui.computeTodayTides
 import com.pauta.app.ui.theme.LocalPautaColors
 import com.pauta.app.ui.theme.MonoFamily
@@ -99,6 +100,7 @@ fun PautaScreen() {
     val habitRespiros by vm.habitRespiros.collectAsStateWithLifecycle()
     val habitCounts by vm.habitCounts.collectAsStateWithLifecycle()
     val prefs by vm.prefs.collectAsStateWithLifecycle()
+    val haptics = rememberHaptics(prefs.haptics)
 
     // 1s clock tick driving the live timer.
     var now by remember { mutableStateOf(System.currentTimeMillis()) }
@@ -228,16 +230,16 @@ fun PautaScreen() {
                         val min = a.targetMs?.let { (it / 60_000L).toInt() } ?: 0
                         reachedPrompt = min
                     },
-                    onPause = { pauseWithNote(a) },
-                    onSwitch = { showSwitch = true },
-                    onConclude = { concludeOptimistic(a) },
-                    onCancel = { discardFor = a },
-                    onZen = { zen = true },
+                    onPause = { haptics.tick(); pauseWithNote(a) },
+                    onSwitch = { haptics.tick(); showSwitch = true },
+                    onConclude = { haptics.longPress(); concludeOptimistic(a) },
+                    onCancel = { haptics.longPress(); discardFor = a },
+                    onZen = { haptics.tick(); zen = true },
                 )
                 Spacer(Modifier.height(22.dp))
             }
             if (active == null) {
-                StartCtaCard { showStart = true }
+                StartCtaCard { haptics.tick(); showStart = true }
                 Spacer(Modifier.height(22.dp))
             }
 
@@ -251,7 +253,7 @@ fun PautaScreen() {
                             block = b,
                             sessions = sessionsOf(b.id),
                             now = now,
-                            onResume = { vm.resumeBlock(b.id) },
+                            onResume = { haptics.tick(); vm.resumeBlock(b.id) },
                             onEdit = { editFor = b },
                         )
                     }
@@ -326,6 +328,7 @@ fun PautaScreen() {
             hasActive = active != null,
             activeTitle = active?.title.orEmpty(),
             onStart = { title, linkedToId, project, targetMin ->
+                haptics.tick()
                 vm.startBlock(title, linkedToId, project, targetMin)
                 showStart = false
             },
@@ -390,8 +393,9 @@ fun PautaScreen() {
     pauseNoteFor?.let { block ->
         PauseSheet(
             block = block,
-            onResume = { vm.resumeBlock(block.id); pauseNoteFor = null },
+            onResume = { haptics.tick(); vm.resumeBlock(block.id); pauseNoteFor = null },
             onConfirm = { note ->
+                haptics.tick()
                 if (note.isNotBlank()) vm.setLastSessionNote(block.id, note)
                 pauseNoteFor = null
             },
@@ -405,6 +409,7 @@ fun PautaScreen() {
             todayTides = pendingTides,
             wasActive = wasActive,
             onConfirm = { reflection, markDone, tideIds ->
+                haptics.longPress()
                 vm.concludeBlock(block.id, reflection, markDone)
                 tideIds.forEach { vm.toggleHabitToday(it) }
                 concludeFor = null
@@ -426,8 +431,8 @@ fun PautaScreen() {
                 sessions = sessionsOf(a.id),
                 now = now,
                 onExit = { zen = false },
-                onPause = { zen = false; pauseWithNote(a) },
-                onConclude = { zen = false; concludeOptimistic(a) },
+                onPause = { zen = false; haptics.tick(); pauseWithNote(a) },
+                onConclude = { zen = false; haptics.longPress(); concludeOptimistic(a) },
             )
         }
     }
