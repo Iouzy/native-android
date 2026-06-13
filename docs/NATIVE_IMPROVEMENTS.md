@@ -178,7 +178,7 @@ cost. Running a task on a stronger model than suggested is always fine.
 
 ## Phase C — surfaces (where a planner earns daily use)
 
-### C1 · Glance Marés widget — Status: pending
+### C1 · Glance Marés widget — Status: done (PR #116)
 - **Why:** the current widget (`res/layout/widget_pauta.xml`,
   `service/PautaWidgetProvider.kt` + `WidgetSnapshot.kt`) is three static text
   lines. The killer widget for this app is today's tides, tappable.
@@ -321,4 +321,5 @@ cost. Running a task on a stronger model than suggested is always fine.
 2026-06-13 · A8 · #110 · Settings/History/Goals/YearReview/TierGuide → NavHost destinations (predictive back); enableOnBackInvokedCallback=true; single Activity-scoped AppViewModel re-pinned across routes (LocalViewModelStoreOwner); BackHandler dropped from promoted screens (guarded one kept only for Settings' nested PIN flows); HistoryView owns its status-bar inset; nav push/peel transitions gated on reducedMotion
 2026-06-13 · A7 · #109 · snackbar "Anular" for intention/block delete (snapshot+reinsert from memory; block restores its sessions), app-wide themed SnackbarHost in MainScaffold; native-only habit `archived` (Room v2→v3) hides from grid/today/widget but keeps marks + still exports as a normal v4 habit; delete+archive moved into the edit sheet, long-press-to-delete dropped; Settings→Dados "Marés arquivadas" manager (1-tap restore, 2-step guarded delete)
 2026-06-13 · B2 · #115 · AppUpdater.check → CheckResult (Available/UpToDate/Failed) so offline ≠ "atualizado"; 2s/4s/8s backoff retry shared by check+download; release `body` surfaced as plain "Novidades" notes in the Settings card; failed-check error + "Tentar outra vez" re-check branch
+2026-06-13 · C1 · #116 · Glance Marés widget — today's tides as tappable circles (done=filled accent / respiro=hatched ring / pending=outline), marked via the repo on the process scope (works app-closed); header n/m marés; day/night ColorProviders mirror Color.kt; reuses computeTodayTides; retired the 3-line text widget (PautaWidgetProvider/WidgetSnapshot)
 2026-06-13 · B1 · #111 · SAF backup folder (ACTION_OPEN_DOCUMENT_TREE + persisted permission, DocumentsContract write/prune, no extra dep) written alongside filesDir fallback; WorkManager periodic BackupWorker/BackupScheduler runs the cadence with app closed (gate stays in repo; resume path moved off Main); native-only `backupFolderUri` (Room v3→v4, not exported in v4); data_extraction_rules.xml + backup_rules.xml exclude pauta.db (PIN+journal)/reminder prefs/autobackups from cloud-backup, device-transfer keeps all
