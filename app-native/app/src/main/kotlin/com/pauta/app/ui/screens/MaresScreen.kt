@@ -1,5 +1,10 @@
 package com.pauta.app.ui.screens
 
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -102,6 +107,10 @@ fun MaresScreen() {
     val respiros by vm.habitRespiros.collectAsStateWithLifecycle()
     val counts by vm.habitCounts.collectAsStateWithLifecycle()
     val today by vm.todayKey.collectAsStateWithLifecycle()
+    val prefs by vm.prefs.collectAsStateWithLifecycle()
+    // A3: cell fills, respiro hatching and row add/remove all snap when reduced.
+    // // PT: animações das células respeitam "movimento reduzido".
+    val animate = !prefs.reducedMotion
 
     val nowYm = remember(today) { YearMonth.parse(today.substring(0, 7)) }
     var year by remember { mutableIntStateOf(nowYm.year) }
@@ -311,22 +320,26 @@ fun MaresScreen() {
                 // the first reproduces the old spacedBy(22). // PT: um item por
                 // maré, com chave estável.
                 itemsIndexed(visibleHabits, key = { _, h -> "habit-${h.id}" }) { index, h ->
-                    if (index > 0) Spacer(Modifier.height(22.dp))
-                    MaresHabitRow(
-                        habit = h,
-                        model = modelOf(h),
-                        countsForHabit = countsByHabit[h.id].orEmpty(),
-                        year = year,
-                        month = month,
-                        today = today,
-                        isCurrentMonth = isCurrentMonth,
-                        onToggle = { dayKey -> vm.toggleHabitDay(h.id, dayKey) },
-                        onIncrement = { dayKey, current -> vm.setHabitCount(h.id, dayKey, current + 1) },
-                        onRespiro = { dayKey -> vm.markRespiro(h.id, dayKey) },
-                        onUnmarkRespiro = { dayKey -> vm.unmarkRespiro(h.id, dayKey) },
-                        onRemove = { removeTarget = h },
-                        onOpenDetail = { detailTarget = h },
-                    )
+                    // A3: the whole item (its leading gap + row) slides on add/remove.
+                    Column(if (animate) Modifier.animateItem() else Modifier) {
+                        if (index > 0) Spacer(Modifier.height(22.dp))
+                        MaresHabitRow(
+                            habit = h,
+                            model = modelOf(h),
+                            countsForHabit = countsByHabit[h.id].orEmpty(),
+                            year = year,
+                            month = month,
+                            today = today,
+                            isCurrentMonth = isCurrentMonth,
+                            animate = animate,
+                            onToggle = { dayKey -> vm.toggleHabitDay(h.id, dayKey) },
+                            onIncrement = { dayKey, current -> vm.setHabitCount(h.id, dayKey, current + 1) },
+                            onRespiro = { dayKey -> vm.markRespiro(h.id, dayKey) },
+                            onUnmarkRespiro = { dayKey -> vm.unmarkRespiro(h.id, dayKey) },
+                            onRemove = { removeTarget = h },
+                            onOpenDetail = { detailTarget = h },
+                        )
+                    }
                 }
 
                 if (habits.size > visibleHabits.size) {
@@ -448,6 +461,7 @@ private fun MaresHabitRow(
     month: Int,
     today: String,
     isCurrentMonth: Boolean,
+    animate: Boolean,
     onToggle: (String) -> Unit,
     onIncrement: (String, Int) -> Unit,
     onRespiro: (String) -> Unit,
@@ -616,6 +630,7 @@ private fun MaresHabitRow(
                     day = day,
                     accent = accent,
                     target = if (isCount) habit.target else null,
+                    animate = animate,
                     onTap = {
                         when {
                             isCount -> if (day.state == CellState.RESPIRO) onUnmarkRespiro(day.key) else onIncrement(day.key, day.count)
@@ -653,6 +668,7 @@ private fun MaresDayCell(
     day: CellDay,
     accent: Color,
     target: Int?,
+    animate: Boolean,
     onTap: () -> Unit,
     onLongPress: () -> Unit,
 ) {
@@ -682,15 +698,47 @@ private fun MaresDayCell(
     }
     val borderWidth = if (day.isToday && !filled && state != CellState.OFF) 1.5.dp else 1.dp
 
+    val fillColor = if (day.isToday) accent else colors.ink
+    // A3: a marked day's fill springs out from the centre; a respiro's hatch
+    // wipes in along the diagonal. Reduced motion snaps both to their final look.
+    // // PT: o preenchimento nasce do centro; o respiro entra na diagonal.
+    val fillScale by animateFloatAsState(
+        targetValue = if (filled) 1f else 0f,
+        animationSpec = if (animate) spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMediumLow,
+        ) else snap(),
+        label = "cell-fill",
+    )
+    val hatch by animateFloatAsState(
+        targetValue = if (state == CellState.RESPIRO) 1f else 0f,
+        animationSpec = if (animate) tween(300) else snap(),
+        label = "cell-hatch",
+    )
+
     Box(
         Modifier
             .size(22.dp)
             .alpha(cellAlpha)
             .drawBehind {
-                if (day.isToday && filled) {
-                    // boxShadow 0 0 0 2px accent@20% — a ring just outside the cell.
+                // The accent/ink fill, scaled from the centre by the spring (clamped
+                // so a bouncy overshoot never spills into the 3dp gap).
+                if (fillScale > 0f) {
+                    val s = fillScale.coerceIn(0f, 1f)
+                    val w = size.width * s
+                    val h = size.height * s
                     drawRoundRect(
-                        color = accent.copy(alpha = 0.2f),
+                        color = fillColor,
+                        topLeft = Offset((size.width - w) / 2f, (size.height - h) / 2f),
+                        size = Size(w, h),
+                        cornerRadius = CornerRadius(4.dp.toPx()),
+                    )
+                }
+                if (day.isToday && fillScale > 0f) {
+                    // boxShadow 0 0 0 2px accent@20% — a ring just outside the cell,
+                    // growing in step with the fill. // PT: anel cresce com o preenchimento.
+                    drawRoundRect(
+                        color = accent.copy(alpha = 0.2f * fillScale.coerceIn(0f, 1f)),
                         topLeft = Offset(-2.dp.toPx(), -2.dp.toPx()),
                         size = Size(size.width + 4.dp.toPx(), size.height + 4.dp.toPx()),
                         cornerRadius = CornerRadius(6.dp.toPx()),
@@ -706,7 +754,6 @@ private fun MaresDayCell(
                 }
             }
             .clip(RoundedCornerShape(4.dp))
-            .background(if (filled) (if (day.isToday) accent else colors.ink) else Color.Transparent)
             .then(borderColor?.let { Modifier.border(borderWidth, it, RoundedCornerShape(4.dp)) } ?: Modifier)
             .then(
                 if (clickable) Modifier.combinedClickable(onClick = onTap, onLongClick = onLongPress)
@@ -731,14 +778,20 @@ private fun MaresDayCell(
                         }
                         clipPath(path) {
                             val step = 4.dp.toPx()
-                            var x = -size.height
+                            val startX = -size.height
+                            // Only lines up to this x are drawn, so the hatch wipes
+                            // in diagonally as `hatch` runs 0→1. // PT: entra na diagonal.
+                            val threshold = startX + (size.width - startX) * hatch.coerceIn(0f, 1f)
+                            var x = startX
                             while (x < size.width) {
-                                drawLine(
-                                    color = accent.copy(alpha = 0.7f),
-                                    start = Offset(x, size.height),
-                                    end = Offset(x + size.height, 0f),
-                                    strokeWidth = 1.4.dp.toPx(),
-                                )
+                                if (x <= threshold) {
+                                    drawLine(
+                                        color = accent.copy(alpha = 0.7f),
+                                        start = Offset(x, size.height),
+                                        end = Offset(x + size.height, 0f),
+                                        strokeWidth = 1.4.dp.toPx(),
+                                    )
+                                }
                                 x += step
                             }
                         }

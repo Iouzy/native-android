@@ -88,7 +88,7 @@ cost. Running a task on a stronger model than suggested is always fine.
 - **Accept:** visual parity (spacing/paddings unchanged), scroll behaviour
   intact, stable keys on all `items()`.
 
-### A3 · Core-loop micro-animations — Status: pending (needs A1, A2)
+### A3 · Core-loop micro-animations — Status: done (PR #105)
 - **Why:** completing an intention / filling a habit cell — the app's central
   interactions — are instant binary flips today.
 - **Where:** `HojeScreen.kt` (intention row), `TideHelpers.kt`/`MaresScreen.kt`
@@ -314,3 +314,4 @@ cost. Running a task on a stronger model than suggested is always fine.
 
 <!-- e.g. 2026-06-15 · A1 · #97 · haptics helper + 6 call sites -->
 2026-06-12 · A2 · #104 · Hoje/Marés/Pauta tabs → single LazyColumn, stable item keys (unblocks A3)
+2026-06-13 · A3 · #105 · intention strike+circle spring, tide-cell fill+respiro hatch, pulse count-up, list animateItem — all gated on reducedMotion

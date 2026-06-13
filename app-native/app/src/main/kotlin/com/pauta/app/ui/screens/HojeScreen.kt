@@ -1,5 +1,12 @@
 package com.pauta.app.ui.screens
 
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.animateIntAsState
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -42,8 +49,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontStyle
@@ -99,6 +111,10 @@ fun HojeScreen() {
     val habitCounts by vm.habitCounts.collectAsStateWithLifecycle()
     val today by vm.todayKey.collectAsStateWithLifecycle()
     val plans by vm.plans.collectAsStateWithLifecycle()
+    val prefs by vm.prefs.collectAsStateWithLifecycle()
+    // A3: every micro-animation below is gated on this — reduced motion snaps to
+    // the old instant behaviour. // PT: animações respeitam "movimento reduzido".
+    val animate = !prefs.reducedMotion
     var showHistory by remember { mutableStateOf(false) }
     var showWeek by remember { mutableStateOf(false) }
     var showInsights by remember { mutableStateOf(false) }
@@ -150,13 +166,26 @@ fun HojeScreen() {
         today,
         System.currentTimeMillis(),
     )
+    // A3: the pulse numerals tick up to their new value when a count changes
+    // (snap to the value when reduced motion is on). // PT: os números do pulso
+    // sobem até ao novo valor.
+    val animDone by animateIntAsState(
+        targetValue = done,
+        animationSpec = if (animate) tween(450, easing = FastOutSlowInEasing) else snap(),
+        label = "pulse-intentions",
+    )
+    val animTideDone by animateIntAsState(
+        targetValue = tideDone,
+        animationSpec = if (animate) tween(450, easing = FastOutSlowInEasing) else snap(),
+        label = "pulse-tides",
+    )
     // Day pulse — one quiet mono line tying the three tabs together
     // (intentions · focus · tides). Respiros stay out of the tide denominator.
     // // PT: pulso do dia.
     val pulseParts = buildList {
-        if (total > 0) add(trf("{d}/{t} intenções", "d" to done, "t" to total))
+        if (total > 0) add(trf("{d}/{t} intenções", "d" to animDone, "t" to total))
         if (focusMsToday > 0) add(trf("{d} em foco", "d" to FocusMath.fmtDuration(focusMsToday)))
-        if (tideDenom > 0) add(trf("{d}/{t} marés", "d" to tideDone, "t" to tideDenom))
+        if (tideDenom > 0) add(trf("{d}/{t} marés", "d" to animTideDone, "t" to tideDenom))
     }
     val groups = remember(sorted) { HojeLogic.groupByTimeOfDay(sorted) }
     val showHeaders = groups.size > 1
@@ -276,6 +305,9 @@ fun HojeScreen() {
                 items(groupItems, key = { "intent-${it.id}" }) { item ->
                     IntentionRow(
                         item = item,
+                        animate = animate,
+                        // A3: add/remove/reorder slides into place (LazyItemScope).
+                        modifier = if (animate) Modifier.animateItem() else Modifier,
                         onToggle = { vm.toggleIntention(item.id) },
                         onDelete = { vm.removeIntention(item.id) },
                         onCyclePriority = { vm.setIntentionPriority(item.id, nextPriority(item.priority)) },
@@ -310,7 +342,7 @@ fun HojeScreen() {
                         )
                         if (tideDenom > 0) {
                             Text(
-                                text = "$tideDone/$tideDenom",
+                                text = "$animTideDone/$tideDenom",
                                 color = colors.ink4,
                                 fontFamily = MonoFamily,
                                 fontSize = 9.sp,
@@ -623,6 +655,8 @@ private fun shortDate(dayKey: String): String = I18n.fmtDateShort(LocalDate.pars
 @Composable
 private fun IntentionRow(
     item: IntentionEntity,
+    animate: Boolean,
+    modifier: Modifier = Modifier,
     onToggle: () -> Unit,
     onDelete: () -> Unit,
     onCyclePriority: () -> Unit,
@@ -634,27 +668,57 @@ private fun IntentionRow(
         3 -> colors.ink3
         else -> colors.ink4
     }
+    // A3: the strike is painted by hand so it can sweep left→right (~250ms) as the
+    // intention is ticked; reduced motion uses the instant built-in decoration.
+    // // PT: o risco é desenhado à mão para correr da esquerda para a direita.
+    val strike by animateFloatAsState(
+        targetValue = if (item.done) 1f else 0f,
+        animationSpec = tween(250),
+        label = "intention-strike",
+    )
+    var textLayout by remember { mutableStateOf<TextLayoutResult?>(null) }
     Row(
-        Modifier
+        modifier
             .fillMaxWidth()
             .padding(vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(
-            imageVector = if (item.done) Icons.Filled.CheckCircle else Icons.Outlined.Circle,
-            contentDescription = null,
-            tint = if (item.done) colors.accent else colors.ink4,
-            modifier = Modifier
-                .size(22.dp)
-                .clickableNoRipple(onToggle),
-        )
+        DoneCircle(done = item.done, animate = animate, onToggle = onToggle)
         Spacer(Modifier.width(12.dp))
         Text(
             text = item.text,
-            color = if (item.done) colors.ink4 else colors.ink,
-            textDecoration = if (item.done) TextDecoration.LineThrough else null,
+            color = if (animate) lerp(colors.ink, colors.ink4, strike)
+            else if (item.done) colors.ink4 else colors.ink,
+            textDecoration = if (!animate && item.done) TextDecoration.LineThrough else null,
             fontSize = 16.sp,
-            modifier = Modifier.weight(1f),
+            onTextLayout = { textLayout = it },
+            modifier = Modifier
+                .weight(1f)
+                .then(
+                    if (animate) Modifier.drawWithContent {
+                        drawContent()
+                        val tl = textLayout
+                        if (tl != null && strike > 0f) {
+                            // One line sweeping across every wrapped row of glyphs.
+                            val widths = (0 until tl.lineCount).map { tl.getLineRight(it) - tl.getLineLeft(it) }
+                            var remaining = widths.sum() * strike
+                            for (line in 0 until tl.lineCount) {
+                                val w = widths[line]
+                                if (w <= 0f) continue
+                                val drawW = remaining.coerceIn(0f, w)
+                                if (drawW <= 0f) break
+                                val y = (tl.getLineTop(line) + tl.getLineBottom(line)) / 2f
+                                drawLine(
+                                    color = colors.ink4,
+                                    start = Offset(tl.getLineLeft(line), y),
+                                    end = Offset(tl.getLineLeft(line) + drawW, y),
+                                    strokeWidth = 1.5.dp.toPx(),
+                                )
+                                remaining -= drawW
+                            }
+                        }
+                    } else Modifier,
+                ),
         )
         // Priority dot — tap cycles 1 → 2 → 3 → none.
         Box(
@@ -677,6 +741,63 @@ private fun IntentionRow(
             modifier = Modifier
                 .size(20.dp)
                 .clickableNoRipple(onDelete),
+        )
+    }
+}
+
+/** The intention's tick. When animating, an accent disc springs out from the
+ *  centre (with the check) over the empty ink ring; reduced motion keeps the
+ *  plain filled/outlined icon swap. // PT: o círculo da intenção, com mola. */
+@Composable
+private fun DoneCircle(done: Boolean, animate: Boolean, onToggle: () -> Unit) {
+    val colors = LocalPautaColors.current
+    if (!animate) {
+        Icon(
+            imageVector = if (done) Icons.Filled.CheckCircle else Icons.Outlined.Circle,
+            contentDescription = null,
+            tint = if (done) colors.accent else colors.ink4,
+            modifier = Modifier
+                .size(22.dp)
+                .clickableNoRipple(onToggle),
+        )
+        return
+    }
+    val fill by animateFloatAsState(
+        targetValue = if (done) 1f else 0f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMediumLow,
+        ),
+        label = "intention-fill",
+    )
+    Box(
+        Modifier
+            .size(22.dp)
+            .clickableNoRipple(onToggle),
+        contentAlignment = Alignment.Center,
+    ) {
+        // Empty ring, fading out as the disc fills in.
+        Box(
+            Modifier
+                .matchParentSize()
+                .clip(CircleShape)
+                .border(1.6.dp, colors.ink4.copy(alpha = (1f - fill).coerceIn(0f, 1f)), CircleShape),
+        )
+        // Accent disc, springing from the centre (a little overshoot is welcome).
+        Box(
+            Modifier
+                .matchParentSize()
+                .scale(fill.coerceAtLeast(0f))
+                .clip(CircleShape)
+                .background(colors.accent),
+        )
+        Icon(
+            imageVector = PautaIcons.Check,
+            contentDescription = null,
+            tint = colors.paper,
+            modifier = Modifier
+                .size(12.dp)
+                .scale(fill.coerceIn(0f, 1f)),
         )
     }
 }
