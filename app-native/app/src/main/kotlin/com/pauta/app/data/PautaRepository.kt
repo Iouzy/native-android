@@ -763,7 +763,10 @@ class PautaRepository(private val db: AppDatabase) {
         updatePrefs { it.copy(pinHash = hash, pinSalt = salt) }
     }
 
-    suspend fun clearPin() = updatePrefs { it.copy(pinHash = null, pinSalt = null) }
+    // Clearing the PIN also drops the C3 biometric opt-in — biometric unlock is
+    // only ever offered on top of a PIN, so it shouldn't linger once there's none.
+    // // PT: tirar o PIN também desliga a biometria (só existe sobre um PIN).
+    suspend fun clearPin() = updatePrefs { it.copy(pinHash = null, pinSalt = null, biometricEnabled = false) }
 
     suspend fun verifyPin(pin: String): Boolean {
         val p = prefsDao.get() ?: return false

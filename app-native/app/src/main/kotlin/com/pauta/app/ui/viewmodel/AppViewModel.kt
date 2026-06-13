@@ -420,6 +420,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun setPinCode(pin: String) = viewModelScope.launch { repo.setPin(pin) }
     fun clearPinCode() = viewModelScope.launch { repo.clearPin() }
 
+    /** C3: toggle offering biometric unlock at the lock screen (PIN stays the
+     *  fallback). // PT: liga/desliga o desbloqueio biométrico. */
+    fun setBiometricEnabled(value: Boolean) = update { it.copy(biometricEnabled = value) }
+
     fun verifyPinCode(pin: String): Boolean {
         val p = prefs.value
         val salt = p.pinSalt ?: return false

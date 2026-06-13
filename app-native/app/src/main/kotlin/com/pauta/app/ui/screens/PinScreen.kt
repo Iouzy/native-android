@@ -15,23 +15,33 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Fingerprint
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.pauta.app.i18n.tr
+import com.pauta.app.ui.canUseBiometric
 import com.pauta.app.ui.clickableNoRipple
+import com.pauta.app.ui.findFragmentActivity
+import com.pauta.app.ui.promptBiometric
 import com.pauta.app.ui.theme.LocalPautaColors
 import com.pauta.app.ui.theme.MonoFamily
 import com.pauta.app.ui.theme.SerifFamily
@@ -59,6 +69,31 @@ fun PinScreen(
     var confirm by remember { mutableStateOf("") }
     var confirmStage by remember { mutableStateOf(false) }  // only used in SET mode
     var errorMsg by remember { mutableStateOf<String?>(null) }
+
+    // C3: biometric unlock — LOCK mode only, when the user enabled it and the
+    // device can do it. SET/DISABLE always use the keypad. The keypad below stays
+    // fully usable, so it's the fallback whenever biometrics are skipped/failed.
+    // // PT: biometria só no modo LOCK (se ativada e disponível); o teclado fica
+    // sempre como alternativa.
+    val context = LocalContext.current
+    val prefs by vm.prefs.collectAsStateWithLifecycle()
+    val activity = remember(context) { context.findFragmentActivity() }
+    val canBiometric = remember { context.canUseBiometric() }
+    val biometricOffered =
+        mode == PinMode.LOCK && prefs.biometricEnabled && canBiometric && activity != null
+    val bioTitle = tr("Desbloquear")
+    val bioNegative = tr("Usar PIN")
+    fun launchBiometric() {
+        if (activity != null) promptBiometric(activity, bioTitle, bioNegative, onSuccess)
+    }
+    // Present the system sheet once when the lock screen first appears; the user
+    // can re-summon it with the fingerprint affordance below. Saved across config
+    // changes so a rotation doesn't double-prompt. // PT: mostra a folha uma vez
+    // ao abrir; o utilizador pode reabri-la pelo ícone abaixo.
+    var autoPrompted by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(biometricOffered) {
+        if (biometricOffered && !autoPrompted) { autoPrompted = true; launchBiometric() }
+    }
 
     val title = when {
         mode == PinMode.LOCK -> tr("Introduz o teu PIN")
@@ -221,6 +256,25 @@ fun PinScreen(
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Medium,
                 )
+            }
+
+            // C3: re-summon the biometric sheet (e.g. after dismissing it once).
+            // // PT: reabrir a folha biométrica.
+            if (biometricOffered) {
+                Spacer(Modifier.height(18.dp))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.clickableNoRipple { launchBiometric() },
+                ) {
+                    Icon(
+                        Icons.Filled.Fingerprint,
+                        contentDescription = null,
+                        tint = colors.accent,
+                        modifier = Modifier.size(22.dp),
+                    )
+                    Text(tr("Usar biometria"), color = colors.accent, fontSize = 15.sp)
+                }
             }
 
             if (onCancel != null) {

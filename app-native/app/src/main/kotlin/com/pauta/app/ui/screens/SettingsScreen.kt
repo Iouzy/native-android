@@ -65,6 +65,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.pauta.app.i18n.tr
 import com.pauta.app.i18n.trf
 import com.pauta.app.ui.PautaSheet
+import com.pauta.app.ui.canUseBiometric
 import com.pauta.app.ui.clickableNoRipple
 import com.pauta.app.ui.theme.LocalPautaColors
 import com.pauta.app.ui.theme.MonoFamily
@@ -108,6 +109,9 @@ fun SettingsScreen(
     val updNeedsPerm by vm.updateNeedsPerm.collectAsStateWithLifecycle()
     val updCheckFailed by vm.updateCheckFailed.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    // C3: whether the device has usable biometrics — gates the unlock toggle below
+    // (only shown alongside a set PIN). // PT: há biometria utilizável?
+    val canBiometric = remember { context.canUseBiometric() }
 
     val notifLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
@@ -317,6 +321,19 @@ fun SettingsScreen(
                     label = tr("Desativar bloqueio por PIN"),
                     subtitle = tr("Introduz o PIN atual para remover o bloqueio."),
                 ) { showPinDisable = true }
+                // C3: biometric unlock — only with a PIN set and usable biometrics
+                // (hardware + something enrolled). No biometrics → this row never
+                // appears, so the lock stays exactly PIN-only. // PT: biometria só
+                // com PIN definido e biometria disponível.
+                if (canBiometric) {
+                    CardDivider()
+                    ToggleRow(
+                        label = tr("Desbloqueio biométrico"),
+                        subtitle = tr("Desbloqueia com impressão digital ou rosto; o PIN fica como alternativa."),
+                        checked = prefs.biometricEnabled,
+                        onChange = { vm.setBiometricEnabled(it) },
+                    )
+                }
             }
         }
 

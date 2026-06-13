@@ -497,6 +497,11 @@ object I18n {
         "PIN demasiado curto" to "PIN too short", // native-only
         "PIN incorrecto" to "Incorrect PIN", // native-only
         "Os PINs não coincidem" to "PINs don't match", // native-only
+        "Desbloqueio biométrico" to "Biometric unlock", // native-only
+        "Desbloqueia com impressão digital ou rosto; o PIN fica como alternativa." to "Unlock with fingerprint or face; PIN stays as a fallback.", // native-only
+        "Desbloquear" to "Unlock", // native-only
+        "Usar PIN" to "Use PIN", // native-only
+        "Usar biometria" to "Use biometrics", // native-only
 
         // ── Cópia automática ──
         "Cópia automática" to "Auto backup", // native-only
