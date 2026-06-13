@@ -108,7 +108,7 @@ cost. Running a task on a stronger model than suggested is always fine.
   unchanged (repo/backup layers untouched).
 - **Accept:** no free-text date/time entry remains; stored formats identical.
 
-### A5 · Bottom sheets on phones — Status: pending
+### A5 · Bottom sheets on phones — Status: done (PR #107)
 - **Why:** `ui/PautaSheet.kt` is a centred `Dialog` (440dp, 30dp close button
   top-right, no enter/exit animation, no drag-dismiss) — a desktop-web idiom,
   hostile to one-handed use.
@@ -316,3 +316,4 @@ cost. Running a task on a stronger model than suggested is always fine.
 2026-06-12 · A2 · #104 · Hoje/Marés/Pauta tabs → single LazyColumn, stable item keys (unblocks A3)
 2026-06-13 · A3 · #105 · intention strike+circle spring, tide-cell fill+respiro hatch, pulse count-up, list animateItem — all gated on reducedMotion
 2026-06-13 · A4 · #106 · native DatePicker/TimePicker behind tappable fields (ManualBlock date+time, habit clock, Settings reminders); LocalPautaColors-skinned; stored YYYY-MM-DD/HH:MM unchanged
+2026-06-13 · A5 · #107 · PautaSheet → ModalBottomSheet on phones (<600dp; drag handle, drag-dismiss, imePadding), centred dialog kept ≥600dp; same content slot, all ~dozen sheets unchanged
