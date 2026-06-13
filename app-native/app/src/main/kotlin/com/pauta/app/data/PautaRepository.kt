@@ -776,7 +776,26 @@ class PautaRepository(private val db: AppDatabase) {
 
     suspend fun setAutoBackup(value: String) = updatePrefs { it.copy(autoBackup = value) }
 
-    suspend fun maybeAutoBackup(filesDir: File, todayKey: String) {
+    // B1: the user-chosen SAF folder the cadence also writes to (persisted tree
+    // URI string), or null to clear it back to filesDir-only. // PT: pasta SAF.
+    suspend fun setBackupFolderUri(uri: String?) = updatePrefs { it.copy(backupFolderUri = uri) }
+
+    /**
+     * Run an auto-backup if the chosen cadence is due. Always keeps the rolling
+     * filesDir copies as a fallback, and — when a SAF folder is configured —
+     * hands the same JSON to [writeToFolder] so it also lands in the user's
+     * folder (which survives uninstall). The Android/SAF side lives in the
+     * caller so the repo stays Context-free; cadence + pruning + the timestamp
+     * stay here, the single source of truth, whether the trigger is the app
+     * resuming or the WorkManager job firing with the app closed. // PT: corre a
+     * cópia se for altura; guarda sempre cópia local e, se houver pasta SAF,
+     * entrega o mesmo JSON ao [writeToFolder].
+     */
+    suspend fun maybeAutoBackup(
+        filesDir: File,
+        todayKey: String,
+        writeToFolder: ((folderUri: String, fileName: String, json: String) -> Unit)? = null,
+    ) {
         val p = prefsDao.get() ?: return
         val cadenceMs: Long = when (p.autoBackup) {
             "30m"    -> 30 * 60_000L
@@ -789,15 +808,20 @@ class PautaRepository(private val db: AppDatabase) {
         if (now - p.lastAutoBackupMs < cadenceMs) return
 
         val json = exportJson(todayKey)
-        val dir = File(filesDir, "autobackups").apply { mkdirs() }
         val ts = SimpleDateFormat("yyyy-MM-dd-HH-mm", Locale.getDefault()).format(Date(now))
-        File(dir, "pauta-auto-$ts.json").writeText(json)
+        val fileName = "pauta-auto-$ts.json"
+
+        val dir = File(filesDir, "autobackups").apply { mkdirs() }
+        File(dir, fileName).writeText(json)
 
         // Keep only the last 5 auto-backups.
         dir.listFiles()
             ?.sortedByDescending { it.lastModified() }
             ?.drop(5)
             ?.forEach { it.delete() }
+
+        // Mirror the same copy into the user's SAF folder, if one is set.
+        p.backupFolderUri?.let { writeToFolder?.invoke(it, fileName, json) }
 
         updatePrefs { it.copy(lastAutoBackupMs = now) }
     }

@@ -54,7 +54,7 @@ import com.pauta.app.data.entity.RoutineItemEntity
         PlannedIntentionEntity::class,
         PrefsEntity::class,
     ],
-    version = 3,
+    version = 4,
     exportSchema = false,
 )
 @TypeConverters(Converters::class)
@@ -89,13 +89,21 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        // B1: the SAF folder the auto-backup also writes to (persisted tree URI).
+        // Null for everyone until they pick one. // PT: pasta SAF da cópia automática.
+        private val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE prefs ADD COLUMN backupFolderUri TEXT")
+            }
+        }
+
         fun get(context: Context): AppDatabase =
             instance ?: synchronized(this) {
                 instance ?: Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
                     "pauta.db",
-                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3).build().also { instance = it }
+                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4).build().also { instance = it }
             }
     }
 }

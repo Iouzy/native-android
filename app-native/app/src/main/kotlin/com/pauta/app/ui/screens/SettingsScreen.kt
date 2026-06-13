@@ -117,6 +117,20 @@ fun SettingsScreen(
             if (!text.isNullOrBlank()) vm.importBackup(text) {}
         }
     }
+    // B1: pick a folder for the auto-backup (SAF). Persist read+write permission
+    // so the WorkManager job can keep writing there with the app closed.
+    // // PT: escolher pasta para a cópia automática, com permissão persistente.
+    val folderLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+        if (uri != null) {
+            runCatching {
+                context.contentResolver.takePersistableUriPermission(
+                    uri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
+                )
+            }
+            vm.setBackupFolder(uri.toString())
+        }
+    }
 
     var showInsights by remember { mutableStateOf(false) }
     var showPinSet by remember { mutableStateOf(false) }
@@ -474,7 +488,7 @@ fun SettingsScreen(
             ToggleRow(
                 label = tr("Cópia automática"),
                 checked = prefs.autoBackup != "off",
-                subtitle = tr("Guarda automaticamente quando abres a app."),
+                subtitle = tr("Guarda em segundo plano, mesmo com a app fechada."),
             ) { enabled -> vm.setAutoBackupCadence(if (enabled) "daily" else "off") }
             if (prefs.autoBackup != "off") {
                 CardDivider()
@@ -488,6 +502,25 @@ fun SettingsScreen(
                     selected = prefs.autoBackup,
                     onSelect = { vm.setAutoBackupCadence(it) },
                 )
+                CardDivider()
+                // B1: pick a real folder (Drive, device storage…) so the copy
+                // survives an uninstall — the filesDir copy is only a fallback.
+                // // PT: pasta real para a cópia sobreviver à desinstalação.
+                val folder = prefs.backupFolderUri
+                ActionRow(
+                    label = if (folder == null) tr("Escolher pasta…") else tr("Pasta de cópia"),
+                    subtitle = if (folder == null)
+                        tr("Guarda também numa pasta tua (Drive, dispositivo…).")
+                    else
+                        folderLabel(folder),
+                ) { folderLauncher.launch(null) }
+                if (folder != null) {
+                    CardDivider()
+                    ActionRow(
+                        label = tr("Remover pasta"),
+                        subtitle = tr("Volta a guardar só dentro da app."),
+                    ) { vm.setBackupFolder(null) }
+                }
             }
             CardDivider()
             ActionRow(
@@ -911,3 +944,13 @@ private fun SegmentedRow(
 
 private fun parseHex(hex: String): Color =
     try { Color(android.graphics.Color.parseColor(hex)) } catch (e: IllegalArgumentException) { Color(0xFFB8533A) }
+
+/** A human-readable name for a SAF tree URI, e.g. "primary:Documents/Pauta" →
+ *  "Pauta". Falls back to the decoded path tail when there's no folder name.
+ *  // PT: nome legível da pasta SAF escolhida. */
+private fun folderLabel(treeUri: String): String {
+    // lastPathSegment is already URL-decoded, e.g. "primary:Documents/Pauta".
+    val docId = Uri.parse(treeUri).lastPathSegment ?: return treeUri
+    val path = docId.substringAfter(':', docId)
+    return path.trim('/').substringAfterLast('/').ifBlank { path.ifBlank { docId } }
+}

@@ -16,6 +16,7 @@ import com.pauta.app.data.entity.IntentionEntity
 import com.pauta.app.data.entity.MilestoneEntity
 import com.pauta.app.data.entity.PlannedIntentionEntity
 import com.pauta.app.data.entity.PrefsEntity
+import com.pauta.app.data.SafBackup
 import com.pauta.app.domain.CarrySource
 import com.pauta.app.domain.DateUtils
 import com.pauta.app.domain.FocusMath
@@ -25,9 +26,11 @@ import com.pauta.app.domain.HistoryDay
 import com.pauta.app.i18n.trf
 import android.content.Context
 import com.pauta.app.service.AppUpdater
+import com.pauta.app.service.BackupScheduler
 import com.pauta.app.service.FocusServiceController
 import com.pauta.app.service.ReminderScheduler
 import com.pauta.app.service.WidgetSnapshot
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
@@ -398,8 +401,19 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     // ── Auto-backup ───────────────────────────────────────────
     fun setAutoBackupCadence(value: String) = update { it.copy(autoBackup = value) }
-    fun maybeAutoBackup(context: Context) =
-        viewModelScope.launch { repo.maybeAutoBackup(context.filesDir, todayKey.value) }
+
+    /** B1: store (or clear) the user-chosen SAF backup folder. The persistable
+     *  URI permission is taken at the Settings call site before this. */
+    fun setBackupFolder(uri: String?) = update { it.copy(backupFolderUri = uri) }
+
+    // Off the main dispatcher: writing the local copy — and especially the SAF
+    // copy, which can hit a cloud provider — is blocking I/O. // PT: fora da
+    // main thread; a escrita (sobretudo SAF) é I/O bloqueante.
+    fun maybeAutoBackup(context: Context) = viewModelScope.launch(Dispatchers.IO) {
+        repo.maybeAutoBackup(context.filesDir, todayKey.value) { uri, name, json ->
+            SafBackup.write(context, uri, name, json)
+        }
+    }
 
     /** Produce the pauta.v4 backup JSON, then hand it to [onReady] (for sharing). */
     fun exportBackup(onReady: (String) -> Unit) =
@@ -444,6 +458,15 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                     ReminderScheduler.save(ctx, p.remindersEnabled, p.plannerTime, p.habitsTime, p.reflectionTime, p.lang)
                     ReminderScheduler.reschedule(ctx)
                 }
+        }
+
+        // B1: keep the periodic backup job in step with the cadence preference,
+        // so the backup runs with the app closed (and stops when set to "off").
+        // // PT: alinha a tarefa de cópia periódica com a frequência escolhida.
+        viewModelScope.launch {
+            repo.prefs
+                .distinctUntilChangedBy { it.autoBackup }
+                .collect { p -> BackupScheduler.reschedule(getApplication<Application>(), p.autoBackup) }
         }
     }
 }

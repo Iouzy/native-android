@@ -190,6 +190,7 @@ data class PrefsEntity(
     val immersive: Boolean = false,
     val autoBackup: String = "off",     // "off" | "30m" | "hourly" | "daily" | "weekly"
     val lastAutoBackupMs: Long = 0,
+    val backupFolderUri: String? = null, // B1: persisted SAF tree URI; null = filesDir only. Device-specific, so native-only (not exported in v4).
     val parrot: Boolean = true,
     val onboardingSeen: Boolean = false,
     val remindersEnabled: Boolean = false,

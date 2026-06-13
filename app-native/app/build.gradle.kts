@@ -113,6 +113,11 @@ dependencies {
     implementation("androidx.core:core-splashscreen:1.0.1")
     implementation("androidx.appcompat:appcompat:1.7.0")
 
+    // B1: WorkManager runs the auto-backup on a schedule with the app fully
+    // closed (the old cadence only fired while the app was open). // PT: corre a
+    // cópia automática em segundo plano, mesmo com a app fechada.
+    implementation("androidx.work:work-runtime-ktx:2.9.1")
+
     // Pure-JVM unit tests for the domain math + the pauta.v4 backup converter.
     // These run on CI with no emulator and gate the APK build.
     testImplementation("junit:junit:4.13.2")

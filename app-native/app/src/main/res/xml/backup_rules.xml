@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  B1 · Legacy Auto Backup rules for Android 6–11 (fullBackupContent). Same intent
+  as data_extraction_rules.xml's cloud-backup section: keep the PIN material and
+  the private journal (pauta.db) out of Google's cloud backup. The SAF folder and
+  manual export are the durable, PIN-free paths. // PT: mantém a base de dados
+  (PIN + diário) fora da cópia na nuvem (Android ≤ 11).
+-->
+<full-backup-content>
+    <exclude domain="database" path="pauta.db" />
+    <exclude domain="database" path="pauta.db-wal" />
+    <exclude domain="database" path="pauta.db-shm" />
+    <exclude domain="sharedpref" path="pauta_reminders.xml" />
+    <exclude domain="file" path="autobackups/" />
+</full-backup-content>
