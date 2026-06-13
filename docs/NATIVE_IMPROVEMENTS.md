@@ -99,7 +99,7 @@ cost. Running a task on a stronger model than suggested is always fine.
   `Modifier.animateItem()`. All gated on `prefs.reducedMotion` (instant when on).
 - **Accept:** reduced-motion ON reproduces today's instant behaviour exactly.
 
-### A4 · Native date/time pickers — Status: pending
+### A4 · Native date/time pickers — Status: done (PR #106)
 - **Why:** `PautaSheets.kt` (ManualBlockSheet) asks for free-text `YYYY-MM-DD`
   + `HH:MM`; `ui/screens/HabitFormSheet.kt` has a free-text clock field. Worst
   UX edge in the app.
@@ -315,3 +315,4 @@ cost. Running a task on a stronger model than suggested is always fine.
 <!-- e.g. 2026-06-15 · A1 · #97 · haptics helper + 6 call sites -->
 2026-06-12 · A2 · #104 · Hoje/Marés/Pauta tabs → single LazyColumn, stable item keys (unblocks A3)
 2026-06-13 · A3 · #105 · intention strike+circle spring, tide-cell fill+respiro hatch, pulse count-up, list animateItem — all gated on reducedMotion
+2026-06-13 · A4 · #106 · native DatePicker/TimePicker behind tappable fields (ManualBlock date+time, habit clock, Settings reminders); LocalPautaColors-skinned; stored YYYY-MM-DD/HH:MM unchanged
