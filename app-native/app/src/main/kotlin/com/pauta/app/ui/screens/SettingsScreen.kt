@@ -106,6 +106,7 @@ fun SettingsScreen(
     val updDownloadProgress by vm.updateDownloadProgress.collectAsStateWithLifecycle()
     val updDownloadError by vm.updateDownloadError.collectAsStateWithLifecycle()
     val updNeedsPerm by vm.updateNeedsPerm.collectAsStateWithLifecycle()
+    val updCheckFailed by vm.updateCheckFailed.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
     val notifLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
@@ -588,6 +589,19 @@ fun SettingsScreen(
                     fontSize = 16.sp,
                     modifier = Modifier.padding(vertical = 10.dp),
                 )
+                // Offline / transient failure after backoff — say so, don't lie
+                // "up to date" (B2). // PT: falha de rede, não "atualizado".
+                updCheckFailed -> {
+                    Text(
+                        tr("Não foi possível verificar. Confirma a ligação à internet."),
+                        color = colors.accent,
+                        fontSize = 14.sp,
+                        lineHeight = 19.sp,
+                        modifier = Modifier.padding(vertical = 4.dp),
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    ActionRow(tr("Tentar outra vez")) { vm.checkForUpdate() }
+                }
                 updAvailable != null -> Column {
                     ActionRow(tr("Transferir nova versão")) { vm.installUpdate(context) }
                     if (updNeedsPerm) {
@@ -597,6 +611,27 @@ fun SettingsScreen(
                             fontSize = 13.sp,
                             lineHeight = 18.sp,
                             modifier = Modifier.padding(bottom = 6.dp),
+                        )
+                    }
+                    // Release notes (the GitHub release body), shown plainly — the
+                    // JSON always carried them but nothing ever displayed them (B2).
+                    // PT: notas da versão, mostradas como texto simples.
+                    val notes = updAvailable!!.notes
+                    if (notes.isNotBlank()) {
+                        Text(
+                            tr("Novidades").uppercase(),
+                            color = colors.ink4,
+                            fontFamily = MonoFamily,
+                            fontSize = 11.sp,
+                            letterSpacing = 0.5.sp,
+                            modifier = Modifier.padding(bottom = 4.dp),
+                        )
+                        Text(
+                            text = notes,
+                            color = colors.ink3,
+                            fontSize = 13.sp,
+                            lineHeight = 19.sp,
+                            modifier = Modifier.padding(bottom = 10.dp),
                         )
                     }
                     Text(

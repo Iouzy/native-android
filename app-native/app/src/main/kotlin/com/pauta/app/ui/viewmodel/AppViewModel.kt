@@ -247,14 +247,34 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /** Android refused: "install unknown apps" isn't allowed for this app yet —
      *  we sent the user to the toggle; they should allow it and tap again. */
     val updateNeedsPerm: MutableStateFlow<Boolean> = MutableStateFlow(false)
+    /** The check itself failed (offline / transient network error after retries),
+     *  as opposed to a successful "up to date" — so the UI can say so instead of
+     *  lying. // PT: a verificação falhou (sem rede), distinto de "atualizado". */
+    val updateCheckFailed: MutableStateFlow<Boolean> = MutableStateFlow(false)
 
     fun checkForUpdate() = viewModelScope.launch {
         updateChecking.value = true
-        updateAvailable.value = AppUpdater.check()
-        updateChecking.value = false
-        updateChecked.value = true
+        updateCheckFailed.value = false
         updateDownloadError.value = false
         updateNeedsPerm.value = false
+        when (val result = AppUpdater.check()) {
+            is AppUpdater.CheckResult.Available -> {
+                updateAvailable.value = result.update
+                updateChecked.value = true
+            }
+            AppUpdater.CheckResult.UpToDate -> {
+                updateAvailable.value = null
+                updateChecked.value = true
+            }
+            // Network failure after backoff: don't show "up to date" — leave
+            // updateChecked false so the card shows an error + retry instead.
+            AppUpdater.CheckResult.Failed -> {
+                updateAvailable.value = null
+                updateChecked.value = false
+                updateCheckFailed.value = true
+            }
+        }
+        updateChecking.value = false
     }
 
     fun installUpdate(context: Context) = viewModelScope.launch {
