@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- C1: the Glance Marés widget — today's tides, tappable. initialLayout points at
+     Glance's bundled loading layout (Glance swaps in the real RemoteViews on first
+     composition); updatePeriodMillis = 30 min so the day rolls over even with the
+     app closed. // PT: widget de Marés (Glance); a layout inicial é a do Glance e
+     atualiza de 30 em 30 min para virar o dia com a app fechada. -->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="180dp"
+    android:minHeight="110dp"
+    android:minResizeWidth="180dp"
+    android:minResizeHeight="80dp"
+    android:targetCellWidth="3"
+    android:targetCellHeight="3"
+    android:updatePeriodMillis="1800000"
+    android:initialLayout="@layout/glance_default_loading_layout"
+    android:resizeMode="horizontal|vertical"
+    android:widgetCategory="home_screen"
+    android:description="@string/widget_mares_description" />

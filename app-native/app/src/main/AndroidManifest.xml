@@ -91,16 +91,17 @@
             </intent-filter>
         </receiver>
 
-        <!-- Home-screen widget. -->
+        <!-- C1: Glance Marés home-screen widget — today's tides, tappable. Replaces
+             the old three-line text widget (PautaWidgetProvider). -->
         <receiver
-            android:name=".service.PautaWidgetProvider"
+            android:name=".service.MaresWidgetReceiver"
             android:exported="false">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"
-                android:resource="@xml/widget_pauta_info" />
+                android:resource="@xml/mares_widget_info" />
         </receiver>
 
         <!-- Shares exported backup JSON files. -->
