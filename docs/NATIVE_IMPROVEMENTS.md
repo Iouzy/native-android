@@ -167,7 +167,7 @@ cost. Running a task on a stronger model than suggested is always fine.
 - **Accept:** backup lands in the user folder on schedule with app closed;
   rules XML present and referenced in the manifest.
 
-### B2 · Updater polish — Status: pending
+### B2 · Updater polish — Status: done (PR #115)
 - **Why:** `service/AppUpdater.kt` swallows all errors (`runCatching` → null →
   silently "no update") and never retries; release notes are fetched in the
   JSON but never shown.
@@ -320,4 +320,5 @@ cost. Running a task on a stronger model than suggested is always fine.
 2026-06-13 · A6 · #108 · keyboard+validation: autofocus first field (Start/Manual/AddHabit/Switch/WeekAhead day1/Goals-empty), IME Done submits (Manual title→duration chain), inline danger underline+hint replaces disabled buttons, debounced "guardado ✓" on Hoje reflection (reducedMotion-gated); shared FieldError/DangerRed/rememberAutoFocusRequester
 2026-06-13 · A8 · #110 · Settings/History/Goals/YearReview/TierGuide → NavHost destinations (predictive back); enableOnBackInvokedCallback=true; single Activity-scoped AppViewModel re-pinned across routes (LocalViewModelStoreOwner); BackHandler dropped from promoted screens (guarded one kept only for Settings' nested PIN flows); HistoryView owns its status-bar inset; nav push/peel transitions gated on reducedMotion
 2026-06-13 · A7 · #109 · snackbar "Anular" for intention/block delete (snapshot+reinsert from memory; block restores its sessions), app-wide themed SnackbarHost in MainScaffold; native-only habit `archived` (Room v2→v3) hides from grid/today/widget but keeps marks + still exports as a normal v4 habit; delete+archive moved into the edit sheet, long-press-to-delete dropped; Settings→Dados "Marés arquivadas" manager (1-tap restore, 2-step guarded delete)
+2026-06-13 · B2 · #115 · AppUpdater.check → CheckResult (Available/UpToDate/Failed) so offline ≠ "atualizado"; 2s/4s/8s backoff retry shared by check+download; release `body` surfaced as plain "Novidades" notes in the Settings card; failed-check error + "Tentar outra vez" re-check branch
 2026-06-13 · B1 · #111 · SAF backup folder (ACTION_OPEN_DOCUMENT_TREE + persisted permission, DocumentsContract write/prune, no extra dep) written alongside filesDir fallback; WorkManager periodic BackupWorker/BackupScheduler runs the cadence with app closed (gate stays in repo; resume path moved off Main); native-only `backupFolderUri` (Room v3→v4, not exported in v4); data_extraction_rules.xml + backup_rules.xml exclude pauta.db (PIN+journal)/reminder prefs/autobackups from cloud-backup, device-transfer keeps all

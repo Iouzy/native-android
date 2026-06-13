@@ -6,6 +6,7 @@ import android.os.Build
 import androidx.core.content.FileProvider
 import com.pauta.app.BuildConfig
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.contentOrNull
@@ -28,27 +29,67 @@ object AppUpdater {
     private const val REPO = "Iouzy/native-android"
     private val json = Json { ignoreUnknownKeys = true }
 
-    data class Update(val run: Int, val url: String)
+    /** A newer release. [notes] is the GitHub release `body` (markdown shown
+     *  verbatim), empty when the release carries none. */
+    data class Update(val run: Int, val url: String, val notes: String = "")
 
-    /** Returns a newer release than the installed build, or null. */
-    suspend fun check(): Update? = withContext(Dispatchers.IO) {
-        runCatching {
-            val conn = (URL("https://api.github.com/repos/$REPO/releases/tags/latest-native").openConnection() as HttpURLConnection).apply {
-                setRequestProperty("Accept", "application/vnd.github+json")
-                connectTimeout = 10_000; readTimeout = 10_000
-            }
-            val text = conn.inputStream.bufferedReader().use { it.readText() }
-            val assets = json.parseToJsonElement(text).jsonObject["assets"]?.jsonArray ?: return@runCatching null
-            var best: Update? = null
-            for (a in assets) {
-                val o = a.jsonObject
-                val name = o["name"]?.jsonPrimitive?.contentOrNull ?: continue
-                val run = Regex("pauta-native-v(\\d+)\\.apk").find(name)?.groupValues?.get(1)?.toIntOrNull() ?: continue
-                val url = o["browser_download_url"]?.jsonPrimitive?.contentOrNull ?: continue
-                if (best == null || run > best!!.run) best = Update(run, url)
-            }
-            best?.takeIf { it.run > BuildConfig.BUILD_RUN }
-        }.getOrNull()
+    /** Outcome of a [check]. Distinguishing [Failed] from [UpToDate] lets the UI
+     *  say "couldn't check" on a flaky/offline network instead of the old lie
+     *  "up to date" — the whole point of B2. // PT: distingue falha de rede de
+     *  "está atualizado", que antes eram indistinguíveis (ambos → null). */
+    sealed interface CheckResult {
+        data class Available(val update: Update) : CheckResult
+        data object UpToDate : CheckResult
+        data object Failed : CheckResult
+    }
+
+    /** Transient-failure backoff: wait 2s, then 4s, then 8s between the up-to-four
+     *  attempts. A dropped packet or a sleeping radio shouldn't read as "no update".
+     *  // PT: recuo 2s/4s/8s entre tentativas — uma falha de rede não é "atualizado". */
+    private val BACKOFF_MS = longArrayOf(2_000, 4_000, 8_000)
+
+    /** Run [attempt] up to `BACKOFF_MS.size + 1` times, sleeping the backoff
+     *  between tries; returns the first non-throwing result, or null once every
+     *  attempt has thrown. Callers map null to their own failed state. The block
+     *  must never return null on success (both callers return non-null or throw),
+     *  so a null here always means "all attempts failed". */
+    private suspend fun <T : Any> withRetry(attempt: () -> T): T? {
+        for (i in 0..BACKOFF_MS.size) {
+            runCatching(attempt).getOrNull()?.let { return it }
+            if (i < BACKOFF_MS.size) delay(BACKOFF_MS[i])
+        }
+        return null
+    }
+
+    /** Polls the rolling release; retries transient failures, then reports
+     *  [CheckResult.Failed] rather than silently swallowing the error. */
+    suspend fun check(): CheckResult = withContext(Dispatchers.IO) {
+        withRetry { fetchLatest() } ?: CheckResult.Failed
+    }
+
+    /** One network round-trip: fetch the rolling release, parse its assets + notes
+     *  and decide if it's newer than this build. Throws on any network/parse error
+     *  so [withRetry] can back off and [check] can ultimately report Failed. */
+    private fun fetchLatest(): CheckResult {
+        val conn = (URL("https://api.github.com/repos/$REPO/releases/tags/latest-native").openConnection() as HttpURLConnection).apply {
+            setRequestProperty("Accept", "application/vnd.github+json")
+            connectTimeout = 10_000; readTimeout = 10_000
+        }
+        val text = conn.inputStream.bufferedReader().use { it.readText() }
+        val root = json.parseToJsonElement(text).jsonObject
+        // Release notes (the GitHub release `body`) — surfaced in the Settings card.
+        val notes = root["body"]?.jsonPrimitive?.contentOrNull?.trim().orEmpty()
+        val assets = root["assets"]?.jsonArray ?: return CheckResult.UpToDate
+        var best: Update? = null
+        for (a in assets) {
+            val o = a.jsonObject
+            val name = o["name"]?.jsonPrimitive?.contentOrNull ?: continue
+            val run = Regex("pauta-native-v(\\d+)\\.apk").find(name)?.groupValues?.get(1)?.toIntOrNull() ?: continue
+            val url = o["browser_download_url"]?.jsonPrimitive?.contentOrNull ?: continue
+            if (best == null || run > best!!.run) best = Update(run, url, notes)
+        }
+        val newer = best?.takeIf { it.run > BuildConfig.BUILD_RUN }
+        return if (newer != null) CheckResult.Available(newer) else CheckResult.UpToDate
     }
 
     /** Download the release APK to the cache; reports progress (0–100) via [onProgress].
@@ -58,66 +99,73 @@ object AppUpdater {
      *  approach as the Capacitor AppUpdaterPlugin. */
     suspend fun download(context: Context, url: String, onProgress: (Int) -> Unit = {}): File? =
         withContext(Dispatchers.IO) {
-            runCatching {
-                val dir = File(context.cacheDir, "updates").apply { mkdirs() }
-                val file = File(dir, "pauta-update.apk")
-                if (file.exists()) file.delete()
+            // Same 2s/4s/8s retry as the check — a flaky CDN hop shouldn't strand
+            // the user on "couldn't download" when a second try would have worked.
+            // Each attempt re-deletes the partial file, so retries start clean.
+            withRetry { downloadOnce(context, url, onProgress) }
+        }
 
-                var current = url
-                var redirects = 0
-                val conn: HttpURLConnection
-                while (true) {
-                    val c = (URL(current).openConnection() as HttpURLConnection).apply {
-                        instanceFollowRedirects = false
-                        connectTimeout = 30_000
-                        readTimeout = 30_000
-                        setRequestProperty("Accept", "application/octet-stream")
-                    }
-                    val code = c.responseCode
-                    if (code in 300..399 && redirects < 5) {
-                        val loc = c.getHeaderField("Location")
-                        c.disconnect()
-                        if (loc.isNullOrBlank()) throw RuntimeException("redirect without Location")
-                        current = loc
-                        redirects++
-                        continue
-                    }
-                    if (code != HttpURLConnection.HTTP_OK) {
-                        c.disconnect()
-                        throw RuntimeException("HTTP $code")
-                    }
-                    conn = c
-                    break
-                }
+    /** One download attempt: follows the redirect chain to the CDN and streams the
+     *  APK to cache, throwing on any failure so [withRetry] can back off. */
+    private fun downloadOnce(context: Context, url: String, onProgress: (Int) -> Unit): File {
+        val dir = File(context.cacheDir, "updates").apply { mkdirs() }
+        val file = File(dir, "pauta-update.apk")
+        if (file.exists()) file.delete()
 
-                val total = conn.contentLength.toLong()
-                try {
-                    conn.inputStream.use { input ->
-                        file.outputStream().use { output ->
-                            val buf = ByteArray(64 * 1024)
-                            var downloaded = 0L
-                            var lastPct = -1
-                            while (true) {
-                                val read = input.read(buf)
-                                if (read == -1) break
-                                output.write(buf, 0, read)
-                                downloaded += read
-                                if (total > 0) {
-                                    val pct = (downloaded * 100 / total).toInt()
-                                    if (pct != lastPct) {
-                                        lastPct = pct
-                                        onProgress(pct)
-                                    }
-                                }
+        var current = url
+        var redirects = 0
+        val conn: HttpURLConnection
+        while (true) {
+            val c = (URL(current).openConnection() as HttpURLConnection).apply {
+                instanceFollowRedirects = false
+                connectTimeout = 30_000
+                readTimeout = 30_000
+                setRequestProperty("Accept", "application/octet-stream")
+            }
+            val code = c.responseCode
+            if (code in 300..399 && redirects < 5) {
+                val loc = c.getHeaderField("Location")
+                c.disconnect()
+                if (loc.isNullOrBlank()) throw RuntimeException("redirect without Location")
+                current = loc
+                redirects++
+                continue
+            }
+            if (code != HttpURLConnection.HTTP_OK) {
+                c.disconnect()
+                throw RuntimeException("HTTP $code")
+            }
+            conn = c
+            break
+        }
+
+        val total = conn.contentLength.toLong()
+        try {
+            conn.inputStream.use { input ->
+                file.outputStream().use { output ->
+                    val buf = ByteArray(64 * 1024)
+                    var downloaded = 0L
+                    var lastPct = -1
+                    while (true) {
+                        val read = input.read(buf)
+                        if (read == -1) break
+                        output.write(buf, 0, read)
+                        downloaded += read
+                        if (total > 0) {
+                            val pct = (downloaded * 100 / total).toInt()
+                            if (pct != lastPct) {
+                                lastPct = pct
+                                onProgress(pct)
                             }
                         }
                     }
-                } finally {
-                    conn.disconnect()
                 }
-                file
-            }.getOrNull()
+            }
+        } finally {
+            conn.disconnect()
         }
+        return file
+    }
 
     /** Hand the APK to the system installer (in-place upgrade). */
     fun install(context: Context, file: File) {
