@@ -141,7 +141,7 @@ cost. Running a task on a stronger model than suggested is always fine.
   round-trip — acceptable, document in PR).
 - **Accept:** WebBackup tests green; no data-destroying single-tap path left.
 
-### A8 · Real back stack + predictive back — Status: pending
+### A8 · Real back stack + predictive back — Status: done (PR #110)
 - **Why:** Settings is a `Dialog`, History swaps in-place, Goals/YearReview/
   TierGuide are hand-rolled overlays in `MainScaffold.kt` — none participate
   in predictive back.
@@ -318,4 +318,5 @@ cost. Running a task on a stronger model than suggested is always fine.
 2026-06-13 · A4 · #106 · native DatePicker/TimePicker behind tappable fields (ManualBlock date+time, habit clock, Settings reminders); LocalPautaColors-skinned; stored YYYY-MM-DD/HH:MM unchanged
 2026-06-13 · A5 · #107 · PautaSheet → ModalBottomSheet on phones (<600dp; drag handle, drag-dismiss, imePadding), centred dialog kept ≥600dp; same content slot, all ~dozen sheets unchanged
 2026-06-13 · A6 · #108 · keyboard+validation: autofocus first field (Start/Manual/AddHabit/Switch/WeekAhead day1/Goals-empty), IME Done submits (Manual title→duration chain), inline danger underline+hint replaces disabled buttons, debounced "guardado ✓" on Hoje reflection (reducedMotion-gated); shared FieldError/DangerRed/rememberAutoFocusRequester
+2026-06-13 · A8 · #110 · Settings/History/Goals/YearReview/TierGuide → NavHost destinations (predictive back); enableOnBackInvokedCallback=true; single Activity-scoped AppViewModel re-pinned across routes (LocalViewModelStoreOwner); BackHandler dropped from promoted screens (guarded one kept only for Settings' nested PIN flows); HistoryView owns its status-bar inset; nav push/peel transitions gated on reducedMotion
 2026-06-13 · A7 · #109 · snackbar "Anular" for intention/block delete (snapshot+reinsert from memory; block restores its sessions), app-wide themed SnackbarHost in MainScaffold; native-only habit `archived` (Room v2→v3) hides from grid/today/widget but keeps marks + still exports as a normal v4 habit; delete+archive moved into the edit sheet, long-press-to-delete dropped; Settings→Dados "Marés arquivadas" manager (1-tap restore, 2-step guarded delete)

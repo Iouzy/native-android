@@ -1,6 +1,5 @@
 package com.pauta.app.ui.screens
 
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
@@ -38,8 +37,9 @@ import com.pauta.app.ui.theme.SerifFamily
 fun TierGuideScreen(onClose: () -> Unit) {
     val colors = LocalPautaColors.current
 
-    BackHandler { onClose() }
-
+    // A8: no BackHandler here — this is a NavHost destination, so the system back
+    // gesture pops it predictively (the ← also calls onClose). // PT: sem
+    // BackHandler — é um destino de navegação; o gesto recua a rota.
     Column(
         Modifier
             .fillMaxSize()

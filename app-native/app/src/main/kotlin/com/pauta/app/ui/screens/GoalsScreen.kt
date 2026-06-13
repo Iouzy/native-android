@@ -1,6 +1,5 @@
 package com.pauta.app.ui.screens
 
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -67,8 +66,9 @@ fun GoalsScreen(onClose: () -> Unit) {
     val milestones by vm.milestones.collectAsStateWithLifecycle()
     var quarter by remember { mutableStateOf(DateUtils.currentQuarter()) }
 
-    BackHandler { onClose() }
-
+    // A8: no BackHandler here — this is a NavHost destination, so the system back
+    // gesture pops it predictively (the ← also calls onClose). // PT: sem
+    // BackHandler — é um destino de navegação; o gesto recua a rota.
     val quarterGoals = goals.filter { it.quarter == quarter }.sortedBy { it.position }
 
     Column(
