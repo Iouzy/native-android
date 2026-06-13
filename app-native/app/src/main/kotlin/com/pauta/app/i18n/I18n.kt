@@ -273,6 +273,7 @@ object I18n {
         "→ {name} em {n} {u}" to "→ {name} in {n} {u}",
         "Toque num dia para marcar como feito." to "Tap a day to mark it as done.",
         "Pressão longa num dia falhado para marcar respiro." to "Long press a missed day to mark a breath.",
+        "Vista de sempre — para marcar ou corrigir um dia, usa a grelha do mês no separador Marés." to "All-time view — to mark or fix a day, use the month grid in the Marés tab.", // native-only
         "{p}% de constância" to "{p}% consistency", // native-only
         "Sem marés ainda. Toca em + para criar a primeira." to "No tides yet. Tap + to create the first one.", // native-only
         "Nova maré" to "New tide", // native-only

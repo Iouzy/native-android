@@ -40,7 +40,6 @@ import com.pauta.app.ui.CellState
 import com.pauta.app.ui.PautaSheet
 import com.pauta.app.ui.cellStateFor
 import com.pauta.app.ui.clickableNoRipple
-import com.pauta.app.ui.combinedClickableNoRipple
 import com.pauta.app.ui.theme.LocalPautaColors
 import com.pauta.app.ui.theme.MonoFamily
 import com.pauta.app.ui.theme.SerifFamily
@@ -60,10 +59,6 @@ fun HabitDetailSheet(
     model: HabitModel,
     countsForHabit: Map<String, Int>,
     today: String,
-    onToggleDay: (String) -> Unit,
-    onIncrementDay: (String, Int) -> Unit,
-    onMarkRespiro: (String) -> Unit,
-    onUnmarkRespiro: (String) -> Unit,
     onEdit: () -> Unit,
     onClose: () -> Unit,
 ) {
@@ -292,14 +287,6 @@ fun HabitDetailSheet(
                             count = countsForHabit[key] ?: 0,
                             target = habit.target,
                             accent = accent,
-                            onTap = {
-                                when {
-                                    isCount -> if (state == CellState.RESPIRO) onUnmarkRespiro(key) else onIncrementDay(key, countsForHabit[key] ?: 0)
-                                    state == CellState.EMPTY || state == CellState.DONE -> onToggleDay(key)
-                                    state == CellState.RESPIRO -> onUnmarkRespiro(key)
-                                }
-                            },
-                            onLongPress = { if (state == CellState.EMPTY) onMarkRespiro(key) },
                         )
                     }
                 }
@@ -325,8 +312,7 @@ fun HabitDetailSheet(
         // Hints.
         Spacer(Modifier.height(16.dp))
         Text(
-            text = tr("Toque num dia para marcar como feito.") + "\n" +
-                tr("Pressão longa num dia falhado para marcar respiro."),
+            text = tr("Vista de sempre — para marcar ou corrigir um dia, usa a grelha do mês no separador Marés."),
             color = colors.ink4,
             fontFamily = MonoFamily,
             fontSize = 9.sp,
@@ -342,6 +328,10 @@ private fun LaunchedScrollToEnd(state: androidx.compose.foundation.ScrollState, 
     androidx.compose.runtime.LaunchedEffect(key) { state.scrollTo(state.maxValue) }
 }
 
+// The all-time heatmap is a read-only overview — marking/unmarking days happens
+// on the bigger, navigable month strip in the Marés tab, so a stray tap on these
+// tiny cells can never add or remove a day by accident.
+// PT: o heatmap de sempre é só de leitura; marca-se na grelha do mês (maior).
 @Composable
 private fun HeatCell(
     state: CellState,
@@ -349,13 +339,9 @@ private fun HeatCell(
     count: Int,
     target: Int?,
     accent: Color,
-    onTap: () -> Unit,
-    onLongPress: () -> Unit,
 ) {
     val colors = LocalPautaColors.current
     val filled = state == CellState.DONE
-    val clickable = state == CellState.EMPTY || state == CellState.DONE ||
-        state == CellState.RESPIRO || state == CellState.PARTIAL
     val frac = if (state == CellState.PARTIAL && target != null && target > 0) {
         (count.toFloat() / target).coerceAtMost(1f)
     } else 0f
@@ -379,10 +365,6 @@ private fun HeatCell(
             .background(bg.copy(alpha = bg.alpha * cellAlpha.coerceAtLeast(0.0f)))
             .then(
                 if (isToday) Modifier.border(1.dp, accent, RoundedCornerShape(2.dp)) else Modifier,
-            )
-            .then(
-                if (clickable) Modifier.combinedClickableNoRipple(onClick = onTap, onLongClick = onLongPress)
-                else Modifier,
             ),
     )
 }

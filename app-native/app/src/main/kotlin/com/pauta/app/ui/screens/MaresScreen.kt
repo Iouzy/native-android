@@ -391,10 +391,6 @@ fun MaresScreen() {
             model = modelOf(h),
             countsForHabit = countsByHabit[h.id].orEmpty(),
             today = today,
-            onToggleDay = { k -> vm.toggleHabitDay(h.id, k) },
-            onIncrementDay = { k, c -> vm.setHabitCount(h.id, k, c + 1) },
-            onMarkRespiro = { k -> vm.markRespiro(h.id, k) },
-            onUnmarkRespiro = { k -> vm.unmarkRespiro(h.id, k) },
             onEdit = { editTarget = h; detailTarget = null },
             onClose = { detailTarget = null },
         )
@@ -616,7 +612,8 @@ private fun MaresHabitRow(
         if (isCurrentMonth) {
             val todayD = today.substring(8).toInt()
             LaunchedEffect(year, month) {
-                strip.scrollTo(with(density) { ((todayD - 1) * 25).dp.toPx().toInt() - 150.dp.toPx().toInt() }.coerceAtLeast(0))
+                // 31dp pitch = 28dp cell + 3dp gap. // PT: passo = célula + intervalo.
+                strip.scrollTo(with(density) { ((todayD - 1) * 31).dp.toPx().toInt() - 150.dp.toPx().toInt() }.coerceAtLeast(0))
             }
         }
         Row(
@@ -719,7 +716,10 @@ private fun MaresDayCell(
 
     Box(
         Modifier
-            .size(22.dp)
+            // Bigger tap target (was 22dp) so deliberate marking on the strip is
+            // reliable and tiny-cell misclicks are far less likely.
+            // PT: alvo de toque maior para marcar sem enganos.
+            .size(28.dp)
             .alpha(cellAlpha)
             .drawBehind {
                 // The accent/ink fill, scaled from the centre by the spring (clamped
@@ -803,7 +803,7 @@ private fun MaresDayCell(
                     Modifier
                         .align(Alignment.BottomCenter)
                         .fillMaxWidth()
-                        .height((22 * maxOf(0.15f, partialFrac)).dp)
+                        .height((28 * maxOf(0.15f, partialFrac)).dp)
                         .background(accent.copy(alpha = 0.55f)),
                 )
                 Text(
