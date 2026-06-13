@@ -96,15 +96,17 @@ import java.time.LocalDate
  * three evenly-spaced chips. Today shows the full interactive view; past days
  * show a read-only snapshot of intentions and reflection.
  * // PT: tab Hoje com navegação de dias e cabeçalho arrumado.
+ *
+ * @param onOpenHistory opens the past-days history — a navigation destination
+ *   (A8), so it peels back predictively rather than swapping in place.
  */
 @Composable
-fun HojeScreen() {
+fun HojeScreen(onOpenHistory: () -> Unit) {
     val colors = LocalPautaColors.current
     val vm: AppViewModel = viewModel()
     val intentions by vm.intentions.collectAsStateWithLifecycle()
     val reflection by vm.reflection.collectAsStateWithLifecycle()
     val carry by vm.carry.collectAsStateWithLifecycle()
-    val history by vm.history.collectAsStateWithLifecycle()
     val allSessions by vm.allSessions.collectAsStateWithLifecycle()
     val allIntentions by vm.allIntentions.collectAsStateWithLifecycle()
     val allDays by vm.allDays.collectAsStateWithLifecycle()
@@ -118,7 +120,6 @@ fun HojeScreen() {
     // A3: every micro-animation below is gated on this — reduced motion snaps to
     // the old instant behaviour. // PT: animações respeitam "movimento reduzido".
     val animate = !prefs.reducedMotion
-    var showHistory by remember { mutableStateOf(false) }
     var showWeek by remember { mutableStateOf(false) }
     var showInsights by remember { mutableStateOf(false) }
 
@@ -148,11 +149,6 @@ fun HojeScreen() {
     }
     val pastReflection = remember(allDays, selectedDayKey) {
         allDays.find { it.dayKey == selectedDayKey }?.reflection.orEmpty()
-    }
-
-    if (showHistory) {
-        HistoryView(days = history, onClose = { showHistory = false })
-        return
     }
 
     // Today-derived state, hoisted out of the LazyColumn so several items can
@@ -256,7 +252,7 @@ fun HojeScreen() {
                 }
                 Spacer(Modifier.width(14.dp))
                 Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    HeaderChip(tr("dias anteriores") + " ↗") { showHistory = true }
+                    HeaderChip(tr("dias anteriores") + " ↗") { onOpenHistory() }
                     HeaderChip(tr("a semana") + " ↗") { showWeek = true }
                     HeaderChip(tr("revisão") + " ↗") { showInsights = true }
                 }

@@ -82,8 +82,20 @@ private val ACCENT_PRESETS = listOf(
     "#1A1815" to "#1A1815",  // Tinta
 )
 
+/**
+ * App settings. A8: reached as a navigation destination, with the three
+ * full-surface analysis screens (goals, year review, tide guide) navigated to as
+ * their own destinations — so each peels back predictively — rather than swapped
+ * in with `if (show…)` overlays. // PT: definições — um destino de navegação; os
+ * ecrãs de análise são destinos próprios (recuam com o gesto preditivo).
+ */
 @Composable
-fun SettingsScreen(onClose: () -> Unit) {
+fun SettingsScreen(
+    onClose: () -> Unit,
+    onOpenGoals: () -> Unit,
+    onOpenYearReview: () -> Unit,
+    onOpenTierGuide: () -> Unit,
+) {
     val colors = LocalPautaColors.current
     val vm: AppViewModel = viewModel()
     val prefs by vm.prefs.collectAsStateWithLifecycle()
@@ -106,10 +118,7 @@ fun SettingsScreen(onClose: () -> Unit) {
         }
     }
 
-    var showGoals by remember { mutableStateOf(false) }
     var showInsights by remember { mutableStateOf(false) }
-    var showYearReview by remember { mutableStateOf(false) }
-    var showTierGuide by remember { mutableStateOf(false) }
     var showPinSet by remember { mutableStateOf(false) }
     var showPinDisable by remember { mutableStateOf(false) }
     var showResetConfirm by remember { mutableStateOf(false) }
@@ -164,23 +173,20 @@ fun SettingsScreen(onClose: () -> Unit) {
         )
     }
 
+    // A8: this destination's own back gesture is popped predictively by the
+    // NavHost (no BackHandler intercepting it). But the PIN flows below render as
+    // full-surface early-returns and PinScreen has no back handling of its own —
+    // so guard *those*: back cancels the PIN screen and returns to the settings
+    // list, instead of popping the whole destination to home. Disabled otherwise,
+    // so it never steals the predictive pop. // PT: o NavHost trata do recuo da
+    // rota; só intercetamos o back quando um ecrã de PIN aninhado está aberto.
+    BackHandler(enabled = showPinSet || showPinDisable) {
+        showPinSet = false
+        showPinDisable = false
+    }
+
     if (showInsights) {
         InsightsSheet(onClose = { showInsights = false })
-        return
-    }
-
-    if (showGoals) {
-        GoalsScreen(onClose = { showGoals = false })
-        return
-    }
-
-    if (showYearReview) {
-        YearReviewScreen(onClose = { showYearReview = false })
-        return
-    }
-
-    if (showTierGuide) {
-        TierGuideScreen(onClose = { showTierGuide = false })
         return
     }
 
@@ -205,8 +211,6 @@ fun SettingsScreen(onClose: () -> Unit) {
             onClose = { showArchived = false },
         )
     }
-
-    BackHandler { onClose() }
 
     Column(
         Modifier
@@ -277,12 +281,12 @@ fun SettingsScreen(onClose: () -> Unit) {
             ActionRow(
                 label = tr("Retrospetiva do ano"),
                 subtitle = tr("Resumo anual de foco, hábitos e intenções."),
-            ) { showYearReview = true }
+            ) { onOpenYearReview() }
             CardDivider()
             ActionRow(
                 label = tr("Como funcionam as marés"),
                 subtitle = tr("Streaks, níveis e respiros explicados."),
-            ) { showTierGuide = true }
+            ) { onOpenTierGuide() }
         }
 
         // ── PRIVACIDADE ──────────────────────────────────────────────────
@@ -461,7 +465,7 @@ fun SettingsScreen(onClose: () -> Unit) {
         // ── OBJETIVOS (native-only) ───────────────────────────────────────
         Section(tr("Objetivos"))
         SectionCard {
-            ActionRow(tr("Objetivos trimestrais")) { showGoals = true }
+            ActionRow(tr("Objetivos trimestrais")) { onOpenGoals() }
         }
 
         // ── DADOS ────────────────────────────────────────────────────────

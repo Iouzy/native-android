@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -37,12 +38,15 @@ import java.util.Locale
 @Composable
 fun HistoryView(days: List<HistoryDay>, onClose: () -> Unit) {
     val colors = LocalPautaColors.current
-    // Rendered inside the pager, below the shell's status row — so no
-    // statusBarsPadding of its own (the shell already consumed the inset).
+    // A8: a full-surface navigation destination now (it used to swap in inside the
+    // Hoje pager, below the shell's status row) — so it owns the status-bar inset
+    // itself. // PT: agora é um destino de página inteira; consome a margem da
+    // barra de estado.
     Column(
         Modifier
             .fillMaxSize()
             .background(colors.paper)
+            .statusBarsPadding()
             .padding(horizontal = 24.dp)
             .verticalScroll(rememberScrollState()),
     ) {

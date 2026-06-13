@@ -1,6 +1,5 @@
 package com.pauta.app.ui.screens
 
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -63,8 +62,9 @@ fun YearReviewScreen(onClose: () -> Unit) {
     var year by remember { mutableStateOf(currentYear) }
     val now = remember { System.currentTimeMillis() }
 
-    BackHandler { onClose() }
-
+    // A8: no BackHandler here — this is a NavHost destination, so the system back
+    // gesture pops it predictively (the ← also calls onClose). // PT: sem
+    // BackHandler — é um destino de navegação; o gesto recua a rota.
     val blockSegs = remember(blocks, allSessions) {
         val byBlock = allSessions.groupBy { it.blockId }
         blocks.map { b ->
