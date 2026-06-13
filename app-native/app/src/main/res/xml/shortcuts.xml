@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- C4: static launcher shortcuts (long-press the app icon) for quick capture.
+     Each opens MainActivity on the right tab via a custom action, mirroring the
+     SHORTCUT_FOCUS contract the QS tile and launcher focus entry already use; the
+     intent is explicit (targetPackage/targetClass), so no manifest intent-filter
+     is needed for delivery. // PT: atalhos estáticos do ecrã inicial — cada um
+     abre a tab certa via uma ação, como o SHORTCUT_FOCUS já existente. -->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="new_intention"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_intention"
+        android:shortcutShortLabel="@string/shortcut_new_intention_short"
+        android:shortcutLongLabel="@string/shortcut_new_intention_long">
+        <intent
+            android:action="com.pauta.app.SHORTCUT_NEW_INTENTION"
+            android:targetPackage="com.pauta.app"
+            android:targetClass="com.pauta.app.MainActivity" />
+    </shortcut>
+    <shortcut
+        android:shortcutId="start_block"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_focus"
+        android:shortcutShortLabel="@string/shortcut_focus_short"
+        android:shortcutLongLabel="@string/shortcut_focus_long">
+        <intent
+            android:action="com.pauta.app.SHORTCUT_FOCUS"
+            android:targetPackage="com.pauta.app"
+            android:targetClass="com.pauta.app.MainActivity" />
+    </shortcut>
+    <shortcut
+        android:shortcutId="mares"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_mares"
+        android:shortcutShortLabel="@string/shortcut_mares_short"
+        android:shortcutLongLabel="@string/shortcut_mares_long">
+        <intent
+            android:action="com.pauta.app.SHORTCUT_MARES"
+            android:targetPackage="com.pauta.app"
+            android:targetClass="com.pauta.app.MainActivity" />
+    </shortcut>
+</shortcuts>

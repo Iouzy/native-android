@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- C4: the locales this app ships, surfaced in the Android 13+ per-app language
+     picker. pt-PT is the source language; en is the in-code translation. Kept in
+     step with prefs.lang via AppCompatDelegate.setApplicationLocales. // PT: as
+     línguas da app, mostradas no seletor de idioma por-app do Android 13+. -->
+<locale-config xmlns:android="http://schemas.android.com/apk/res/android">
+    <locale android:name="pt-PT" />
+    <locale android:name="en" />
+</locale-config>

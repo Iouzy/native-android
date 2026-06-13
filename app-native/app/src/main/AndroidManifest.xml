@@ -28,10 +28,11 @@
         android:enableOnBackInvokedCallback="true"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
+        android:localeConfig="@xml/locales_config"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.Pauta"
-        tools:targetApi="31">
+        tools:targetApi="33">
 
         <activity
             android:name=".MainActivity"
@@ -49,6 +50,19 @@
                 <action android:name="com.pauta.app.SHORTCUT_FOCUS" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
+            <!-- C4: text share target — another app's "Share → Pauta" lands here,
+                 confirmed and added as today's intention. -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+            <!-- C4: static launcher shortcuts (Nova intenção / Começar bloco /
+                 Marés). The two new actions are delivered by explicit shortcut
+                 intents, so they need no intent-filter of their own. -->
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
         </activity>
 
         <!-- Foreground service owning the ongoing focus-timer notification. -->
