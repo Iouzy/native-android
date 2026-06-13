@@ -34,14 +34,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TextField
-import androidx.compose.material3.TextFieldDefaults
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -54,8 +50,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -655,32 +649,16 @@ private fun shareBackup(context: android.content.Context, json: String) {
 @Composable
 private fun TimeRow(label: String, value: String, onCommit: (String) -> Unit) {
     val colors = LocalPautaColors.current
-    var text by remember(value) { mutableStateOf(value) }
     Row(
         Modifier.fillMaxWidth().padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(label, color = colors.ink, fontSize = 16.sp, modifier = Modifier.weight(1f))
-        TextField(
-            value = text,
-            onValueChange = { raw ->
-                text = raw.filter { it.isDigit() || it == ':' }.take(5)
-                if (Regex("^\\d{1,2}:\\d{2}$").matches(text)) onCommit(text)
-            },
-            singleLine = true,
-            modifier = Modifier.width(96.dp),
-            textStyle = LocalTextStyle.current.copy(color = colors.ink, fontSize = 16.sp),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
-            colors = TextFieldDefaults.colors(
-                focusedContainerColor = Color.Transparent,
-                unfocusedContainerColor = Color.Transparent,
-                cursorColor = colors.accent,
-                focusedIndicatorColor = colors.accent,
-                unfocusedIndicatorColor = colors.rule,
-                focusedTextColor = colors.ink,
-                unfocusedTextColor = colors.ink,
-            ),
-        )
+        // Tap the time to pick it on a clock — no free-typed HH:MM.
+        // // PT: toca-se na hora para a escolher num relógio.
+        Box(Modifier.width(116.dp)) {
+            PautaTimeField(value = value, onChange = onCommit, title = label)
+        }
     }
 }
 

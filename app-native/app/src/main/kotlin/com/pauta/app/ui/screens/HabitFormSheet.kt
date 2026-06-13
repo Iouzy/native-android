@@ -380,16 +380,12 @@ fun EditHabitSheet(
 // The web's --danger: removal copy stays red whatever the accent is.
 private val DANGER = Color(0xFFA8474A)
 
-/** Free-typed HH:MM, digits and ':' only — same contract as Registar tempo. */
+/** Tap to pick the exact time on a clock; clearable since the time is optional.
+ *  The stored value stays "HH:MM" (or blank). // PT: escolhe-se a hora no
+ *  relógio; pode ficar vazia. */
 @Composable
 private fun ClockField(value: String, onChange: (String) -> Unit) {
-    BoxedField(
-        value = value,
-        onChange = { raw -> onChange(raw.filter { it.isDigit() || it == ':' }.take(5)) },
-        placeholder = "08:30",
-        singleLine = true,
-        fontFamily = MonoFamily,
-    )
+    PautaTimeField(value = value, onChange = onChange, title = tr("hora certa"), optional = true)
 }
 
 /** Digits-only boxed input ([max] = digit count, e.g. 2 → "31"). */
