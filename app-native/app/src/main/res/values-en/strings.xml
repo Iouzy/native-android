@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- C4: English values for the few system-surface strings (QS tile, widget-picker
+     description, launcher shortcuts). The in-app UI is still translated in code
+     (com.pauta.app.i18n); this folder only exists so that, once a user picks
+     English in the Android 13+ per-app language picker, the labels Android renders
+     itself follow suit. app_name stays "Pauta" via the default values/. // PT:
+     valores em inglês só para os rótulos de sistema; a UI continua traduzida em
+     código. -->
+<resources>
+    <string name="focus_tile_label">Start focus</string>
+    <string name="widget_mares_description">Today\'s tides — tap to mark</string>
+
+    <string name="shortcut_new_intention_short">New intention</string>
+    <string name="shortcut_new_intention_long">New intention</string>
+    <string name="shortcut_focus_short">Start a block</string>
+    <string name="shortcut_focus_long">Start a focus block</string>
+    <string name="shortcut_mares_short">Tides</string>
+    <string name="shortcut_mares_long">See today\'s tides</string>
+</resources>

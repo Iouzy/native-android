@@ -35,8 +35,10 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -74,6 +76,7 @@ import com.pauta.app.ui.screens.TierGuideScreen
 import com.pauta.app.ui.screens.YearReviewScreen
 import com.pauta.app.ui.theme.LocalPautaColors
 import com.pauta.app.ui.theme.MonoFamily
+import com.pauta.app.ui.theme.SerifFamily
 import com.pauta.app.ui.viewmodel.AppViewModel
 import com.pauta.app.ui.viewmodel.PendingUndo
 import kotlinx.coroutines.launch
@@ -84,6 +87,15 @@ enum class Tab(val ptLabel: String) {
     HOJE("Hoje"),
     PAUTA("Pauta"),
     MARES("Marés"),
+}
+
+/** C4: an external way into the app, parsed by [MainActivity] from the launch (or
+ *  new) intent and handed to [MainScaffold]: a launcher shortcut/QS tile that
+ *  opens a tab, or a shared text that becomes a new intention. // PT: uma entrada
+ *  externa — atalho que abre uma tab, ou texto partilhado que vira intenção. */
+sealed interface AppEntry {
+    data class OpenTab(val tab: Tab) : AppEntry
+    data class ShareText(val text: String) : AppEntry
 }
 
 /** A8: the full-surface screens reached from the shell are real navigation
@@ -108,15 +120,48 @@ private object Route {
  * um NavHost com a shell das tabs e os ecrãs de página inteira como destinos;
  * bloqueio por PIN e onboarding ficam por cima de tudo.
  *
- * @param initialTab which tab to open on (a focus shortcut/QS tile opens PAUTA).
+ * @param entry the latest external entry (launcher shortcut or shared text), or
+ *   null. Drives the initial tab plus, while running, tab switches and the
+ *   share-confirm sheet.
+ * @param onEntryConsumed called once an [entry] has been acted on, so the next
+ *   one (delivered via onNewIntent) is seen as a fresh change.
  */
 @Composable
-fun MainScaffold(initialTab: Tab = Tab.HOJE) {
+fun MainScaffold(entry: AppEntry?, onEntryConsumed: () -> Unit) {
     val vm: AppViewModel = viewModel()
     val prefs by vm.prefs.collectAsStateWithLifecycle()
     val needsUnlock by vm.needsUnlock.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val navController = rememberNavController()
+
+    // C4: the tab the pager opens on at first composition — captured once from the
+    // launch entry (a focus shortcut/QS tile → Pauta) so a cold start lands there
+    // with no animation. Later entries animate via [tabRequest]. // PT: tab inicial
+    // do pager, fixada na primeira entrada (sem animação no arranque a frio).
+    val initialTab = remember { (entry as? AppEntry.OpenTab)?.tab ?: Tab.HOJE }
+
+    // C4: entries that arrive while the app runs. A shortcut sets [tabRequest] (the
+    // pager animates to it); a shared text sets [pendingShare] (a confirm sheet
+    // adds it to today). Both pop back to Home first, so they work from any
+    // destination. // PT: entradas com a app aberta — atalho muda de tab; texto
+    // partilhado abre a folha de confirmação.
+    var tabRequest by remember { mutableStateOf<Tab?>(null) }
+    var pendingShare by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(entry) {
+        when (val e = entry) {
+            is AppEntry.OpenTab -> {
+                navController.popBackStack(Route.HOME, inclusive = false)
+                tabRequest = e.tab
+            }
+            is AppEntry.ShareText -> {
+                navController.popBackStack(Route.HOME, inclusive = false)
+                tabRequest = Tab.HOJE
+                pendingShare = e.text
+            }
+            null -> Unit
+        }
+        if (entry != null) onEntryConsumed()
+    }
 
     // The app keeps all state in one Activity-scoped AppViewModel. NavHost would
     // otherwise give every destination its own back-stack-entry ViewModelStore,
@@ -161,6 +206,8 @@ fun MainScaffold(initialTab: Tab = Tab.HOJE) {
                 AppScoped(appOwner) {
                     HomeShell(
                         initialTab = initialTab,
+                        requestedTab = tabRequest,
+                        onTabConsumed = { tabRequest = null },
                         onOpenSettings = { navController.open(Route.SETTINGS) },
                         onOpenHistory = { navController.open(Route.HISTORY) },
                     )
@@ -218,6 +265,57 @@ fun MainScaffold(initialTab: Tab = Tab.HOJE) {
                 WhatsNewOverlay(state = state, onDone = { vm.dismissWhatsNew() })
             }
         }
+
+        // C4: a shared text (ACTION_SEND) waits for a confirm before it is added
+        // as today's intention. The sheet is a real modal window, so it's gated to
+        // never sit above the lock/onboarding overlays — a share that arrives while
+        // locked simply waits there until unlock. // PT: texto partilhado espera
+        // confirmação antes de virar intenção (nunca por cima do bloqueio).
+        pendingShare?.let { text ->
+            val locked = needsUnlock && prefs.pinHash != null
+            if (prefsReady && prefs.onboardingSeen && !locked) {
+                ShareIntentionSheet(
+                    text = text,
+                    onConfirm = { vm.addIntention(text); pendingShare = null },
+                    onDismiss = { pendingShare = null },
+                )
+            }
+        }
+    }
+}
+
+/**
+ * C4: the confirm-and-add sheet for a shared text. It shows the shared text as a
+ * would-be intention and, on confirm, adds it to today — using the app's modal
+ * surface (a bottom sheet on phones, drag-to-dismiss). // PT: folha de confirmação
+ * do texto partilhado; adiciona-o às intenções de hoje.
+ */
+@Composable
+private fun ShareIntentionSheet(text: String, onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    val colors = LocalPautaColors.current
+    PautaSheet(title = tr("Nova intenção"), onClose = onDismiss) {
+        Spacer(Modifier.height(6.dp))
+        Text(
+            text = text,
+            color = colors.ink,
+            fontFamily = SerifFamily,
+            fontSize = 18.sp,
+            lineHeight = 25.sp,
+        )
+        Spacer(Modifier.height(18.dp))
+        Text(
+            text = tr("Adicionar como intenção de hoje?"),
+            color = colors.ink3,
+            fontFamily = MonoFamily,
+            fontSize = 11.sp,
+            letterSpacing = 0.22.sp, // 0.02em of 11sp
+        )
+        Spacer(Modifier.height(16.dp))
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            PautaButton(tr("Cancelar"), variant = PautaButtonVariant.Ghost, onClick = onDismiss)
+            Spacer(Modifier.weight(1f))
+            PautaButton(tr("Adicionar"), onClick = onConfirm)
+        }
     }
 }
 
@@ -231,6 +329,8 @@ fun MainScaffold(initialTab: Tab = Tab.HOJE) {
 @Composable
 private fun HomeShell(
     initialTab: Tab,
+    requestedTab: Tab?,
+    onTabConsumed: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenHistory: () -> Unit,
 ) {
@@ -240,6 +340,16 @@ private fun HomeShell(
     val focusRequester = remember { FocusRequester() }
 
     LaunchedEffect(Unit) { focusRequester.requestFocus() }
+
+    // C4: a launcher shortcut tapped while the app is open asks for a tab here —
+    // animate to it, then clear the request so the same shortcut can fire again.
+    // (Cold starts already open on it via initialTab, so this just no-ops.) // PT:
+    // um atalho com a app aberta pede uma tab — anima até lá e limpa o pedido.
+    LaunchedEffect(requestedTab) {
+        val target = requestedTab ?: return@LaunchedEffect
+        pager.animateScrollToPage(target.ordinal)
+        onTabConsumed()
+    }
 
     val vm: AppViewModel = viewModel()
     val prefs by vm.prefs.collectAsStateWithLifecycle()

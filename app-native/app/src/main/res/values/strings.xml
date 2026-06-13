@@ -10,4 +10,14 @@
     <!-- Widget-picker description (a system surface, PT source like the rest of
          strings.xml). -->
     <string name="widget_mares_description">As marés de hoje — toca para marcar</string>
+
+    <!-- C4: static launcher-shortcut labels (a system surface; the EN values live
+         in values-en/ so they follow the per-app language). // PT: rótulos dos
+         atalhos do ecrã inicial. -->
+    <string name="shortcut_new_intention_short">Nova intenção</string>
+    <string name="shortcut_new_intention_long">Nova intenção</string>
+    <string name="shortcut_focus_short">Começar bloco</string>
+    <string name="shortcut_focus_long">Começar um bloco de foco</string>
+    <string name="shortcut_mares_short">Marés</string>
+    <string name="shortcut_mares_long">Ver as marés de hoje</string>
 </resources>

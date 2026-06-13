@@ -117,6 +117,8 @@ object I18n {
         "{d}/{t} marés" to "{d}/{t} tides",
         "Trazer {n} de {d}" to "Bring {n} from {d}", // native-only
         "Nova intenção…" to "New intention…",
+        "Nova intenção" to "New intention", // native-only
+        "Adicionar como intenção de hoje?" to "Add as today's intention?", // native-only
         "manhã" to "morning",
         "tarde" to "afternoon",
         "noite" to "night",
