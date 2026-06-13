@@ -123,6 +123,12 @@ dependencies {
     // Glance dá o widget de Marés (toca para marcar a maré no ecrã inicial).
     implementation("androidx.glance:glance-appwidget:1.1.0")
 
+    // C3: biometric unlock — offer fingerprint/face at the PIN lock screen, with
+    // the PIN keypad as the fallback. BiometricPrompt needs a FragmentActivity,
+    // so this also pulls in androidx.fragment (MainActivity extends it). // PT:
+    // desbloqueio biométrico no ecrã de PIN, com o PIN como alternativa.
+    implementation("androidx.biometric:biometric:1.1.0")
+
     // Pure-JVM unit tests for the domain math + the pauta.v4 backup converter.
     // These run on CI with no emulator and gate the APK build.
     testImplementation("junit:junit:4.13.2")

@@ -199,4 +199,5 @@ data class PrefsEntity(
     val reflectionTime: String = "21:30",
     val pinHash: String? = null,        // SHA-256(salt+PIN), hex; null = no PIN lock
     val pinSalt: String? = null,        // random 8-byte salt, hex
+    val biometricEnabled: Boolean = false, // C3: offer biometric unlock at the lock screen (only meaningful with a PIN set). Device-specific → native-only, not exported in v4.
 )

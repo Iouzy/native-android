@@ -1,8 +1,8 @@
 package com.pauta.app
 
 import android.os.Bundle
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.fragment.app.FragmentActivity
 import android.view.WindowManager
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.SideEffect
@@ -31,8 +31,12 @@ import com.pauta.app.ui.viewmodel.AppViewModel
  * arrives as the SHORTCUT_FOCUS action and opens straight on the Pauta (focus)
  * tab. // PT: atividade única; tema vem das preferências guardadas; abre na tab
  * Pauta quando vem do atalho/azulejo de foco.
+ *
+ * C3: a [FragmentActivity] (still an androidx ComponentActivity, so Compose's
+ * setContent/edge-to-edge keep working) because the biometric-unlock prompt
+ * requires one. // PT: é uma FragmentActivity — exigida pela folha biométrica.
  */
-class MainActivity : ComponentActivity() {
+class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
