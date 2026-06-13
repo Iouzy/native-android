@@ -25,6 +25,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -246,17 +247,29 @@ fun HabitDetailSheet(
         ) {
             weeks.forEachIndexed { wi, week ->
                 Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    // Month tick above the first week of each month.
+                    // Month tick above the first week of each month. A fixed-size
+                    // box keeps every column's cells aligned; the label itself is
+                    // free to overflow the 11dp cell width — months sit ~4 columns
+                    // apart so labels never collide — and renders at full height so
+                    // the glyph tops aren't clipped.
+                    // PT: marca do mês acima da primeira semana de cada mês; a caixa
+                    // fixa mantém as células alinhadas e a etiqueta transborda sem corte.
                     val firstDay = LocalDate.parse(week.first().first)
                     val prevFirst = if (wi > 0) LocalDate.parse(weeks[wi - 1].first().first) else null
-                    Text(
-                        text = if (prevFirst == null || prevFirst.month != firstDay.month) I18n.fmtMonthShort(firstDay.monthValue) else "",
-                        color = colors.ink4,
-                        fontFamily = MonoFamily,
-                        fontSize = 8.sp,
-                        maxLines = 1,
-                        modifier = Modifier.height(12.dp).width(11.dp),
-                    )
+                    Box(Modifier.height(14.dp).width(11.dp), contentAlignment = Alignment.BottomStart) {
+                        if (prevFirst == null || prevFirst.month != firstDay.month) {
+                            Text(
+                                text = I18n.fmtMonthShort(firstDay.monthValue),
+                                color = colors.ink4,
+                                fontFamily = MonoFamily,
+                                fontSize = 8.sp,
+                                lineHeight = 10.sp,
+                                maxLines = 1,
+                                softWrap = false,
+                                overflow = TextOverflow.Visible,
+                            )
+                        }
+                    }
                     week.forEach { (key, state) ->
                         HeatCell(
                             state = state,
