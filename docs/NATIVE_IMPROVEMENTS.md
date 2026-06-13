@@ -127,7 +127,7 @@ cost. Running a task on a stronger model than suggested is always fine.
 - **Accept:** every sheet usable end-to-end without touching anything but the
   keyboard.
 
-### A7 · Undo instead of confirm + habit archive — Status: pending
+### A7 · Undo instead of confirm + habit archive — Status: done (PR #109)
 - **Why:** deleting a habit cascades years of logs/respiros/counts behind one
   confirm; intention/block deletes are instant and unrecoverable; habit delete
   hides behind an undiscoverable long-press on the name (`MaresScreen.kt`).
@@ -318,3 +318,4 @@ cost. Running a task on a stronger model than suggested is always fine.
 2026-06-13 · A4 · #106 · native DatePicker/TimePicker behind tappable fields (ManualBlock date+time, habit clock, Settings reminders); LocalPautaColors-skinned; stored YYYY-MM-DD/HH:MM unchanged
 2026-06-13 · A5 · #107 · PautaSheet → ModalBottomSheet on phones (<600dp; drag handle, drag-dismiss, imePadding), centred dialog kept ≥600dp; same content slot, all ~dozen sheets unchanged
 2026-06-13 · A6 · #108 · keyboard+validation: autofocus first field (Start/Manual/AddHabit/Switch/WeekAhead day1/Goals-empty), IME Done submits (Manual title→duration chain), inline danger underline+hint replaces disabled buttons, debounced "guardado ✓" on Hoje reflection (reducedMotion-gated); shared FieldError/DangerRed/rememberAutoFocusRequester
+2026-06-13 · A7 · #109 · snackbar "Anular" for intention/block delete (snapshot+reinsert from memory; block restores its sessions), app-wide themed SnackbarHost in MainScaffold; native-only habit `archived` (Room v2→v3) hides from grid/today/widget but keeps marks + still exports as a normal v4 habit; delete+archive moved into the edit sheet, long-press-to-delete dropped; Settings→Dados "Marés arquivadas" manager (1-tap restore, 2-step guarded delete)

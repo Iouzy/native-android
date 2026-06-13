@@ -82,7 +82,6 @@ import com.pauta.app.ui.PautaSheet
 import com.pauta.app.ui.CellState
 import com.pauta.app.ui.cellStateFor
 import com.pauta.app.ui.clickableNoRipple
-import com.pauta.app.ui.combinedClickableNoRipple
 import com.pauta.app.ui.theme.LocalPautaColors
 import com.pauta.app.ui.theme.MonoFamily
 import com.pauta.app.ui.theme.SerifFamily
@@ -95,8 +94,9 @@ import java.time.YearMonth
  * how-it-works hint, and one row per habit — name + recurrence/count chips,
  * month % with the maturity progress or the tier badge, the 22dp day strip
  * with all nine cell states, and the best-streak line. Tap marks done /
- * increments; long-press an empty day marks a respiro; long-press the name
- * removes (with confirmation). // PT: tab Marés segundo a grelha da web.
+ * increments; long-press an empty day marks a respiro; tapping the name opens the
+ * detail sheet (where edit / archive / remove live — A7 dropped the
+ * undiscoverable long-press-to-delete). // PT: tab Marés segundo a grelha da web.
  */
 @Composable
 fun MaresScreen() {
@@ -336,7 +336,6 @@ fun MaresScreen() {
                             onIncrement = { dayKey, current -> vm.setHabitCount(h.id, dayKey, current + 1) },
                             onRespiro = { dayKey -> vm.markRespiro(h.id, dayKey) },
                             onUnmarkRespiro = { dayKey -> vm.unmarkRespiro(h.id, dayKey) },
-                            onRemove = { removeTarget = h },
                             onOpenDetail = { detailTarget = h },
                         )
                     }
@@ -404,6 +403,7 @@ fun MaresScreen() {
         EditHabitSheet(
             habit = h,
             onSave = { updated -> vm.updateHabit(updated); editTarget = null },
+            onArchive = { vm.setHabitArchived(h.id, true); editTarget = null },
             onRemove = { removeTarget = h; editTarget = null },
             onClose = { editTarget = null },
         )
@@ -466,7 +466,6 @@ private fun MaresHabitRow(
     onIncrement: (String, Int) -> Unit,
     onRespiro: (String) -> Unit,
     onUnmarkRespiro: (String) -> Unit,
-    onRemove: () -> Unit,
     onOpenDetail: () -> Unit,
 ) {
     val colors = LocalPautaColors.current
@@ -501,8 +500,10 @@ private fun MaresHabitRow(
             Column(
                 Modifier
                     .weight(1f)
-                    // Tap the name for the full history; long-press to remove.
-                    .combinedClickableNoRipple(onClick = onOpenDetail, onLongClick = onRemove),
+                    // Tap the name for the full history; edit/archive/remove live
+                    // inside that detail → edit sheet now (A7). // PT: toca no nome
+                    // para o histórico; editar/arquivar/remover estão lá dentro.
+                    .clickableNoRipple(onClick = onOpenDetail),
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(

@@ -39,6 +39,7 @@ import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -57,11 +58,13 @@ import androidx.core.content.ContextCompat
 import com.pauta.app.BuildConfig
 import com.pauta.app.MainActivity
 import com.pauta.app.R
+import com.pauta.app.data.entity.HabitEntity
 import com.pauta.app.service.ReminderScheduler
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.pauta.app.i18n.tr
 import com.pauta.app.i18n.trf
+import com.pauta.app.ui.PautaSheet
 import com.pauta.app.ui.clickableNoRipple
 import com.pauta.app.ui.theme.LocalPautaColors
 import com.pauta.app.ui.theme.MonoFamily
@@ -111,7 +114,12 @@ fun SettingsScreen(onClose: () -> Unit) {
     var showPinDisable by remember { mutableStateOf(false) }
     var showResetConfirm by remember { mutableStateOf(false) }
     var showReseedConfirm by remember { mutableStateOf(false) }
+    var showArchived by remember { mutableStateOf(false) }
     var testNotifMsg by remember { mutableStateOf<String?>(null) }
+
+    // A7: archived tides — surfaced in Settings → Dados for restore (or a guarded
+    // permanent delete). // PT: marés arquivadas, para restaurar nos Dados.
+    val archivedHabits by vm.archivedHabits.collectAsStateWithLifecycle()
 
     if (showResetConfirm) {
         AlertDialog(
@@ -184,6 +192,18 @@ fun SettingsScreen(onClose: () -> Unit) {
     if (showPinDisable) {
         PinScreen(PinMode.DISABLE, onSuccess = { showPinDisable = false }, onCancel = { showPinDisable = false })
         return
+    }
+
+    // Archived tides manager — a modal sheet over the settings (not a full-screen
+    // sub-screen), so it overlays rather than replacing. // PT: gestor de marés
+    // arquivadas, em folha modal sobre as definições.
+    if (showArchived) {
+        ArchivedHabitsSheet(
+            habits = archivedHabits,
+            onRestore = { vm.setHabitArchived(it.id, false) },
+            onDelete = { vm.removeHabit(it.id) },
+            onClose = { showArchived = false },
+        )
     }
 
     BackHandler { onClose() }
@@ -480,6 +500,16 @@ fun SettingsScreen(onClose: () -> Unit) {
                 label = tr("Importar dados"),
                 subtitle = tr("Restaura a partir de um ficheiro .json."),
             ) { importLauncher.launch("application/json") }
+            // Only surfaced once there's something archived — keeps the section
+            // quiet for everyone else. // PT: só aparece quando há marés arquivadas.
+            if (archivedHabits.isNotEmpty()) {
+                CardDivider()
+                ActionRow(
+                    label = tr("Marés arquivadas"),
+                    subtitle = if (archivedHabits.size == 1) tr("1 maré escondida da grelha.")
+                        else trf("{n} marés escondidas da grelha.", "n" to archivedHabits.size),
+                ) { showArchived = true }
+            }
         }
 
         // ── ATUALIZAÇÕES ─────────────────────────────────────────────────
@@ -723,6 +753,86 @@ private fun ActionRow(
                 color = colors.ink3,
                 fontSize = 12.sp,
                 lineHeight = 16.sp,
+            )
+        }
+    }
+}
+
+/**
+ * A7: the archived-tides manager (Settings → Dados). Lists every archived tide
+ * with a one-tap "restaurar" (un-archive) and a two-step "remover" — the only way
+ * to permanently delete an archived tide, guarded so it's never a single tap.
+ * Closes itself once the list empties. // PT: gestor de marés arquivadas —
+ * restaurar (um toque) ou remover (com confirmação).
+ */
+@Composable
+private fun ArchivedHabitsSheet(
+    habits: List<HabitEntity>,
+    onRestore: (HabitEntity) -> Unit,
+    onDelete: (HabitEntity) -> Unit,
+    onClose: () -> Unit,
+) {
+    val colors = LocalPautaColors.current
+    // Restoring/removing the last tide empties the live list — close then, so the
+    // sheet never lingers empty. // PT: fecha quando a lista esvazia.
+    LaunchedEffect(habits.isEmpty()) { if (habits.isEmpty()) onClose() }
+    PautaSheet(title = tr("Marés arquivadas"), onClose = onClose) {
+        Text(
+            text = tr("As marés arquivadas saem da grelha e do dia, mas guardam todo o histórico."),
+            color = colors.ink3,
+            fontFamily = SerifFamily,
+            fontStyle = FontStyle.Italic,
+            fontSize = 13.sp,
+            lineHeight = 19.sp,
+        )
+        Spacer(Modifier.height(14.dp))
+        habits.forEachIndexed { i, h ->
+            if (i > 0) CardDivider()
+            ArchivedHabitRow(habit = h, onRestore = { onRestore(h) }, onDelete = { onDelete(h) })
+        }
+    }
+}
+
+@Composable
+private fun ArchivedHabitRow(habit: HabitEntity, onRestore: () -> Unit, onDelete: () -> Unit) {
+    val colors = LocalPautaColors.current
+    var confirming by remember { mutableStateOf(false) }
+    Row(
+        Modifier.fillMaxWidth().padding(vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(habit.name, color = colors.ink, fontSize = 15.sp, modifier = Modifier.weight(1f))
+        Spacer(Modifier.width(12.dp))
+        if (!confirming) {
+            Text(
+                text = tr("restaurar"),
+                color = colors.accent,
+                fontSize = 13.sp,
+                modifier = Modifier.clickableNoRipple(onRestore),
+            )
+            Spacer(Modifier.width(18.dp))
+            Text(
+                text = tr("remover"),
+                color = DangerRed,
+                fontSize = 13.sp,
+                modifier = Modifier.clickableNoRipple { confirming = true },
+            )
+        } else {
+            // The second tap confirms — an archived tide is never deleted in one
+            // tap. // PT: segundo toque confirma — nunca apaga num só toque.
+            Text(
+                text = tr("Cancelar"),
+                color = colors.ink3,
+                fontSize = 13.sp,
+                modifier = Modifier.clickableNoRipple { confirming = false },
+            )
+            Spacer(Modifier.width(18.dp))
+            Text(
+                text = tr("Apagar"),
+                color = DangerRed,
+                fontWeight = FontWeight.Medium,
+                fontSize = 13.sp,
+                modifier = Modifier.clickableNoRipple(onDelete),
             )
         }
     }

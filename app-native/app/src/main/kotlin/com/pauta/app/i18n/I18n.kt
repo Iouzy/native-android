@@ -219,6 +219,18 @@ object I18n {
         "melhor: {n} dias" to "best: {n} days",
         "remover" to "remove",
         "Remover esta maré? Todo o histórico será perdido." to "Remove this tide? All history will be lost.",
+        // A7 — undo + habit archive (native-only).
+        "Anular" to "Undo", // native-only
+        "Intenção removida" to "Intention removed", // native-only
+        "Bloco removido" to "Block removed", // native-only
+        "arquivar maré" to "archive tide", // native-only
+        "restaurar maré" to "restore tide", // native-only
+        "Arquivar esconde a maré da grelha sem perder o histórico." to "Archiving hides the tide from the grid without losing its history.", // native-only
+        "Marés arquivadas" to "Archived tides", // native-only
+        "As marés arquivadas saem da grelha e do dia, mas guardam todo o histórico." to "Archived tides leave the grid and today, but keep all their history.", // native-only
+        "1 maré escondida da grelha." to "1 tide hidden from the grid.", // native-only
+        "{n} marés escondidas da grelha." to "{n} tides hidden from the grid.", // native-only
+        "restaurar" to "restore", // native-only
         "semanal" to "weekly",
         "mensal" to "monthly",
         "dia {n}" to "day {n}",

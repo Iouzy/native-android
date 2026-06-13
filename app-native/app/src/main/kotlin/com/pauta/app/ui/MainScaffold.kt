@@ -17,6 +17,11 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.Icon
+import androidx.compose.material3.Snackbar
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -54,6 +59,7 @@ import com.pauta.app.ui.screens.SettingsScreen
 import com.pauta.app.ui.theme.LocalPautaColors
 import com.pauta.app.ui.theme.MonoFamily
 import com.pauta.app.ui.viewmodel.AppViewModel
+import com.pauta.app.ui.viewmodel.PendingUndo
 import kotlinx.coroutines.launch
 
 /** The three tabs, in order. Their labels are the Portuguese source strings
@@ -89,6 +95,27 @@ fun MainScaffold(initialTab: Tab = Tab.HOJE) {
     val needsUnlock by vm.needsUnlock.collectAsStateWithLifecycle()
     var showSettings by remember { mutableStateOf(false) }
     val context = LocalContext.current
+
+    // A7: a single app-wide snackbar offers "Anular" after a destructive single
+    // delete (an intention or a focus block). The ViewModel emits the deleted
+    // data; tapping Anular puts it back. Each event waits its turn, so two quick
+    // deletes stay independently undoable. // PT: snackbar único com "Anular"
+    // depois de apagar uma intenção/bloco; cada remoção fica anulável.
+    val snackbarHostState = remember { SnackbarHostState() }
+    LaunchedEffect(Unit) {
+        vm.undoRequests.collect { pending ->
+            val message = when (pending) {
+                is PendingUndo.Intention -> tr("Intenção removida")
+                is PendingUndo.Block -> tr("Bloco removido")
+            }
+            val result = snackbarHostState.showSnackbar(
+                message = message,
+                actionLabel = tr("Anular"),
+                duration = SnackbarDuration.Short,
+            )
+            if (result == SnackbarResult.ActionPerformed) vm.undo(pending)
+        }
+    }
 
     // Coming back to the app re-checks the day at once (the in-process ticker
     // covers the foreground case) and triggers the auto-backup if due.
@@ -153,6 +180,25 @@ fun MainScaffold(initialTab: Tab = Tab.HOJE) {
                     .align(Alignment.BottomEnd)
                     .navigationBarsPadding()
                     .padding(end = 10.dp, bottom = 80.dp),
+            )
+        }
+
+        // The undo snackbar floats just above the tab bar (and the system nav
+        // bar), styled as the app's dark ink surface with an accent action — not
+        // the stock Material colours. // PT: snackbar sobre a barra de tabs, com
+        // as cores da app (superfície escura, ação em destaque).
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .navigationBarsPadding()
+                .padding(start = 12.dp, end = 12.dp, bottom = 84.dp),
+        ) { data ->
+            Snackbar(
+                snackbarData = data,
+                containerColor = colors.surfaceDark,
+                contentColor = colors.onDark,
+                actionColor = colors.accent,
             )
         }
 
