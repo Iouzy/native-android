@@ -277,6 +277,7 @@ object I18n {
         "{p}% de constância" to "{p}% consistency", // native-only
         "Sem marés ainda. Toca em + para criar a primeira." to "No tides yet. Tap + to create the first one.", // native-only
         "Nova maré" to "New tide", // native-only
+        "Sem marés para hoje" to "No tides today", // native-only (Glance widget empty state)
 
         // Marés add/edit form (NewHabitForm + HabitEditForm, web-identical).
         "Nome da maré (ex.: meditar)" to "Tide name (e.g.: meditate)",

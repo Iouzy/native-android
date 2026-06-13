@@ -20,16 +20,13 @@ import com.pauta.app.data.SafBackup
 import com.pauta.app.domain.CarrySource
 import com.pauta.app.domain.DateUtils
 import com.pauta.app.domain.FocusMath
-import com.pauta.app.domain.HabitCalculator
-import com.pauta.app.domain.HabitModel
 import com.pauta.app.domain.HistoryDay
-import com.pauta.app.i18n.trf
 import android.content.Context
 import com.pauta.app.service.AppUpdater
 import com.pauta.app.service.BackupScheduler
 import com.pauta.app.service.FocusServiceController
+import com.pauta.app.service.MaresWidget
 import com.pauta.app.service.ReminderScheduler
-import com.pauta.app.service.WidgetSnapshot
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
@@ -337,35 +334,14 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                     }
                 }
         }
-        // Keep the home-screen widget's three stat lines fresh as data changes —
-        // and as the day itself changes (todayKey is one of the inputs).
-        // // PT: mantém as três linhas do widget atualizadas, mesmo ao virar o dia.
+        // Keep the Glance Marés widget in sync: nudge a re-render whenever the
+        // tides or the day change (it reads the repo itself, so this just tells it
+        // to recompose — marking from the widget refreshes itself). // PT: atualiza
+        // o widget de Marés quando as marés ou o dia mudam.
         viewModelScope.launch {
-            val habitMarks = combine(repo.habitLogs(), repo.habitRespiros()) { logs, resps -> logs to resps }
-            combine(
-                todayKey, intentions, repo.allSessions(), repo.habits(), habitMarks,
-            ) { today, ints, sess, habs, (logs, resps) ->
-                val now = System.currentTimeMillis()
-                val intDone = ints.count { it.done }
-                val focusMin = FocusMath.dailyFocusMs(sess.map { FocusMath.FocusSeg(it.startedAt, it.endedAt) }, today, now) / 60_000L
-                val logSet = logs.groupBy { it.habitId }.mapValues { e -> e.value.map { it.dayKey }.toSet() }
-                val respSet = resps.groupBy { it.habitId }.mapValues { e -> e.value.map { it.dayKey }.toSet() }
-                var mDone = 0
-                var mTotal = 0
-                for (h in habs) {
-                    val m = HabitModel(h.id, h.createdAt, h.cadence, h.anchor, h.weekdays, h.recurrence, h.endsAt, logSet[h.id].orEmpty(), respSet[h.id].orEmpty())
-                    when (HabitCalculator.dayState(m, today, today)) {
-                        HabitCalculator.DayState.DONE, HabitCalculator.DayState.RESPIRO -> { mDone++; mTotal++ }
-                        HabitCalculator.DayState.EMPTY -> mTotal++
-                        else -> {}
-                    }
-                }
-                Triple(
-                    trf("{d}/{t} intenções", "d" to intDone, "t" to ints.size),
-                    trf("Foco {m}m", "m" to focusMin),
-                    trf("{d}/{t} marés", "d" to mDone, "t" to mTotal),
-                )
-            }.collect { (l1, l2, l3) -> WidgetSnapshot.publish(getApplication<Application>(), l1, l2, l3) }
+            val habitMarks = combine(repo.habitLogs(), repo.habitRespiros(), repo.habitCounts()) { l, r, c -> Triple(l, r, c) }
+            combine(todayKey, repo.habits(), habitMarks) { _, _, _ -> Unit }
+                .collect { MaresWidget.refresh(getApplication<Application>()) }
         }
     }
 

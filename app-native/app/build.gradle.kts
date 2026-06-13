@@ -118,6 +118,11 @@ dependencies {
     // cópia automática em segundo plano, mesmo com a app fechada.
     implementation("androidx.work:work-runtime-ktx:2.9.1")
 
+    // C1: Glance powers the tappable Marés home widget — today's tides as
+    // circles, marked straight from the home screen via the repo. // PT: o
+    // Glance dá o widget de Marés (toca para marcar a maré no ecrã inicial).
+    implementation("androidx.glance:glance-appwidget:1.1.0")
+
     // Pure-JVM unit tests for the domain math + the pauta.v4 backup converter.
     // These run on CI with no emulator and gate the APK build.
     testImplementation("junit:junit:4.13.2")
