@@ -489,11 +489,16 @@ object I18n {
 
         // ── Cópia automática ──
         "Cópia automática" to "Auto backup", // native-only
-        "Guarda automaticamente quando abres a app." to "Saves automatically when you open the app.", // native-only
+        "Guarda em segundo plano, mesmo com a app fechada." to "Saves in the background, even when the app is closed.", // native-only
         "Frequência" to "Frequency", // native-only
         "Diária" to "Daily", // native-only
         "Semanal" to "Weekly", // native-only
         "Por hora" to "Hourly", // native-only
+        "Escolher pasta…" to "Choose a folder…", // native-only
+        "Pasta de cópia" to "Backup folder", // native-only
+        "Guarda também numa pasta tua (Drive, dispositivo…)." to "Also saves to a folder of yours (Drive, device…).", // native-only
+        "Remover pasta" to "Remove folder", // native-only
+        "Volta a guardar só dentro da app." to "Goes back to saving only inside the app.", // native-only
 
         // ── Retrospetiva do ano ──
         "horas de foco" to "hours of focus", // native-only

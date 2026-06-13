@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  B1 · Auto Backup / device-transfer rules for Android 12+ (S, API 31).
+
+  The Room DB (pauta.db) holds the PIN hash/salt AND the whole private journal.
+  Pauta is offline-first with no cloud/accounts/sync, so the journal must not be
+  shipped silently to Google's cloud (the device-loss vector that motivated this
+  task). The durable, user-controlled paths are the SAF auto-backup folder and the
+  manual JSON export — both PIN-free.
+
+  · cloud-backup    → exclude the DB (+ its WAL/SHM), the reminder prefs and the
+                      local autobackup JSONs. Nothing private leaves the device.
+  · device-transfer → include everything: a local, user-initiated phone upgrade
+                      should carry the journal across.
+
+  // PT: a base de dados (PIN + diário) fica fora da nuvem; a transferência local
+  // entre dispositivos leva tudo.
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="database" path="pauta.db" />
+        <exclude domain="database" path="pauta.db-wal" />
+        <exclude domain="database" path="pauta.db-shm" />
+        <exclude domain="sharedpref" path="pauta_reminders.xml" />
+        <exclude domain="file" path="autobackups/" />
+    </cloud-backup>
+    <device-transfer />
+</data-extraction-rules>
