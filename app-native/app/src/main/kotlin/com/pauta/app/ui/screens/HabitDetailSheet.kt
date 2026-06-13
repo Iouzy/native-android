@@ -239,14 +239,31 @@ fun HabitDetailSheet(
         }
         val heatScroll = rememberScrollState()
         LaunchedScrollToEnd(heatScroll, weeks.size)
+        // No row-level spacing: each column carries its own 1dp horizontal padding
+        // so adjacent weeks of the same month abut into one seamless tinted band
+        // (the gap between cells stays 1dp+1dp = 2dp, as before).
         Row(
             Modifier
                 .fillMaxWidth()
                 .horizontalScroll(heatScroll),
-            horizontalArrangement = Arrangement.spacedBy(2.dp),
         ) {
             weeks.forEachIndexed { wi, week ->
-                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                val firstDay = LocalDate.parse(week.first().first)
+                val prevFirst = if (wi > 0) LocalDate.parse(weeks[wi - 1].first().first) else null
+                // Alternating month band: the heatmap is Sunday-columnar, so calendar
+                // months don't line up with cell columns and are easy to mis-read
+                // (a week straddling a boundary makes per-month counting ambiguous).
+                // Tint every other month — keyed off the column's first day, exactly
+                // like the month tick — so each month reads as its own lane.
+                // PT: faixa alternada por mês — a grelha é semanal, por isso os meses
+                // não coincidem com as colunas; tingir mês sim, mês não torna-os legíveis.
+                val monthShaded = (firstDay.year * 12 + firstDay.monthValue) % 2 == 0
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                    modifier = Modifier
+                        .background(if (monthShaded) colors.ink.copy(alpha = 0.06f) else Color.Transparent)
+                        .padding(horizontal = 1.dp, vertical = 1.dp),
+                ) {
                     // Month tick above the first week of each month. A fixed-size
                     // box keeps every column's cells aligned; the label itself is
                     // free to overflow the 11dp cell width — months sit ~4 columns
@@ -254,8 +271,6 @@ fun HabitDetailSheet(
                     // the glyph tops aren't clipped.
                     // PT: marca do mês acima da primeira semana de cada mês; a caixa
                     // fixa mantém as células alinhadas e a etiqueta transborda sem corte.
-                    val firstDay = LocalDate.parse(week.first().first)
-                    val prevFirst = if (wi > 0) LocalDate.parse(weeks[wi - 1].first().first) else null
                     Box(Modifier.height(14.dp).width(11.dp), contentAlignment = Alignment.BottomStart) {
                         if (prevFirst == null || prevFirst.month != firstDay.month) {
                             Text(
