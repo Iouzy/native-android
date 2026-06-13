@@ -206,6 +206,18 @@ fun MainScaffold(initialTab: Tab = Tab.HOJE) {
         if (prefsReady && !prefs.onboardingSeen) {
             OnboardingOverlay(onDone = { vm.setOnboardingSeen() })
         }
+
+        // Post-update "what's new" — shown once after an in-place update, above the
+        // NavHost like onboarding, but only for an already-onboarded user and after
+        // any PIN unlock (so the lock screen still comes first). // PT: ecrã de
+        // novidades pós-atualização, mostrado uma vez (depois do desbloqueio).
+        val whatsNew by vm.whatsNew.collectAsStateWithLifecycle()
+        whatsNew?.let { state ->
+            val locked = needsUnlock && prefs.pinHash != null
+            if (prefsReady && prefs.onboardingSeen && !locked) {
+                WhatsNewOverlay(state = state, onDone = { vm.dismissWhatsNew() })
+            }
+        }
     }
 }
 

@@ -455,6 +455,15 @@ object I18n {
         "Plano do dia" to "Today's plan",
         "Hábitos pendentes" to "Pending habits",
         "Reflexão noturna" to "Nightly reflection",
+        // C2 · actionable notifications
+        "Responder" to "Reply", // native-only
+        "Escreve a tua reflexão…" to "Write your reflection…", // native-only
+        "Reflexão guardada" to "Reflection saved", // native-only
+        "1 maré por completar" to "1 tide to complete", // native-only
+        "{n} marés por completar" to "{n} tides to complete", // native-only
+        "Alvo · {t}" to "Target · {t}", // native-only
+        "Alvo de foco" to "Focus target", // native-only
+        "Alvo de foco alcançado" to "Focus target reached", // native-only
         "Dados" to "Data",
         "Exportar dados" to "Export data",
         "Transfere um ficheiro .json com tudo." to "Downloads a .json file with everything.",
@@ -537,6 +546,8 @@ object I18n {
         "Tentar outra vez" to "Try again",
         "Não foi possível verificar. Confirma a ligação à internet." to "Couldn't check for updates. Check your internet connection.", // native-only
         "Novidades" to "What's new", // native-only
+        "Pauta foi atualizada." to "Pauta has been updated.", // native-only
+        "Pequenas melhorias e correções." to "Small improvements and fixes.", // native-only
         "Permite instalar apps desta origem e toca outra vez." to "Allow installing apps from this source, then tap again.",
         "Se a instalação falhar com «conflito com um pacote existente»: exporta uma cópia de segurança, desinstala a app e instala de novo. Só é preciso uma vez — daí em diante as atualizações mantêm os teus dados." to "If the install fails with “conflicts with an existing package”: export a backup, uninstall the app, and install again. You only need to do this once — after that, updates keep your data.",
 
