@@ -28,12 +28,15 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -42,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import kotlinx.coroutines.delay
 import com.pauta.app.data.entity.GoalEntity
 import com.pauta.app.domain.DateUtils
 import com.pauta.app.i18n.tr
@@ -95,7 +99,10 @@ fun GoalsScreen(onClose: () -> Unit) {
         }
 
         Spacer(Modifier.height(12.dp))
-        AddField(tr("Novo objetivo…")) { vm.addGoal(it, quarter) }
+        // A6: focus the new-goal field only on an empty quarter — invites typing
+        // without ever covering an existing list. // PT: só foca o campo no
+        // trimestre vazio, sem tapar a lista.
+        AddField(tr("Novo objetivo…"), autoFocus = quarterGoals.isEmpty()) { vm.addGoal(it, quarter) }
 
         if (quarterGoals.isEmpty()) {
             Spacer(Modifier.height(20.dp))
@@ -168,16 +175,22 @@ private fun CheckRow(text: String, done: Boolean, onToggle: () -> Unit, onDelete
 }
 
 @Composable
-private fun AddField(placeholder: String, small: Boolean = false, onAdd: (String) -> Unit) {
+private fun AddField(placeholder: String, small: Boolean = false, autoFocus: Boolean = false, onAdd: (String) -> Unit) {
     val colors = LocalPautaColors.current
     var text by remember { mutableStateOf("") }
+    // Done commits and clears but keeps focus, so goals/milestones can be typed in
+    // a row from the keyboard alone. // PT: Enter regista e limpa, mantendo o foco.
+    val focusRequester = remember { FocusRequester() }
+    LaunchedEffect(Unit) {
+        if (autoFocus) { delay(120); runCatching { focusRequester.requestFocus() } }
+    }
     fun commit() { if (text.isNotBlank()) { onAdd(text); text = "" } }
     TextField(
         value = text,
         onValueChange = { text = it },
         placeholder = { Text(placeholder, color = colors.ink4, fontSize = if (small) 14.sp else 16.sp) },
         singleLine = true,
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().focusRequester(focusRequester),
         textStyle = LocalTextStyle.current.copy(color = colors.ink, fontSize = if (small) 14.sp else 16.sp),
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
         keyboardActions = KeyboardActions(onDone = { commit() }),

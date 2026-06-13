@@ -18,9 +18,12 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -28,15 +31,20 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.delay
 import com.pauta.app.data.entity.FocusBlockEntity
 import com.pauta.app.data.entity.IntentionEntity
 import com.pauta.app.domain.FocusMath
@@ -76,9 +84,15 @@ fun StartSheet(
     var selectedIntention by remember { mutableStateOf<String?>(null) }
     var project by remember { mutableStateOf("") }
     var targetMin by remember { mutableStateOf(0) } // 0 = no target
+    // A6: the title is focused on open (keyboard up, no tap) and the first empty
+    // submit flips [triedSubmit], turning the underline + hint danger instead of
+    // leaving a silently-disabled button. // PT: foca o título ao abrir; validação
+    // inline em vez de botão desligado.
+    val titleFocus = rememberAutoFocusRequester()
+    var triedSubmit by remember { mutableStateOf(false) }
 
     fun submit() {
-        if (title.isBlank()) return
+        if (title.isBlank()) { triedSubmit = true; return }
         onStart(title.trim(), selectedIntention, project.trim().ifEmpty { null }, targetMin.takeIf { it > 0 })
     }
 
@@ -109,7 +123,15 @@ fun StartSheet(
             value = title,
             onChange = { title = it; selectedIntention = null },
             placeholder = tr("ex.: escrever capítulo 3"),
+            modifier = Modifier.focusRequester(titleFocus),
+            isError = triedSubmit && title.isBlank(),
+            imeAction = ImeAction.Done,
+            keyboardActions = KeyboardActions(onDone = { submit() }),
         )
+        if (triedSubmit && title.isBlank()) {
+            Spacer(Modifier.height(6.dp))
+            FieldError(tr("Escreve em que te vais focar."))
+        }
 
         val open = intentions.filter { !it.done }
         if (open.isNotEmpty()) {
@@ -214,7 +236,7 @@ fun StartSheet(
         Spacer(Modifier.height(22.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             PautaButton(tr("Cancelar"), Modifier.weight(1f), PautaButtonVariant.Ghost) { onClose() }
-            PautaButton(tr("Iniciar agora"), Modifier.weight(2f), PautaButtonVariant.Primary, enabled = title.isNotBlank()) { submit() }
+            PautaButton(tr("Iniciar agora"), Modifier.weight(2f), PautaButtonVariant.Primary) { submit() }
         }
     }
 }
@@ -409,9 +431,19 @@ fun ConcludeSheet(
 
 // ─── shared field atoms (also used by the Marés forms) ────
 
-/** The start sheet's headline input: borderless with a 1.5dp ink underline. */
+/** The start sheet's headline input: borderless with a 1.5dp ink underline (the
+ *  underline + caret turn danger when [isError]). [imeAction]/[keyboardActions]
+ *  let the field submit from the keyboard. */
 @Composable
-internal fun UnderlineField(value: String, onChange: (String) -> Unit, placeholder: String) {
+internal fun UnderlineField(
+    value: String,
+    onChange: (String) -> Unit,
+    placeholder: String,
+    modifier: Modifier = Modifier,
+    isError: Boolean = false,
+    imeAction: ImeAction = ImeAction.Default,
+    keyboardActions: KeyboardActions = KeyboardActions.Default,
+) {
     val colors = LocalPautaColors.current
     Column(Modifier.fillMaxWidth()) {
         BasicTextField(
@@ -419,8 +451,10 @@ internal fun UnderlineField(value: String, onChange: (String) -> Unit, placehold
             onValueChange = onChange,
             singleLine = true,
             textStyle = TextStyle(color = colors.ink, fontFamily = SansFamily, fontSize = 18.sp),
-            cursorBrush = SolidColor(colors.accent),
-            modifier = Modifier
+            cursorBrush = SolidColor(if (isError) DangerRed else colors.accent),
+            keyboardOptions = KeyboardOptions(imeAction = imeAction),
+            keyboardActions = keyboardActions,
+            modifier = modifier
                 .fillMaxWidth()
                 .padding(vertical = 8.dp),
             decorationBox = { inner ->
@@ -432,22 +466,28 @@ internal fun UnderlineField(value: String, onChange: (String) -> Unit, placehold
                 }
             },
         )
-        Box(Modifier.fillMaxWidth().height(1.5.dp).background(colors.ink))
+        Box(Modifier.fillMaxWidth().height(1.5.dp).background(if (isError) DangerRed else colors.ink))
     }
 }
 
 /** The sheets' boxed input: paper-2 surface, rule border, radius 10 — serif and
  *  multiline by default (the pause/conclude notes), sans single-line for the
- *  project field. */
+ *  project field. The border + caret turn danger when [isError];
+ *  [keyboardType]/[imeAction]/[keyboardActions] drive keyboard-only submission. */
 @Composable
 internal fun BoxedField(
     value: String,
     onChange: (String) -> Unit,
     placeholder: String,
+    modifier: Modifier = Modifier,
     singleLine: Boolean = false,
     fontFamily: androidx.compose.ui.text.font.FontFamily = SerifFamily,
     fontSize: androidx.compose.ui.unit.TextUnit = 15.sp,
     minHeight: androidx.compose.ui.unit.Dp = 0.dp,
+    isError: Boolean = false,
+    keyboardType: KeyboardType = KeyboardType.Text,
+    imeAction: ImeAction = ImeAction.Default,
+    keyboardActions: KeyboardActions = KeyboardActions.Default,
 ) {
     val colors = LocalPautaColors.current
     BasicTextField(
@@ -455,8 +495,10 @@ internal fun BoxedField(
         onValueChange = onChange,
         singleLine = singleLine,
         textStyle = TextStyle(color = colors.ink, fontFamily = fontFamily, fontSize = fontSize, lineHeight = fontSize * 1.45),
-        cursorBrush = SolidColor(colors.accent),
-        modifier = Modifier.fillMaxWidth(),
+        cursorBrush = SolidColor(if (isError) DangerRed else colors.accent),
+        keyboardOptions = KeyboardOptions(keyboardType = keyboardType, imeAction = imeAction),
+        keyboardActions = keyboardActions,
+        modifier = modifier.fillMaxWidth(),
         decorationBox = { inner ->
             Box(
                 Modifier
@@ -464,7 +506,7 @@ internal fun BoxedField(
                     .heightIn(min = minHeight)
                     .clip(RoundedCornerShape(10.dp))
                     .background(colors.paper2)
-                    .border(1.dp, colors.rule, RoundedCornerShape(10.dp))
+                    .border(1.dp, if (isError) DangerRed else colors.rule, RoundedCornerShape(10.dp))
                     .padding(horizontal = if (singleLine) 12.dp else 14.dp, vertical = if (singleLine) 10.dp else 12.dp),
             ) {
                 if (value.isEmpty()) {
@@ -473,6 +515,42 @@ internal fun BoxedField(
                 inner()
             }
         },
+    )
+}
+
+// A6 (keyboard + validation pass): the shared error red for an invalid field's
+// underline/border + hint — the web's --danger, a deliberate literal (not a theme
+// token, like the rest of the danger copy). // PT: vermelho de erro da validação
+// inline; literal deliberado, como o resto do texto destrutivo.
+internal val DangerRed = Color(0xFFA8474A)
+
+/** A [FocusRequester] that grabs focus once, just after the sheet's entrance — a
+ *  form opens with its first field focused and the keyboard up, no tap needed.
+ *  The short beat lets the bottom-sheet animation attach the node before we
+ *  request (requesting mid-attach is silently dropped). // PT: foca o primeiro
+ *  campo ao abrir, sem toque; a pausa breve deixa o nó montar primeiro. */
+@Composable
+internal fun rememberAutoFocusRequester(): FocusRequester {
+    val fr = remember { FocusRequester() }
+    LaunchedEffect(Unit) {
+        delay(120)
+        runCatching { fr.requestFocus() }
+    }
+    return fr
+}
+
+/** A small danger-tinted line under a field whose inline validation failed —
+ *  shown instead of silently disabling the submit button. // PT: dica de erro por
+ *  baixo do campo, em vez de desligar o botão. */
+@Composable
+internal fun FieldError(text: String) {
+    Text(
+        text = text,
+        color = DangerRed,
+        fontFamily = SerifFamily,
+        fontStyle = FontStyle.Italic,
+        fontSize = 12.sp,
+        lineHeight = 16.sp,
     )
 }
 
@@ -524,6 +602,12 @@ fun SwitchSheet(
     var adding by remember { mutableStateOf(false) }
     var newTitle by remember { mutableStateOf("") }
     val available = intentions.filter { !it.done && it.id != currentBlock.linkedToId }
+    // A6: revealing the inline "algo novo" field focuses it at once so it's
+    // typeable without a second tap. // PT: ao abrir o campo novo, foca-o logo.
+    val addFocus = remember { FocusRequester() }
+    LaunchedEffect(adding) {
+        if (adding) { delay(60); runCatching { addFocus.requestFocus() } }
+    }
 
     PautaSheet(title = tr("Trocar foco"), onClose = onClose) {
         Text(
@@ -580,7 +664,9 @@ fun SwitchSheet(
                             singleLine = true,
                             textStyle = TextStyle(color = colors.ink, fontFamily = SansFamily, fontSize = 15.sp),
                             cursorBrush = SolidColor(colors.accent),
-                            modifier = Modifier.fillMaxWidth(),
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                            keyboardActions = KeyboardActions(onDone = { if (newTitle.isNotBlank()) onPick(null, newTitle.trim()) }),
+                            modifier = Modifier.fillMaxWidth().focusRequester(addFocus),
                             decorationBox = { inner ->
                                 Box {
                                     if (newTitle.isEmpty()) {
@@ -666,15 +752,24 @@ fun ManualBlockSheet(
         mutableStateOf(java.time.LocalTime.now().let { "%02d:%02d".format(it.hour, it.minute) })
     }
     var dur by remember { mutableStateOf("") }
+    // A6: focus the "o quê" on open; Done there hops to the duration, Done on the
+    // duration submits. Blank title / out-of-range duration show inline hints
+    // rather than a silently-disabled button. // PT: foca o "o quê"; Seguir salta
+    // para a duração; validação inline em vez de botão desligado.
+    val titleFocus = rememberAutoFocusRequester()
+    val durFocus = remember { FocusRequester() }
+    var triedSubmit by remember { mutableStateOf(false) }
 
     val minutes = dur.toIntOrNull() ?: 0
     val dateOk = Regex("^\\d{4}-\\d{2}-\\d{2}$").matches(date) &&
         runCatching { java.time.LocalDate.parse(date) }.isSuccess
     val startOk = Regex("^\\d{1,2}:\\d{2}$").matches(start)
-    val ready = title.isNotBlank() && dateOk && startOk && minutes in 1..1440
+    val titleBad = title.isBlank()
+    val durBad = minutes !in 1..1440
+    val ready = !titleBad && dateOk && startOk && !durBad
 
     fun submit() {
-        if (!ready) return
+        if (!ready) { triedSubmit = true; return }
         val (hh, mm) = start.split(":").map { it.toInt() }
         val startMs = java.time.LocalDate.parse(date)
             .atTime(hh.coerceIn(0, 23), mm.coerceIn(0, 59))
@@ -697,7 +792,18 @@ fun ManualBlockSheet(
 
         SheetEyebrow(tr("O quê"))
         Spacer(Modifier.height(6.dp))
-        BoxedField(title, { title = it }, tr("ex.: leitura"), singleLine = true, fontFamily = SansFamily, fontSize = 15.sp)
+        BoxedField(
+            title, { title = it }, tr("ex.: leitura"),
+            modifier = Modifier.focusRequester(titleFocus),
+            singleLine = true, fontFamily = SansFamily, fontSize = 15.sp,
+            isError = triedSubmit && titleBad,
+            imeAction = ImeAction.Next,
+            keyboardActions = KeyboardActions(onNext = { durFocus.requestFocus() }),
+        )
+        if (triedSubmit && titleBad) {
+            Spacer(Modifier.height(6.dp))
+            FieldError(tr("Escreva o que fez."))
+        }
 
         Spacer(Modifier.height(14.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -725,14 +831,23 @@ fun ManualBlockSheet(
                 dur,
                 { raw -> dur = raw.filter { it.isDigit() }.take(4) },
                 "45",
+                modifier = Modifier.focusRequester(durFocus),
                 singleLine = true, fontFamily = SansFamily, fontSize = 15.sp,
+                isError = triedSubmit && durBad,
+                keyboardType = KeyboardType.Number,
+                imeAction = ImeAction.Done,
+                keyboardActions = KeyboardActions(onDone = { submit() }),
             )
+        }
+        if (triedSubmit && durBad) {
+            Spacer(Modifier.height(6.dp))
+            FieldError(tr("Duração entre 1 e 1440 min."))
         }
 
         Spacer(Modifier.height(18.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             PautaButton(tr("Cancelar"), Modifier.weight(1f), PautaButtonVariant.Ghost) { onClose() }
-            PautaButton(tr("Adicionar"), Modifier.weight(2f), PautaButtonVariant.Primary, enabled = ready) { submit() }
+            PautaButton(tr("Adicionar"), Modifier.weight(2f), PautaButtonVariant.Primary) { submit() }
         }
     }
 }

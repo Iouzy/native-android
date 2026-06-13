@@ -614,6 +614,13 @@ object I18n {
         // native-only keys
         "Comece com uma pauta em branco. Muda tudo depois nas Definições." to "Start with a blank pauta. Change everything later in Settings.", // native-only
         "Descartar" to "Discard", // native-only
+
+        // ── A6 · keyboard + validation pass ──
+        "guardado" to "saved", // native-only
+        "Escreve em que te vais focar." to "Write what you'll focus on.", // native-only
+        "Escreva o que fez." to "Write what you did.", // native-only
+        "Duração entre 1 e 1440 min." to "Duration between 1 and 1440 min.", // native-only
+        "Dá um nome à maré." to "Name this tide.", // native-only
     )
 }
 

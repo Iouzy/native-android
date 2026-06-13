@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -26,11 +27,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -106,9 +109,14 @@ fun AddHabitSheet(onSubmit: (HabitDraft) -> Unit, onClose: () -> Unit) {
     var unit by remember { mutableStateOf("") }
     var weekdays by remember { mutableStateOf(listOf<Int>()) }
     var expanded by remember { mutableStateOf(false) }
+    // A6: name is focused on open and Done on it submits; the first blank submit
+    // flips [triedSubmit] so the underline + hint turn danger rather than leaving
+    // a dead button. // PT: foca o nome ao abrir; validação inline.
+    val nameFocus = rememberAutoFocusRequester()
+    var triedSubmit by remember { mutableStateOf(false) }
 
     fun submit() {
-        if (name.isBlank() || !clockOk(clock.trim())) return
+        if (name.isBlank() || !clockOk(clock.trim())) { triedSubmit = true; return }
         val days = (periodDays.toIntOrNull() ?: 1).coerceAtLeast(1)
         val mday = (monthday.toIntOrNull() ?: 1).coerceIn(1, 31)
         val endsAt = if (recurrence == "period") System.currentTimeMillis() + (days - 1) * 86_400_000L else null
@@ -131,7 +139,17 @@ fun AddHabitSheet(onSubmit: (HabitDraft) -> Unit, onClose: () -> Unit) {
     }
 
     PautaSheet(title = tr("Nova maré"), onClose = onClose) {
-        UnderlineField(name, { name = it }, tr("Nome da maré (ex.: meditar)"))
+        UnderlineField(
+            name, { name = it }, tr("Nome da maré (ex.: meditar)"),
+            modifier = Modifier.focusRequester(nameFocus),
+            isError = triedSubmit && name.isBlank(),
+            imeAction = ImeAction.Done,
+            keyboardActions = KeyboardActions(onDone = { submit() }),
+        )
+        if (triedSubmit && name.isBlank()) {
+            Spacer(Modifier.height(6.dp))
+            FieldError(tr("Dá um nome à maré."))
+        }
         Spacer(Modifier.height(14.dp))
         BoxedField(time, { time = it }, tr("Quando? (opcional, ex.: manhã)"), singleLine = true)
 
@@ -244,10 +262,7 @@ fun AddHabitSheet(onSubmit: (HabitDraft) -> Unit, onClose: () -> Unit) {
         Spacer(Modifier.height(22.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             PautaButton(tr("Cancelar"), Modifier.weight(1f), PautaButtonVariant.Ghost) { onClose() }
-            PautaButton(
-                tr("Adicionar"), Modifier.weight(2f), PautaButtonVariant.Primary,
-                enabled = name.isNotBlank() && clockOk(clock.trim()),
-            ) { submit() }
+            PautaButton(tr("Adicionar"), Modifier.weight(2f), PautaButtonVariant.Primary) { submit() }
         }
     }
 }
@@ -277,9 +292,13 @@ fun EditHabitSheet(
             (habit.endsAt?.let { maxOf(1, Math.round((it - habit.createdAt) / 86_400_000.0).toInt() + 1) } ?: 30).toString(),
         )
     }
+    // A6: inline validation instead of a silently-disabled "Guardar" — a blank
+    // name flips this and turns the underline + hint danger. (No autofocus: this
+    // is an edit of a pre-filled form.) // PT: validação inline, sem auto-foco.
+    var triedSubmit by remember { mutableStateOf(false) }
 
     fun save() {
-        if (name.isBlank() || !clockOk(clock.trim())) return
+        if (name.isBlank() || !clockOk(clock.trim())) { triedSubmit = true; return }
         val days = (periodDays.toIntOrNull() ?: 1).coerceAtLeast(1)
         // Web: period re-anchors on createdAt; forever and month clear endsAt
         // (month ends via habitEndKey, not a timestamp).
@@ -299,7 +318,16 @@ fun EditHabitSheet(
     PautaSheet(title = tr("Editar maré"), onClose = onClose) {
         SheetEyebrow(tr("nome"))
         Spacer(Modifier.height(8.dp))
-        UnderlineField(name, { name = it }, tr("Nome da maré (ex.: meditar)"))
+        UnderlineField(
+            name, { name = it }, tr("Nome da maré (ex.: meditar)"),
+            isError = triedSubmit && name.isBlank(),
+            imeAction = ImeAction.Done,
+            keyboardActions = KeyboardActions(onDone = { save() }),
+        )
+        if (triedSubmit && name.isBlank()) {
+            Spacer(Modifier.height(6.dp))
+            FieldError(tr("Dá um nome à maré."))
+        }
 
         Spacer(Modifier.height(18.dp))
         SheetEyebrow(tr("Cor"))
@@ -356,15 +384,12 @@ fun EditHabitSheet(
         Spacer(Modifier.height(22.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             PautaButton(tr("Cancelar"), Modifier.weight(1f), PautaButtonVariant.Ghost) { onClose() }
-            PautaButton(
-                tr("Guardar"), Modifier.weight(2f), PautaButtonVariant.Primary,
-                enabled = name.isNotBlank() && clockOk(clock.trim()),
-            ) { save() }
+            PautaButton(tr("Guardar"), Modifier.weight(2f), PautaButtonVariant.Primary) { save() }
         }
         Spacer(Modifier.height(14.dp))
         Text(
             text = tr("remover esta maré"),
-            color = DANGER,
+            color = DangerRed,
             fontSize = 13.sp,
             textAlign = TextAlign.Center,
             modifier = Modifier
@@ -377,8 +402,9 @@ fun EditHabitSheet(
 
 // ─── form atoms ────────────────────────────────────────────
 
-// The web's --danger: removal copy stays red whatever the accent is.
-private val DANGER = Color(0xFFA8474A)
+// The web's --danger (removal copy, invalid-field hints) lives as [DangerRed] in
+// PautaSheets.kt now, shared by the validation pass. // PT: o vermelho de erro é
+// partilhado a partir de PautaSheets.kt.
 
 /** Tap to pick the exact time on a clock; clearable since the time is optional.
  *  The stored value stays "HH:MM" (or blank). // PT: escolhe-se a hora no
