@@ -16,6 +16,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -23,6 +24,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.SolidColor
@@ -34,6 +37,7 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.delay
 import com.pauta.app.data.entity.PlannedIntentionEntity
 import com.pauta.app.domain.DateUtils
 import com.pauta.app.i18n.I18n
@@ -75,12 +79,15 @@ fun WeekAheadSheet(
         )
         Spacer(Modifier.height(16.dp))
 
-        days.forEach { dayKey ->
+        days.forEachIndexed { index, dayKey ->
             PlanDayRow(
                 dayKey = dayKey,
                 items = byDay[dayKey].orEmpty(),
                 onAdd = onAdd,
                 onRemove = onRemove,
+                // A6: the first day's field grabs focus on open so planning starts
+                // on the keyboard. // PT: o primeiro dia foca-se ao abrir.
+                autoFocus = index == 0,
             )
         }
     }
@@ -92,9 +99,17 @@ private fun PlanDayRow(
     items: List<PlannedIntentionEntity>,
     onAdd: (String, String) -> Unit,
     onRemove: (String) -> Unit,
+    autoFocus: Boolean = false,
 ) {
     val colors = LocalPautaColors.current
     var text by remember(dayKey) { mutableStateOf("") }
+    // Done commits and clears but keeps focus, so several plans can be typed in a
+    // row without leaving the keyboard. // PT: Enter regista e limpa, mantendo o
+    // foco para escrever vários planos seguidos.
+    val focusRequester = remember { FocusRequester() }
+    LaunchedEffect(Unit) {
+        if (autoFocus) { delay(120); runCatching { focusRequester.requestFocus() } }
+    }
 
     fun commit() {
         val t = text.trim()
@@ -150,7 +165,7 @@ private fun PlanDayRow(
                 cursorBrush = SolidColor(colors.accent),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                 keyboardActions = KeyboardActions(onDone = { commit() }),
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().focusRequester(focusRequester),
                 decorationBox = { inner ->
                     Box(
                         Modifier

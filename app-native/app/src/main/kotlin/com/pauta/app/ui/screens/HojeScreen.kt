@@ -41,6 +41,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -48,6 +49,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.scale
@@ -69,6 +71,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import kotlinx.coroutines.delay
 import com.pauta.app.data.entity.IntentionEntity
 import com.pauta.app.domain.CarrySource
 import com.pauta.app.domain.FocusMath
@@ -371,6 +374,23 @@ fun HojeScreen() {
             // the free-form field. // PT: cartão da reflexão, como na web.
             item(key = "reflection") {
                 Spacer(Modifier.height(40.dp))
+                // A6: a debounced, quiet "guardado ✓" — the reflection writes on every
+                // keystroke, so once the user pauses we confirm it's saved (hidden
+                // while typing). The fade honours reduced motion. // PT: confirmação
+                // discreta de que a reflexão ficou guardada, depois de uma pausa.
+                var reflectionEditedAt by remember { mutableStateOf<Long?>(null) }
+                var reflectionSaved by remember { mutableStateOf(false) }
+                LaunchedEffect(reflectionEditedAt) {
+                    if (reflectionEditedAt == null) return@LaunchedEffect
+                    reflectionSaved = false
+                    delay(900)
+                    reflectionSaved = true
+                }
+                val savedAlpha by animateFloatAsState(
+                    targetValue = if (reflectionSaved) 1f else 0f,
+                    animationSpec = if (animate) tween(300) else snap(),
+                    label = "reflection-saved",
+                )
                 Column(
                     Modifier
                         .fillMaxWidth()
@@ -379,13 +399,24 @@ fun HojeScreen() {
                         .background(colors.paper2)
                         .padding(horizontal = 22.dp, vertical = 24.dp),
                 ) {
-                    Text(
-                        text = tr("Reflexão da noite").uppercase(),
-                        color = colors.ink3,
-                        fontFamily = MonoFamily,
-                        fontSize = 9.sp,
-                        letterSpacing = 1.8.sp,
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = tr("Reflexão da noite").uppercase(),
+                            color = colors.ink3,
+                            fontFamily = MonoFamily,
+                            fontSize = 9.sp,
+                            letterSpacing = 1.8.sp,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Text(
+                            text = tr("guardado") + " ✓",
+                            color = colors.ink4,
+                            fontFamily = MonoFamily,
+                            fontSize = 9.sp,
+                            letterSpacing = 1.0.sp,
+                            modifier = Modifier.alpha(savedAlpha),
+                        )
+                    }
                     Spacer(Modifier.height(8.dp))
                     Text(
                         text = "“" + tr("O que valeu hoje?") + "”",
@@ -410,7 +441,11 @@ fun HojeScreen() {
                     ReflectionField(
                         value = reflection,
                         accent = colors.accent,
-                        onChange = { vm.setReflection(it) },
+                        onChange = {
+                            vm.setReflection(it)
+                            reflectionSaved = false
+                            reflectionEditedAt = System.currentTimeMillis()
+                        },
                     )
                 }
 

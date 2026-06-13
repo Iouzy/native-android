@@ -117,7 +117,7 @@ cost. Running a task on a stronger model than suggested is always fine.
   `content` slot so the ~10 existing sheets don't change internally.
 - **Accept:** all sheets work in both modes; keyboard never covers fields.
 
-### A6 · Keyboard + validation pass — Status: pending
+### A6 · Keyboard + validation pass — Status: done (PR #108)
 - **Where:** all form sheets (`PautaSheets.kt`, `HabitFormSheet.kt`,
   `WeekAheadSheet.kt`, `GoalsScreen.kt`), reflection fields in `HojeScreen.kt`.
 - **How:** autofocus first field on sheet open; IME action Done submits;
@@ -317,3 +317,4 @@ cost. Running a task on a stronger model than suggested is always fine.
 2026-06-13 · A3 · #105 · intention strike+circle spring, tide-cell fill+respiro hatch, pulse count-up, list animateItem — all gated on reducedMotion
 2026-06-13 · A4 · #106 · native DatePicker/TimePicker behind tappable fields (ManualBlock date+time, habit clock, Settings reminders); LocalPautaColors-skinned; stored YYYY-MM-DD/HH:MM unchanged
 2026-06-13 · A5 · #107 · PautaSheet → ModalBottomSheet on phones (<600dp; drag handle, drag-dismiss, imePadding), centred dialog kept ≥600dp; same content slot, all ~dozen sheets unchanged
+2026-06-13 · A6 · #108 · keyboard+validation: autofocus first field (Start/Manual/AddHabit/Switch/WeekAhead day1/Goals-empty), IME Done submits (Manual title→duration chain), inline danger underline+hint replaces disabled buttons, debounced "guardado ✓" on Hoje reflection (reducedMotion-gated); shared FieldError/DangerRed/rememberAutoFocusRequester
