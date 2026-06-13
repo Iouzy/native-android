@@ -1,6 +1,7 @@
 package com.pauta.app.service
 
 import android.content.Context
+import android.content.res.Configuration
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
@@ -85,7 +86,14 @@ class MaresWidget : GlanceAppWidget() {
         val countLabel = if (denom > 0) trf("{d}/{t} marés", "d" to done, "t" to denom) else null
         val emptyLabel = tr("Sem marés para hoje")
 
-        provideContent { MaresWidgetContent(tides, eyebrow, countLabel, emptyLabel, accentHex) }
+        // Resolve the paper/ink palette for the host's current mode now (RemoteViews
+        // can't read LocalPautaColors); on a mode flip the next update re-resolves.
+        // // PT: resolve a paleta clara/escura conforme o modo do anfitrião.
+        val night = (context.resources.configuration.uiMode and
+            Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+        val palette = paletteFor(night)
+
+        provideContent { MaresWidgetContent(tides, eyebrow, countLabel, emptyLabel, accentHex, palette) }
     }
 
     companion object {
@@ -138,9 +146,10 @@ private fun MaresWidgetContent(
     countLabel: String?,
     emptyLabel: String,
     accentHex: String?,
+    palette: WPalette,
 ) {
     Column(
-        modifier = GlanceModifier.fillMaxSize().background(WPaper).padding(14.dp),
+        modifier = GlanceModifier.fillMaxSize().background(palette.paper).padding(14.dp),
     ) {
         // Header — the same mono eyebrow + n/m as the Hoje strip; tapping opens
         // the app. // PT: cabeçalho — sobrescrito mono + n/m; toca para abrir a app.
@@ -151,14 +160,14 @@ private fun MaresWidgetContent(
             Text(
                 text = eyebrow,
                 maxLines = 1,
-                style = TextStyle(color = WInk3, fontSize = 11.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Medium),
+                style = TextStyle(color = palette.ink3, fontSize = 11.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Medium),
                 modifier = GlanceModifier.defaultWeight(),
             )
             if (countLabel != null) {
                 Text(
                     text = countLabel,
                     maxLines = 1,
-                    style = TextStyle(color = WInk3, fontSize = 11.sp, fontFamily = FontFamily.Monospace),
+                    style = TextStyle(color = palette.ink3, fontSize = 11.sp, fontFamily = FontFamily.Monospace),
                 )
             }
         }
@@ -167,12 +176,12 @@ private fun MaresWidgetContent(
         if (tides.isEmpty()) {
             Text(
                 text = emptyLabel,
-                style = TextStyle(color = WInk3, fontSize = 13.sp),
+                style = TextStyle(color = palette.ink3, fontSize = 13.sp),
                 modifier = GlanceModifier.fillMaxWidth().clickable(actionStartActivity<MainActivity>()),
             )
         } else {
             LazyColumn {
-                items(tides.size) { i -> TideRow(tides[i], accentHex) }
+                items(tides.size) { i -> TideRow(tides[i], accentHex, palette) }
             }
         }
     }
@@ -181,7 +190,7 @@ private fun MaresWidgetContent(
 /** One tide: its state circle + name. Pending/done rows toggle on tap; a respiro
  *  row (not actionable in-app either) opens the app instead. */
 @Composable
-private fun TideRow(tide: TideToday, accentHex: String?) {
+private fun TideRow(tide: TideToday, accentHex: String?, palette: WPalette) {
     val isDone = tide.state == DayState.DONE
     val respiro = tide.state == DayState.RESPIRO
     val drawable = when {
@@ -191,8 +200,8 @@ private fun TideRow(tide: TideToday, accentHex: String?) {
     }
     val tint = when {
         isDone -> ColorProvider(accentColorFor(tide.habit.color, accentHex))
-        respiro -> WInk4
-        else -> WInk3
+        respiro -> palette.ink4
+        else -> palette.ink3
     }
     val action =
         if (respiro) actionStartActivity<MainActivity>()
@@ -213,7 +222,7 @@ private fun TideRow(tide: TideToday, accentHex: String?) {
             text = tide.habit.name,
             maxLines = 1,
             style = TextStyle(
-                color = if (isDone || respiro) WInk3 else WInk,
+                color = if (isDone || respiro) palette.ink3 else palette.ink,
                 fontSize = 14.sp,
                 textDecoration = if (isDone) TextDecoration.LineThrough else TextDecoration.None,
             ),
@@ -223,14 +232,24 @@ private fun TideRow(tide: TideToday, accentHex: String?) {
 }
 
 // ── palette ───────────────────────────────────────────────────────────────────
-// The widget is RemoteViews, so it can't read LocalPautaColors; these mirror the
-// same paper/ink tokens (light + dark) from ui/theme/Color.kt and follow the
-// system dark mode via day/night ColorProviders. // PT: tokens espelhados de
-// Color.kt — o widget não acede ao LocalPautaColors.
-private val WPaper = ColorProvider(day = Color(0xFFF5F1EA), night = Color(0xFF1B1A17))
-private val WInk = ColorProvider(day = Color(0xFF1A1815), night = Color(0xFFECE6DA))
-private val WInk3 = ColorProvider(day = Color(0xFF6D665A), night = Color(0xFF8A8275))
-private val WInk4 = ColorProvider(day = Color(0xFFB5AC9C), night = Color(0xFF5F5A50))
+// The widget is RemoteViews, so it can't read LocalPautaColors. We resolve the
+// paper/ink tokens (mirrored from ui/theme/Color.kt) to a single set of fixed
+// ColorProviders per mode in provideGlance — the most portable Glance colour API.
+// // PT: tokens espelhados de Color.kt, resolvidos por modo (claro/escuro).
+private class WPalette(
+    val paper: ColorProvider,
+    val ink: ColorProvider,
+    val ink3: ColorProvider,
+    val ink4: ColorProvider,
+)
+
+private fun paletteFor(night: Boolean) = WPalette(
+    paper = ColorProvider(if (night) Color(0xFF1B1A17) else Color(0xFFF5F1EA)),
+    ink = ColorProvider(if (night) Color(0xFFECE6DA) else Color(0xFF1A1815)),
+    ink3 = ColorProvider(if (night) Color(0xFF8A8275) else Color(0xFF6D665A)),
+    ink4 = ColorProvider(if (night) Color(0xFF5F5A50) else Color(0xFFB5AC9C)),
+)
+
 private val WDefaultAccent = Color(0xFFB8533A) // Color.kt's build-default accent
 
 /** A done tide fills with the tide's own colour if it has one, else the user's
