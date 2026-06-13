@@ -103,8 +103,14 @@ interface HabitDao {
     @Delete suspend fun delete(habit: HabitEntity)
     @Query("DELETE FROM habits WHERE id = :id") suspend fun deleteById(id: String)
 
-    @Query("SELECT * FROM habits ORDER BY position")
-    fun observeAll(): Flow<List<HabitEntity>>
+    // The reactive grid/today-strip see only active tides; archived ones live in
+    // their own stream for the Settings restore list. getAll() (export, reorder)
+    // still returns every habit. // PT: a grelha vê só marés activas; arquivadas à parte.
+    @Query("SELECT * FROM habits WHERE archived = 0 ORDER BY position")
+    fun observeActive(): Flow<List<HabitEntity>>
+
+    @Query("SELECT * FROM habits WHERE archived = 1 ORDER BY position")
+    fun observeArchived(): Flow<List<HabitEntity>>
 
     @Query("SELECT * FROM habits WHERE id = :id") suspend fun getById(id: String): HabitEntity?
     @Query("SELECT * FROM habits") suspend fun getAll(): List<HabitEntity>

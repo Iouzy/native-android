@@ -29,6 +29,8 @@ import com.pauta.app.service.FocusServiceController
 import com.pauta.app.service.ReminderScheduler
 import com.pauta.app.service.WidgetSnapshot
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -38,8 +40,20 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+
+/**
+ * A reversible delete that a snackbar's "Anular" can put back — it carries
+ * everything needed to reinsert. An intention restores as-is; a block restores
+ * together with its sessions (the delete cascaded them). // PT: uma remoção que o
+ * snackbar pode anular — guarda os dados para repor.
+ */
+sealed interface PendingUndo {
+    data class Intention(val entity: IntentionEntity) : PendingUndo
+    data class Block(val block: FocusBlockEntity, val sessions: List<FocusSessionEntity>) : PendingUndo
+}
 
 /**
  * App-wide ViewModel. For now it owns the live preferences (theme, accent,
@@ -61,6 +75,22 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
      *  defaults are in place. // PT: evita o flash do onboarding ao arrancar. */
     val prefsReady: StateFlow<Boolean> =
         repo.prefs.map { true }.stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
+    // ── Undo ──────────────────────────────────────────────────
+    // One-shot snackbar-undo requests, emitted whenever a single intention or
+    // block is deleted; the shell collects them and shows "removido · Anular".
+    // Buffered so a quick second delete still queues a snackbar instead of being
+    // dropped. // PT: pedidos de "anular" para o snackbar, ao apagar uma intenção/bloco.
+    private val _undoRequests = Channel<PendingUndo>(Channel.BUFFERED)
+    val undoRequests: Flow<PendingUndo> = _undoRequests.receiveAsFlow()
+
+    /** Put back the item a snackbar's "Anular" refers to. */
+    fun undo(pending: PendingUndo) = viewModelScope.launch {
+        when (pending) {
+            is PendingUndo.Intention -> repo.restoreIntention(pending.entity)
+            is PendingUndo.Block -> repo.restoreBlock(pending.block, pending.sessions)
+        }
+    }
 
     // ── Hoje ──────────────────────────────────────────────────
     // Today's key as LIVE state: re-checked by a half-minute ticker and on every
@@ -139,7 +169,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch { repo.concludeActive(reflection, markIntentionDone) }
     fun concludeBlock(id: String, reflection: String, markIntentionDone: Boolean = false) =
         viewModelScope.launch { repo.concludeBlock(id, reflection, markIntentionDone) }
-    fun deleteBlock(id: String) = viewModelScope.launch { repo.deleteBlock(id) }
+    /** Delete a block with snackbar-undo: snapshot it (and its sessions) first,
+     *  delete, then offer to put it back. // PT: apaga com opção de anular. */
+    fun deleteBlock(id: String) = viewModelScope.launch {
+        val snapshot = repo.blockWithSessions(id) ?: return@launch
+        repo.deleteBlock(id)
+        _undoRequests.send(PendingUndo.Block(snapshot.first, snapshot.second))
+    }
     fun updateBlock(id: String, title: String, project: String?, targetMs: Long?) =
         viewModelScope.launch { repo.updateBlock(id, title, project, targetMs) }
     fun setSessionNote(rowId: Long, note: String) = viewModelScope.launch { repo.setSessionNote(rowId, note) }
@@ -151,6 +187,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     // ── Marés ─────────────────────────────────────────────────
     val habits: StateFlow<List<HabitEntity>> =
         repo.habits().stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+    /** Archived tides — the Settings → Dados restore list (hidden from the grid). */
+    val archivedHabits: StateFlow<List<HabitEntity>> =
+        repo.archivedHabits().stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
     val habitLogs: StateFlow<List<HabitLogEntity>> =
         repo.habitLogs().stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
     val habitRespiros: StateFlow<List<HabitRespiroEntity>> =
@@ -168,6 +207,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun updateHabit(habit: HabitEntity) = viewModelScope.launch { repo.updateHabit(habit) }
     fun removeHabit(id: String) = viewModelScope.launch { repo.removeHabit(id) }
+    /** Archive (hide, keep data) or restore a tide. */
+    fun setHabitArchived(id: String, archived: Boolean) =
+        viewModelScope.launch { repo.setHabitArchived(id, archived) }
     fun reorderHabits(orderedIds: List<String>) = viewModelScope.launch { repo.reorderHabits(orderedIds) }
     fun toggleHabitDay(id: String, dayKey: String) = viewModelScope.launch { repo.toggleHabitDay(id, dayKey, todayKey.value) }
     fun toggleHabitToday(id: String) = viewModelScope.launch { repo.toggleHabitDay(id, todayKey.value, todayKey.value) }
@@ -313,7 +355,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch { repo.addIntention(todayKey.value, text, priority, targetMin, timeOfDay) }
 
     fun toggleIntention(id: String) = viewModelScope.launch { repo.toggleIntention(id) }
-    fun removeIntention(id: String) = viewModelScope.launch { repo.removeIntention(id) }
+    /** Delete an intention with snackbar-undo: snapshot it first, delete, then
+     *  offer to put it back. // PT: apaga com opção de anular. */
+    fun removeIntention(id: String) = viewModelScope.launch {
+        val entity = repo.getIntention(id) ?: return@launch
+        repo.removeIntention(id)
+        _undoRequests.send(PendingUndo.Intention(entity))
+    }
     fun setIntentionPriority(id: String, priority: Int?) =
         viewModelScope.launch { repo.setIntentionPriority(id, priority) }
     fun setIntentionText(id: String, text: String) =

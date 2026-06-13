@@ -124,6 +124,13 @@ class PautaRepository(private val db: AppDatabase) {
 
     suspend fun removeIntention(id: String) = intentionDao.deleteById(id)
 
+    /** Snapshot one intention before a delete, so a snackbar can undo it. */
+    suspend fun getIntention(id: String): IntentionEntity? = intentionDao.getById(id)
+
+    /** Re-insert a just-deleted intention (snackbar undo), keeping its id, day,
+     *  position and done state so it returns exactly where it was. */
+    suspend fun restoreIntention(intention: IntentionEntity) = intentionDao.upsert(intention)
+
     /** Persist a new order by rewriting positions in the given id sequence. */
     suspend fun reorderIntentions(dayKey: String, orderedIds: List<String>) {
         val byId = intentionDao.getForDay(dayKey).associateBy { it.id }
@@ -363,6 +370,21 @@ class PautaRepository(private val db: AppDatabase) {
         focusBlockDao.deleteById(id)
     }
 
+    /** Snapshot a block and its sessions before a delete, so a snackbar can
+     *  restore the whole thing (the block delete cascades its sessions). */
+    suspend fun blockWithSessions(id: String): Pair<FocusBlockEntity, List<FocusSessionEntity>>? {
+        val block = focusBlockDao.getById(id) ?: return null
+        return block to focusSessionDao.getForBlock(id)
+    }
+
+    /** Re-insert a deleted block and its sessions (snackbar undo). Session rowIds
+     *  reset to 0 so Room re-issues them — the originals were freed by the delete,
+     *  and sessions are addressed by blockId + position, not rowId. */
+    suspend fun restoreBlock(block: FocusBlockEntity, sessions: List<FocusSessionEntity>) {
+        focusBlockDao.upsert(block)
+        focusSessionDao.insertAll(sessions.map { it.copy(rowId = 0) })
+    }
+
     /** Log a finished block from a manual time entry (forgot to run the timer):
      *  a single closed session [startMs, endMs]. Returns the id, null if invalid. */
     suspend fun addManualBlock(
@@ -392,7 +414,12 @@ class PautaRepository(private val db: AppDatabase) {
     }
 
     // ── Marés: habits + marks ─────────────────────────────────
-    fun habits(): Flow<List<HabitEntity>> = habitDao.observeAll()
+    /** Active (non-archived) tides — the grid, today-strip and widget all read
+     *  this, so archiving a tide hides it everywhere at once. */
+    fun habits(): Flow<List<HabitEntity>> = habitDao.observeActive()
+
+    /** Archived tides — the Settings restore list. */
+    fun archivedHabits(): Flow<List<HabitEntity>> = habitDao.observeArchived()
     fun habitLogs(): Flow<List<HabitLogEntity>> = habitMarkDao.observeLogs()
     fun habitRespiros(): Flow<List<HabitRespiroEntity>> = habitMarkDao.observeRespiros()
     fun habitCounts(): Flow<List<HabitCountEntity>> = habitMarkDao.observeCounts()
@@ -440,6 +467,13 @@ class PautaRepository(private val db: AppDatabase) {
 
     suspend fun updateHabit(habit: HabitEntity) = habitDao.upsert(habit)
     suspend fun getHabit(id: String): HabitEntity? = habitDao.getById(id)
+
+    /** Archive (or restore) a tide — a non-destructive alternative to delete:
+     *  it leaves the grid + today-strip but every log/respiro/count is kept.
+     *  // PT: arquivar/restaurar — esconde a maré sem apagar nada. */
+    suspend fun setHabitArchived(id: String, archived: Boolean) {
+        habitDao.getById(id)?.let { habitDao.upsert(it.copy(archived = archived)) }
+    }
 
     suspend fun removeHabit(id: String) {
         habitMarkDao.run {

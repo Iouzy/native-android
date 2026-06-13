@@ -88,6 +88,11 @@ data class HabitEntity(
     val clock: String = "",             // HH:MM reminder clock
     val color: String? = null,          // hex; null = follow app accent
     val position: Int = 0,
+    // native-only: an archived tide is hidden from the grid + today-strip but
+    // keeps every log/respiro/count. Not part of the pauta.v4 shape, so it isn't
+    // exported and is lost on a web round-trip (acceptable — see A7).
+    // // PT: maré arquivada — escondida da grelha, mas com todo o histórico.
+    val archived: Boolean = false,
 )
 
 /** habit.log{dayKey:1} — presence marks the period/day done. */

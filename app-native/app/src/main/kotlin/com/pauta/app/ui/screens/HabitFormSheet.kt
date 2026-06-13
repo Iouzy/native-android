@@ -273,6 +273,7 @@ fun AddHabitSheet(onSubmit: (HabitDraft) -> Unit, onClose: () -> Unit) {
 fun EditHabitSheet(
     habit: HabitEntity,
     onSave: (HabitEntity) -> Unit,
+    onArchive: () -> Unit,
     onRemove: () -> Unit,
     onClose: () -> Unit,
 ) {
@@ -386,6 +387,32 @@ fun EditHabitSheet(
             PautaButton(tr("Cancelar"), Modifier.weight(1f), PautaButtonVariant.Ghost) { onClose() }
             PautaButton(tr("Guardar"), Modifier.weight(2f), PautaButtonVariant.Primary) { save() }
         }
+        // A7: the safe alternative to delete sits first — archiving hides the tide
+        // but keeps every mark; "remover" below is the destructive path. // PT:
+        // arquivar (guarda o histórico) antes de remover (apaga tudo).
+        Spacer(Modifier.height(16.dp))
+        Text(
+            text = if (habit.archived) tr("restaurar maré") else tr("arquivar maré"),
+            color = colors.ink2,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Medium,
+            textAlign = TextAlign.Center,
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickableNoRipple(onArchive)
+                .padding(vertical = 4.dp),
+        )
+        Spacer(Modifier.height(3.dp))
+        Text(
+            text = tr("Arquivar esconde a maré da grelha sem perder o histórico."),
+            color = colors.ink3,
+            fontFamily = SerifFamily,
+            fontStyle = FontStyle.Italic,
+            fontSize = 11.sp,
+            lineHeight = 15.sp,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth(),
+        )
         Spacer(Modifier.height(14.dp))
         Text(
             text = tr("remover esta maré"),
