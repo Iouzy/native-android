@@ -80,6 +80,19 @@
             </intent-filter>
         </receiver>
 
+        <!-- C2: actionable reminder notification buttons — the reflection
+             direct-reply and the "Feito" tide actions route here (explicit
+             intents, so no intent-filter is needed). -->
+        <receiver
+            android:name=".service.ReminderActionReceiver"
+            android:exported="false" />
+
+        <!-- C2: fires the one-time focus "target reached" alert from the lock
+             screen when a running block hits its soft target. -->
+        <receiver
+            android:name=".service.FocusTargetReceiver"
+            android:exported="false" />
+
         <!-- Re-arm reminders after reboot / app update. -->
         <receiver
             android:name=".service.BootReceiver"

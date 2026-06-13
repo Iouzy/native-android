@@ -27,6 +27,8 @@ import com.pauta.app.service.BackupScheduler
 import com.pauta.app.service.FocusServiceController
 import com.pauta.app.service.MaresWidget
 import com.pauta.app.service.ReminderScheduler
+import com.pauta.app.service.WhatsNew
+import com.pauta.app.service.WhatsNewState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
@@ -294,10 +296,35 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
         updateDownloading.value = false
         if (file != null) {
+            // Stash this release's notes so the "what's new" screen can show them on
+            // the next launch, once the installed build's run number has bumped past
+            // the one we last showed. // PT: guarda as notas para o ecrã de novidades.
+            WhatsNew.stashNotes(context, u.notes)
             AppUpdater.install(context, file)
         } else {
             updateDownloadError.value = true
         }
+    }
+
+    // ── What's new (post-update) ──────────────────────────────
+    // Non-null on the first launch after an in-place update for an already-set-up
+    // user: the release notes to show once. Null on a fresh install or an
+    // unchanged build. Evaluated off the main thread at startup (reads a tiny
+    // SharedPreferences, before Room is needed). // PT: as novidades a mostrar uma
+    // vez após uma atualização (null numa instalação nova ou build igual).
+    val whatsNew: MutableStateFlow<WhatsNewState?> = MutableStateFlow(null)
+
+    init {
+        viewModelScope.launch(Dispatchers.IO) {
+            whatsNew.value = WhatsNew.pending(getApplication())
+        }
+    }
+
+    /** Dismiss the "what's new" screen and remember this build as seen, so it
+     *  shows only once. // PT: fecha o ecrã de novidades e marca esta build vista. */
+    fun dismissWhatsNew() {
+        WhatsNew.markSeen(getApplication())
+        whatsNew.value = null
     }
 
     init {
@@ -330,7 +357,15 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                         val segs = sessions
                             .filter { it.blockId == block.id }
                             .map { FocusMath.FocusSeg(it.startedAt, it.endedAt) }
-                        FocusServiceController.start(ctx, block.title, FocusMath.blockElapsedMs(segs, System.currentTimeMillis()))
+                        // Pass the block's soft target so the notification counts
+                        // down to it and the lock-screen "target reached" alert can
+                        // arm (C2). // PT: passa o alvo do bloco para a contagem
+                        // decrescente e o aviso de alvo atingido.
+                        FocusServiceController.start(
+                            ctx, block.title,
+                            FocusMath.blockElapsedMs(segs, System.currentTimeMillis()),
+                            block.targetMs,
+                        )
                     }
                 }
         }
