@@ -11,6 +11,7 @@ import androidx.core.app.RemoteInput
 import com.pauta.app.MainActivity
 import com.pauta.app.R
 import com.pauta.app.data.PautaRepository
+import com.pauta.app.data.entity.HabitEntity
 import com.pauta.app.domain.DateUtils
 import com.pauta.app.domain.HabitCalculator.DayState
 import com.pauta.app.i18n.tr
@@ -57,6 +58,14 @@ object ReminderNotifications {
             today = today,
         ).filter { it.state == DayState.EMPTY }
     }
+
+    /** The global habits digest covers only tides WITHOUT their own per-habit clock
+     *  reminder (D2): a timed tide is nudged individually at its clock by
+     *  [postHabitReminder], so listing it here too would double-remind. // PT: o
+     *  resumo geral só inclui marés sem hora própria — as com hora são avisadas à
+     *  parte. */
+    suspend fun digestTides(repo: PautaRepository): List<TideToday> =
+        pendingTides(repo).filter { it.habit.clock.isBlank() }
 
     /** "Plan your day" — unchanged from the original: tap to open. */
     fun postPlanner(context: Context) {
@@ -138,6 +147,43 @@ object ReminderNotifications {
         }
         notify(context, code, builder.build())
     }
+
+    /**
+     * D2: a single tide's own-clock reminder — its name with one quick "done"
+     * action, reusing the global habits reminder's [ReminderActionReceiver] plumbing
+     * (same [ACTION_HABIT_DONE] / [EXTRA_HABIT_ID], so marking from here works with
+     * the app closed and the receiver clears this notification afterwards). Its
+     * notification id + request code come from the habit id, distinct from the global
+     * digest's id, so a tide can carry both without either replacing the other.
+     * // PT: lembrete de uma maré específica, com ação "feito"; id próprio, não choca
+     * com o resumo geral.
+     */
+    fun postHabitReminder(context: Context, habit: HabitEntity) {
+        val id = habitNotifId(habit.id)
+        val doneIntent = Intent(context, ReminderActionReceiver::class.java)
+            .setAction(ACTION_HABIT_DONE)
+            .putExtra(EXTRA_HABIT_ID, habit.id)
+        val donePi = PendingIntent.getBroadcast(context, id, doneIntent, immutableFlags())
+        notify(
+            context, id,
+            base(context, habit.name, tr("Está na hora desta maré."), id)
+                .addAction(0, "✓ " + tr("Feito"), donePi)
+                .build(),
+        )
+    }
+
+    /** Clear a tide's per-habit reminder once it's marked done (from the action or
+     *  in-app) or has gone off-schedule. A no-op when no such notification is live —
+     *  e.g. when the "done" action came from the global digest. // PT: limpa o
+     *  lembrete da maré quando já não faz sentido. */
+    fun cancelHabitReminder(context: Context, habitId: String) {
+        runCatching { NotificationManagerCompat.from(context).cancel(habitNotifId(habitId)) }
+    }
+
+    /** The per-habit reminder's notification id (and quick-action request code),
+     *  derived from the habit id so each tide's reminder stays distinct from the
+     *  others and from the global digest. // PT: id da notificação por maré. */
+    fun habitNotifId(habitId: String): Int = habitId.hashCode()
 
     // ── shared bits ───────────────────────────────────────────
     /** The common notification skeleton (icon, title/body, channel, tap-to-open).

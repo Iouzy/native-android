@@ -31,7 +31,7 @@ class ReminderReceiver : BroadcastReceiver() {
                 val pending = goAsync()
                 app.appScope.launch {
                     try {
-                        ReminderNotifications.postHabits(context, ReminderNotifications.pendingTides(app.repository))
+                        ReminderNotifications.postHabits(context, ReminderNotifications.digestTides(app.repository))
                     } finally {
                         pending.finish()
                     }

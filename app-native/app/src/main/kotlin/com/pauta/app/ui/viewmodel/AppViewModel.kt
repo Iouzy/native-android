@@ -27,6 +27,7 @@ import android.content.Context
 import com.pauta.app.service.AppUpdater
 import com.pauta.app.service.BackupScheduler
 import com.pauta.app.service.FocusServiceController
+import com.pauta.app.service.HabitReminderScheduler
 import com.pauta.app.service.MaresWidget
 import com.pauta.app.service.ReminderScheduler
 import com.pauta.app.service.WhatsNew
@@ -39,6 +40,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.distinctUntilChangedBy
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
@@ -518,6 +520,25 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                     val ctx = getApplication<Application>()
                     ReminderScheduler.save(ctx, p.remindersEnabled, p.plannerTime, p.habitsTime, p.reflectionTime, p.lang)
                     ReminderScheduler.reschedule(ctx)
+                }
+        }
+
+        // D2: keep the per-habit reminder alarms in step with the tides' own clocks
+        // and the master reminders toggle, mirroring the (id → clock) projection of
+        // the active (non-archived) tides so they can re-arm at boot without Room.
+        // // PT: alinha os lembretes por maré com as horas das marés e o interruptor
+        // mestre de lembretes.
+        viewModelScope.launch {
+            combine(
+                repo.habits()
+                    .map { hs -> hs.filter { it.clock.isNotBlank() }.associate { it.id to it.clock } }
+                    .distinctUntilChanged(),
+                repo.prefs.map { it.remindersEnabled }.distinctUntilChanged(),
+            ) { clocks, enabled -> clocks to enabled }
+                .collect { (clocks, enabled) ->
+                    val ctx = getApplication<Application>()
+                    HabitReminderScheduler.save(ctx, enabled, clocks)
+                    HabitReminderScheduler.reschedule(ctx)
                 }
         }
 
