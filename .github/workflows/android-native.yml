@@ -72,10 +72,36 @@ jobs:
             done
           fi
 
+      # main only: build the user-facing release notes from the commit that landed
+      # on main (the squash-merge subject + body), so the in-app "Novidades" screen
+      # — which renders the GitHub release body verbatim — shows what actually
+      # changed instead of boilerplate. We drop the Claude Code session footer and
+      # lightly tidy the first line (task-code prefix + "(#NN)" PR suffix). The
+      # message is passed through an env var and never interpolated into the
+      # script, so a commit message can't inject shell. // PT: notas da versão a
+      # partir da mensagem do commit, para o ecrã de novidades mostrar o que mudou.
+      - name: Compose release notes
+        if: github.ref == 'refs/heads/main'
+        env:
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
+        run: |
+          notes="$(printf '%s\n' "$COMMIT_MSG" \
+            | grep -v -E '^https?://claude\.ai/code/' \
+            | sed -E '1 s/^[A-Z][0-9]+: //; 1 s/ \(#[0-9]+\)$//' \
+            || true)"
+          # Empty/footer-only message → keep a calm generic line (matches the
+          # in-app fallback). // PT: mensagem vazia → linha genérica.
+          if [ -z "$(printf '%s' "$notes" | tr -d '[:space:]')" ]; then
+            notes="Pequenas melhorias e correções."
+          fi
+          printf '%s\n' "$notes" > release_notes.md
+          echo '----- release_notes.md -----'; cat release_notes.md
+
       # main only: publish the rolling native release the app updates from. The
       # asset name carries the run number; the updater parses it to decide if a
       # newer build exists. The committed debug.keystore signs every build, so
-      # updates install in place without "package conflicts".
+      # updates install in place without "package conflicts". The body is the
+      # composed notes above (shown verbatim by the in-app updater + Novidades).
       - name: Publish to rolling "latest-native" Release
         if: github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
@@ -85,8 +111,6 @@ jobs:
           prerelease: false
           make_latest: false
           name: Pauta Native ${{ github.run_number }}
-          body: |
-            Native (Kotlin/Jetpack Compose) build ${{ github.run_number }}.
-            Install pauta-native-v${{ github.run_number }}.apk below.
+          body_path: release_notes.md
           files: pauta-native-v${{ github.run_number }}.apk
           fail_on_unmatched_files: true
