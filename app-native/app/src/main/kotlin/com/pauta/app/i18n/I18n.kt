@@ -481,6 +481,9 @@ object I18n {
         "Alvo · {t}" to "Target · {t}", // native-only
         "Alvo de foco" to "Focus target", // native-only
         "Alvo de foco alcançado" to "Focus target reached", // native-only
+        // D2 · per-habit reminders
+        "Está na hora desta maré." to "Time for this tide.", // native-only
+        "Feito" to "Done", // native-only
         "Dados" to "Data",
         "Exportar dados" to "Export data",
         "Transfere um ficheiro .json com tudo." to "Downloads a .json file with everything.",

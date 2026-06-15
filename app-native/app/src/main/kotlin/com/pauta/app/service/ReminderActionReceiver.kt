@@ -48,9 +48,13 @@ class ReminderActionReceiver : BroadcastReceiver() {
                 app.appScope.launch {
                     try {
                         markTideDone(app.repository, id)
+                        // D2: clear this tide's own per-habit reminder if the tap came
+                        // from one (a no-op when it came from the global digest — that
+                        // id has no live per-habit notification).
+                        ReminderNotifications.cancelHabitReminder(context, id)
                         // Refresh the inbox (drops the completed tide, or clears it
                         // when none remain) and nudge the home-screen widget.
-                        ReminderNotifications.postHabits(context, ReminderNotifications.pendingTides(app.repository))
+                        ReminderNotifications.postHabits(context, ReminderNotifications.digestTides(app.repository))
                         MaresWidget.refresh(context)
                     } finally {
                         pending.finish()

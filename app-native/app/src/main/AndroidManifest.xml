@@ -107,6 +107,13 @@
             android:name=".service.FocusTargetReceiver"
             android:exported="false" />
 
+        <!-- D2: per-habit reminder alarms fire here (explicit intent, so no
+             intent-filter is needed); the receiver re-arms the next day and posts
+             only if the tide is still due + unmarked. -->
+        <receiver
+            android:name=".service.HabitReminderReceiver"
+            android:exported="false" />
+
         <!-- Re-arm reminders after reboot / app update. -->
         <receiver
             android:name=".service.BootReceiver"
