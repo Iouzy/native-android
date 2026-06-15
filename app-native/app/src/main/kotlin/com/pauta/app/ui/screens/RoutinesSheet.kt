@@ -373,10 +373,15 @@ private fun RoutineItemRow(
                 keyboardActions = KeyboardActions(onDone = { commit() }),
                 modifier = Modifier.commitOnFocusLost { commit() },
                 decorationBox = { inner ->
-                    if (target.isEmpty()) {
-                        Text(tr("min"), color = colors.ink4, fontFamily = MonoFamily, fontSize = 13.sp)
+                    // Box so the "min" placeholder sits behind the input rather than
+                    // shifting it (the field idiom used across the app). // PT: Box
+                    // para o placeholder ficar por trás, não empurrar o campo.
+                    Box {
+                        if (target.isEmpty()) {
+                            Text(tr("min"), color = colors.ink4, fontFamily = MonoFamily, fontSize = 13.sp)
+                        }
+                        inner()
                     }
-                    inner()
                 },
             )
         }
@@ -422,8 +427,10 @@ private fun RoutineNameField(name: String, onCommit: (String) -> Unit, modifier:
         keyboardActions = KeyboardActions(onDone = { if (text.isNotBlank()) onCommit(text.trim()) }),
         modifier = modifier.commitOnFocusLost { if (text.isNotBlank()) onCommit(text.trim()) },
         decorationBox = { inner ->
-            if (text.isEmpty()) Text(tr("nome da rotina…"), color = colors.ink4, fontFamily = SerifFamily, fontSize = 17.sp)
-            inner()
+            Box {
+                if (text.isEmpty()) Text(tr("nome da rotina…"), color = colors.ink4, fontFamily = SerifFamily, fontSize = 17.sp)
+                inner()
+            }
         },
     )
 }
