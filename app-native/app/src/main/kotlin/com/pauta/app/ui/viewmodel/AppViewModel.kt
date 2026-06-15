@@ -451,6 +451,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch { repo.setIntentionText(id, text) }
     fun setReflection(text: String) = viewModelScope.launch { repo.setReflection(todayKey.value, text) }
 
+    /** E2: dismiss today's "Memórias" card — stamps today so it stays hidden for
+     *  the day and returns tomorrow. // PT: dispensa a memória só por hoje. */
+    fun dismissMemoria() = update { it.copy(memoriaDismissedDay = todayKey.value) }
+
     /** Week-ahead plans (become intentions when their day arrives). */
     val plans: StateFlow<List<PlannedIntentionEntity>> =
         repo.plans().stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())

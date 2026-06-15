@@ -200,4 +200,9 @@ data class PrefsEntity(
     val pinHash: String? = null,        // SHA-256(salt+PIN), hex; null = no PIN lock
     val pinSalt: String? = null,        // random 8-byte salt, hex
     val biometricEnabled: Boolean = false, // C3: offer biometric unlock at the lock screen (only meaningful with a PIN set). Device-specific → native-only, not exported in v4.
+    // E2: the day key on which the "Memórias" card was last dismissed (null =
+    // never). Only that day's memory is hidden; it returns the next day. Ephemeral
+    // device UI state → not part of the pauta.v4 shape, so not exported.
+    // // PT: dia em que a memória foi dispensada — escondida só nesse dia.
+    val memoriaDismissedDay: String? = null,
 )

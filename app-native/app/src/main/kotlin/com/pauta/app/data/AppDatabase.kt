@@ -55,7 +55,7 @@ import com.pauta.app.data.entity.RoutineItemEntity
         PlannedIntentionEntity::class,
         PrefsEntity::class,
     ],
-    version = 6,
+    version = 7,
     exportSchema = false,
 )
 @TypeConverters(Converters::class)
@@ -118,6 +118,16 @@ abstract class AppDatabase : RoomDatabase() {
                 createSearchIndex(db)
                 createSearchTriggers(db)
                 backfillSearchIndex(db)
+            }
+        }
+
+        // E2: the native-only day key on which the "Memórias" card was last
+        // dismissed (null = never). It hides only that day's memory, so it's plain
+        // device UI state — not exported in v4. // PT: dia em que a memória foi
+        // dispensada (só esconde a memória desse dia).
+        private val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE prefs ADD COLUMN memoriaDismissedDay TEXT")
             }
         }
 
@@ -273,7 +283,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "pauta.db",
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
                     .addCallback(SEARCH_CALLBACK)
                     .build()
                     .also { instance = it }
