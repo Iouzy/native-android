@@ -14,6 +14,7 @@ import com.pauta.app.data.entity.PlannedIntentionEntity
 import com.pauta.app.data.entity.PrefsEntity
 import com.pauta.app.data.entity.RoutineEntity
 import com.pauta.app.data.entity.RoutineItemEntity
+import com.pauta.app.data.dao.SearchHit
 import com.pauta.app.domain.CarrySource
 import com.pauta.app.domain.DateUtils
 import com.pauta.app.domain.HabitCalculator
@@ -25,6 +26,7 @@ import com.pauta.app.domain.MarkKind
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
+import androidx.sqlite.db.SimpleSQLiteQuery
 import kotlin.random.Random
 import java.io.File
 import java.security.MessageDigest
@@ -51,6 +53,7 @@ class PautaRepository(private val db: AppDatabase) {
     private val goalDao = db.goalDao()
     private val routineDao = db.routineDao()
     private val plannedDao = db.plannedIntentionDao()
+    private val searchDao = db.searchDao()
 
     // ── ids ───────────────────────────────────────────────────
     /** Generate a web-style id (`i_…`, `b_…`, …): prefix + base-36 time + random,
@@ -161,6 +164,32 @@ class PautaRepository(private val db: AppDatabase) {
         combine(dayDao.observeAll(), intentionDao.observeAll()) { days, intentions ->
             HistoryBuilder.build(days, intentions, todayKey)
         }
+
+    // ── search (E1) ───────────────────────────────────────────
+    /**
+     * Full-text search across intention text, day reflections and focus-block
+     * titles/reflections (the `search_index` FTS4 table, kept in sync by triggers),
+     * newest day first. Each whitespace-separated word becomes a prefix term, so
+     * "guit" finds "guitarra", and every term must match (FTS implicit AND). The
+     * unicode61 tokenizer strips diacritics on both the stored text and the query,
+     * so it's accent-insensitive for Portuguese. User punctuation is reduced to
+     * spaces first, so characters like `"`, `*`, `-`, `:` or `(` can never be read
+     * as FTS operators. Blank input → no results. // PT: pesquisa FTS insensível a
+     * acentos; cada palavra vira prefixo e todas têm de casar; pontuação é
+     * neutralizada para não virar operador FTS.
+     */
+    suspend fun search(raw: String): List<SearchHit> {
+        val terms = raw
+            .map { if (it.isLetterOrDigit() || it.isWhitespace()) it else ' ' }
+            .joinToString("")
+            .split(Regex("\\s+"))
+            .filter { it.isNotBlank() }
+        if (terms.isEmpty()) return emptyList()
+        val match = terms.joinToString(" ") { "$it*" }
+        val sql = "SELECT docId, source, dayKey, text FROM search_index " +
+            "WHERE search_index MATCH ? ORDER BY dayKey DESC LIMIT 300"
+        return searchDao.search(SimpleSQLiteQuery(sql, arrayOf<Any?>(match)))
+    }
 
     /** Copy the given items into [todayKey] as fresh intentions, preserving
      *  priority + planned duration (fresh ids/timestamps), appended after any

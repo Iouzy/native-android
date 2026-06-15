@@ -18,6 +18,7 @@ import com.pauta.app.data.entity.PlannedIntentionEntity
 import com.pauta.app.data.entity.PrefsEntity
 import com.pauta.app.data.entity.RoutineEntity
 import com.pauta.app.data.entity.RoutineItemEntity
+import com.pauta.app.data.dao.SearchHit
 import com.pauta.app.data.SafBackup
 import com.pauta.app.domain.CarrySource
 import com.pauta.app.domain.DateUtils
@@ -44,6 +45,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.distinctUntilChangedBy
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
@@ -145,6 +147,25 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val history: StateFlow<List<HistoryDay>> =
         todayKey.flatMapLatest { repo.history(it) }
             .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    // ── Search (E1) ───────────────────────────────────────────
+    // The History search box's live query + its results. The text drives a
+    // (debounce-free) FTS lookup: flatMapLatest cancels the previous lookup when
+    // the query changes, so only the latest keystroke's results land; a blank
+    // query short-circuits to no results. State lives here so it survives
+    // recomposition and rotation, and the History screen clears it on close.
+    // // PT: pesquisa do Histórico — consulta viva e resultados FTS.
+    private val _searchQuery = MutableStateFlow("")
+    val searchQuery: StateFlow<String> = _searchQuery
+    fun setSearchQuery(q: String) { _searchQuery.value = q }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val searchResults: StateFlow<List<SearchHit>> =
+        _searchQuery
+            .map { it.trim() }
+            .distinctUntilChanged()
+            .flatMapLatest { q -> if (q.isBlank()) flowOf(emptyList()) else flow { emit(repo.search(q)) } }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000L), emptyList())
 
     // ── Pauta ─────────────────────────────────────────────────
     val blocks: StateFlow<List<FocusBlockEntity>> =
