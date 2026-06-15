@@ -71,12 +71,20 @@ internal fun ZenFocus(
     block: FocusBlockEntity,
     sessions: List<FocusSessionEntity>,
     now: Long,
+    reducedMotion: Boolean,
     onExit: () -> Unit,
     onPause: () -> Unit,
     onConclude: () -> Unit,
 ) {
     val colors = LocalPautaColors.current
     val totalElapsed = FocusMath.blockElapsedMs(sessions.map { FocusMath.FocusSeg(it.startedAt, it.endedAt) }, now)
+    // F1: the same tide-rise as the active card, now full-screen — the water
+    // climbs to the target and a quiet crest sweeps once on reaching it.
+    // // PT: a mesma maré do cartão activo, agora em ecrã inteiro.
+    val target = block.targetMs ?: 0L
+    val reached = target > 0 && totalElapsed >= target
+    val crest = rememberTideCrest(block.id, reached, reducedMotion)
+    val tideProgress = if (target > 0) totalElapsed.toFloat() / target else 0f
     Dialog(
         onDismissRequest = onExit,
         properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
@@ -85,6 +93,10 @@ internal fun ZenFocus(
             Modifier
                 .fillMaxSize()
                 .background(colors.surfaceDark)
+                .then(
+                    if (target > 0) Modifier.drawBehind { drawTide(tideProgress, crest.value, colors.accent) }
+                    else Modifier,
+                )
                 .clickableNoRipple(onExit),
         ) {
             Column(

@@ -50,6 +50,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontStyle
@@ -103,6 +105,7 @@ fun PautaScreen() {
     val habitRespiros by vm.habitRespiros.collectAsStateWithLifecycle()
     val habitCounts by vm.habitCounts.collectAsStateWithLifecycle()
     val prefs by vm.prefs.collectAsStateWithLifecycle()
+    val haptic = LocalHapticFeedback.current
 
     // 1s clock tick driving the live timer.
     var now by remember { mutableStateOf(System.currentTimeMillis()) }
@@ -239,6 +242,10 @@ fun PautaScreen() {
                         onReached = {
                             val min = a.targetMs?.let { (it / 60_000L).toInt() } ?: 0
                             reachedPrompt = min
+                            // F1: a single quiet tick as the tide crests on target
+                            // (A1's pref still governs it). // PT: um toque ao
+                            // cumprir a meta, conforme a preferência de vibração.
+                            if (prefs.haptics) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                         },
                         onPause = { pauseWithNote(a) },
                         onSwitch = { showSwitch = true },
@@ -457,6 +464,7 @@ fun PautaScreen() {
                 block = a,
                 sessions = sessionsOf(a.id),
                 now = now,
+                reducedMotion = prefs.reducedMotion,
                 onExit = { zen = false },
                 onPause = { zen = false; pauseWithNote(a) },
                 onConclude = { zen = false; concludeOptimistic(a) },
@@ -598,11 +606,22 @@ private fun ActiveBlockCard(
     }
     val targetMin = if (target > 0) (target / 60_000L).toInt() else 0
 
+    // F1: the tide-rise fill — when a target is set, a barely-visible accent
+    // water level climbs to [tideProgress] and a quiet crest sweeps once on
+    // reaching it. Driven by the 1s tick + a one-shot crest, so no idle churn.
+    // // PT: o cartão de foco enche como uma maré que sobe.
+    val crest = rememberTideCrest(block.id, reached, reducedMotion)
+    val tideProgress = if (target > 0) totalElapsed.toFloat() / target else 0f
+
     Column(
         Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
             .background(colors.surfaceDark)
+            .then(
+                if (target > 0) Modifier.drawBehind { drawTide(tideProgress, crest.value, colors.accent) }
+                else Modifier,
+            )
             .padding(start = 22.dp, end = 22.dp, top = 22.dp, bottom = 18.dp),
     ) {
         // status row: pulsing dot + label · início + zen + discard
