@@ -132,6 +132,10 @@ object I18n {
         "respiro" to "breath",
         "Escreva quando quiser. Não precisa de ser longo." to "Write whenever you like. It needn't be long.",
         "amanhã, recomeça." to "tomorrow, begin again.",
+        // E2 · Memórias (on-this-day card)
+        "há um ano" to "a year ago", // native-only
+        "há {n} anos" to "{n} years ago", // native-only
+        "dispensar" to "dismiss", // native-only
         "Apagar" to "Delete", // native-only
         "Ainda sem dias anteriores." to "No previous days yet.", // native-only
         "dia anterior" to "previous day", // native-only

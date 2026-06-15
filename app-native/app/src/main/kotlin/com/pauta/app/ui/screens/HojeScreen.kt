@@ -77,6 +77,7 @@ import com.pauta.app.domain.CarrySource
 import com.pauta.app.domain.FocusMath
 import com.pauta.app.domain.HabitCalculator.DayState
 import com.pauta.app.domain.HojeLogic
+import com.pauta.app.domain.Memory
 import com.pauta.app.i18n.I18n
 import com.pauta.app.i18n.tr
 import com.pauta.app.i18n.trf
@@ -153,6 +154,14 @@ fun HojeScreen(onOpenHistory: () -> Unit) {
     val pastReflection = remember(allDays, selectedDayKey) {
         allDays.find { it.dayKey == selectedDayKey }?.reflection.orEmpty()
     }
+
+    // E2 · Memórias: past reflections that fell on today's month-day in earlier
+    // years (newest first) — a pure scan over the day rows. Shown only on the
+    // today view, and dismissible for the day (the stamp lives in prefs, so it
+    // survives a restart and clears at midnight). // PT: memórias — reflexões de
+    // anos anteriores no mesmo dia, dispensáveis só por hoje.
+    val memories = remember(allDays, today) { HojeLogic.memories(allDays, today) }
+    val memoriaDismissed = prefs.memoriaDismissedDay == today
 
     // Today-derived state, hoisted out of the LazyColumn so several items can
     // share it: the day pulse shows above the list and again in the reflection
@@ -366,6 +375,17 @@ fun HojeScreen(onOpenHistory: () -> Unit) {
                             }
                         },
                     )
+                }
+            }
+
+            // E2: a quiet "on this day" memory, sitting just before tonight's
+            // reflection — a past night's words beside the one about to be written.
+            // Only when a prior-year reflection exists and not dismissed for today.
+            // // PT: memória discreta, mesmo antes da reflexão da noite.
+            if (memories.isNotEmpty() && !memoriaDismissed) {
+                item(key = "memorias") {
+                    Spacer(Modifier.height(40.dp))
+                    MemoriasCard(memories = memories, onDismiss = { vm.dismissMemoria() })
                 }
             }
 
@@ -674,6 +694,61 @@ private fun TodayTideRow(tide: TideToday, last: Boolean, onAct: (() -> Unit)?) {
             }
         }
         if (!last) Box(Modifier.fillMaxWidth().height(1.dp).background(colors.rule))
+    }
+}
+
+/** E2 · Memórias — a quiet paper-2 card echoing the reflection card: a small mono
+ *  "HÁ UM ANO" / "HÁ N ANOS" eyebrow over each past reflection in serif italic,
+ *  newest year first. The corner × dismisses the whole card for the day. // PT:
+ *  cartão discreto de memórias — reflexões de anos anteriores, dispensável por hoje. */
+@Composable
+private fun MemoriasCard(memories: List<Memory>, onDismiss: () -> Unit) {
+    val colors = LocalPautaColors.current
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .border(1.dp, colors.rule, RoundedCornerShape(14.dp))
+            .background(colors.paper2)
+            .padding(horizontal = 22.dp, vertical = 20.dp),
+    ) {
+        memories.forEachIndexed { i, mem ->
+            if (i > 0) {
+                Spacer(Modifier.height(16.dp))
+                Box(Modifier.fillMaxWidth().height(1.dp).background(colors.rule))
+                Spacer(Modifier.height(16.dp))
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = (if (mem.yearsAgo == 1) tr("há um ano") else trf("há {n} anos", "n" to mem.yearsAgo)).uppercase(),
+                    color = colors.ink3,
+                    fontFamily = MonoFamily,
+                    fontSize = 9.sp,
+                    letterSpacing = 1.8.sp, // 0.2em of 9sp — matches the reflection eyebrow
+                    modifier = Modifier.weight(1f),
+                )
+                // One × on the first row dismisses the whole card for the day.
+                if (i == 0) {
+                    Icon(
+                        imageVector = Icons.Filled.Close,
+                        contentDescription = tr("dispensar"),
+                        tint = colors.ink4,
+                        modifier = Modifier
+                            .size(18.dp)
+                            .clickableNoRipple(onDismiss),
+                    )
+                }
+            }
+            Spacer(Modifier.height(10.dp))
+            Text(
+                text = "“" + mem.reflection + "”",
+                color = colors.ink2,
+                fontFamily = SerifFamily,
+                fontStyle = FontStyle.Italic,
+                fontSize = 15.sp,
+                lineHeight = 22.sp,
+            )
+        }
     }
 }
 

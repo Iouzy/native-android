@@ -1,10 +1,15 @@
 package com.pauta.app.domain
 
+import com.pauta.app.data.entity.DayEntity
 import com.pauta.app.data.entity.IntentionEntity
 
 /** A carry-over offer: the most recent past day that still has unfinished
  *  intentions, and those items. */
 data class CarrySource(val dayKey: String, val items: List<IntentionEntity>)
+
+/** E2 · a surfaced memory: a past day's reflection that fell on the same
+ *  month-day as today, [yearsAgo] whole years back (≥1). */
+data class Memory(val dayKey: String, val reflection: String, val yearsAgo: Int)
 
 /**
  * Pure Hoje-tab helpers, kept Room-free so they're unit-testable. // PT:
@@ -46,5 +51,30 @@ object HojeLogic {
             if (items.isNotEmpty()) return CarrySource(key, items)
         }
         return null
+    }
+
+    /**
+     * Memórias (E2): past reflections that landed on the same calendar month-day
+     * as [todayKey], one or more whole years ago — newest year first. A blank
+     * reflection is never a memory; today itself and future days never match
+     * (yearsAgo ≥ 1). Day keys are `YYYY-MM-DD`, so the month-day is the suffix
+     * after the year and an exact-string compare also handles Feb 29 correctly (a
+     * non-leap prior year simply has no such row). // PT: reflexões de anos
+     * anteriores no mesmo dia do calendário, da mais recente para a mais antiga.
+     */
+    fun memories(days: List<DayEntity>, todayKey: String): List<Memory> {
+        if (todayKey.length < 10) return emptyList()
+        val todayYear = todayKey.substring(0, 4).toIntOrNull() ?: return emptyList()
+        val monthDay = todayKey.substring(5) // "MM-DD"
+        return days.asSequence()
+            .filter { it.reflection.isNotBlank() }
+            .filter { it.dayKey.length >= 10 && it.dayKey.substring(5) == monthDay }
+            .mapNotNull { d ->
+                val year = d.dayKey.substring(0, 4).toIntOrNull() ?: return@mapNotNull null
+                val yearsAgo = todayYear - year
+                if (yearsAgo >= 1) Memory(d.dayKey, d.reflection, yearsAgo) else null
+            }
+            .sortedByDescending { it.dayKey } // newest year (fewest yearsAgo) first
+            .toList()
     }
 }
