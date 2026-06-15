@@ -138,6 +138,11 @@ object I18n {
         "dia seguinte" to "next day", // native-only
         "Sem conteúdo neste dia." to "No content for this day.", // native-only
         "Reflexão" to "Reflection",
+        // E1 · search in the History view
+        "Procurar…" to "Search…", // native-only
+        "Sem resultados." to "No results.", // native-only
+        "Limpar" to "Clear", // native-only
+        "intenção" to "intention", // native-only
         "dias anteriores" to "previous days",
         "a semana" to "the week",
         "A semana" to "The week",

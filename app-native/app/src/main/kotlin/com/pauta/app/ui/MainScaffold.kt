@@ -234,8 +234,10 @@ fun MainScaffold(entry: AppEntry?, onEntryConsumed: () -> Unit) {
             }
             composable(Route.HISTORY) {
                 AppScoped(appOwner) {
-                    val history by vm.history.collectAsStateWithLifecycle()
-                    HistoryView(days = history, onClose = { navController.popBackStack() })
+                    // E1: HistoryView now owns its data (history list + search +
+                    // per-day memory) via the app-scoped ViewModel, like the other
+                    // promoted screens. // PT: o Histórico vai buscar os dados ao VM.
+                    HistoryView(onClose = { navController.popBackStack() })
                 }
             }
         }
