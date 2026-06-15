@@ -146,6 +146,21 @@ object I18n {
         "Marca um dia qualquer do período. Depois disso, os restantes ficam bloqueados." to "Mark any day of the period. After that, the rest are locked.",
         "Repete sempre no mesmo dia. Os outros dias do período ficam bloqueados." to "Always repeats on the same day. The other days of the period are locked.",
 
+        // ── Rotinas (D1: intention templates) ──
+        // Ported from the web app (original EN values kept verbatim).
+        "Rotinas" to "Routines",
+        "guardar como rotina" to "save as routine",
+        "nome da rotina…" to "routine name…",
+        // The manager sheet itself is native-only.
+        "Modelos de intenções. Aplique uma para semear o dia ou guarde o dia atual como rotina." to "Templates of intentions. Apply one to seed the day, or save the current day as a routine.", // native-only
+        "criar" to "create", // native-only
+        "aplicar" to "apply", // native-only
+        "aplicada" to "applied", // native-only
+        "adicionar intenção…" to "add an intention…", // native-only
+        "Sem rotinas ainda." to "No routines yet.", // native-only
+        "subir" to "move up", // native-only
+        "descer" to "move down", // native-only
+
         // ── Pauta ──
         "{n} blocos · {t} de foco hoje" to "{n} blocks · {t} of focus today", // native-only
         "Em pausa" to "Paused",

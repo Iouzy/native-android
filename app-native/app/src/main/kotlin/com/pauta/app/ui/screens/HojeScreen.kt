@@ -116,12 +116,15 @@ fun HojeScreen(onOpenHistory: () -> Unit) {
     val habitCounts by vm.habitCounts.collectAsStateWithLifecycle()
     val today by vm.todayKey.collectAsStateWithLifecycle()
     val plans by vm.plans.collectAsStateWithLifecycle()
+    val routines by vm.routines.collectAsStateWithLifecycle()
+    val routineItems by vm.routineItems.collectAsStateWithLifecycle()
     val prefs by vm.prefs.collectAsStateWithLifecycle()
     // A3: every micro-animation below is gated on this — reduced motion snaps to
     // the old instant behaviour. // PT: animações respeitam "movimento reduzido".
     val animate = !prefs.reducedMotion
     var showWeek by remember { mutableStateOf(false) }
     var showInsights by remember { mutableStateOf(false) }
+    var showRoutines by remember { mutableStateOf(false) }
 
     // 0 = today; -1 … -7 = that many days back (limited to 7 days).
     var selectedDayOffset by remember { mutableIntStateOf(0) }
@@ -254,6 +257,7 @@ fun HojeScreen(onOpenHistory: () -> Unit) {
                 Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     HeaderChip(tr("dias anteriores") + " ↗") { onOpenHistory() }
                     HeaderChip(tr("a semana") + " ↗") { showWeek = true }
+                    HeaderChip(tr("Rotinas") + " ↗") { showRoutines = true }
                     HeaderChip(tr("revisão") + " ↗") { showInsights = true }
                 }
             }
@@ -519,6 +523,26 @@ fun HojeScreen(onOpenHistory: () -> Unit) {
     }
     if (showInsights) {
         InsightsSheet(onClose = { showInsights = false })
+    }
+    if (showRoutines) {
+        // D1: the routines manager — create/edit/reorder + one-tap "aplicar" that
+        // seeds today's intentions. Opened from Hoje so applying lands right here.
+        // // PT: gestor de rotinas, aberto a partir de Hoje.
+        RoutinesSheet(
+            routines = routines,
+            items = routineItems,
+            todayHasIntentions = intentions.isNotEmpty(),
+            onApply = { vm.applyRoutine(it) },
+            onCreate = { vm.addRoutine(it) },
+            onSaveFromToday = { vm.saveRoutineFromToday(it) },
+            onRename = { id, name -> vm.renameRoutine(id, name) },
+            onDelete = { vm.deleteRoutine(it) },
+            onAddItem = { id, text -> vm.addRoutineItem(id, text) },
+            onUpdateItem = { rowId, text, prio, tgt -> vm.updateRoutineItem(rowId, text, prio, tgt) },
+            onRemoveItem = { vm.removeRoutineItem(it) },
+            onReorderItems = { id, ids -> vm.reorderRoutineItems(id, ids) },
+            onClose = { showRoutines = false },
+        )
     }
 }
 
