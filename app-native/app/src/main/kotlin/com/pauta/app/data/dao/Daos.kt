@@ -175,10 +175,18 @@ interface RoutineDao {
     @Upsert suspend fun upsertRoutine(routine: RoutineEntity)
     @Query("DELETE FROM routines WHERE id = :id") suspend fun deleteRoutineById(id: String)
     @Insert suspend fun insertItems(items: List<RoutineItemEntity>)
+    @Update suspend fun updateItem(item: RoutineItemEntity)
     @Query("DELETE FROM routine_items WHERE routineId = :routineId") suspend fun deleteItemsForRoutine(routineId: String)
+    @Query("DELETE FROM routine_items WHERE rowId = :rowId") suspend fun deleteItemByRowId(rowId: Long)
 
     @Query("SELECT * FROM routines ORDER BY position") fun observeRoutines(): Flow<List<RoutineEntity>>
     @Query("SELECT * FROM routine_items ORDER BY position") fun observeItems(): Flow<List<RoutineItemEntity>>
+
+    // Snapshots used by the D1 manager when it needs the current rows to edit
+    // (rename, reorder, append an item at the end). // PT: snapshots para o gestor.
+    @Query("SELECT * FROM routines WHERE id = :id") suspend fun getRoutineById(id: String): RoutineEntity?
+    @Query("SELECT * FROM routine_items WHERE rowId = :rowId") suspend fun getItemByRowId(rowId: Long): RoutineItemEntity?
+    @Query("SELECT * FROM routine_items WHERE routineId = :routineId ORDER BY position") suspend fun getItemsForRoutine(routineId: String): List<RoutineItemEntity>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun insertRoutines(routines: List<RoutineEntity>)
     @Query("SELECT * FROM routines") suspend fun getAllRoutines(): List<RoutineEntity>

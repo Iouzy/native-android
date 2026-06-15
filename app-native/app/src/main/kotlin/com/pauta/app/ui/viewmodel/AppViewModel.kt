@@ -16,6 +16,8 @@ import com.pauta.app.data.entity.IntentionEntity
 import com.pauta.app.data.entity.MilestoneEntity
 import com.pauta.app.data.entity.PlannedIntentionEntity
 import com.pauta.app.data.entity.PrefsEntity
+import com.pauta.app.data.entity.RoutineEntity
+import com.pauta.app.data.entity.RoutineItemEntity
 import com.pauta.app.data.SafBackup
 import com.pauta.app.domain.CarrySource
 import com.pauta.app.domain.DateUtils
@@ -233,6 +235,30 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun addMilestone(goalId: String, text: String) = viewModelScope.launch { repo.addMilestone(goalId, text) }
     fun toggleMilestone(id: String) = viewModelScope.launch { repo.toggleMilestone(id) }
     fun removeMilestone(id: String) = viewModelScope.launch { repo.removeMilestone(id) }
+
+    // ── Rotinas ───────────────────────────────────────────────
+    // D1: routines + their items, surfaced for the Hoje "Rotinas" manager sheet.
+    // The manager groups items by routineId; applying a routine seeds today.
+    // // PT: rotinas e itens para o gestor; aplicar semeia o dia de hoje.
+    val routines: StateFlow<List<RoutineEntity>> =
+        repo.routines().stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+    val routineItems: StateFlow<List<RoutineItemEntity>> =
+        repo.routineItems().stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    fun addRoutine(name: String) = viewModelScope.launch { repo.addRoutine(name) }
+    fun renameRoutine(id: String, name: String) = viewModelScope.launch { repo.renameRoutine(id, name) }
+    fun deleteRoutine(id: String) = viewModelScope.launch { repo.deleteRoutine(id) }
+    fun addRoutineItem(routineId: String, text: String, priority: Int? = null, targetMin: Int? = null) =
+        viewModelScope.launch { repo.addRoutineItem(routineId, text, priority, targetMin) }
+    fun updateRoutineItem(rowId: Long, text: String, priority: Int?, targetMin: Int?) =
+        viewModelScope.launch { repo.updateRoutineItem(rowId, text, priority, targetMin) }
+    fun removeRoutineItem(rowId: Long) = viewModelScope.launch { repo.removeRoutineItem(rowId) }
+    fun reorderRoutineItems(routineId: String, orderedRowIds: List<Long>) =
+        viewModelScope.launch { repo.reorderRoutineItems(routineId, orderedRowIds) }
+    /** Append a routine's items to today as fresh intentions. */
+    fun applyRoutine(routineId: String) = viewModelScope.launch { repo.applyRoutine(todayKey.value, routineId) }
+    /** Snapshot today's intentions as a new named routine. */
+    fun saveRoutineFromToday(name: String) = viewModelScope.launch { repo.saveRoutineFromToday(name, todayKey.value) }
 
     // ── updater ───────────────────────────────────────────────
     val updateChecking: MutableStateFlow<Boolean> = MutableStateFlow(false)

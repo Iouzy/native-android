@@ -12,6 +12,8 @@ import com.pauta.app.data.entity.IntentionEntity
 import com.pauta.app.data.entity.MilestoneEntity
 import com.pauta.app.data.entity.PlannedIntentionEntity
 import com.pauta.app.data.entity.PrefsEntity
+import com.pauta.app.data.entity.RoutineEntity
+import com.pauta.app.data.entity.RoutineItemEntity
 import com.pauta.app.domain.CarrySource
 import com.pauta.app.domain.DateUtils
 import com.pauta.app.domain.HabitCalculator
@@ -592,6 +594,107 @@ class PautaRepository(private val db: AppDatabase) {
         goalDao.getAllMilestones().firstOrNull { it.id == id }?.let { goalDao.upsertMilestone(it.copy(done = !it.done)) } ?: Unit
 
     suspend fun removeMilestone(id: String) = goalDao.deleteMilestoneById(id)
+
+    // ── Rotinas (modelos de intenções) ────────────────────────
+    // A routine is a reusable template of intentions; its items carry only the
+    // planning fields (text + optional priority/targetMin). Applying one seeds
+    // today with fresh intentions. These power D1's manager; the v4 backup shape
+    // already round-trips them. // PT: rotina = modelo de intenções; aplicar
+    // semeia o dia. O backup v4 já as suporta.
+    fun routines(): Flow<List<RoutineEntity>> = routineDao.observeRoutines()
+    fun routineItems(): Flow<List<RoutineItemEntity>> = routineDao.observeItems()
+
+    /** Create an empty routine; returns its id, or null for a blank name. */
+    suspend fun addRoutine(name: String): String? {
+        val n = name.trim()
+        if (n.isEmpty()) return null
+        val id = newId("r_")
+        routineDao.upsertRoutine(RoutineEntity(id = id, name = n, position = routineDao.getAllRoutines().size))
+        return id
+    }
+
+    suspend fun renameRoutine(id: String, name: String) {
+        val n = name.trim(); if (n.isEmpty()) return
+        routineDao.getRoutineById(id)?.let { routineDao.upsertRoutine(it.copy(name = n)) }
+    }
+
+    /** Delete a routine and its items. A routine is a re-creatable template, so
+     *  the manager guards this behind a two-step confirm (no snackbar-undo). */
+    suspend fun deleteRoutine(id: String) {
+        routineDao.deleteItemsForRoutine(id)
+        routineDao.deleteRoutineById(id)
+    }
+
+    suspend fun addRoutineItem(routineId: String, text: String, priority: Int? = null, targetMin: Int? = null) {
+        val t = text.trim(); if (t.isEmpty()) return
+        routineDao.insertItems(
+            listOf(
+                RoutineItemEntity(
+                    routineId = routineId, text = t,
+                    priority = priority?.takeIf { it in 1..3 },
+                    targetMin = targetMin?.takeIf { it > 0 },
+                    position = routineDao.getItemsForRoutine(routineId).size,
+                ),
+            ),
+        )
+    }
+
+    /** Edit one item's planning fields; text is kept non-blank (a blank edit
+     *  keeps the previous text rather than emptying the item). */
+    suspend fun updateRoutineItem(rowId: Long, text: String, priority: Int?, targetMin: Int?) {
+        val item = routineDao.getItemByRowId(rowId) ?: return
+        routineDao.updateItem(
+            item.copy(
+                text = text.trim().ifEmpty { item.text },
+                priority = priority?.takeIf { it in 1..3 },
+                targetMin = targetMin?.takeIf { it > 0 },
+            ),
+        )
+    }
+
+    suspend fun removeRoutineItem(rowId: Long) = routineDao.deleteItemByRowId(rowId)
+
+    /** Persist a new item order by rewriting positions in the given rowId order. */
+    suspend fun reorderRoutineItems(routineId: String, orderedRowIds: List<Long>) {
+        val byId = routineDao.getItemsForRoutine(routineId).associateBy { it.rowId }
+        orderedRowIds.forEachIndexed { index, rid ->
+            byId[rid]?.let { routineDao.updateItem(it.copy(position = index)) }
+        }
+    }
+
+    /** Seed today's intentions from a routine: its items become fresh intentions
+     *  (preserving priority + targetMin), appended after any existing ones — the
+     *  very path carry-over uses, exactly like the web's applyRoutine. // PT:
+     *  semeia o dia com intenções novas a partir da rotina. */
+    suspend fun applyRoutine(todayKey: String, routineId: String) {
+        val items = routineDao.getItemsForRoutine(routineId)
+        if (items.isEmpty()) return
+        carryOver(
+            todayKey,
+            items.map {
+                IntentionEntity(
+                    id = "", dayKey = todayKey, text = it.text,
+                    priority = it.priority, targetMin = it.targetMin, createdAt = 0L, position = it.position,
+                )
+            },
+        )
+    }
+
+    /** Save today's current intentions as a new named routine (planning fields
+     *  only) — the web's saveRoutineFromToday. Returns the new id, or null when
+     *  the name is blank or there's nothing to save. */
+    suspend fun saveRoutineFromToday(name: String, todayKey: String): String? {
+        val n = name.trim(); if (n.isEmpty()) return null
+        val intentions = intentionDao.getForDay(todayKey)
+        if (intentions.isEmpty()) return null
+        val id = addRoutine(n) ?: return null
+        routineDao.insertItems(
+            intentions.mapIndexed { i, it ->
+                RoutineItemEntity(routineId = id, text = it.text, priority = it.priority, targetMin = it.targetMin, position = i)
+            },
+        )
+        return id
+    }
 
     // ── backup ────────────────────────────────────────────────
     /** Gather everything into a [WebBackup.Snapshot] for export. */
