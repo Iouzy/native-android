@@ -83,6 +83,7 @@ import com.pauta.app.i18n.tr
 import com.pauta.app.i18n.trf
 import com.pauta.app.ui.PautaIcons
 import com.pauta.app.ui.PeriodLabel
+import com.pauta.app.ui.PipPose
 import com.pauta.app.ui.TideToday
 import com.pauta.app.ui.clickableNoRipple
 import com.pauta.app.ui.computeTodayTides
@@ -329,11 +330,20 @@ fun HojeScreen(onOpenHistory: () -> Unit) {
             if (total == 0) {
                 item(key = "no-intentions") {
                     Spacer(Modifier.height(16.dp))
-                    Text(
-                        text = tr("Ainda sem intenções para hoje."),
-                        color = colors.ink4,
-                        fontSize = 14.sp,
-                    )
+                    // F2: a small Pip pose beside the empty phrase (hidden when the
+                    // parrot pref is off). // PT: o Pip ao lado do estado vazio.
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        if (prefs.parrot) {
+                            PipPose(height = 40.dp)
+                            Spacer(Modifier.width(12.dp))
+                        }
+                        Text(
+                            text = tr("Ainda sem intenções para hoje."),
+                            color = colors.ink4,
+                            fontSize = 14.sp,
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
                 }
             }
 
