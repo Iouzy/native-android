@@ -78,6 +78,7 @@ import com.pauta.app.i18n.trf
 import com.pauta.app.ui.PautaButton
 import com.pauta.app.ui.PautaButtonVariant
 import com.pauta.app.ui.PeriodLabel
+import com.pauta.app.ui.PipPose
 import com.pauta.app.ui.PautaSheet
 import com.pauta.app.ui.CellState
 import com.pauta.app.ui.cellStateFor
@@ -243,14 +244,23 @@ fun MaresScreen() {
                 // and the "Marés comuns" starter chips. // PT: estado vazio
                 // com frase, explicação e marés comuns.
                 item(key = "empty") {
-                    Text(
-                        text = tr(introPhraseFor(today)),
-                        color = colors.ink3,
-                        fontFamily = SerifFamily,
-                        fontStyle = FontStyle.Italic,
-                        fontSize = 17.sp,
-                        lineHeight = 24.sp,
-                    )
+                    // F2: a small Pip pose beside the intro phrase (hidden when the
+                    // parrot pref is off). // PT: o Pip ao lado da frase de abertura.
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        if (prefs.parrot) {
+                            PipPose(height = 44.dp)
+                            Spacer(Modifier.width(12.dp))
+                        }
+                        Text(
+                            text = tr(introPhraseFor(today)),
+                            color = colors.ink3,
+                            fontFamily = SerifFamily,
+                            fontStyle = FontStyle.Italic,
+                            fontSize = 17.sp,
+                            lineHeight = 24.sp,
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
                     Spacer(Modifier.height(16.dp))
                     Text(
                         text = tr("Adicione comportamentos que quer praticar regularmente. Cada mês tem o seu grid."),

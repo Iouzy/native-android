@@ -73,6 +73,7 @@ import com.pauta.app.i18n.I18n
 import com.pauta.app.i18n.tr
 import com.pauta.app.i18n.trf
 import com.pauta.app.ui.PeriodLabel
+import com.pauta.app.ui.PipPose
 import com.pauta.app.ui.clickableNoRipple
 import com.pauta.app.ui.computeTodayTides
 import com.pauta.app.ui.theme.LocalPautaColors
@@ -303,14 +304,23 @@ fun PautaScreen() {
             }
             if (events.isEmpty()) {
                 item(key = "timeline-empty") {
-                    Text(
-                        text = if (filter != null) tr("Nada por aqui ainda.") else tr("Ainda nenhum bloco hoje. Comece quando quiser."),
-                        color = colors.ink3,
-                        fontFamily = SerifFamily,
-                        fontStyle = FontStyle.Italic,
-                        fontSize = 15.sp,
-                        lineHeight = 21.sp,
-                    )
+                    // F2: a small Pip pose beside the empty phrase (hidden when the
+                    // parrot pref is off). // PT: o Pip ao lado do estado vazio.
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        if (prefs.parrot) {
+                            PipPose(height = 40.dp)
+                            Spacer(Modifier.width(12.dp))
+                        }
+                        Text(
+                            text = if (filter != null) tr("Nada por aqui ainda.") else tr("Ainda nenhum bloco hoje. Comece quando quiser."),
+                            color = colors.ink3,
+                            fontFamily = SerifFamily,
+                            fontStyle = FontStyle.Italic,
+                            fontSize = 15.sp,
+                            lineHeight = 21.sp,
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
                     if (filter == null) {
                         Spacer(Modifier.height(14.dp))
                         StarterChip(tr("Começar um bloco de foco")) { showStart = true }

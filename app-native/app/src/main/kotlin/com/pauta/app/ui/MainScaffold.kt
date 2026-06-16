@@ -355,6 +355,11 @@ private fun HomeShell(
 
     val vm: AppViewModel = viewModel()
     val prefs by vm.prefs.collectAsStateWithLifecycle()
+    // F2: real state for Pip's context moods — a running focus block (calm
+    // watching) and today's intentions (a flutter when the last one completes).
+    // // PT: estado real para os humores do Pip.
+    val activeBlock by vm.activeBlock.collectAsStateWithLifecycle()
+    val intentions by vm.intentions.collectAsStateWithLifecycle()
 
     // A7: a single app-wide snackbar offers "Anular" after a destructive single
     // delete (an intention or a focus block). The ViewModel emits the deleted
@@ -421,6 +426,10 @@ private fun HomeShell(
         if (prefs.parrot) {
             ParrotCompanion(
                 tab = Tab.entries[pager.currentPage],
+                activeFocus = activeBlock != null,
+                allIntentionsDone = intentions.isNotEmpty() && intentions.all { it.done },
+                reflectionTime = prefs.reflectionTime,
+                reducedMotion = prefs.reducedMotion,
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
                     .navigationBarsPadding()
