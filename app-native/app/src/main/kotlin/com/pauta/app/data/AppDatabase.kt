@@ -152,15 +152,32 @@ abstract class AppDatabase : RoomDatabase() {
         // is the day a hit belongs to. // PT: tabela virtual FTS4 (não é entidade
         // Room); unicode61 sem diacríticos → pesquisa insensível a acentos (PT).
         private fun createSearchIndex(db: SupportSQLiteDatabase) {
-            db.execSQL(
-                """
-                CREATE VIRTUAL TABLE IF NOT EXISTS search_index USING fts4(
-                    docId, source, dayKey, text,
-                    notindexed=docId, notindexed=source, notindexed=dayKey,
-                    tokenize=unicode61 "remove_diacritics=1"
+            // Some OEM SQLite builds ship without the unicode61 tokenizer (or without
+            // the remove_diacritics option), which causes a hard crash at DB creation.
+            // Fall back to the built-in "simple" tokenizer so the app stays launchable;
+            // search loses accent-insensitivity on those devices but keeps working.
+            // // PT: alguns builds OEM não têm unicode61 — cai para o simple para não
+            // crashar; a pesquisa perde insensibilidade a acentos mas continua a funcionar.
+            try {
+                db.execSQL(
+                    """
+                    CREATE VIRTUAL TABLE IF NOT EXISTS search_index USING fts4(
+                        docId, source, dayKey, text,
+                        notindexed=docId, notindexed=source, notindexed=dayKey,
+                        tokenize=unicode61 "remove_diacritics=1"
+                    )
+                    """.trimIndent(),
                 )
-                """.trimIndent(),
-            )
+            } catch (_: Exception) {
+                db.execSQL(
+                    """
+                    CREATE VIRTUAL TABLE IF NOT EXISTS search_index USING fts4(
+                        docId, source, dayKey, text,
+                        notindexed=docId, notindexed=source, notindexed=dayKey
+                    )
+                    """.trimIndent(),
+                )
+            }
         }
 
         // E1: keep the index in lock-step with the three source tables. Doing it in
