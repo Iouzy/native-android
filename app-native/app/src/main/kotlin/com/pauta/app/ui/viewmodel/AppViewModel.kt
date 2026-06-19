@@ -382,12 +382,18 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch { prefsReady.first { it }; needsUnlock.value = prefs.value.pinHash != null }
         // Promote any week-ahead plan for today and clear stale plans on launch.
         viewModelScope.launch { repo.runRollover(todayKey.value) }
-        // The midnight ticker: while the process lives, re-check the day every
-        // half-minute (resume gives an immediate check via maybeRollover()).
-        // // PT: relógio da meia-noite — vira o dia com a app aberta.
+        // Midnight ticker: sleep until one second past the next local midnight,
+        // then call maybeRollover(). ON_RESUME (MainScaffold) covers doze wakes
+        // and clock/timezone changes between ticks so we never need a short poll.
+        // PT: dorme até 1s após a meia-noite local; a retomada cobre doze e
+        // mudanças de relógio/fuso — sem sondagem de 30s.
         viewModelScope.launch {
             while (true) {
-                kotlinx.coroutines.delay(30_000)
+                val now = System.currentTimeMillis()
+                val nextMidnight = DateUtils.startOfDayMs(
+                    DateUtils.addDays(DateUtils.todayKey(), 1)
+                )
+                kotlinx.coroutines.delay((nextMidnight - now + 1_000).coerceAtLeast(1_000))
                 maybeRollover()
             }
         }
