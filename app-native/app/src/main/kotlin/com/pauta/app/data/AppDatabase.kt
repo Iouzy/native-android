@@ -152,15 +152,37 @@ abstract class AppDatabase : RoomDatabase() {
         // is the day a hit belongs to. // PT: tabela virtual FTS4 (não é entidade
         // Room); unicode61 sem diacríticos → pesquisa insensível a acentos (PT).
         private fun createSearchIndex(db: SupportSQLiteDatabase) {
-            db.execSQL(
-                """
-                CREATE VIRTUAL TABLE IF NOT EXISTS search_index USING fts4(
-                    docId, source, dayKey, text,
-                    notindexed=docId, notindexed=source, notindexed=dayKey,
-                    tokenize=unicode61 "remove_diacritics=1"
-                )
-                """.trimIndent(),
-            )
+            // Three-tier fallback for FTS4 tokenizer compatibility:
+            //  1. unicode61 + remove_diacritics=1 → full accent-insensitive PT search
+            //  2. unicode61 alone → proper Unicode handling, no accent folding
+            //  3. simple (built-in, always present) → basic search, no accent folding
+            // Some OEM SQLite builds (e.g. MIUI/HyperOS) omit the remove_diacritics
+            // option or the tokenizer entirely, causing a hard crash at DB creation.
+            // // PT: três níveis de tokenizer — unicode61 com acentos, unicode61 sem,
+            // ou simple — para não crashar em builds OEM com SQLite restrito.
+            val columns = """
+                docId, source, dayKey, text,
+                notindexed=docId, notindexed=source, notindexed=dayKey
+            """.trimIndent()
+            val tried = mutableListOf<String>()
+            for (tokenize in listOf(
+                """tokenize=unicode61 "remove_diacritics=1"""",
+                "tokenize=unicode61",
+                null,
+            )) {
+                try {
+                    val extra = if (tokenize != null) ", $tokenize" else ""
+                    db.execSQL(
+                        "CREATE VIRTUAL TABLE IF NOT EXISTS search_index USING fts4($columns$extra)",
+                    )
+                    return
+                } catch (e: Exception) {
+                    tried += (tokenize ?: "simple(default)")
+                }
+            }
+            // All three failed — surface so a bug report captures it.
+            // // PT: os três níveis falharam — lança para o relatório de erros.
+            error("Could not create FTS4 search_index — tried: $tried")
         }
 
         // E1: keep the index in lock-step with the three source tables. Doing it in
