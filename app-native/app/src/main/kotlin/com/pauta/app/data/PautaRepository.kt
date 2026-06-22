@@ -179,6 +179,7 @@ class PautaRepository(private val db: AppDatabase) {
      * neutralizada para não virar operador FTS.
      */
     suspend fun search(raw: String): List<SearchHit> {
+        if (!AppDatabase.searchAvailable) return emptyList()
         val terms = raw
             .map { if (it.isLetterOrDigit() || it.isWhitespace()) it else ' ' }
             .joinToString("")
