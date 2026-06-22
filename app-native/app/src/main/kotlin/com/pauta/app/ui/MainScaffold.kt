@@ -46,7 +46,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
-import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -389,8 +389,13 @@ private fun HomeShell(
                 .background(colors.paper)
                 .focusRequester(focusRequester)
                 .focusable()
-                .onPreviewKeyEvent { ev ->
-                    if (ev.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                // onKeyEvent (não onPreviewKeyEvent): propaga de baixo para cima, então
+                // um campo de texto focado consome o dígito antes de chegar aqui — caso
+                // contrário digitar "1"/"2"/"3" num input (ex.: minutos no Hoje) trocava de tab.
+                // onKeyEvent (not onPreviewKeyEvent): bubbles up, so a focused text field
+                // consumes the digit before it reaches this tab-switch shortcut.
+                .onKeyEvent { ev ->
+                    if (ev.type != KeyEventType.KeyDown) return@onKeyEvent false
                     val target = when (ev.key) {
                         Key.One, Key.NumPad1 -> Tab.HOJE
                         Key.Two, Key.NumPad2 -> Tab.PAUTA
