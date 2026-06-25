@@ -58,6 +58,19 @@ additional constraints specific to book mode:
   `currentPage`. Every progress UI, every conclude prompt, and every stat must
   branch on format. Physical and ebook use "página"; audiobook uses "minuto".
 - **No new external dependencies** beyond the androidx artifacts already present.
+  This explicitly includes images: covers/photos are decoded and rendered with
+  the platform `Bitmap`/`PdfRenderer` and a small in-house helper, **not** an
+  image-loading library. (Coil would be the easy path; it's the documented
+  opt-in alternative in K11 if the maintainer ever relaxes this — but the
+  default is no-dep.)
+- **Images: files on disk, paths in the DB, base64 in the native backup.**
+  Picked/extracted images are downscaled and copied into app storage
+  (`filesDir/book_covers/`, `filesDir/note_images/`); the DB stores only the
+  filename (`coverPath`/`imagePath`). They are **device-local** like all book
+  data, and are carried in the `pauta-native.v1` backup as base64 (**K10/K11**)
+  — never in the v4 file. No internet is ever contacted for images (extracting
+  a cover from an uploaded EPUB/PDF is fully offline; online cover lookup is
+  out of scope — it would break the offline-first identity).
 
 ---
 
@@ -71,7 +84,7 @@ additional constraints specific to book mode:
 
 | Model | Tasks |
 |---|---|
-| **Opus 4.8** | K1, K2, K5, K6, K7, K8, K9, K10, K-extra |
+| **Opus 4.8** | K1, K2, K5, K6, K7, K8, K9, K10, K11, K12, K-extra |
 | **Sonnet 4.6** | K3, K4 |
 
 ---
@@ -99,10 +112,14 @@ than re-specifying the shape.
 | `finishedAt` | Long? | null | ms epoch; null until done/dnf |
 | `rating` | Int? | null | 1–5; null = unrated |
 | `genre` | String | `""` | free text (comma-separated tags) |
+| `coverPath` | String? | null | filename under `filesDir/book_covers/`; set by **K11** (null = no cover) |
 | `position` | Int | `0` | ordering within status shelf |
 | `createdAt` | Long | — | ms epoch |
 
 Progress % = `currentPage.toFloat() / totalPages.coerceAtLeast(1)`.
+
+`coverPath` is added in the K1 schema now (nullable, default null) so the image
+tasks (K11/K12) need no further migration — it just stays null until K11.
 
 ### `BookNoteEntity` (table: `book_notes`)
 
@@ -111,8 +128,9 @@ Progress % = `currentPage.toFloat() / totalPages.coerceAtLeast(1)`.
 | `id` | String PK | — | prefix `bn_` + UUID |
 | `bookId` | String | — | FK → `books.id` (not enforced, follows web pattern) |
 | `kind` | String | `"annotation"` | `quote` / `annotation` / `thought` |
-| `text` | String | — | required |
+| `text` | String | — | required (may be blank if `imagePath` is set) |
 | `page` | Int? | null | null = page not recorded; unused for audiobooks |
+| `imagePath` | String? | null | filename under `filesDir/note_images/`; set by **K12** (null = no photo) |
 | `createdAt` | Long | — | ms epoch |
 
 ### `PrefsEntity` additions (part of Room v7 → v8 migration)
@@ -157,6 +175,10 @@ re-deriving. Line numbers are approximate anchors, not guarantees.
 | `repo.importJson` | clears tables then `prefsDao.upsert(s.prefs)` | `PautaRepository.kt:764` |
 | `parsePrefs` | named-arg `PrefsEntity(...)`; new defaulted fields are safe | `WebBackup.kt:380` |
 | Room version | currently **7**; book mode bumps to **8** | `AppDatabase.kt:58` |
+| `minSdk` / `compileSdk` | **26** / 35 — `PdfRenderer` (API 21) + photo picker OK | `app/build.gradle.kts` |
+| `activity-compose` | `1.9.2` present → `PickVisualMedia` / `OpenDocument` contracts, no new dep | `app/build.gradle.kts` |
+| `PdfRenderer` | `android.graphics.pdf`, built-in, renders page→Bitmap (K11) | platform |
+| EPUB parse | `java.util.zip.ZipFile` + `XmlPullParser`, built-in (K11) | platform |
 
 ---
 
@@ -195,6 +217,7 @@ CREATE TABLE IF NOT EXISTS books (
     finishedAt INTEGER,
     rating INTEGER,
     genre TEXT NOT NULL DEFAULT '',
+    coverPath TEXT,
     position INTEGER NOT NULL DEFAULT 0,
     createdAt INTEGER NOT NULL
 );
@@ -204,6 +227,7 @@ CREATE TABLE IF NOT EXISTS book_notes (
     kind TEXT NOT NULL DEFAULT 'annotation',
     text TEXT NOT NULL,
     page INTEGER,
+    imagePath TEXT,
     createdAt INTEGER NOT NULL
 );
 ```
@@ -862,14 +886,22 @@ file** — never a change to v4.
 {
   "schema": "pauta-native.v1",
   "exportedAt": 1700000000000,
-  "books": [ { "id": "bk_…", "title": "…", … all BookEntity fields } ],
-  "bookNotes": [ { "id": "bn_…", "bookId": "bk_…", … all BookNoteEntity fields } ],
-  "bookAnnualGoal": 24
+  "books": [ { "id": "bk_…", "title": "…", "coverPath": "bk_x.jpg", … } ],
+  "bookNotes": [ { "id": "bn_…", "bookId": "bk_…", "imagePath": null, … } ],
+  "bookAnnualGoal": 24,
+  "images": { "bk_x.jpg": "<base64 jpeg bytes>", … }
 }
 ```
 - `bookMode` (the toggle) is **deliberately excluded** — it's live UI state, not
   data; an import must never silently flip a planner user into book mode. They
   re-enable it. `bookAnnualGoal` *is* data and is restored.
+- **Images = one combined file (the user's choice).** Every non-null
+  `coverPath`/`imagePath` has its bytes base64-encoded into the `images` map,
+  keyed by filename. Import decodes them back into `filesDir/book_covers/` and
+  `filesDir/note_images/` before inserting the rows. An entry whose file is
+  missing on disk is exported with the row but no `images` key (import tolerates
+  a path with no matching blob → treats it as no image). When K10 ships before
+  K11/K12, all paths are null and `images` is `{}` — forward-compatible.
 
 **Files to create / touch:**
 - `data/NativeBackup.kt` (new) — `export(snapshot): String` /
@@ -909,11 +941,127 @@ the PR; no rules change expected.
 **Out of scope:** merging book data into the v4 file (forbidden); cloud sync;
 partial/selective book export.
 
-**Accept:** export produces a valid `pauta-native.v1` holding the full library;
-import on a fresh install restores books + notes + annual goal exactly;
-`NativeBackup` round-trip test green; **WebBackup tests still green and the v4
-output byte-identical** to before this task; auto-backup writes both files on
-schedule with the app closed.
+**Accept:** export produces a valid `pauta-native.v1` holding the full library
+(incl. base64 `images` for any covers/photos); import on a fresh install
+restores books + notes + annual goal + image files exactly; `NativeBackup`
+round-trip test green (incl. an image blob); **WebBackup tests still green and
+the v4 output byte-identical** to before this task; auto-backup writes both
+files on schedule with the app closed.
+
+---
+
+## Phase K-7 — images
+
+### K11 · Book covers: pick + auto-extract from EPUB/PDF — Status: pending
+
+**Depends on:** K1 (`coverPath` column exists), K2, K5 (covers render on the
+shelf cards + the add/edit form). All on-device; no new deps; no internet.
+
+**Why:** a cover turns the shelf from a list into a library, and pulling it
+automatically from a file the user already has is the magic moment.
+
+**Files to create / touch:**
+- `data/ImageStore.kt` (new) — the no-dep image plumbing, all on `Dispatchers.IO`:
+  - `saveCover(bookId, src: Uri): String` — read bytes, **downscale** to ≤1024px
+    long edge (`BitmapFactory` with `inSampleSize`), recompress JPEG ~85%, write
+    to `filesDir/book_covers/<bookId>.jpg`, return the filename.
+  - `delete(path)`, `fileFor(path): File`.
+- `ui/BookImage.kt` (new) — `rememberLocalImage(path: String?): ImageBitmap?`,
+  decodes off-main-thread (`LaunchedEffect` + IO) with a small in-memory
+  `LruCache` keyed by path; returns null while loading / when absent. This is
+  the **no-dep** replacement for Coil. *(Opt-in alternative: if the maintainer
+  adds `io.coil-kt:coil-compose`, this file collapses to an `AsyncImage` —
+  document the swap but default to the hand-rolled helper.)*
+- `data/BookFileImport.kt` (new) — extract metadata + cover from a picked file:
+  - **EPUB** (`application/epub+zip`): open as `ZipFile`; read
+    `META-INF/container.xml` → OPF path; parse the OPF with `XmlPullParser` for
+    `<dc:title>`, `<dc:creator>`, and the cover image (manifest item with
+    `properties="cover-image"`, or `<meta name="cover">` → manifest id); extract
+    that entry's bytes → `ImageStore`. Returns `(title?, author?, coverPath?)`.
+  - **PDF** (`application/pdf`): `PdfRenderer` (built-in, minSdk 26 ✓) render
+    page 0 to a Bitmap → `ImageStore`. Title guessed from the filename; no
+    author. Returns `(titleGuess?, null, coverPath?)`.
+  - Unknown type → all null (caller falls back to manual entry).
+- `ui/screens/BookFormSheet.kt` (K5) — add two affordances:
+  1. **"Escolher capa"** → `PickVisualMedia` photo picker (image/*) → `saveCover`.
+  2. **"Importar de ficheiro (EPUB/PDF)"** → `ACTION_OPEN_DOCUMENT`
+     (epub+zip, pdf) → `BookFileImport`; prefill title/author if blank and set
+     the cover. Show the cover thumbnail once set, with a "remover" affordance.
+- `ui/screens/BookShelfScreen.kt` (K5) + `BookDetailSheet.kt` (K8) — render the
+  cover via `rememberLocalImage`; **fallback** when null: the current
+  text-only card (title/author on `paper2`) — never a broken-image box.
+- `i18n/I18n.kt` — new strings.
+
+**Picker contracts** (use `androidx.activity.compose.rememberLauncherForActivityResult`):
+`PickVisualMedia()` for photos; `OpenDocument()` for the EPUB/PDF (it returns a
+readable `content://` Uri — read bytes immediately into `ImageStore`, don't
+persist the Uri).
+
+**New i18n strings (`// native-only`):**
+
+| PT | EN |
+|---|---|
+| `Escolher capa` | `Choose cover` |
+| `Importar de ficheiro` | `Import from file` |
+| `Remover capa` | `Remove cover` |
+| `Capa extraída` | `Cover extracted` |
+| `Não foi possível ler o ficheiro` | `Couldn't read the file` |
+
+**Backup note:** covers flow into the K10 `images` map automatically (K10 reads
+`coverPath`). If K10 already shipped, no change needed; if not, K10 picks them
+up. Note in the PR which order happened.
+
+**Out of scope:** in-app ebook reading/opening the file to read; MOBI/AZW;
+online cover lookup; cropping/rotation UI.
+
+**Accept:** picking a photo sets a cover that shows on the shelf + detail +
+survives app restart; importing an EPUB prefills title/author and sets the
+cover; importing a PDF sets a page-1 cover; a book with no cover shows the
+text fallback (no broken image); large images don't OOM (downscaled); CI green.
+
+### K12 · Photos on quotes & annotations — Status: pending
+
+**Depends on:** K11 (reuses `ImageStore` + `rememberLocalImage`), K9 (capture
+sheet) and/or K8 (detail list). Build after K11.
+
+**Why:** snapping a photo of a page or a margin note is the highest-fidelity
+way to capture a passage — the power-user feature of a serious reading log.
+
+**Files to touch:**
+- `data/ImageStore.kt` (K11) — add `saveNoteImage(noteId, src: Uri): String`
+  writing to `filesDir/note_images/<noteId>.jpg` (same downscale/compress).
+- `ui/screens/QuoteCaptureSheet.kt` (K9) — add an **"Adicionar foto"** button
+  (`PickVisualMedia`, image/*); show a thumbnail when set, removable. On
+  confirm, save the image under the new note's id and store `imagePath`.
+  `text` may be blank **iff** an image is attached (update K9's validation).
+- `ui/screens/BookDetailSheet.kt` (K8) — render `note.imagePath` thumbnails in
+  the notes list (`rememberLocalImage`); tap → full-screen viewer (a simple
+  `Dialog` with the `ImageBitmap`, pinch-zoom optional/out of scope). Deleting a
+  note also deletes its image file (`ImageStore.delete`).
+- `data/PautaRepository.kt` (K2) — `addNote` gains an optional `imagePath:
+  String? = null`; `deleteNote` also removes the file. Keep the existing
+  signature working (default null) so K9 callers don't break.
+- `i18n/I18n.kt` — new strings.
+
+**New i18n strings (`// native-only`):**
+
+| PT | EN |
+|---|---|
+| `Adicionar foto` | `Add photo` |
+| `Remover foto` | `Remove photo` |
+| `Ver foto` | `View photo` |
+
+**Backup note:** note images flow into the K10 `images` map via `imagePath` —
+same mechanism as covers, no K10 change.
+
+**Out of scope:** in-camera capture flow (the photo picker covers gallery; a
+`TakePicture` camera contract can be a later add), OCR of the photo into text,
+multiple photos per note (one per note for now).
+
+**Accept:** attaching a photo to a quote saves it; the thumbnail shows in the
+book detail and opens full-screen; a note may be image-only (blank text);
+deleting the note removes the file; the image round-trips through a K10 backup;
+CI green.
 
 ---
 
@@ -931,7 +1079,9 @@ K1 (data)
      ├─ K7 (Marés + annual goal)
      └─ K10 (book-data backup)  ← can ship right after K2; protects data early
 
-K9 (quote capture) depends on K5
+K9  (quote capture)  depends on K5
+K11 (book covers: pick + EPUB/PDF extract)  depends on K5
+ └─ K12 (photos on notes)  depends on K11 (+ K9/K8)
 ```
 
 Minimum shippable slice: **K1 → K2 → K3** (toggle works, labels change, no
