@@ -391,6 +391,12 @@ fun SettingsScreen(
                 checked = prefs.immersive,
                 subtitle = tr("Esconde as barras do sistema. Deslize da margem para as ver."),
             ) { vm.setImmersive(it) }
+            CardDivider()
+            ToggleRow(
+                label = tr("Modo livro"),
+                checked = prefs.bookMode,
+                subtitle = tr("Transforma as três tabs numa companheira de leitura"),
+            ) { vm.setBookMode(it) }
         }
 
         // ── ACESSIBILIDADE ───────────────────────────────────────────────

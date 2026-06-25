@@ -306,7 +306,7 @@ still pass.
 **Accept:** `compileDebugKotlin` green; unit tests green; existing
 `AppViewModel.blocks` no longer includes reading-session blocks.
 
-### K3 · Settings toggle + tab label remapping — Status: pending
+### K3 · Settings toggle + tab label remapping — Status: in-progress (PR #136)
 
 **Depends on:** K2
 

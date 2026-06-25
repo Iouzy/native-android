@@ -687,6 +687,13 @@ object I18n {
         "Escreva o que fez." to "Write what you did.", // native-only
         "Duração entre 1 e 1440 min." to "Duration between 1 and 1440 min.", // native-only
         "Dá um nome à maré." to "Name this tide.", // native-only
+
+        // ── K3 · settings toggle + tab label remapping ──
+        "Modo livro" to "Book mode", // native-only
+        "Transforma as três tabs numa companheira de leitura" to "Turns the three tabs into a reading companion", // native-only
+        "Estante" to "Shelf", // native-only
+        "Sessão" to "Session", // native-only
+        "Hábitos" to "Habits", // native-only
     )
 }
 
