@@ -35,7 +35,9 @@ android {
         minSdk = 26
         targetSdk = 35
         versionCode = epochMinutes
-        versionName = "1.0"
+        // Human-readable version: 1.<CI run number> in CI builds, 1.0 locally.
+        // PT: versão legível — 1.<run> em CI, 1.0 em builds locais.
+        versionName = "1.$buildRun"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("int", "BUILD_RUN", "$buildRun")
         buildConfigField("long", "BUILD_TS", "${buildTs}L")

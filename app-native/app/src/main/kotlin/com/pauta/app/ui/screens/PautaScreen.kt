@@ -50,7 +50,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
+import android.content.Context
+import android.media.RingtoneManager
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -107,6 +110,7 @@ fun PautaScreen() {
     val habitCounts by vm.habitCounts.collectAsStateWithLifecycle()
     val prefs by vm.prefs.collectAsStateWithLifecycle()
     val haptic = LocalHapticFeedback.current
+    val context = LocalContext.current
 
     // 1s clock tick driving the live timer.
     var now by remember { mutableStateOf(System.currentTimeMillis()) }
@@ -247,6 +251,9 @@ fun PautaScreen() {
                             // (A1's pref still governs it). // PT: um toque ao
                             // cumprir a meta, conforme a preferência de vibração.
                             if (prefs.haptics) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            // T2: soft chime when the focus target is reached.
+                            // PT: sino suave ao atingir a meta, conforme a pref de som.
+                            if (prefs.sound) playChime(context)
                         },
                         onPause = { pauseWithNote(a) },
                         onSwitch = { showSwitch = true },
@@ -456,6 +463,9 @@ fun PautaScreen() {
             onConfirm = { reflection, markDone, tideIds ->
                 vm.concludeBlock(block.id, reflection, markDone)
                 tideIds.forEach { vm.toggleHabitToday(it) }
+                // T2: soft chime when a block is concluded.
+                // PT: sino suave ao concluir um bloco, conforme a pref de som.
+                if (prefs.sound) playChime(context)
                 concludeFor = null
             },
             onCancel = {
@@ -1335,6 +1345,18 @@ private fun FilterChip(label: String, active: Boolean, muted: Boolean, onClick: 
             .clickableNoRipple(onClick)
             .padding(horizontal = 11.dp, vertical = 5.dp),
     )
+}
+
+/**
+ * Plays the system notification sound as a soft chime. Gated by [prefs.sound] at
+ * the call site. Swallows all errors so a missing default ringtone never crashes.
+ * PT: toca o som de notificação do sistema como sino suave; engole erros silenciosamente.
+ */
+private fun playChime(context: Context) {
+    runCatching {
+        val uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+        RingtoneManager.getRingtone(context, uri)?.play()
+    }
 }
 
 /** A 1dp dashed pill outline (the web's `border: 1px dashed var(--rule)`). */

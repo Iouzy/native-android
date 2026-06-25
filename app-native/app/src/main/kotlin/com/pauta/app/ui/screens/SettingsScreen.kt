@@ -570,12 +570,15 @@ fun SettingsScreen(
         // ── ATUALIZAÇÕES ─────────────────────────────────────────────────
         Section(tr("Atualizações"))
         SectionCard {
-            val versionLabel = if (BuildConfig.BUILD_TS > 0L) {
-                val d = java.time.Instant.ofEpochSecond(BuildConfig.BUILD_TS)
-                    .atZone(java.time.ZoneId.systemDefault()).toLocalDate()
-                trf("Versão de {date}", "date" to d.toString())
-            } else {
-                "build #${BuildConfig.BUILD_RUN}"
+            // Show "v1.<run> · YYYY-MM-DD" when built in CI; just "v1.0" locally.
+            // PT: versão + data juntos — run e timestamp ao mesmo tempo.
+            val versionLabel = buildString {
+                append("v${BuildConfig.VERSION_NAME}")
+                if (BuildConfig.BUILD_TS > 0L) {
+                    val d = java.time.Instant.ofEpochSecond(BuildConfig.BUILD_TS)
+                        .atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+                    append(" · $d")
+                }
             }
             Text(
                 versionLabel,
