@@ -1,5 +1,7 @@
 package com.pauta.app.data
 
+import com.pauta.app.data.entity.BookEntity
+import com.pauta.app.data.entity.BookNoteEntity
 import com.pauta.app.data.entity.DayEntity
 import com.pauta.app.data.entity.FocusBlockEntity
 import com.pauta.app.data.entity.FocusSessionEntity
@@ -54,6 +56,8 @@ class PautaRepository(private val db: AppDatabase) {
     private val routineDao = db.routineDao()
     private val plannedDao = db.plannedIntentionDao()
     private val searchDao = db.searchDao()
+    private val bookDao = db.bookDao()
+    private val bookNoteDao = db.bookNoteDao()
 
     // ── ids ───────────────────────────────────────────────────
     /** Generate a web-style id (`i_…`, `b_…`, …): prefix + base-36 time + random,
@@ -725,6 +729,103 @@ class PautaRepository(private val db: AppDatabase) {
         )
         return id
     }
+
+    // ── Modo livro: estante + notas (K2) ──────────────────────
+    // native-only: book mode is a device-local lens, so none of this touches the
+    // pauta.v4 export. Reading sessions reuse the focus-block tables (a block with
+    // project = "book:<id>"); these methods cover only books + their notes.
+    // // PT: estante e notas do modo livro — dados locais, fora do v4.
+    fun booksReading(): Flow<List<BookEntity>> = bookDao.observeByStatus("reading")
+    fun booksTbr(): Flow<List<BookEntity>> = bookDao.observeByStatus("tbr")
+
+    /** Finished + abandoned shelf, newest finish first. The DAO streams a single
+     *  status at a time, so we merge "done" and "dnf" and re-sort by finishedAt
+     *  DESC (nulls last). // PT: lidos + abandonados, terminados mais recentes primeiro. */
+    fun booksDone(): Flow<List<BookEntity>> =
+        combine(bookDao.observeByStatus("done"), bookDao.observeByStatus("dnf")) { done, dnf ->
+            (done + dnf).sortedByDescending { it.finishedAt ?: Long.MIN_VALUE }
+        }
+
+    suspend fun getBook(id: String): BookEntity? = bookDao.getById(id)
+
+    /** Add a book to the shelf; returns its new id ("bk_…"). A book added directly
+     *  as "reading" stamps startedAt now (a book queued as "tbr" starts later). */
+    suspend fun addBook(
+        title: String,
+        author: String,
+        series: String,
+        seriesNumber: Int?,
+        format: String,
+        totalPages: Int,
+        genre: String,
+        status: String,
+    ): String {
+        val now = System.currentTimeMillis()
+        val id = newId("bk_")
+        bookDao.upsert(
+            BookEntity(
+                id = id,
+                title = title.trim(),
+                author = author.trim(),
+                series = series.trim(),
+                seriesNumber = seriesNumber,
+                format = format,
+                totalPages = totalPages.coerceAtLeast(0),
+                currentPage = 0,
+                status = status,
+                startedAt = if (status == "reading") now else null,
+                finishedAt = null,
+                rating = null,
+                genre = genre.trim(),
+                position = bookDao.getAll().count { it.status == status },
+                createdAt = now,
+            ),
+        )
+        return id
+    }
+
+    suspend fun updateBook(book: BookEntity) = bookDao.upsert(book)
+
+    suspend fun deleteBook(id: String) {
+        bookNoteDao.run { getAll().filter { it.bookId == id }.forEach { deleteById(it.id) } }
+        bookDao.deleteById(id)
+    }
+
+    /** Update reading progress (page for physical/ebook, minute for audiobook);
+     *  never negative. // PT: progresso de leitura — página ou minuto. */
+    suspend fun updateProgress(id: String, currentPage: Int) {
+        val b = bookDao.getById(id) ?: return
+        bookDao.upsert(b.copy(currentPage = currentPage.coerceAtLeast(0)))
+    }
+
+    /** Mark a book finished now, optionally recording a rating (kept if null). */
+    suspend fun finishBook(id: String, rating: Int?) {
+        val b = bookDao.getById(id) ?: return
+        bookDao.upsert(b.copy(status = "done", finishedAt = System.currentTimeMillis(), rating = rating ?: b.rating))
+    }
+
+    /** Count of books finished on/after the given epoch ms — the K7 annual goal. */
+    suspend fun booksFinishedThisYear(yearStartMs: Long): Int = bookDao.countFinishedSince(yearStartMs)
+
+    fun notesForBook(bookId: String): Flow<List<BookNoteEntity>> = bookNoteDao.observeForBook(bookId)
+
+    /** Capture a quote / annotation / thought against a book; returns the new id. */
+    suspend fun addNote(bookId: String, kind: String, text: String, page: Int?): String {
+        val id = newId("bn_")
+        bookNoteDao.insert(
+            BookNoteEntity(
+                id = id,
+                bookId = bookId,
+                kind = kind,
+                text = text.trim(),
+                page = page,
+                createdAt = System.currentTimeMillis(),
+            ),
+        )
+        return id
+    }
+
+    suspend fun deleteNote(id: String) = bookNoteDao.deleteById(id)
 
     // ── backup ────────────────────────────────────────────────
     /** Gather everything into a [WebBackup.Snapshot] for export. */

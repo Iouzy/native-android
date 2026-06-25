@@ -224,7 +224,7 @@ must not appear anywhere in `WebBackup.kt`. The existing `exportJson` /
 
 ## Phase K-1 — wiring (K2 and K3 are independent; do either first after K1)
 
-### K2 · Repository + ViewModel wiring — Status: pending
+### K2 · Repository + ViewModel wiring — Status: done (PR #135)
 
 **Depends on:** K1
 
@@ -806,3 +806,4 @@ book content yet). Each subsequent task adds one tab or one feature layer.
 
 <!-- e.g. 2026-06-25 · K1 · #n · data layer: books + book_notes tables, Room v7→v8, bookMode + bookAnnualGoal prefs -->
 2026-06-25 · K1 · #134 · data layer: BookEntity/BookNoteEntity + BookDao/BookNoteDao, bookMode + bookAnnualGoal prefs columns, Room v7→v8 MIGRATION_7_8; all native-only, WebBackup/v4 untouched
+2026-06-25 · K2 · #135 · repo + VM wiring: PautaRepository book/note CRUD + booksReading/Tbr/Done (done merges done+dnf, finishedAt DESC) + booksFinishedThisYear; AppViewModel bookMode/bookAnnualGoal StateFlows + setters, three shelf flows, book actions, booksFinishedThisYear() (year-start ms); blocks flow now excludes project "book:%", new bookSessionBlocks flow holds them. DAOs derived in-repo from AppDatabase so no PautaApplication change. native-only, WebBackup/v4 untouched
