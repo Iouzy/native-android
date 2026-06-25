@@ -205,4 +205,52 @@ data class PrefsEntity(
     // device UI state → not part of the pauta.v4 shape, so not exported.
     // // PT: dia em que a memória foi dispensada — escondida só nesse dia.
     val memoriaDismissedDay: String? = null,
+    // native-only (K1): book mode turns the three tabs into a reading companion.
+    // A device-local lens over the same app — never part of the pauta.v4 shape,
+    // so neither field is exported. // PT: modo livro — lente local sobre as tabs.
+    val bookMode: Boolean = false,
+    val bookAnnualGoal: Int = 0,        // 0 = no annual reading goal set
+)
+
+/**
+ * native-only (K1): a book on the personal shelf. Book mode is a device-local
+ * lens, so books live entirely outside the `pauta.v4` schema and are never
+ * exported by `WebBackup.kt`. Progress is page-based for physical/ebook formats
+ * and minute-based for audiobooks (where [totalPages]/[currentPage] hold total
+ * and listened minutes). // PT: livro da estante — dados locais, fora do v4;
+ * audiolivros contam minutos em vez de páginas.
+ */
+@Entity(tableName = "books")
+data class BookEntity(
+    @PrimaryKey val id: String,         // "bk_" + UUID
+    val title: String,
+    val author: String = "",
+    val series: String = "",
+    val seriesNumber: Int? = null,      // null = standalone
+    val format: String = "physical",    // "physical" | "ebook" | "audiobook"
+    val totalPages: Int = 0,            // 0 = unknown; audiobooks = total minutes
+    val currentPage: Int = 0,           // audiobooks = listened minutes
+    val status: String = "tbr",         // "tbr" | "reading" | "done" | "dnf" | "paused"
+    val startedAt: Long? = null,        // ms epoch; null until first session
+    val finishedAt: Long? = null,       // ms epoch; null until done/dnf
+    val rating: Int? = null,            // 1–5; null = unrated
+    val genre: String = "",             // free text (comma-separated tags)
+    val position: Int = 0,              // ordering within status shelf
+    val createdAt: Long,
+)
+
+/**
+ * native-only (K1): a quote, annotation or thought captured against a book.
+ * Like [BookEntity], device-local and outside the `pauta.v4` export. The
+ * [bookId] foreign key is not enforced at the DB level, matching the web's
+ * lenient referencing pattern. // PT: nota/citação de um livro — local, sem v4.
+ */
+@Entity(tableName = "book_notes")
+data class BookNoteEntity(
+    @PrimaryKey val id: String,         // "bn_" + UUID
+    val bookId: String,                 // → books.id (not enforced)
+    val kind: String = "annotation",    // "quote" | "annotation" | "thought"
+    val text: String,
+    val page: Int? = null,              // null = page not recorded; unused for audiobooks
+    val createdAt: Long,
 )

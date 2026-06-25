@@ -7,6 +7,8 @@ import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
+import com.pauta.app.data.dao.BookDao
+import com.pauta.app.data.dao.BookNoteDao
 import com.pauta.app.data.dao.DayDao
 import com.pauta.app.data.dao.FocusBlockDao
 import com.pauta.app.data.dao.FocusSessionDao
@@ -18,6 +20,8 @@ import com.pauta.app.data.dao.PlannedIntentionDao
 import com.pauta.app.data.dao.PrefsDao
 import com.pauta.app.data.dao.RoutineDao
 import com.pauta.app.data.dao.SearchDao
+import com.pauta.app.data.entity.BookEntity
+import com.pauta.app.data.entity.BookNoteEntity
 import com.pauta.app.data.entity.DayEntity
 import com.pauta.app.data.entity.FocusBlockEntity
 import com.pauta.app.data.entity.FocusSessionEntity
@@ -54,8 +58,10 @@ import com.pauta.app.data.entity.RoutineItemEntity
         RoutineItemEntity::class,
         PlannedIntentionEntity::class,
         PrefsEntity::class,
+        BookEntity::class,
+        BookNoteEntity::class,
     ],
-    version = 7,
+    version = 8,
     exportSchema = false,
 )
 @TypeConverters(Converters::class)
@@ -71,6 +77,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun plannedIntentionDao(): PlannedIntentionDao
     abstract fun prefsDao(): PrefsDao
     abstract fun searchDao(): SearchDao
+    abstract fun bookDao(): BookDao
+    abstract fun bookNoteDao(): BookNoteDao
 
     companion object {
         @Volatile private var instance: AppDatabase? = null
@@ -135,6 +143,52 @@ abstract class AppDatabase : RoomDatabase() {
         private val MIGRATION_6_7 = object : Migration(6, 7) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE prefs ADD COLUMN memoriaDismissedDay TEXT")
+            }
+        }
+
+        // K1: book mode's data layer — the two native-only prefs columns plus the
+        // `books` and `book_notes` tables. Existing users default to book mode off
+        // and no annual goal; the new tables start empty. None of this is exported
+        // in v4. // PT: camada de dados do modo livro — colunas e tabelas novas,
+        // tudo local (fora do v4); utilizadores existentes começam com o modo
+        // desligado e sem objetivo anual.
+        private val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE prefs ADD COLUMN bookMode INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE prefs ADD COLUMN bookAnnualGoal INTEGER NOT NULL DEFAULT 0")
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS books (
+                        id TEXT PRIMARY KEY NOT NULL,
+                        title TEXT NOT NULL,
+                        author TEXT NOT NULL DEFAULT '',
+                        series TEXT NOT NULL DEFAULT '',
+                        seriesNumber INTEGER,
+                        format TEXT NOT NULL DEFAULT 'physical',
+                        totalPages INTEGER NOT NULL DEFAULT 0,
+                        currentPage INTEGER NOT NULL DEFAULT 0,
+                        status TEXT NOT NULL DEFAULT 'tbr',
+                        startedAt INTEGER,
+                        finishedAt INTEGER,
+                        rating INTEGER,
+                        genre TEXT NOT NULL DEFAULT '',
+                        position INTEGER NOT NULL DEFAULT 0,
+                        createdAt INTEGER NOT NULL
+                    )
+                    """.trimIndent(),
+                )
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS book_notes (
+                        id TEXT PRIMARY KEY NOT NULL,
+                        bookId TEXT NOT NULL,
+                        kind TEXT NOT NULL DEFAULT 'annotation',
+                        text TEXT NOT NULL,
+                        page INTEGER,
+                        createdAt INTEGER NOT NULL
+                    )
+                    """.trimIndent(),
+                )
             }
         }
 
@@ -313,7 +367,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "pauta.db",
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
                     .addCallback(SEARCH_CALLBACK)
                     .build()
                     .also { instance = it }
