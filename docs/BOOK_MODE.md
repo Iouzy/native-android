@@ -125,15 +125,36 @@ Progress % = `currentPage.toFloat() / totalPages.coerceAtLeast(1)`.
 A reading session is a `FocusBlockEntity` where `project = "book:<bookId>"`.
 The `title` field holds the book title (for display in normal block history).
 `linkedToId` stays null. Session notes go in `FocusBlockEntity.reflection`
-(set at conclude time). `targetMs` works normally (optional reading target).
+(set at conclude time). An optional reading target works normally: the entity
+stores `targetMs` (Long), but you set it by passing `targetMin` (Int minutes)
+to `startBlock` — see the Verified API surface table.
 
 The `AppViewModel` must expose two separate block flows:
 - `blocks` (existing) — filtered to **exclude** `project LIKE 'book:%'` so
   normal Pauta stays clean.
 - `bookSessionBlocks` (new) — only blocks where `project LIKE 'book:%'`.
 
-This filtering change is part of **K2** and is the only modification to
-existing ViewModel/DAO behaviour.
+This filtering change is part of **K2**, along with the `resetAll()` clear
+(see K2) — together these are the only modifications to existing
+repository/ViewModel behaviour.
+
+### Verified API surface (checked against code on 2026-06-25)
+
+These signatures were read from the live tree; build against them rather than
+re-deriving. Line numbers are approximate anchors, not guarantees.
+
+| Symbol | Signature / fact | Location |
+|---|---|---|
+| `PautaColors` | data class, 18 fields incl. `paper3`, `onDark2`, `isDark` | `ui/theme/Color.kt:20` |
+| `repo.startBlock` | `(title, linkedToId?, project?, targetMin: Int?)` → converts min→ms | `PautaRepository.kt:301` |
+| `vm.startBlock` | same params; `targetMin` (NOT ms) | `AppViewModel.kt:188` |
+| `vm.concludeActive` | `(reflection: String, markIntentionDone = false)` | `AppViewModel.kt:195` |
+| `vm.blocks` | `StateFlow`, `SharingStarted.Eagerly` | `AppViewModel.kt:171` |
+| `FocusBlockEntity.project` | `String? = null`; trimmed/null'd on insert | `Entities.kt:51` |
+| `repo.resetAll` | clears each table by hand (add book clears here) | `PautaRepository.kt:754` |
+| `repo.importJson` | clears tables then `prefsDao.upsert(s.prefs)` | `PautaRepository.kt:764` |
+| `parsePrefs` | named-arg `PrefsEntity(...)`; new defaulted fields are safe | `WebBackup.kt:380` |
+| Room version | currently **7**; book mode bumps to **8** | `AppDatabase.kt:58` |
 
 ---
 
@@ -199,10 +220,11 @@ CREATE TABLE IF NOT EXISTS book_notes (
 @Query("DELETE FROM books") suspend fun clear()
 ```
 
-**`BookNoteDao`** — minimum required methods:
+**`BookNoteDao`** — minimum required methods (string PK ⇒ `@Upsert`, not an
+autogen `@Insert`; the repo generates the `bn_` id):
 
 ```kotlin
-@Insert suspend fun insert(note: BookNoteEntity): Long
+@Upsert suspend fun upsert(note: BookNoteEntity)
 @Query("DELETE FROM book_notes WHERE id = :id") suspend fun deleteById(id: String)
 @Query("SELECT * FROM book_notes WHERE bookId = :bookId ORDER BY createdAt DESC")
     fun observeForBook(bookId: String): Flow<List<BookNoteEntity>>
@@ -288,23 +310,53 @@ fun booksFinishedThisYear(): Int  // blocking snapshot, call from coroutine scop
 
 **Critical — modify `blocks` flow:**
 The existing `AppViewModel.blocks` flow (used by `PautaScreen`) must be
-filtered to **exclude** reading-session blocks:
+filtered to **exclude** reading-session blocks. The real declaration is at
+`AppViewModel.kt:171` — note it uses `SharingStarted.Eagerly`, keep that:
 
 ```kotlin
-// before: repo.blocks() or similar
-// after:
-val blocks = repo.blocks()
-    .map { list -> list.filter { it.project?.startsWith("book:") != true } }
-    .stateIn(…)
+// AppViewModel.kt:171 — current:
+val blocks: StateFlow<List<FocusBlockEntity>> =
+    repo.blocks().stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+// change to (add a .map before .stateIn):
+val blocks: StateFlow<List<FocusBlockEntity>> =
+    repo.blocks()
+        .map { list -> list.filterNot { it.project?.startsWith("book:") == true } }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+// and add a sibling flow for the book-session screen (K6):
+val bookSessionBlocks: StateFlow<List<FocusBlockEntity>> =
+    repo.blocks()
+        .map { list -> list.filter { it.project?.startsWith("book:") == true } }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 ```
 
 This is the only change to existing ViewModel behaviour. Existing tests must
 still pass.
 
+**Critical — reset vs import asymmetry (`PautaRepository.kt`):** the two
+wipe paths must be treated *differently* because the library is native-only and
+absent from the v4 backup.
+- **`resetAll()` (~line 754)** — the explicit "apagar tudo" nuke. Books *are*
+  user data, so **add** `bookDao.clear(); bookNoteDao.clear()` here. (Also flows
+  through `reseed()`, which calls `resetAll()` — acceptable; no demo books.)
+- **`importJson()` (~line 764)** — restoring a v4 backup. The backup carries no
+  books, so **do NOT** add book clears to the import block: clearing them would
+  silently destroy a library the backup cannot restore. Leave `books` /
+  `book_notes` untouched on import, with a one-line PT/EN comment saying why.
+- **Prefs on import:** `importJson` ends with `prefsDao.upsert(s.prefs)`, and
+  `parsePrefs` defaults all native-only fields — so `bookMode`/`bookAnnualGoal`
+  reset to defaults on import, exactly like `pinHash`/`backupFolderUri` already
+  do. This is the established pattern: accept it, do **not** add them to the v4
+  schema to "preserve" them. The library tables survive (per the bullet above),
+  so the user just re-enables the toggle.
+
 **Out of scope:** no UI, no Settings toggle.
 
-**Accept:** `compileDebugKotlin` green; unit tests green; existing
-`AppViewModel.blocks` no longer includes reading-session blocks.
+**Accept:** `compileDebugKotlin` green; unit tests green (WebBackup unchanged);
+existing `AppViewModel.blocks` no longer includes reading-session blocks;
+`resetAll()` clears `books` + `book_notes`; a v4 `importJson` leaves them
+intact.
 
 ### K3 · Settings toggle + tab label remapping — Status: pending
 
@@ -375,6 +427,7 @@ cool-neutral cream. The change must be invisible when book mode is off.
 |---|---|---|
 | `paper` | `#F2E8D5` (parchment) | `#28190F` |
 | `paper2` | `#E8D9BC` | `#332010` |
+| `paper3` | `#DECBA8` | `#3D2814` |
 | `ink` | `#2C1A0E` (dark sepia) | `#EBD9C0` |
 | `ink2` | `#5C3A1E` | `#C8A882` |
 | `ink3` | `#8C6540` | `#9A7855` |
@@ -518,8 +571,11 @@ A "Iniciar sessão de leitura" card:
   one book is reading, pre-select it (show its title, tap to change). If none,
   show `"Adiciona um livro na Estante primeiro"` and disable the start button.
 - Optional target: same duration input as the existing Start block sheet
-  (minutes → `targetMs`).
-- `Começar` button → `vm.startBlock(title = book.title, linkedToId = null, project = "book:${book.id}", targetMs = …)`
+  (minutes, passed straight through as `targetMin`).
+- `Começar` button → `vm.startBlock(title = book.title, linkedToId = null,
+  project = "book:${book.id}", targetMin = …)`. **Note:** the param is
+  `targetMin` (Int, minutes) — the repo converts it to `targetMs` internally
+  (verified `AppViewModel.kt:188` / `PautaRepository.kt:301`). Do not pass ms.
 
 Below the card: a compact session history — focus blocks where `project LIKE 'book:%'`,
 grouped by book title, showing date + duration (MonoFamily, ink3). Uses
@@ -534,8 +590,11 @@ exactly as today. Conclude button opens `BookConcludeSheet`.
 - Prompt: `"Até que página chegaste?"` (physical/ebook) or `"Quantos minutos ouviste?"` (audiobook)
 - Number input, pre-filled with `book.currentPage`. MonoFamily keyboard.
 - Optional: `"Nota da sessão"` multiline TextField (SerifFamily).
-- Confirm: `vm.updateProgress(bookId, newPage)` → `vm.concludeActive()` with
-  the note saved to the block's reflection field.
+- Confirm: `vm.updateProgress(bookId, newPage)` then
+  `vm.concludeActive(reflection = note)` — the session note *is* the
+  `reflection` arg (signature `concludeActive(reflection: String,
+  markIntentionDone: Boolean = false)`, `AppViewModel.kt:195`). Pass `""` when
+  the note is blank.
 
 **New i18n strings (`// native-only`):**
 
