@@ -306,7 +306,7 @@ still pass.
 **Accept:** `compileDebugKotlin` green; unit tests green; existing
 `AppViewModel.blocks` no longer includes reading-session blocks.
 
-### K3 · Settings toggle + tab label remapping — Status: in-progress (PR #136)
+### K3 · Settings toggle + tab label remapping — Status: done (PR #136)
 
 **Depends on:** K2
 
@@ -806,4 +806,5 @@ book content yet). Each subsequent task adds one tab or one feature layer.
 
 <!-- e.g. 2026-06-25 · K1 · #n · data layer: books + book_notes tables, Room v7→v8, bookMode + bookAnnualGoal prefs -->
 2026-06-25 · K1 · #134 · data layer: BookEntity/BookNoteEntity + BookDao/BookNoteDao, bookMode + bookAnnualGoal prefs columns, Room v7→v8 MIGRATION_7_8; all native-only, WebBackup/v4 untouched
+2026-06-25 · K3 · #136 · "Modo livro" toggle in Settings → Aparência; TabBar remaps labels to Estante/Sessão/Hábitos when on, restores Hoje/Pauta/Marés when off; 5 native-only i18n strings
 2026-06-25 · K2 · #135 · repo + VM wiring: PautaRepository book/note CRUD + booksReading/Tbr/Done (done merges done+dnf, finishedAt DESC) + booksFinishedThisYear; AppViewModel bookMode/bookAnnualGoal StateFlows + setters, three shelf flows, book actions, booksFinishedThisYear() (year-start ms); blocks flow now excludes project "book:%", new bookSessionBlocks flow holds them. DAOs derived in-repo from AppDatabase so no PautaApplication change. native-only, WebBackup/v4 untouched
