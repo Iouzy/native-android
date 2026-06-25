@@ -75,6 +75,7 @@ import com.pauta.app.ui.screens.SettingsScreen
 import com.pauta.app.ui.screens.TierGuideScreen
 import com.pauta.app.ui.screens.YearReviewScreen
 import com.pauta.app.ui.theme.LocalPautaColors
+import com.pauta.app.ui.theme.bookPautaColors
 import com.pauta.app.ui.theme.MonoFamily
 import com.pauta.app.ui.theme.SerifFamily
 import com.pauta.app.ui.viewmodel.AppViewModel
@@ -193,51 +194,61 @@ fun MainScaffold(entry: AppEntry?, onEntryConsumed: () -> Unit) {
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
+    // K4: sepia/parchment colours wrap the whole NavHost; overlays (PIN, onboarding)
+    // remain outside so they always use the base palette.
+    val baseColors = LocalPautaColors.current
+    val effectiveColors = if (prefs.bookMode)
+        bookPautaColors(dark = baseColors.isDark)
+    else
+        baseColors
+
     Box(Modifier.fillMaxSize()) {
-        NavHost(
-            navController = navController,
-            startDestination = Route.HOME,
-            enterTransition = { enterPush(animate) },
-            exitTransition = { exitPush(animate) },
-            popEnterTransition = { enterPop(animate) },
-            popExitTransition = { exitPop(animate) },
-        ) {
-            composable(Route.HOME) {
-                AppScoped(appOwner) {
-                    HomeShell(
-                        initialTab = initialTab,
-                        requestedTab = tabRequest,
-                        onTabConsumed = { tabRequest = null },
-                        onOpenSettings = { navController.open(Route.SETTINGS) },
-                        onOpenHistory = { navController.open(Route.HISTORY) },
-                    )
+        CompositionLocalProvider(LocalPautaColors provides effectiveColors) {
+            NavHost(
+                navController = navController,
+                startDestination = Route.HOME,
+                enterTransition = { enterPush(animate) },
+                exitTransition = { exitPush(animate) },
+                popEnterTransition = { enterPop(animate) },
+                popExitTransition = { exitPop(animate) },
+            ) {
+                composable(Route.HOME) {
+                    AppScoped(appOwner) {
+                        HomeShell(
+                            initialTab = initialTab,
+                            requestedTab = tabRequest,
+                            onTabConsumed = { tabRequest = null },
+                            onOpenSettings = { navController.open(Route.SETTINGS) },
+                            onOpenHistory = { navController.open(Route.HISTORY) },
+                        )
+                    }
                 }
-            }
-            composable(Route.SETTINGS) {
-                AppScoped(appOwner) {
-                    SettingsScreen(
-                        onClose = { navController.popBackStack() },
-                        onOpenGoals = { navController.open(Route.GOALS) },
-                        onOpenYearReview = { navController.open(Route.YEAR_REVIEW) },
-                        onOpenTierGuide = { navController.open(Route.TIER_GUIDE) },
-                    )
+                composable(Route.SETTINGS) {
+                    AppScoped(appOwner) {
+                        SettingsScreen(
+                            onClose = { navController.popBackStack() },
+                            onOpenGoals = { navController.open(Route.GOALS) },
+                            onOpenYearReview = { navController.open(Route.YEAR_REVIEW) },
+                            onOpenTierGuide = { navController.open(Route.TIER_GUIDE) },
+                        )
+                    }
                 }
-            }
-            composable(Route.GOALS) {
-                AppScoped(appOwner) { GoalsScreen(onClose = { navController.popBackStack() }) }
-            }
-            composable(Route.YEAR_REVIEW) {
-                AppScoped(appOwner) { YearReviewScreen(onClose = { navController.popBackStack() }) }
-            }
-            composable(Route.TIER_GUIDE) {
-                AppScoped(appOwner) { TierGuideScreen(onClose = { navController.popBackStack() }) }
-            }
-            composable(Route.HISTORY) {
-                AppScoped(appOwner) {
-                    // E1: HistoryView now owns its data (history list + search +
-                    // per-day memory) via the app-scoped ViewModel, like the other
-                    // promoted screens. // PT: o Histórico vai buscar os dados ao VM.
-                    HistoryView(onClose = { navController.popBackStack() })
+                composable(Route.GOALS) {
+                    AppScoped(appOwner) { GoalsScreen(onClose = { navController.popBackStack() }) }
+                }
+                composable(Route.YEAR_REVIEW) {
+                    AppScoped(appOwner) { YearReviewScreen(onClose = { navController.popBackStack() }) }
+                }
+                composable(Route.TIER_GUIDE) {
+                    AppScoped(appOwner) { TierGuideScreen(onClose = { navController.popBackStack() }) }
+                }
+                composable(Route.HISTORY) {
+                    AppScoped(appOwner) {
+                        // E1: HistoryView now owns its data (history list + search +
+                        // per-day memory) via the app-scoped ViewModel, like the other
+                        // promoted screens. // PT: o Histórico vai buscar os dados ao VM.
+                        HistoryView(onClose = { navController.popBackStack() })
+                    }
                 }
             }
         }

@@ -93,3 +93,45 @@ fun darkPautaColors(accent: Color = Accent, highContrast: Boolean = false) = Pau
 val DefaultAccent: Color = Accent
 
 val LocalPautaColors = staticCompositionLocalOf { lightPautaColors() }
+
+// native-only: sepia/parchment palette for book mode; all accent + inverse
+// tokens are identical to the base palette so the accent colour stays consistent.
+fun bookPautaColors(dark: Boolean): PautaColors = if (dark) PautaColors(
+    paper = Color(0xFF28190F),
+    paper2 = Color(0xFF332010),
+    paper3 = Color(0xFF3D2818),
+    ink = Color(0xFFEBD9C0),
+    ink2 = Color(0xFFC8A882),
+    ink3 = Color(0xFF9A7855),
+    ink4 = Color(0xFF6B5038),
+    rule = Color(0xFF4A3020),
+    accent = Accent,
+    accentSoft = AccentSoft,
+    accentBg = AccentBg,
+    good = Color(0xFF8DA068),
+    surfaceDark = Color(0xFF2A2824),
+    onDark = Color(0xFFF2ECE0),
+    onDark2 = Color(0xFFB5AC9C),
+    tabbarBg = Color(0xFF28190F),
+    pageBg = Color(0xFF28190F),
+    isDark = true,
+) else PautaColors(
+    paper = Color(0xFFF2E8D5),
+    paper2 = Color(0xFFE8D9BC),
+    paper3 = Color(0xFFD9C9A8),
+    ink = Color(0xFF2C1A0E),
+    ink2 = Color(0xFF5C3A1E),
+    ink3 = Color(0xFF8C6540),
+    ink4 = Color(0xFFB89870),
+    rule = Color(0xFFD4B896),
+    accent = Accent,
+    accentSoft = AccentSoft,
+    accentBg = AccentBg,
+    good = Color(0xFF5A6B3E),
+    surfaceDark = Color(0xFF1A1815),
+    onDark = Color(0xFFF5F1EA),
+    onDark2 = Color(0xFFB5AC9C),
+    tabbarBg = Color(0xFFF2E8D5),
+    pageBg = Color(0xFFF2E8D5),
+    isDark = false,
+)
