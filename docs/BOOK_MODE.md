@@ -41,10 +41,12 @@ additional constraints specific to book mode:
   tables or flows.
 - **Three tabs, fixed.** The tab count stays at 3. All book-mode UI lives inside
   the existing slots — don't add a 4th tab or a 4th NavHost destination.
-- **Native-only, not exported.** All book entities and the `bookMode`/
+- **Native-only, not in v4.** All book entities and the `bookMode`/
   `bookAnnualGoal` prefs columns are device-local. They must **not** appear in
   the `pauta.v4` export and must be explicitly excluded from `WebBackup.kt`.
-  Mark every new pref field and entity with `// native-only`.
+  Mark every new pref field and entity with `// native-only`. Book data *is*
+  backed up — but via its own `pauta-native.v1` companion file (**K10**), never
+  by changing the v4 shape.
 - **Reading sessions reuse the existing focus-block tables.** A reading session
   is a `FocusBlockEntity` with `project = "book:<bookId>"`. This gives the
   timer, session history and backup round-trip for free. To keep the normal
@@ -69,7 +71,7 @@ additional constraints specific to book mode:
 
 | Model | Tasks |
 |---|---|
-| **Opus 4.8** | K1, K2, K5, K6, K7, K8, K9, K-extra |
+| **Opus 4.8** | K1, K2, K5, K6, K7, K8, K9, K10, K-extra |
 | **Sonnet 4.6** | K3, K4 |
 
 ---
@@ -840,6 +842,81 @@ book with ≥ 2 sessions; hides gracefully with insufficient data; CI green.
 
 ---
 
+## Phase K-6 — durability
+
+### K10 · Book-data backup (separate `pauta-native.v1` file) — Status: pending
+
+**Depends on:** K1, K2. Can ship any time after K2 — it needs neither the tabs
+(K5–K9) nor the toggle (K3), and giving the library its own backup early
+protects the data before the rest is built. References the SAF + WorkManager
+auto-backup shipped in **B1** (`docs/NATIVE_IMPROVEMENTS.md`).
+
+**Why:** book data (books, notes, annual goal) is native-only and absent from
+the `pauta.v4` web backup by design, so today it would die on uninstall or
+device loss. The v4 file must stay byte-for-byte web-compatible (the lossless
+round-trip is the gate test), so the answer is a **second, companion backup
+file** — never a change to v4.
+
+**Format — `pauta-native.v1` (a new JSON, written beside the v4 file):**
+```json
+{
+  "schema": "pauta-native.v1",
+  "exportedAt": 1700000000000,
+  "books": [ { "id": "bk_…", "title": "…", … all BookEntity fields } ],
+  "bookNotes": [ { "id": "bn_…", "bookId": "bk_…", … all BookNoteEntity fields } ],
+  "bookAnnualGoal": 24
+}
+```
+- `bookMode` (the toggle) is **deliberately excluded** — it's live UI state, not
+  data; an import must never silently flip a planner user into book mode. They
+  re-enable it. `bookAnnualGoal` *is* data and is restored.
+
+**Files to create / touch:**
+- `data/NativeBackup.kt` (new) — `export(snapshot): String` /
+  `import(text): NativeSnapshot`, structured like `WebBackup.kt` but fully
+  independent, so WebBackup and its gate test stay untouched. Same
+  `kotlinx.serialization` approach WebBackup uses (no new deps).
+- `data/PautaRepository.kt` — `exportNativeJson(): String` and
+  `importNativeJson(text)` (full replace: clear `books` + `book_notes`, insert
+  parsed rows, set `bookAnnualGoal` via `updatePrefs`). An empty library must
+  export a valid file with empty arrays.
+- `ui/viewmodel/AppViewModel.kt` — thin `exportNativeJson()` /
+  `importNativeJson(text)` delegates.
+- `ui/screens/SettingsScreen.kt` — fold book data into the existing Data
+  export/import flow (see UX below), not a parallel set of buttons.
+- The **B1** auto-backup writer (`service/BackupWorker` + the SAF/`filesDir`
+  path in `PautaRepository`) — write a second `pauta-native-<stamp>.json` next
+  to the v4 file, same cadence and same prune logic.
+- `src/test/` — a `NativeBackup` round-trip test (the new gate for book data):
+  books + notes + goal survive export→import losslessly, covering every
+  nullable field (`seriesNumber`, `rating`, `page`, `startedAt`, `finishedAt`)
+  and all three formats.
+
+**Settings UX (Data section) — keep it one flow:**
+- **Export:** the existing "Exportar" writes the v4 file as today **and**, when
+  any book or note exists, the `pauta-native` file alongside it. Name both files
+  in the confirmation so the user knows to keep the pair.
+- **Import:** the existing picker routes by the file's top-level shape — a
+  `schema == "pauta-native.v1"` goes to `importNativeJson`; anything else stays
+  on the current v4 `importJson` path. One "Importar" handles both; a full
+  restore is two picks (v4, then native). Say so in the helper text.
+
+**Backup-rules note (B1):** native data lives inside `pauta.db`, which B1's
+`backup_rules.xml` already excludes from cloud backup, so this task leaks
+nothing new — the SAF folder copy is the off-device path. Confirm and note in
+the PR; no rules change expected.
+
+**Out of scope:** merging book data into the v4 file (forbidden); cloud sync;
+partial/selective book export.
+
+**Accept:** export produces a valid `pauta-native.v1` holding the full library;
+import on a fresh install restores books + notes + annual goal exactly;
+`NativeBackup` round-trip test green; **WebBackup tests still green and the v4
+output byte-identical** to before this task; auto-backup writes both files on
+schedule with the app closed.
+
+---
+
 ## Task dependency graph
 
 ```
@@ -851,7 +928,8 @@ K1 (data)
      │   └─ (books exist)                 └─ K-extra (pace stats)
      ├─ K6 (Pauta sessions)
      │   └─ K-extra (pace stats)
-     └─ K7 (Marés + annual goal)
+     ├─ K7 (Marés + annual goal)
+     └─ K10 (book-data backup)  ← can ship right after K2; protects data early
 
 K9 (quote capture) depends on K5
 ```
