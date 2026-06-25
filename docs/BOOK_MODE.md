@@ -139,7 +139,7 @@ existing ViewModel/DAO behaviour.
 
 ## Phase K-0 — foundation
 
-### K1 · Data layer: entities, DAOs, migration — Status: pending
+### K1 · Data layer: entities, DAOs, migration — Status: done (PR #134)
 
 **Depends on:** nothing (first task; everything else depends on this)
 
@@ -805,3 +805,4 @@ book content yet). Each subsequent task adds one tab or one feature layer.
 ## Log (append one line per shipped task: date · task · PR · note)
 
 <!-- e.g. 2026-06-25 · K1 · #n · data layer: books + book_notes tables, Room v7→v8, bookMode + bookAnnualGoal prefs -->
+2026-06-25 · K1 · #134 · data layer: BookEntity/BookNoteEntity + BookDao/BookNoteDao, bookMode + bookAnnualGoal prefs columns, Room v7→v8 MIGRATION_7_8; all native-only, WebBackup/v4 untouched
