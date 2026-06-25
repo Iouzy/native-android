@@ -7,6 +7,8 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Update
 import androidx.room.Upsert
+import com.pauta.app.data.entity.BookEntity
+import com.pauta.app.data.entity.BookNoteEntity
 import com.pauta.app.data.entity.DayEntity
 import com.pauta.app.data.entity.FocusBlockEntity
 import com.pauta.app.data.entity.FocusSessionEntity
@@ -213,6 +215,43 @@ interface PlannedIntentionDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun insertAll(items: List<PlannedIntentionEntity>)
     @Query("SELECT * FROM planned_intentions") suspend fun getAll(): List<PlannedIntentionEntity>
     @Query("DELETE FROM planned_intentions") suspend fun clear()
+}
+
+// native-only (K1): the personal book shelf. Reads stream by status so each
+// shelf section (reading / tbr / done) recomposes on its own; snapshots back the
+// reset/clear paths. // PT: estante de livros — leituras por estado, snapshots
+// para limpar.
+@Dao
+interface BookDao {
+    @Upsert suspend fun upsert(book: BookEntity)
+    @Query("DELETE FROM books WHERE id = :id") suspend fun deleteById(id: String)
+
+    @Query("SELECT * FROM books WHERE status = :status ORDER BY position")
+    fun observeByStatus(status: String): Flow<List<BookEntity>>
+
+    @Query("SELECT * FROM books WHERE id = :id") suspend fun getById(id: String): BookEntity?
+
+    // Books finished on/after the given epoch ms — feeds the K7 annual goal count.
+    // // PT: livros terminados desde uma data — para o objetivo anual.
+    @Query("SELECT COUNT(*) FROM books WHERE status = 'done' AND finishedAt >= :fromMs")
+    suspend fun countFinishedSince(fromMs: Long): Int
+
+    @Query("SELECT * FROM books") suspend fun getAll(): List<BookEntity>
+    @Query("DELETE FROM books") suspend fun clear()
+}
+
+// native-only (K1): quotes / annotations / thoughts captured against a book.
+// // PT: notas e citações de um livro.
+@Dao
+interface BookNoteDao {
+    @Insert suspend fun insert(note: BookNoteEntity): Long
+    @Query("DELETE FROM book_notes WHERE id = :id") suspend fun deleteById(id: String)
+
+    @Query("SELECT * FROM book_notes WHERE bookId = :bookId ORDER BY createdAt DESC")
+    fun observeForBook(bookId: String): Flow<List<BookNoteEntity>>
+
+    @Query("SELECT * FROM book_notes") suspend fun getAll(): List<BookNoteEntity>
+    @Query("DELETE FROM book_notes") suspend fun clear()
 }
 
 @Dao
