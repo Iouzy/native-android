@@ -300,7 +300,7 @@ cost. Running a task on a stronger model than suggested is always fine.
 - **How:** `delay(ms until next local midnight)` + re-check on `ON_RESUME`
   (covers doze/clock changes); keep `runRollover` semantics identical.
 
-### T2 · Version surfacing — Status: in-progress (PR #131)
+### T2 · Version surfacing — Status: done (PR #131)
 - **Why:** `versionName` is a static `"1.0"`; About already shows
   `BUILD_TS`/`BUILD_RUN`.
 - **How:** derive a human `versionName` (e.g. `1.<BUILD_RUN>`) in
