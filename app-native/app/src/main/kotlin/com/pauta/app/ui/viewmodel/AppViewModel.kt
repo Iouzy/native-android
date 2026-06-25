@@ -4,6 +4,8 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.pauta.app.PautaApplication
+import com.pauta.app.data.entity.BookEntity
+import com.pauta.app.data.entity.BookNoteEntity
 import com.pauta.app.data.entity.DayEntity
 import com.pauta.app.data.entity.FocusBlockEntity
 import com.pauta.app.data.entity.FocusSessionEntity
@@ -168,8 +170,21 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000L), emptyList())
 
     // ── Pauta ─────────────────────────────────────────────────
+    // The normal Pauta tab excludes reading-session blocks (project "book:<id>"),
+    // which live behind book mode's Sessão tab via [bookSessionBlocks]. A reading
+    // session is just a FocusBlockEntity, so it gets the timer + history for free
+    // without polluting the planner's block list. // PT: a Pauta normal não mostra
+    // blocos de leitura — esses vivem em bookSessionBlocks (modo livro).
     val blocks: StateFlow<List<FocusBlockEntity>> =
-        repo.blocks().stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+        repo.blocks()
+            .map { list -> list.filter { it.project?.startsWith("book:") != true } }
+            .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    /** Reading-session blocks only (project "book:<id>") — the Sessão tab's history. */
+    val bookSessionBlocks: StateFlow<List<FocusBlockEntity>> =
+        repo.blocks()
+            .map { list -> list.filter { it.project?.startsWith("book:") == true } }
+            .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     val activeBlock: StateFlow<FocusBlockEntity?> =
         repo.activeBlock().stateIn(viewModelScope, SharingStarted.Eagerly, null)
@@ -282,6 +297,58 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun applyRoutine(routineId: String) = viewModelScope.launch { repo.applyRoutine(todayKey.value, routineId) }
     /** Snapshot today's intentions as a new named routine. */
     fun saveRoutineFromToday(name: String) = viewModelScope.launch { repo.saveRoutineFromToday(name, todayKey.value) }
+
+    // ── Modo livro (K2) ───────────────────────────────────────
+    // native-only book-mode state: the on/off lens, the annual reading goal, and
+    // the three shelves. Reading sessions reuse the focus-block tables and surface
+    // through [bookSessionBlocks] above. Everything here is device-local — none of
+    // it touches the pauta.v4 export. // PT: estado do modo livro — local, fora do v4.
+    val bookMode: StateFlow<Boolean> =
+        repo.prefs.map { it.bookMode }.stateIn(viewModelScope, SharingStarted.Eagerly, false)
+    val bookAnnualGoal: StateFlow<Int> =
+        repo.prefs.map { it.bookAnnualGoal }.stateIn(viewModelScope, SharingStarted.Eagerly, 0)
+
+    fun setBookMode(on: Boolean) = viewModelScope.launch { repo.updatePrefs { it.copy(bookMode = on) } }
+    fun setAnnualGoal(n: Int) = viewModelScope.launch { repo.updatePrefs { it.copy(bookAnnualGoal = n.coerceAtLeast(0)) } }
+
+    val booksReading: StateFlow<List<BookEntity>> =
+        repo.booksReading().stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+    val booksTbr: StateFlow<List<BookEntity>> =
+        repo.booksTbr().stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+    val booksDone: StateFlow<List<BookEntity>> =
+        repo.booksDone().stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    fun addBook(
+        title: String,
+        author: String,
+        series: String,
+        seriesNumber: Int?,
+        format: String,
+        totalPages: Int,
+        genre: String,
+        status: String,
+    ) = viewModelScope.launch {
+        repo.addBook(title, author, series, seriesNumber, format, totalPages, genre, status)
+    }
+
+    fun updateBook(book: BookEntity) = viewModelScope.launch { repo.updateBook(book) }
+    fun deleteBook(id: String) = viewModelScope.launch { repo.deleteBook(id) }
+    fun updateProgress(id: String, currentPage: Int) = viewModelScope.launch { repo.updateProgress(id, currentPage) }
+    fun finishBook(id: String, rating: Int?) = viewModelScope.launch { repo.finishBook(id, rating) }
+    fun addNote(bookId: String, kind: String, text: String, page: Int?) =
+        viewModelScope.launch { repo.addNote(bookId, kind, text, page) }
+    fun deleteNote(id: String) = viewModelScope.launch { repo.deleteNote(id) }
+
+    /** Live notes for one book — the K8 detail sheet observes this. */
+    fun notesForBook(bookId: String): Flow<List<BookNoteEntity>> = repo.notesForBook(bookId)
+
+    /** Count of books finished since Jan 1 of the current local year — the K7
+     *  annual goal counter. Suspends; call from a coroutine (e.g. LaunchedEffect).
+     *  // PT: livros terminados este ano civil. */
+    suspend fun booksFinishedThisYear(): Int {
+        val yearStartMs = DateUtils.startOfDayMs("${todayKey.value.substring(0, 4)}-01-01")
+        return repo.booksFinishedThisYear(yearStartMs)
+    }
 
     // ── updater ───────────────────────────────────────────────
     val updateChecking: MutableStateFlow<Boolean> = MutableStateFlow(false)
