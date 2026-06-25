@@ -424,6 +424,7 @@ private fun HomeShell(
             TabBar(
                 current = Tab.entries[pager.currentPage],
                 onSelect = { tab -> scope.launch { pager.animateScrollToPage(tab.ordinal) } },
+                bookMode = prefs.bookMode,
             )
         }
 
@@ -530,7 +531,7 @@ private fun StatusRow(onMenu: () -> Unit) {
 }
 
 @Composable
-private fun TabBar(current: Tab, onSelect: (Tab) -> Unit) {
+private fun TabBar(current: Tab, onSelect: (Tab) -> Unit, bookMode: Boolean = false) {
     val colors = LocalPautaColors.current
     Column(
         Modifier
@@ -573,8 +574,15 @@ private fun TabBar(current: Tab, onSelect: (Tab) -> Unit) {
                         modifier = Modifier.size(22.dp),
                     )
                     Spacer(Modifier.height(3.dp))
+                    // K3: in book mode, substitute the three tab labels with their
+                    // reading-companion equivalents (Estante / Sessão / Hábitos).
+                    val label = if (bookMode) when (tab) {
+                        Tab.HOJE -> tr("Estante")
+                        Tab.PAUTA -> tr("Sessão")
+                        Tab.MARES -> tr("Hábitos")
+                    } else tr(tab.ptLabel)
                     Text(
-                        text = tr(tab.ptLabel).uppercase(),
+                        text = label.uppercase(),
                         color = tint,
                         fontFamily = MonoFamily,
                         fontSize = 10.sp,
