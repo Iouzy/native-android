@@ -694,6 +694,30 @@ object I18n {
         "Estante" to "Shelf", // native-only
         "Sessão" to "Session", // native-only
         "Hábitos" to "Habits", // native-only
+
+        // ── K5 · Hoje → library shelf + book form ──
+        "A ler agora" to "Reading now", // native-only
+        "A seguir" to "Up next", // native-only
+        "Lidos" to "Finished", // native-only
+        "Nenhum livro em curso" to "No books in progress", // native-only
+        "Adicionar livro" to "Add book", // native-only
+        "Editar livro" to "Edit book", // native-only
+        "Eliminar livro" to "Delete book", // native-only
+        "Tocar de novo para eliminar" to "Tap again to delete", // native-only
+        "Título" to "Title", // native-only
+        "Autor" to "Author", // native-only
+        "Série" to "Series", // native-only
+        "Nº na série" to "Series no.", // native-only
+        "Físico" to "Physical", // native-only
+        "Ebook" to "Ebook", // native-only
+        "Audiolivro" to "Audiobook", // native-only
+        "Total de páginas" to "Total pages", // native-only
+        "Total de minutos" to "Total minutes", // native-only
+        "Género" to "Genre", // native-only
+        "A ler" to "Reading", // native-only
+        "Formato" to "Format", // native-only
+        "Estado" to "Status", // native-only
+        "Dá um título ao livro." to "Give the book a title.", // native-only
     )
 }
 

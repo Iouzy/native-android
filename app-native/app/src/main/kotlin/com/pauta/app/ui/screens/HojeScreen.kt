@@ -101,9 +101,17 @@ import java.time.LocalDate
  *
  * @param onOpenHistory opens the past-days history — a navigation destination
  *   (A8), so it peels back predictively rather than swapping in place.
+ * @param bookMode when true the tab becomes the library shelf (K5); the planner
+ *   view below is untouched and restored the moment book mode is off.
  */
 @Composable
-fun HojeScreen(onOpenHistory: () -> Unit) {
+fun HojeScreen(onOpenHistory: () -> Unit, bookMode: Boolean = false) {
+    // Book mode is a lens, not a fork: swap in the shelf and leave the planner
+    // view entirely intact. // PT: modo livro troca a estante; o planner fica igual.
+    if (bookMode) {
+        BookShelfScreen()
+        return
+    }
     val colors = LocalPautaColors.current
     val vm: AppViewModel = viewModel()
     val intentions by vm.intentions.collectAsStateWithLifecycle()
