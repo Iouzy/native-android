@@ -718,6 +718,16 @@ object I18n {
         "Formato" to "Format", // native-only
         "Estado" to "Status", // native-only
         "Dá um título ao livro." to "Give the book a title.", // native-only
+
+        // ── K6 · Pauta → reading session ──
+        "Iniciar sessão de leitura" to "Start reading session", // native-only
+        "Começar" to "Start", // native-only
+        "Até que página chegaste?" to "What page did you reach?", // native-only
+        "Quantos minutos ouviste?" to "How many minutes did you listen?", // native-only
+        "Nota da sessão" to "Session note", // native-only
+        "Sessões de leitura" to "Reading sessions", // native-only
+        "Nenhuma sessão ainda" to "No sessions yet", // native-only
+        "Adiciona um livro na Estante primeiro" to "Add a book on the Shelf first", // native-only
     )
 }
 
