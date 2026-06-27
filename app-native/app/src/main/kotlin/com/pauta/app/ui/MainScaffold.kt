@@ -427,7 +427,7 @@ private fun HomeShell(
                     .fillMaxWidth(),
             ) { page ->
                 when (Tab.entries[page]) {
-                    Tab.HOJE -> HojeScreen(onOpenHistory = onOpenHistory)
+                    Tab.HOJE -> HojeScreen(onOpenHistory = onOpenHistory, bookMode = prefs.bookMode)
                     Tab.PAUTA -> PautaScreen()
                     Tab.MARES -> MaresScreen()
                 }
