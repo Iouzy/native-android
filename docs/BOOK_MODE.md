@@ -358,7 +358,7 @@ CI green.
 
 ## Phase K-2 — theme (independent; can run any time after K3)
 
-### K4 · Sepia/parchment theme — Status: pending
+### K4 · Sepia/parchment theme — Status: in-progress (PR #137)
 
 **Depends on:** K3 (toggle must exist to test; needs `bookMode` in the scaffold)
 
