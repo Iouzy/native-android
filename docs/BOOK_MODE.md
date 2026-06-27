@@ -411,7 +411,7 @@ today; no flicker on toggle; CI green.
 
 ## Phase K-3 — tab screens (K5, K6, K7 are independent; all depend on K2 + K3)
 
-### K5 · Hoje → library shelf — Status: in-progress (PR #138)
+### K5 · Hoje → library shelf — Status: done (PR #138)
 
 **Depends on:** K2, K3
 
