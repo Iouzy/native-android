@@ -358,7 +358,7 @@ CI green.
 
 ## Phase K-2 — theme (independent; can run any time after K3)
 
-### K4 · Sepia/parchment theme — Status: in-progress (PR #137)
+### K4 · Sepia/parchment theme — Status: done (PR #137)
 
 **Depends on:** K3 (toggle must exist to test; needs `bookMode` in the scaffold)
 
@@ -808,3 +808,4 @@ book content yet). Each subsequent task adds one tab or one feature layer.
 2026-06-25 · K1 · #134 · data layer: BookEntity/BookNoteEntity + BookDao/BookNoteDao, bookMode + bookAnnualGoal prefs columns, Room v7→v8 MIGRATION_7_8; all native-only, WebBackup/v4 untouched
 2026-06-25 · K3 · #136 · "Modo livro" toggle in Settings → Aparência; TabBar remaps labels to Estante/Sessão/Hábitos when on, restores Hoje/Pauta/Marés when off; 5 native-only i18n strings
 2026-06-25 · K2 · #135 · repo + VM wiring: PautaRepository book/note CRUD + booksReading/Tbr/Done (done merges done+dnf, finishedAt DESC) + booksFinishedThisYear; AppViewModel bookMode/bookAnnualGoal StateFlows + setters, three shelf flows, book actions, booksFinishedThisYear() (year-start ms); blocks flow now excludes project "book:%", new bookSessionBlocks flow holds them. DAOs derived in-repo from AppDatabase so no PautaApplication change. native-only, WebBackup/v4 untouched
+2026-06-27 · K4 · #137 · bookPautaColors(dark) in Color.kt with parchment tokens (light paper #F2E8D5 / dark #28190F, ink/rule/tabbarBg/pageBg all sepia); NavHost in MainScaffold wrapped in CompositionLocalProvider — sepia when bookMode on, base palette when off; PIN/onboarding overlays outside provider, unaffected
