@@ -96,7 +96,14 @@ import kotlinx.coroutines.delay
  * tempo de eventos do dia.
  */
 @Composable
-fun PautaScreen() {
+fun PautaScreen(bookMode: Boolean = false) {
+    // K6: in book mode the focus tab becomes the reading-session timer. The early
+    // return keeps the planner's Pauta untouched when the lens is off, mirroring
+    // K5's Hoje→Estante split. // PT: no modo livro, a Pauta vira sessão de leitura.
+    if (bookMode) {
+        BookSessionScreen()
+        return
+    }
     val colors = LocalPautaColors.current
     val vm: com.pauta.app.ui.viewmodel.AppViewModel = viewModel()
     val blocks by vm.blocks.collectAsStateWithLifecycle()

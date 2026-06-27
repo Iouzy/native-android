@@ -497,7 +497,7 @@ book search/lookup, K8 functionality behind the stub tap.
 and the card appears immediately; format label adapts (pages vs minutes);
 normal HojeScreen is pixel-identical when `bookMode` is false; CI green.
 
-### K6 · Pauta → reading session — Status: pending
+### K6 · Pauta → reading session — Status: done (PR #139)
 
 **Depends on:** K2, K3 (and K5 should be done first so books exist to test with)
 
@@ -810,3 +810,4 @@ book content yet). Each subsequent task adds one tab or one feature layer.
 2026-06-25 · K2 · #135 · repo + VM wiring: PautaRepository book/note CRUD + booksReading/Tbr/Done (done merges done+dnf, finishedAt DESC) + booksFinishedThisYear; AppViewModel bookMode/bookAnnualGoal StateFlows + setters, three shelf flows, book actions, booksFinishedThisYear() (year-start ms); blocks flow now excludes project "book:%", new bookSessionBlocks flow holds them. DAOs derived in-repo from AppDatabase so no PautaApplication change. native-only, WebBackup/v4 untouched
 2026-06-27 · K4 · #137 · bookPautaColors(dark) in Color.kt with parchment tokens (light paper #F2E8D5 / dark #28190F, ink/rule/tabbarBg/pageBg all sepia); NavHost in MainScaffold wrapped in CompositionLocalProvider — sepia when bookMode on, base palette when off; PIN/onboarding overlays outside provider, unaffected
 2026-06-27 · K5 · #138 · Hoje→Estante shelf (BookShelfScreen): A ler agora (LazyRow progress cards, pages/min format-aware) · A seguir (list rows) · Lidos (LazyRow cards w/ ★ rating); "Adicionar livro +" opens BookFormSheet (add+edit, format/status chips, 2-step delete); HojeScreen gains bookMode param + early return, MainScaffold passes prefs.bookMode; book tap a no-op stub pending K8; 22 native-only i18n strings; planner view untouched when off
+2026-06-27 · K6 · #139 · Pauta→Sessão reading timer (BookSessionScreen): start card with book picker (booksReading, pre-selects single) + optional duration → startBlock project "book:<id>"; live dark active card (timer, Pausar, Concluir); BookConcludeSheet asks page/min (format-aware) + session note → updateProgress + concludeActive (note→reflection); paused-session resume + history grouped by book from bookSessionBlocks; PautaScreen gains bookMode param + early return, MainScaffold passes prefs.bookMode; 8 native-only i18n strings; planner Pauta untouched when off

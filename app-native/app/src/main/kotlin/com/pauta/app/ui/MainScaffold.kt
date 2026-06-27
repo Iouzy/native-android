@@ -428,7 +428,7 @@ private fun HomeShell(
             ) { page ->
                 when (Tab.entries[page]) {
                     Tab.HOJE -> HojeScreen(onOpenHistory = onOpenHistory, bookMode = prefs.bookMode)
-                    Tab.PAUTA -> PautaScreen()
+                    Tab.PAUTA -> PautaScreen(bookMode = prefs.bookMode)
                     Tab.MARES -> MaresScreen()
                 }
             }
