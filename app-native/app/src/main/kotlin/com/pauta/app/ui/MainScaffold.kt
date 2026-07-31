@@ -8,7 +8,10 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -26,6 +29,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
@@ -44,9 +48,15 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -56,9 +66,11 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.util.lerp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.ViewModelStoreOwner
@@ -462,10 +474,11 @@ private fun HomeShell(
                 }
             }
             TabBar(
-                // P1: highlight the *destination* — targetPage flips as soon as a tap or
-                // fling commits, where currentPage only flips past the midpoint. // PT:
-                // realça o destino, não a página assente — reage logo ao toque/fling.
-                current = Tab.entries[pager.targetPage],
+                // P2: the bar reads the pager itself — targetPage for the honest
+                // highlight (P1) and the live scroll offset for the sliding
+                // indicator. // PT: a barra lê o próprio pager — destino para o
+                // realce e o offset real para o indicador deslizante.
+                pager = pager,
                 onSelect = { tab -> scope.launch { pager.animateScrollToPage(tab.ordinal) } },
                 bookMode = prefs.bookMode,
                 reducedMotion = prefs.reducedMotion,
@@ -605,14 +618,34 @@ private fun StatusRow(onMenu: () -> Unit) {
     }
 }
 
+/**
+ * P2: the redesigned tab bar. Keeps the quiet mono-uppercase identity (1dp rule
+ * hairline, tabbarBg, unchanged heights/paddings) and adds a single sliding
+ * indicator — an accent pill, 3dp tall and the width of the active label — that
+ * glides under the labels with the pager's live scroll offset, so a half-swipe
+ * parks it halfway between tabs. The newly-active icon gets a small spring
+ * nudge. Under reduced motion the indicator jumps to the settled tab and the
+ * nudge is skipped. // PT: barra de tabs redesenhada — um único indicador
+ * (pílula na cor de destaque) desliza sob os rótulos seguindo o offset real do
+ * pager; o ícone ativo dá um pequeno "aceno". Com movimento reduzido o
+ * indicador salta para a tab assente e o aceno é omitido.
+ */
 @Composable
 private fun TabBar(
-    current: Tab,
+    pager: PagerState,
     onSelect: (Tab) -> Unit,
     bookMode: Boolean = false,
     reducedMotion: Boolean = false,
 ) {
     val colors = LocalPautaColors.current
+    // P1: highlight the *destination* — targetPage flips as soon as a tap or
+    // fling commits, where currentPage only flips past the midpoint. // PT:
+    // realça o destino, não a página assente — reage logo ao toque/fling.
+    val current = Tab.entries[pager.targetPage]
+    // Measured label widths (px), one per tab, so the indicator sizes itself to
+    // each label — book mode's longer labels included. // PT: larguras medidas
+    // dos rótulos, para o indicador se ajustar a cada tab (também em modo livro).
+    val labelWidths = remember { Tab.entries.map { 0 }.toMutableStateList() }
     Column(
         Modifier
             .fillMaxWidth()
@@ -630,10 +663,39 @@ private fun TabBar(
                 .fillMaxWidth()
                 .padding(start = 16.dp, end = 16.dp, top = 8.dp)
                 .navigationBarsPadding()
-                .padding(bottom = 14.dp),
+                .padding(bottom = 14.dp)
+                // The sliding indicator. Drawn (not composed) from the pager's live
+                // offset: reading the pager here invalidates only this draw pass, so
+                // the bar never recomposes per scroll frame; the tab items are
+                // equal-weight slots, so their centres are pure geometry. The pill
+                // rides in the items' own 6dp bottom padding — bar height unchanged
+                // (Pip/chip/snackbar offsets depend on it). // PT: o indicador é
+                // desenhado a partir do offset real do pager (só invalida o desenho,
+                // nunca recompõe por frame) e vive no padding inferior dos itens —
+                // a altura da barra não muda.
+                .drawBehind {
+                    val position =
+                        if (reducedMotion) pager.settledPage.toFloat()
+                        else (pager.currentPage + pager.currentPageOffsetFraction)
+                            .coerceIn(0f, Tab.entries.lastIndex.toFloat())
+                    val from = position.toInt()
+                    val to = (from + 1).coerceAtMost(Tab.entries.lastIndex)
+                    val fraction = position - from
+                    val slot = size.width / Tab.entries.size
+                    val centerX = lerp(slot * (from + 0.5f), slot * (to + 0.5f), fraction)
+                    val width = lerp(labelWidths[from].toFloat(), labelWidths[to].toFloat(), fraction)
+                    if (width <= 0f) return@drawBehind
+                    val height = 3.dp.toPx()
+                    drawRoundRect(
+                        color = colors.accent,
+                        topLeft = Offset(centerX - width / 2f, size.height - height),
+                        size = Size(width, height),
+                        cornerRadius = CornerRadius(height / 2f),
+                    )
+                },
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Tab.entries.forEach { tab ->
+            Tab.entries.forEachIndexed { index, tab ->
                 val selected = tab == current
                 // P1: the accent↔ink3 flip eases instead of snapping (instant under
                 // reduced motion). // PT: a cor da tab transita suavemente; salta
@@ -643,6 +705,25 @@ private fun TabBar(
                     animationSpec = if (reducedMotion) snap() else tween(180),
                     label = "tabTint",
                 )
+                // The settle nudge: 1 → 1.06 → 1 on a spring when the tab *becomes*
+                // active (not on first composition), skipped under reduced motion.
+                // // PT: o "aceno" do ícone ao ficar ativo — nunca na composição
+                // inicial, nem com movimento reduzido.
+                val iconScale = remember { Animatable(1f) }
+                var wasSelected by remember { mutableStateOf(selected) }
+                LaunchedEffect(selected) {
+                    if (selected && !wasSelected && !reducedMotion) {
+                        iconScale.animateTo(1.06f, spring(stiffness = Spring.StiffnessMedium))
+                        iconScale.animateTo(
+                            1f,
+                            spring(
+                                dampingRatio = Spring.DampingRatioLowBouncy,
+                                stiffness = Spring.StiffnessMediumLow,
+                            ),
+                        )
+                    }
+                    wasSelected = selected
+                }
                 Column(
                     Modifier
                         .weight(1f)
@@ -658,7 +739,12 @@ private fun TabBar(
                         },
                         contentDescription = null,
                         tint = tint,
-                        modifier = Modifier.size(22.dp),
+                        modifier = Modifier
+                            .size(22.dp)
+                            .graphicsLayer {
+                                scaleX = iconScale.value
+                                scaleY = iconScale.value
+                            },
                     )
                     Spacer(Modifier.height(3.dp))
                     // K3: in book mode, substitute the three tab labels with their
@@ -675,6 +761,7 @@ private fun TabBar(
                         fontSize = 10.sp,
                         letterSpacing = 0.8.sp, // 0.08em of 10sp
                         fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                        modifier = Modifier.onSizeChanged { labelWidths[index] = it.width },
                     )
                 }
             }

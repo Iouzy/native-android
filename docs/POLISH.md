@@ -196,7 +196,7 @@ Marés' viewed month; no hitch entering a tab for the second time; highlight
 tracks tap/fling immediately; 1/2/3 keys still work; identical behaviour in
 book mode; CI green.
 
-### P2 · Tab bar redesign — Status: pending
+### P2 · Tab bar redesign — Status: done (PR #143)
 
 **Depends on:** P1.
 
@@ -441,3 +441,4 @@ slice: P1 → P2 → P5.
 
 <!-- e.g. 2026-08-01 · P1 · #n · beyondViewportPageCount=2, targetPage highlight, tint tween, settle haptic -->
 2026-07-31 · P1 · #142 · beyondViewportPageCount=2, targetPage highlight, tint tween(180) w/ reducedMotion snap, settle haptic (LongPress — no SegmentTick in UI 1.7)
+2026-07-31 · P2 · #143 · sliding indicator drawn from live pager offset (drawBehind, measured label widths), icon spring nudge 1→1.06→1, reducedMotion pins to settledPage; motion specs inline pending P3
