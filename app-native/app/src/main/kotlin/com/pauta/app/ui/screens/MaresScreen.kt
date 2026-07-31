@@ -4,7 +4,6 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -85,6 +84,8 @@ import com.pauta.app.ui.cellStateFor
 import com.pauta.app.ui.clickableNoRipple
 import com.pauta.app.ui.theme.LocalPautaColors
 import com.pauta.app.ui.theme.MonoFamily
+import com.pauta.app.ui.theme.PautaMotion
+import com.pauta.app.ui.theme.rememberMotionEnabled
 import com.pauta.app.ui.theme.SerifFamily
 import com.pauta.app.ui.viewmodel.AppViewModel
 import java.time.YearMonth
@@ -116,7 +117,7 @@ fun MaresScreen(bookMode: Boolean = false) {
     val prefs by vm.prefs.collectAsStateWithLifecycle()
     // A3: cell fills, respiro hatching and row add/remove all snap when reduced.
     // // PT: animações das células respeitam "movimento reduzido".
-    val animate = !prefs.reducedMotion
+    val animate = rememberMotionEnabled()
 
     val nowYm = remember(today) { YearMonth.parse(today.substring(0, 7)) }
     var year by remember { mutableIntStateOf(nowYm.year) }
@@ -744,7 +745,7 @@ private fun MaresDayCell(
     )
     val hatch by animateFloatAsState(
         targetValue = if (state == CellState.RESPIRO) 1f else 0f,
-        animationSpec = if (animate) tween(300) else snap(),
+        animationSpec = if (animate) PautaMotion.tween() else snap(),
         label = "cell-hatch",
     )
 

@@ -1,12 +1,10 @@
 package com.pauta.app.ui.screens
 
-import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.animateIntAsState
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -89,6 +87,8 @@ import com.pauta.app.ui.clickableNoRipple
 import com.pauta.app.ui.computeTodayTides
 import com.pauta.app.ui.theme.LocalPautaColors
 import com.pauta.app.ui.theme.MonoFamily
+import com.pauta.app.ui.theme.PautaMotion
+import com.pauta.app.ui.theme.rememberMotionEnabled
 import com.pauta.app.ui.theme.SerifFamily
 import com.pauta.app.ui.viewmodel.AppViewModel
 import java.time.LocalDate
@@ -131,7 +131,7 @@ fun HojeScreen(onOpenHistory: () -> Unit, bookMode: Boolean = false) {
     val prefs by vm.prefs.collectAsStateWithLifecycle()
     // A3: every micro-animation below is gated on this — reduced motion snaps to
     // the old instant behaviour. // PT: animações respeitam "movimento reduzido".
-    val animate = !prefs.reducedMotion
+    val animate = rememberMotionEnabled()
     var showWeek by remember { mutableStateOf(false) }
     var showInsights by remember { mutableStateOf(false) }
     var showRoutines by remember { mutableStateOf(false) }
@@ -191,12 +191,12 @@ fun HojeScreen(onOpenHistory: () -> Unit, bookMode: Boolean = false) {
     // sobem até ao novo valor.
     val animDone by animateIntAsState(
         targetValue = done,
-        animationSpec = if (animate) tween(450, easing = FastOutSlowInEasing) else snap(),
+        animationSpec = if (animate) PautaMotion.tween(450) else snap(),
         label = "pulse-intentions",
     )
     val animTideDone by animateIntAsState(
         targetValue = tideDone,
-        animationSpec = if (animate) tween(450, easing = FastOutSlowInEasing) else snap(),
+        animationSpec = if (animate) PautaMotion.tween(450) else snap(),
         label = "pulse-tides",
     )
     // Day pulse — one quiet mono line tying the three tabs together
@@ -426,7 +426,7 @@ fun HojeScreen(onOpenHistory: () -> Unit, bookMode: Boolean = false) {
                 }
                 val savedAlpha by animateFloatAsState(
                     targetValue = if (reflectionSaved) 1f else 0f,
-                    animationSpec = if (animate) tween(300) else snap(),
+                    animationSpec = if (animate) PautaMotion.tween() else snap(),
                     label = "reflection-saved",
                 )
                 Column(
@@ -816,12 +816,12 @@ private fun IntentionRow(
         3 -> colors.ink3
         else -> colors.ink4
     }
-    // A3: the strike is painted by hand so it can sweep left→right (~250ms) as the
-    // intention is ticked; reduced motion uses the instant built-in decoration.
+    // A3: the strike is painted by hand so it can sweep left→right (Base ms) as
+    // the intention is ticked; reduced motion uses the instant built-in decoration.
     // // PT: o risco é desenhado à mão para correr da esquerda para a direita.
     val strike by animateFloatAsState(
         targetValue = if (item.done) 1f else 0f,
-        animationSpec = tween(250),
+        animationSpec = PautaMotion.tween(),
         label = "intention-strike",
     )
     var textLayout by remember { mutableStateOf<TextLayoutResult?>(null) }

@@ -12,7 +12,6 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
@@ -98,6 +97,8 @@ import com.pauta.app.ui.screens.YearReviewScreen
 import com.pauta.app.ui.theme.LocalPautaColors
 import com.pauta.app.ui.theme.bookPautaColors
 import com.pauta.app.ui.theme.MonoFamily
+import com.pauta.app.ui.theme.PautaMotion
+import com.pauta.app.ui.theme.rememberMotionEnabled
 import com.pauta.app.ui.theme.SerifFamily
 import com.pauta.app.ui.viewmodel.AppViewModel
 import com.pauta.app.ui.viewmodel.PendingUndo
@@ -198,7 +199,7 @@ fun MainScaffold(entry: AppEntry?, onEntryConsumed: () -> Unit) {
     // A8: screen transitions are animations, so they honour reduced motion —
     // instant (no slide/fade) when it's on, which also makes the predictive-back
     // gesture a plain snap. // PT: transições respeitam "movimento reduzido".
-    val animate = !prefs.reducedMotion
+    val animate = rememberMotionEnabled()
 
     // Coming back to the app re-checks the day at once (the in-process ticker
     // covers the foreground case) and triggers the auto-backup if due.
@@ -491,8 +492,8 @@ private fun HomeShell(
         // reduced motion is on. // PT: o atalho de nota rápida do modo livro.
         AnimatedVisibility(
             visible = prefs.bookMode,
-            enter = if (prefs.reducedMotion) EnterTransition.None else fadeIn(tween(220)),
-            exit = if (prefs.reducedMotion) ExitTransition.None else fadeOut(tween(150)),
+            enter = if (prefs.reducedMotion) EnterTransition.None else fadeIn(PautaMotion.tween()),
+            exit = if (prefs.reducedMotion) ExitTransition.None else fadeOut(PautaMotion.tween(PautaMotion.Fast)),
             modifier = Modifier
                 .align(Alignment.BottomStart)
                 .navigationBarsPadding()
@@ -573,26 +574,29 @@ private fun NavController.open(route: String) {
 // A8: navigation transitions — a calm horizontal push (new screen slides in from
 // the right; the one behind drifts a quarter-width with a fade for depth). The
 // pop reverses, and because NavHost drives popExit seekably, that right-ward
-// slide *is* the predictive-back peel under the finger. All instant when reduced
-// motion is on. // PT: transições de navegação — empurrão horizontal suave; o pop
-// é o "descascar" do gesto preditivo. Instantâneas com movimento reduzido.
-private const val NavTransitionMs = 300
-
+// slide *is* the predictive-back peel under the finger. P3 put them on the Slow
+// motion token. All instant when reduced motion is on. // PT: transições de
+// navegação — empurrão horizontal suave; o pop é o "descascar" do gesto
+// preditivo. Instantâneas com movimento reduzido.
 private fun enterPush(animate: Boolean): EnterTransition =
     if (!animate) EnterTransition.None
-    else slideInHorizontally(tween(NavTransitionMs)) { it } + fadeIn(tween(NavTransitionMs))
+    else slideInHorizontally(PautaMotion.tween(PautaMotion.Slow)) { it } +
+        fadeIn(PautaMotion.tween(PautaMotion.Slow))
 
 private fun exitPush(animate: Boolean): ExitTransition =
     if (!animate) ExitTransition.None
-    else slideOutHorizontally(tween(NavTransitionMs)) { -it / 4 } + fadeOut(tween(NavTransitionMs))
+    else slideOutHorizontally(PautaMotion.tween(PautaMotion.Slow)) { -it / 4 } +
+        fadeOut(PautaMotion.tween(PautaMotion.Slow))
 
 private fun enterPop(animate: Boolean): EnterTransition =
     if (!animate) EnterTransition.None
-    else slideInHorizontally(tween(NavTransitionMs)) { -it / 4 } + fadeIn(tween(NavTransitionMs))
+    else slideInHorizontally(PautaMotion.tween(PautaMotion.Slow)) { -it / 4 } +
+        fadeIn(PautaMotion.tween(PautaMotion.Slow))
 
 private fun exitPop(animate: Boolean): ExitTransition =
     if (!animate) ExitTransition.None
-    else slideOutHorizontally(tween(NavTransitionMs)) { it } + fadeOut(tween(NavTransitionMs))
+    else slideOutHorizontally(PautaMotion.tween(PautaMotion.Slow)) { it } +
+        fadeOut(PautaMotion.tween(PautaMotion.Slow))
 
 /** The web's `.statusbar` row: just the quiet settings affordance, pushed to
  *  the right, under the (transparent) system status bar. */
@@ -702,7 +706,7 @@ private fun TabBar(
                 // com o movimento reduzido ativo.
                 val tint by animateColorAsState(
                     targetValue = if (selected) colors.accent else colors.ink3,
-                    animationSpec = if (reducedMotion) snap() else tween(180),
+                    animationSpec = if (reducedMotion) snap() else PautaMotion.tween(PautaMotion.Fast),
                     label = "tabTint",
                 )
                 // The settle nudge: 1 → 1.06 → 1 on a spring when the tab *becomes*
