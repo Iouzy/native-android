@@ -56,7 +56,10 @@ import com.pauta.app.ui.PautaIcons
 import com.pauta.app.ui.PautaRadius
 import com.pauta.app.ui.PautaSheet
 import com.pauta.app.ui.SectionEyebrow
+import com.pauta.app.ui.SheetActionGap
 import com.pauta.app.ui.SheetEyebrow
+import com.pauta.app.ui.SheetFieldGap
+import com.pauta.app.ui.SheetLabelGap
 import com.pauta.app.ui.TideToday
 import com.pauta.app.ui.clickableNoRipple
 import com.pauta.app.ui.theme.LocalPautaColors
@@ -117,7 +120,7 @@ fun StartSheet(
                     lineHeight = 18.sp,
                 )
             }
-            Spacer(Modifier.height(14.dp))
+            Spacer(Modifier.height(SheetFieldGap))
         }
 
         // P7: every Pauta sheet's block line is one role now (was 20 / 22 / 24sp
@@ -140,9 +143,9 @@ fun StartSheet(
 
         val open = intentions.filter { !it.done }
         if (open.isNotEmpty()) {
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(SheetFieldGap))
             SheetEyebrow(tr("ou continue com…"))
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(SheetLabelGap))
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 open.forEach { i ->
                     val sel = selectedIntention == i.id
@@ -179,9 +182,9 @@ fun StartSheet(
         }
 
         if (recentBlocks.isNotEmpty()) {
-            Spacer(Modifier.height(18.dp))
+            Spacer(Modifier.height(SheetFieldGap))
             SheetEyebrow(tr("retomar de antes"))
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(SheetLabelGap))
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 recentBlocks.forEach { b ->
                     Row(
@@ -209,9 +212,9 @@ fun StartSheet(
             }
         }
 
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(SheetFieldGap))
         SheetEyebrow(tr("projecto (opcional)"))
-        Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(SheetLabelGap))
         BoxedField(
             value = project,
             onChange = { project = it },
@@ -229,16 +232,16 @@ fun StartSheet(
             }
         }
 
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(SheetFieldGap))
         SheetEyebrow(tr("duração (opcional)"))
-        Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(SheetLabelGap))
         ChipFlow {
             listOf(0 to tr("Sem limite"), 25 to "25 min", 50 to "50 min", 90 to "90 min").forEach { (m, label) ->
                 SelectPill(label = label, selected = targetMin == m, accent = colors.accent, large = true) { targetMin = m }
             }
         }
 
-        Spacer(Modifier.height(22.dp))
+        Spacer(Modifier.height(SheetActionGap))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             PautaButton(tr("Cancelar"), Modifier.weight(1f), PautaButtonVariant.Ghost) { onClose() }
             PautaButton(tr("Iniciar agora"), Modifier.weight(2f), PautaButtonVariant.Primary) { submit() }
@@ -261,10 +264,10 @@ fun PauseSheet(
         Text(tr("pausado"), color = colors.ink3, fontFamily = SerifFamily, fontStyle = FontStyle.Italic, fontSize = 14.sp)
         Spacer(Modifier.height(4.dp))
         Text(block.title, color = colors.ink, style = PautaType.CardTitle)
-        Spacer(Modifier.height(18.dp))
+        Spacer(Modifier.height(SheetFieldGap))
 
         SheetEyebrow(tr("O que ficou em mente? (opcional)"))
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(SheetLabelGap))
         BoxedField(
             value = note,
             onChange = { note = it },
@@ -272,7 +275,7 @@ fun PauseSheet(
             minHeight = 64.dp,
         )
 
-        Spacer(Modifier.height(18.dp))
+        Spacer(Modifier.height(SheetActionGap))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             PautaButton(tr("Retomar"), Modifier.weight(1f), PautaButtonVariant.Ghost) { onResume() }
             PautaButton(tr("Confirmar"), Modifier.weight(2f), PautaButtonVariant.InkPrimary) { onConfirm(note) }
@@ -305,7 +308,7 @@ fun ConcludeSheet(
         SectionEyebrow(trf("✓ {d} em foco", "d" to FocusMath.fmtDuration(totalMs)), color = colors.accent)
         Spacer(Modifier.height(6.dp))
         Text(block.title, color = colors.ink, style = PautaType.CardTitle)
-        Spacer(Modifier.height(if (planned > 0) 8.dp else 18.dp))
+        Spacer(Modifier.height(if (planned > 0) SheetLabelGap else SheetFieldGap))
 
         // Plan vs. actual — only when the block carried a planned duration.
         if (planned > 0) {
@@ -321,11 +324,11 @@ fun ConcludeSheet(
                 style = PautaType.MetaSmall,
                 letterSpacing = 0.2.sp,
             )
-            Spacer(Modifier.height(18.dp))
+            Spacer(Modifier.height(SheetFieldGap))
         }
 
         SheetEyebrow(tr("O que aconteceu?"))
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(SheetLabelGap))
         BoxedField(
             value = reflection,
             onChange = { reflection = it },
@@ -334,7 +337,7 @@ fun ConcludeSheet(
         )
 
         if (intention != null && !intention.done) {
-            Spacer(Modifier.height(14.dp))
+            Spacer(Modifier.height(SheetFieldGap))
             Row(
                 Modifier
                     .fillMaxWidth()
@@ -375,9 +378,9 @@ fun ConcludeSheet(
         // Mark a today's tide as done — a focus block often IS a tide (reading,
         // studying, exercising), so closing the loop here avoids logging twice.
         if (todayTides.isNotEmpty()) {
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(SheetFieldGap))
             SheetEyebrow(tr("Marés de hoje"))
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(SheetLabelGap))
             ChipFlow {
                 todayTides.forEach { t ->
                     val on = t.habit.id in tideIds
@@ -413,7 +416,7 @@ fun ConcludeSheet(
             }
         }
 
-        Spacer(Modifier.height(18.dp))
+        Spacer(Modifier.height(SheetActionGap))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             PautaButton(
                 if (wasActive) tr("Retomar") else tr("Cancelar"),
@@ -621,10 +624,10 @@ fun SwitchSheet(
             color = colors.ink,
             style = PautaType.CardTitle,
         )
-        Spacer(Modifier.height(18.dp))
+        Spacer(Modifier.height(SheetFieldGap))
 
         SheetEyebrow(tr("Pausar e ir para…"))
-        Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(SheetLabelGap))
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             available.forEach { i ->
                 Row(
@@ -703,9 +706,9 @@ fun SwitchSheet(
             }
         }
 
-        Spacer(Modifier.height(22.dp))
+        Spacer(Modifier.height(SheetFieldGap))
         Box(Modifier.fillMaxWidth().height(1.dp).background(colors.rule))
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(SheetFieldGap))
         Row(
             Modifier
                 .fillMaxWidth()
@@ -726,7 +729,7 @@ fun SwitchSheet(
             )
         }
 
-        Spacer(Modifier.height(14.dp))
+        Spacer(Modifier.height(SheetActionGap))
         PautaButton(tr("Cancelar"), Modifier.fillMaxWidth(), PautaButtonVariant.Ghost) { onClose() }
     }
 }
@@ -784,10 +787,10 @@ fun ManualBlockSheet(
             fontSize = 13.sp,
             lineHeight = 18.sp,
         )
-        Spacer(Modifier.height(14.dp))
+        Spacer(Modifier.height(SheetFieldGap))
 
         SheetEyebrow(tr("O quê"))
-        Spacer(Modifier.height(6.dp))
+        Spacer(Modifier.height(SheetLabelGap))
         BoxedField(
             title, { title = it }, tr("ex.: leitura"),
             modifier = Modifier.focusRequester(titleFocus),
@@ -801,27 +804,27 @@ fun ManualBlockSheet(
             FieldError(tr("Escreva o que fez."))
         }
 
-        Spacer(Modifier.height(14.dp))
+        Spacer(Modifier.height(SheetFieldGap))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Column(Modifier.weight(1f)) {
                 SheetEyebrow(tr("Data"))
-                Spacer(Modifier.height(6.dp))
+                Spacer(Modifier.height(SheetLabelGap))
                 // Pick on a calendar — no free-typed YYYY-MM-DD.
                 // // PT: escolhe-se num calendário; a data não se escreve à mão.
                 PautaDateField(date) { date = it }
             }
             Column(Modifier.width(132.dp)) {
                 SheetEyebrow(tr("Início"))
-                Spacer(Modifier.height(6.dp))
+                Spacer(Modifier.height(SheetLabelGap))
                 // Pick on a clock — no free-typed HH:MM.
                 // // PT: escolhe-se num relógio; a hora não se escreve à mão.
                 PautaTimeField(start, { start = it }, title = tr("Início"))
             }
         }
 
-        Spacer(Modifier.height(14.dp))
+        Spacer(Modifier.height(SheetFieldGap))
         SheetEyebrow(tr("Duração (min)"))
-        Spacer(Modifier.height(6.dp))
+        Spacer(Modifier.height(SheetLabelGap))
         Box(Modifier.width(120.dp)) {
             BoxedField(
                 dur,
@@ -840,7 +843,7 @@ fun ManualBlockSheet(
             FieldError(tr("Duração entre 1 e 1440 min."))
         }
 
-        Spacer(Modifier.height(18.dp))
+        Spacer(Modifier.height(SheetActionGap))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             PautaButton(tr("Cancelar"), Modifier.weight(1f), PautaButtonVariant.Ghost) { onClose() }
             PautaButton(tr("Adicionar"), Modifier.weight(2f), PautaButtonVariant.Primary) { submit() }

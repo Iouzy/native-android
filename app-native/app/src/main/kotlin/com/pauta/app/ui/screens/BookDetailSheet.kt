@@ -42,10 +42,15 @@ import com.pauta.app.i18n.trf
 import com.pauta.app.ui.PautaButton
 import com.pauta.app.ui.PautaButtonVariant
 import com.pauta.app.ui.PautaSheet
+import com.pauta.app.ui.SectionEyebrow
+import com.pauta.app.ui.SheetActionGap
 import com.pauta.app.ui.SheetEyebrow
+import com.pauta.app.ui.SheetFieldGap
+import com.pauta.app.ui.SheetLabelGap
 import com.pauta.app.ui.clickableNoRipple
 import com.pauta.app.ui.theme.LocalPautaColors
 import com.pauta.app.ui.theme.MonoFamily
+import com.pauta.app.ui.theme.PautaType
 import com.pauta.app.ui.theme.SerifFamily
 import com.pauta.app.ui.viewmodel.AppViewModel
 import kotlin.math.roundToInt
@@ -103,21 +108,18 @@ fun BookDetailSheet(bookId: String, onDismiss: () -> Unit) {
         Text(
             text = book.title,
             color = colors.ink,
-            fontFamily = SerifFamily,
-            fontSize = 20.sp,
-            lineHeight = 25.sp,
+            style = PautaType.CardTitle,
         )
         if (book.author.isNotBlank()) {
             Spacer(Modifier.height(4.dp))
-            Text(book.author, color = colors.ink3, fontFamily = MonoFamily, fontSize = 11.sp)
+            Text(book.author, color = colors.ink3, style = PautaType.Meta)
         }
         if (book.series.isNotBlank()) {
             Spacer(Modifier.height(3.dp))
             Text(
                 text = book.series + (book.seriesNumber?.let { " · " + trf("Nº {n}", "n" to it) } ?: ""),
                 color = colors.ink4,
-                fontFamily = MonoFamily,
-                fontSize = 10.sp,
+                style = PautaType.MetaSmall,
             )
         }
         Spacer(Modifier.height(10.dp))
@@ -128,8 +130,7 @@ fun BookDetailSheet(bookId: String, onDismiss: () -> Unit) {
                 else -> tr("Físico")
             },
             color = colors.ink3,
-            fontFamily = MonoFamily,
-            fontSize = 9.sp,
+            style = PautaType.MetaSmall,
             letterSpacing = 0.54.sp,
             modifier = Modifier
                 .clip(RoundedCornerShape(4.dp))
@@ -138,7 +139,7 @@ fun BookDetailSheet(bookId: String, onDismiss: () -> Unit) {
         )
 
         // ── Progress: tap the line to edit inline ──
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(SheetFieldGap))
         if (editingProgress) {
             ProgressEditor(
                 book = book,
@@ -156,8 +157,7 @@ fun BookDetailSheet(bookId: String, onDismiss: () -> Unit) {
                     else -> "p. ${book.currentPage}"
                 } + " ✎",
                 color = colors.ink2,
-                fontFamily = MonoFamily,
-                fontSize = 11.sp,
+                style = PautaType.Meta,
                 modifier = Modifier
                     .clickableNoRipple { editingProgress = true }
                     .padding(vertical = 4.dp),
@@ -188,8 +188,7 @@ fun BookDetailSheet(bookId: String, onDismiss: () -> Unit) {
                     "n" to pace.roundToInt(),
                 ),
                 color = colors.ink3,
-                fontFamily = MonoFamily,
-                fontSize = 10.sp,
+                style = PautaType.MetaSmall,
             )
             val eta = if (book.totalPages > 0) {
                 BookMath.etaDays(book.totalPages - book.currentPage, pace)
@@ -199,21 +198,20 @@ fun BookDetailSheet(bookId: String, onDismiss: () -> Unit) {
                 Text(
                     text = trf("Conclusão estimada: em ~{n} dias", "n" to eta),
                     color = colors.ink3,
-                    fontFamily = MonoFamily,
-                    fontSize = 10.sp,
+                    style = PautaType.MetaSmall,
                 )
             }
         }
 
         // ── Rating: tap to set 1–5; tap the current star to clear ──
-        Spacer(Modifier.height(14.dp))
+        Spacer(Modifier.height(SheetFieldGap))
         StarRow(
             rating = book.rating,
             onRate = { n -> vm.updateBook(book.copy(rating = n.takeIf { it != book.rating })) },
         )
 
         // ── Status actions ──
-        Spacer(Modifier.height(18.dp))
+        Spacer(Modifier.height(SheetFieldGap))
         if (book.status == "reading") {
             PautaButton(tr("Marcar como lido"), Modifier.fillMaxWidth(), PautaButtonVariant.Primary) {
                 showFinish = true
@@ -247,13 +245,13 @@ fun BookDetailSheet(bookId: String, onDismiss: () -> Unit) {
         }
 
         // ── Notas & Citações ──
-        Spacer(Modifier.height(22.dp))
+        Spacer(Modifier.height(SheetFieldGap))
         Box(Modifier.fillMaxWidth().height(1.dp).background(colors.rule))
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(SheetFieldGap))
         SheetEyebrow(tr("Notas & Citações"))
-        Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(SheetLabelGap))
         if (notes.isEmpty()) {
-            Text(tr("Sem notas ainda"), color = colors.ink4, fontFamily = MonoFamily, fontSize = 11.sp)
+            Text(tr("Sem notas ainda"), color = colors.ink4, style = PautaType.Meta)
         } else {
             notes.forEach { note ->
                 val armed = armedNoteId == note.id
@@ -269,29 +267,25 @@ fun BookDetailSheet(bookId: String, onDismiss: () -> Unit) {
                         .padding(vertical = 8.dp),
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = when (note.kind) {
+                        SectionEyebrow(
+                            label = when (note.kind) {
                                 "quote" -> tr("CITAÇÃO")
                                 "thought" -> tr("PENSAMENTO")
                                 else -> tr("ANOTAÇÃO")
                             },
                             color = colors.accent,
-                            fontFamily = MonoFamily,
-                            fontSize = 9.sp,
-                            letterSpacing = 0.9.sp, // 0.1em of 9sp
                         )
                         // Audiobooks have no pages, so the tag is hidden for them.
                         if (!isAudiobook && note.page != null) {
                             Spacer(Modifier.width(8.dp))
-                            Text("p. ${note.page}", color = colors.ink4, fontFamily = MonoFamily, fontSize = 9.sp)
+                            Text("p. ${note.page}", color = colors.ink4, style = PautaType.MetaSmall)
                         }
                         Spacer(Modifier.weight(1f))
                         if (armed) {
                             Text(
                                 text = tr("Tocar de novo para eliminar"),
                                 color = DangerRed,
-                                fontFamily = MonoFamily,
-                                fontSize = 9.sp,
+                                style = PautaType.MetaSmall,
                                 modifier = Modifier
                                     .clickableNoRipple { vm.deleteNote(note.id); armedNoteId = null }
                                     .padding(vertical = 2.dp),
@@ -302,20 +296,18 @@ fun BookDetailSheet(bookId: String, onDismiss: () -> Unit) {
                     Text(
                         text = note.text,
                         color = colors.ink,
-                        fontFamily = SerifFamily,
-                        fontSize = 15.sp,
-                        lineHeight = 21.sp,
+                        style = PautaType.Body,
                     )
                 }
             }
         }
 
         // ── Sessões ──
-        Spacer(Modifier.height(18.dp))
+        Spacer(Modifier.height(SheetFieldGap))
         SheetEyebrow(tr("Sessões"))
-        Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(SheetLabelGap))
         if (bookBlocks.isEmpty()) {
-            Text(tr("Nenhuma sessão ainda"), color = colors.ink4, fontFamily = MonoFamily, fontSize = 11.sp)
+            Text(tr("Nenhuma sessão ainda"), color = colors.ink4, style = PautaType.Meta)
         } else {
             bookBlocks.forEach { b ->
                 Row(
@@ -325,15 +317,13 @@ fun BookDetailSheet(bookId: String, onDismiss: () -> Unit) {
                     Text(
                         text = DateUtils.dayKeyOf(b.createdAt),
                         color = colors.ink3,
-                        fontFamily = MonoFamily,
-                        fontSize = 10.sp,
+                        style = PautaType.MetaSmall,
                         modifier = Modifier.weight(1f),
                     )
                     Text(
                         text = FocusMath.fmtDuration(blockMs(b.id)),
                         color = colors.ink3,
-                        fontFamily = MonoFamily,
-                        fontSize = 10.sp,
+                        style = PautaType.MetaSmall,
                     )
                 }
                 if (b.reflection.isNotBlank()) {
@@ -417,13 +407,11 @@ private fun FinishBookSheet(book: BookEntity, onConfirm: (Int?) -> Unit, onClose
         Text(
             text = book.title,
             color = colors.ink,
-            fontFamily = SerifFamily,
-            fontSize = 18.sp,
-            lineHeight = 23.sp,
+            style = PautaType.CardTitle,
         )
-        Spacer(Modifier.height(14.dp))
+        Spacer(Modifier.height(SheetFieldGap))
         StarRow(rating = rating, onRate = { n -> rating = n.takeIf { it != rating } })
-        Spacer(Modifier.height(20.dp))
+        Spacer(Modifier.height(SheetActionGap))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             PautaButton(tr("Cancelar"), Modifier.weight(1f), PautaButtonVariant.Ghost) { onClose() }
             PautaButton(tr("Marcar como lido"), Modifier.weight(2f), PautaButtonVariant.Primary) { onConfirm(rating) }
