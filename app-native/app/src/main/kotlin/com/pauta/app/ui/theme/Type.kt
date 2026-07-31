@@ -51,6 +51,20 @@ object PautaType {
     val Label = TextStyle(fontFamily = SansFamily, fontSize = 14.sp, lineHeight = 18.sp)
     val Meta = TextStyle(fontFamily = MonoFamily, fontSize = 11.sp)
     val MetaSmall = TextStyle(fontFamily = MonoFamily, fontSize = 10.sp)
+
+    // P7 (the leftover P5 parked): the focus timer's digits. Tabular figures so a
+    // rolling second never nudges the line sideways — Geist Mono is fixed-pitch
+    // already, but "tnum" also holds the shape if the face ever falls back. Zen's
+    // 64sp variant is a `.copy()` of this, so the feature setting travels with it.
+    // // PT: os dígitos do cronómetro — algarismos tabulares, sem saltos laterais.
+    val Timer = TextStyle(
+        fontFamily = MonoFamily,
+        fontSize = 42.sp,
+        lineHeight = 40.sp,
+        fontWeight = FontWeight.Light,
+        letterSpacing = (-0.84).sp, // -0.02em of 42sp
+        fontFeatureSettings = "tnum",
+    )
 }
 
 val PautaTypography = Typography(
