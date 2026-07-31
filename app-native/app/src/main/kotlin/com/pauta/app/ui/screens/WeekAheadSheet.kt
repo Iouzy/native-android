@@ -1,16 +1,14 @@
 package com.pauta.app.ui.screens
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -23,16 +21,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
@@ -42,11 +37,14 @@ import com.pauta.app.data.entity.PlannedIntentionEntity
 import com.pauta.app.domain.DateUtils
 import com.pauta.app.i18n.I18n
 import com.pauta.app.i18n.tr
+import com.pauta.app.ui.PautaCard
+import com.pauta.app.ui.PautaRadius
 import com.pauta.app.ui.PautaSheet
+import com.pauta.app.ui.SectionEyebrow
 import com.pauta.app.ui.clickableNoRipple
 import com.pauta.app.ui.theme.LocalPautaColors
 import com.pauta.app.ui.theme.MonoFamily
-import com.pauta.app.ui.theme.SansFamily
+import com.pauta.app.ui.theme.PautaType
 import com.pauta.app.ui.theme.SerifFamily
 import java.time.LocalDate
 
@@ -120,40 +118,36 @@ private fun PlanDayRow(
     }
 
     Column(Modifier.fillMaxWidth().padding(bottom = 18.dp)) {
-        Text(
-            text = I18n.fmtDateLong(LocalDate.parse(dayKey)).uppercase(),
-            color = colors.ink3,
-            fontFamily = MonoFamily,
-            fontSize = 9.sp,
-            letterSpacing = 1.44.sp, // 0.16em of 9sp
-        )
+        // P6: the day label is the shared eyebrow (was a 9sp/1.44 inline copy) and
+        // the plan rows are PautaCards on the Field radius, matching the dashed add
+        // field below them. // PT: etiqueta do dia no eyebrow partilhado; as linhas
+        // do plano em PautaCard, no mesmo raio do campo tracejado.
+        SectionEyebrow(I18n.fmtDateLong(LocalDate.parse(dayKey)))
         Spacer(Modifier.height(8.dp))
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             items.forEach { item ->
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(colors.paper2)
-                        .border(1.dp, colors.rule, RoundedCornerShape(10.dp))
-                        .padding(horizontal = 10.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
+                PautaCard(
+                    Modifier.fillMaxWidth(),
+                    radius = PautaRadius.Field,
+                    padding = PaddingValues(horizontal = 12.dp, vertical = 9.dp),
                 ) {
-                    Text(
-                        text = item.text,
-                        color = colors.ink,
-                        fontSize = 14.sp,
-                        modifier = Modifier.weight(1f),
-                    )
-                    Text(
-                        text = "×",
-                        color = colors.ink4,
-                        fontFamily = MonoFamily,
-                        fontSize = 14.sp,
-                        modifier = Modifier
-                            .clickableNoRipple { onRemove(item.id) }
-                            .padding(horizontal = 4.dp),
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = item.text,
+                            color = colors.ink,
+                            style = PautaType.Label,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Text(
+                            text = "×",
+                            color = colors.ink4,
+                            fontFamily = MonoFamily,
+                            fontSize = 14.sp,
+                            modifier = Modifier
+                                .clickableNoRipple { onRemove(item.id) }
+                                .padding(horizontal = 4.dp),
+                        )
+                    }
                 }
             }
             // Dashed add field, committing on Done — the web also commits on blur.
@@ -161,7 +155,7 @@ private fun PlanDayRow(
                 value = text,
                 onValueChange = { text = it },
                 singleLine = true,
-                textStyle = TextStyle(color = colors.ink, fontFamily = SansFamily, fontSize = 14.sp),
+                textStyle = PautaType.Label.copy(color = colors.ink),
                 cursorBrush = SolidColor(colors.accent),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                 keyboardActions = KeyboardActions(onDone = { commit() }),
@@ -173,7 +167,7 @@ private fun PlanDayRow(
                             .drawBehind {
                                 drawRoundRect(
                                     color = colors.rule,
-                                    cornerRadius = CornerRadius(10.dp.toPx()),
+                                    cornerRadius = CornerRadius(PautaRadius.Field.toPx()),
                                     style = Stroke(
                                         width = 1.dp.toPx(),
                                         pathEffect = PathEffect.dashPathEffect(floatArrayOf(6f, 6f)),
@@ -183,7 +177,7 @@ private fun PlanDayRow(
                             .padding(horizontal = 12.dp, vertical = 9.dp),
                     ) {
                         if (text.isEmpty()) {
-                            Text(tr("planear intenção…"), color = colors.ink4, fontSize = 14.sp)
+                            Text(tr("planear intenção…"), color = colors.ink4, style = PautaType.Label)
                         }
                         inner()
                     }

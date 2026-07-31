@@ -109,7 +109,9 @@ fun BookShelfScreen() {
             item(key = "tbr-header") {
                 Spacer(Modifier.height(36.dp))
                 SectionEyebrow(tr("A seguir"))
-                Spacer(Modifier.height(4.dp))
+                // P6: one gap under every section eyebrow (the list rows carry their
+                // own padding, so this one is shorter by design).
+                Spacer(Modifier.height(6.dp))
             }
             items(tbr, key = { "tbr-${it.id}" }) { book ->
                 BookListRow(book) { onOpenBook(book.id) }
@@ -238,12 +240,14 @@ private fun BookDoneCard(book: BookEntity, onClick: () -> Unit) {
         padding = PaddingValues(14.dp),
         onClick = onClick,
     ) {
+        // P6: one shelf title treatment — the "Lidos" cards were a step smaller
+        // (15/19) than the two other sections. // PT: um só tratamento de título.
         Text(
             text = book.title,
             color = colors.ink,
             fontFamily = SerifFamily,
-            fontSize = 15.sp,
-            lineHeight = 19.sp,
+            fontSize = 16.sp,
+            lineHeight = 20.sp,
             maxLines = 3,
             overflow = TextOverflow.Ellipsis,
         )
@@ -261,7 +265,7 @@ private fun BookDoneCard(book: BookEntity, onClick: () -> Unit) {
             Text(
                 text = book.author,
                 color = colors.ink3,
-                style = PautaType.MetaSmall,
+                style = PautaType.Meta,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )

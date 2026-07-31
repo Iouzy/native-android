@@ -322,7 +322,7 @@ tabs (both lenses); `textScale` pref still scales; CI green.
 
 ## Phase P-2 — screen sweeps (independent; all depend on P3 + P4)
 
-### P6 · Hoje sweep — Status: pending
+### P6 · Hoje sweep — Status: done (PR #147)
 
 **Files:** `ui/screens/HojeScreen.kt`, `PautaExtras.kt` (if shared rows live
 there), `BookShelfScreen.kt` (same-slot book face).
@@ -445,3 +445,4 @@ slice: P1 → P2 → P5.
 2026-07-31 · P3 · #144 · PautaMotion (140/240/380 + Ease/Spring/tween helper) + rememberMotionEnabled(); nav→Slow, tint/chip-exit→Fast, strike/hatch/saved/chip-enter→Base, pulse keeps 450 on house easing; deliberate springs untouched; PautaSheet had no ad-hoc specs (P9 adds Slow entrance); leftover ad-hoc specs in PautaScreen/FocusTide/Parrot/Onboarding for P6/P7/P9
 2026-07-31 · P4 · #145 · PautaSurfaces.kt (PautaRadius 8/10/14/20, PautaCard, SectionEyebrow 10sp ls1.6); SheetEyebrow delegates; SectionLabel×2/MonoSectionLabel/FieldLabel + inline eyebrows removed; card pattern → PautaCard in Hoje/Pauta/Marés/PautaExtras/Book*/HistoryView; radii tokenised in swept files (sheet 18→20, 12/16→Card); leftover card sites in Settings/TierGuide/YearReview/Insights/HabitDetail/Routines/DateTimePickers/WeekAhead/Trend for P6–P9
 2026-07-31 · P5 · #146 · PautaType in Type.kt; five headlines (44/30/38/34/34) → ScreenTitle 36, Hoje/Pauta drop unified to 8dp; Meta/MetaSmall/Body/Label rolled through the five faces' meta/quote/empty lines; leftovers: HeaderChip 9sp + Marés overall-%/"marés passadas" link, dark-card timer/pills → P7, CardTitle unused until P6/P7; Marés headline still sits below its month strip (restructure would be a layout shift — P8 if wanted)
+2026-07-31 · P6 · #147 · day pulse → PautaCard (+ intention progress hairline on the numerals' 450ms); one DayPulseLine shared with the reflection card; one card rhythm (HojeCardPadding 20/20 + tight 20/14) across pulse/carry/memórias/reflexão/past-reflexão; intention check settles accent→ink (Fast→Base, transition-only, skipped when reduced); time-of-day headers + tides count → SectionEyebrow/MetaSmall, header chips + "guardado ✓" → MetaSmall (P5's 9sp leftover), night question → CardTitle (first use); WeekAheadSheet day labels → SectionEyebrow, plan rows → PautaCard(Field) + dashed field radius tokenised; BookShelf title/author/section-gap drift trimmed; PautaExtras holds no Hoje rows (all Pauta surfaces — P7); leftovers: TodayTideRow name/time sizes and the AddIntentionForm pills still literal, book/planner empty states still two treatments (P10's EmptyState)
