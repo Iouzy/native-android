@@ -36,7 +36,7 @@ import com.pauta.app.ui.SheetEyebrow
 import com.pauta.app.ui.clickableNoRipple
 import com.pauta.app.ui.theme.LocalPautaColors
 import com.pauta.app.ui.theme.MonoFamily
-import com.pauta.app.ui.theme.SerifFamily
+import com.pauta.app.ui.theme.PautaType
 import com.pauta.app.ui.viewmodel.AppViewModel
 
 /**
@@ -73,16 +73,13 @@ fun BookAnnualGoalCard() {
                 Text(
                     text = "$booksThisYear " + tr("livros este ano"),
                     color = colors.ink,
-                    fontFamily = SerifFamily,
-                    fontSize = 20.sp,
-                    lineHeight = 24.sp,
+                    style = PautaType.CardTitle,
                     modifier = Modifier.weight(1f),
                 )
                 Text(
                     text = tr("Definir objetivo") + " →",
                     color = colors.ink3,
-                    fontFamily = MonoFamily,
-                    fontSize = 10.sp,
+                    style = PautaType.MetaSmall,
                     letterSpacing = 0.4.sp,
                     modifier = Modifier
                         .clickableNoRipple { showGoalSheet = true }
@@ -94,9 +91,7 @@ fun BookAnnualGoalCard() {
                 Text(
                     text = "$booksThisYear / $goal " + tr("livros este ano"),
                     color = colors.ink,
-                    fontFamily = SerifFamily,
-                    fontSize = 20.sp,
-                    lineHeight = 24.sp,
+                    style = PautaType.CardTitle,
                     modifier = Modifier.weight(1f),
                 )
                 // The small edit affordance for updating the goal.

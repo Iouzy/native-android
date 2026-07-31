@@ -1,9 +1,18 @@
 package com.pauta.app.ui.screens
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -71,6 +80,7 @@ import com.pauta.app.data.entity.HabitEntity
 import com.pauta.app.domain.DateUtils
 import com.pauta.app.domain.HabitCalculator
 import com.pauta.app.domain.HabitModel
+import com.pauta.app.domain.StreakResult
 import com.pauta.app.i18n.I18n
 import com.pauta.app.i18n.tr
 import com.pauta.app.i18n.trf
@@ -137,19 +147,40 @@ fun MaresScreen(bookMode: Boolean = false) {
     val countsByHabit = remember(counts) {
         counts.groupBy { it.habitId }.mapValues { e -> e.value.associate { it.dayKey to it.count } }
     }
-    fun modelOf(h: HabitEntity) = HabitModel(
-        id = h.id, createdAt = h.createdAt, cadence = h.cadence, anchor = h.anchor, weekdays = h.weekdays,
-        recurrence = h.recurrence, endsAt = h.endsAt,
-        log = logsByHabit[h.id].orEmpty(), respiros = respByHabit[h.id].orEmpty(),
-    )
+    // P8: the derived models are built once per data change instead of three
+    // times per habit per composition pass (the visibility filter, the overall
+    // %, and every row each called `modelOf` on their own). Because HabitModel
+    // is a data class, an unrelated edit rebuilds the map but leaves the
+    // untouched entries *equal* — so the `remember`s keyed on them downstream
+    // survive. // PT: os modelos são construídos uma vez por mudança de dados,
+    // não a cada recomposição; os iguais mantêm as memoizações a jusante.
+    val modelsById = remember(habits, logsByHabit, respByHabit) {
+        habits.associate { h ->
+            h.id to habitModelOf(h, logsByHabit[h.id].orEmpty(), respByHabit[h.id].orEmpty())
+        }
+    }
+    // Fallback for the frame where a habit exists but the map hasn't caught up.
+    // // PT: recurso para o instante em que o mapa ainda não acompanhou.
+    fun modelOf(h: HabitEntity): HabitModel = modelsById[h.id]
+        ?: habitModelOf(h, logsByHabit[h.id].orEmpty(), respByHabit[h.id].orEmpty())
 
     val isCurrentMonth = year == nowYm.year && month == nowYm.monthValue
     val monthEnd = "%04d-%02d-%02d".format(year, month, DateUtils.daysInMonth(year, month))
     // Only tides that already existed in the viewed month; the rest are counted
     // in the footer note, like the web. // PT: só marés que já existiam no mês.
-    val visibleHabits = habits.filter { HabitCalculator.createdKey(modelOf(it)) <= monthEnd }
-    val models = visibleHabits.map { modelOf(it) }
-    val overall = HabitCalculator.overallPctInMonth(models, year, month, today)
+    // `habits` stays in the keys: a rename leaves `modelsById` equal (the model
+    // carries no name) but must still reach the rows. // PT: renomear não muda o
+    // modelo, por isso `habits` continua a ser chave.
+    val visibleHabits = remember(habits, modelsById, monthEnd) {
+        habits.filter { HabitCalculator.createdKey(modelOf(it)) <= monthEnd }
+    }
+    val models = remember(visibleHabits, modelsById) { visibleHabits.map { modelOf(it) } }
+    // Three history walks per habit (range + stats + %) — worth not repeating on
+    // every recomposition. // PT: três varrimentos por maré; não se repetem.
+    val overall = remember(models, year, month, today) {
+        HabitCalculator.overallPctInMonth(models, year, month, today)
+    }
+    val ymIndex = year * 12 + (month - 1)
 
     Box(Modifier.fillMaxSize()) {
         // A single LazyColumn; horizontal content padding replaces the per-section
@@ -195,10 +226,12 @@ fun MaresScreen(bookMode: Boolean = false) {
                     ) {
                         // Accent "JUN '26" period label — the web MonthStrip styling,
                         // shared with Hoje/Pauta. // PT: mês em destaque, como nas outras tabs.
-                        PeriodLabel(
-                            month = I18n.fmtMonthShort(month),
-                            suffix = "'%02d".format(year % 100),
-                        )
+                        MonthSlide(ymIndex, animate, Modifier.fillMaxWidth()) { y, m ->
+                            PeriodLabel(
+                                month = I18n.fmtMonthShort(m),
+                                suffix = "'%02d".format(y % 100),
+                            )
+                        }
                     }
                     Icon(
                         Icons.Filled.ChevronRight, contentDescription = tr("mês seguinte"), tint = colors.ink3,
@@ -215,21 +248,34 @@ fun MaresScreen(bookMode: Boolean = false) {
             item(key = "header") {
                 Spacer(Modifier.height(18.dp))
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
-                    Column(Modifier.weight(1f)) {
-                        SectionEyebrow(if (isCurrentMonth) tr("Maré actual") else tr("Maré passada"))
-                        Spacer(Modifier.height(4.dp))
-                        // P5: shared ScreenTitle role — was 38sp, the odd one out of the
-                        // three tabs. // PT: o mês no papel partilhado de título.
-                        Text(
-                            text = monthLongName(month),
-                            color = colors.ink,
-                            style = PautaType.ScreenTitle,
-                        )
+                    // P8: eyebrow + month travel together in the direction of the
+                    // navigation. // PT: eyebrow e mês deslizam juntos.
+                    MonthSlide(
+                        ymIndex, animate, Modifier.weight(1f),
+                        contentAlignment = Alignment.BottomStart,
+                    ) { y, m ->
+                        Column(Modifier.fillMaxWidth()) {
+                            SectionEyebrow(
+                                if (y == nowYm.year && m == nowYm.monthValue) tr("Maré actual")
+                                else tr("Maré passada"),
+                            )
+                            Spacer(Modifier.height(4.dp))
+                            // P5: shared ScreenTitle role — was 38sp, the odd one out of the
+                            // three tabs. // PT: o mês no papel partilhado de título.
+                            Text(
+                                text = monthLongName(m),
+                                color = colors.ink,
+                                style = PautaType.ScreenTitle,
+                            )
+                        }
                     }
                     Column(
                         horizontalAlignment = Alignment.End,
                         modifier = Modifier.clickableNoRipple { showTrend = true },
                     ) {
+                        // P8 (P5's leftover): the display numeral is a sized CardTitle
+                        // rather than a loose serif, so the family travels with the role.
+                        // // PT: o número herda o papel serif, sem família solta.
                         Text(
                             text = buildAnnotatedString {
                                 if (overall == null) append("—") else {
@@ -238,17 +284,14 @@ fun MaresScreen(bookMode: Boolean = false) {
                                 }
                             },
                             color = if (overall == null) colors.ink3 else colors.accent,
-                            fontFamily = SerifFamily,
-                            fontSize = 30.sp,
-                            lineHeight = 30.sp,
+                            style = PautaType.CardTitle.copy(fontSize = 30.sp, lineHeight = 30.sp),
                         )
                         Spacer(Modifier.height(2.dp))
                         Text(
                             text = tr("marés passadas").uppercase() + " ↗",
                             color = colors.ink3,
-                            fontFamily = MonoFamily,
-                            fontSize = 9.sp,
-                            letterSpacing = 1.35.sp, // 0.15em of 9sp
+                            style = PautaType.MetaSmall,
+                            letterSpacing = 1.35.sp,
                         )
                     }
                 }
@@ -281,10 +324,8 @@ fun MaresScreen(bookMode: Boolean = false) {
                     Text(
                         text = tr("Adicione comportamentos que quer praticar regularmente. Cada mês tem o seu grid."),
                         color = colors.ink3,
-                        fontFamily = SerifFamily,
+                        style = PautaType.Body,
                         fontStyle = FontStyle.Italic,
-                        fontSize = 14.sp,
-                        lineHeight = 20.sp,
                     )
                     Spacer(Modifier.height(14.dp))
                     SectionEyebrow(tr("Marés comuns"), color = colors.ink4)
@@ -315,8 +356,7 @@ fun MaresScreen(bookMode: Boolean = false) {
                                 append(" " + tr("num dia vazio marca respiro"))
                             },
                             color = colors.ink3,
-                            fontFamily = MonoFamily,
-                            fontSize = 10.sp,
+                            style = PautaType.MetaSmall,
                             letterSpacing = 0.4.sp,
                             lineHeight = 15.sp,
                         )
@@ -369,10 +409,8 @@ fun MaresScreen(bookMode: Boolean = false) {
                                 (if (hidden == 1) tr("maré ainda não existia") else tr("marés ainda não existiam")) +
                                 " " + trf("em {month}.", "month" to monthLongName(month)),
                             color = colors.ink3,
-                            fontFamily = SerifFamily,
+                            style = PautaType.Body,
                             fontStyle = FontStyle.Italic,
-                            fontSize = 13.sp,
-                            lineHeight = 18.sp,
                             textAlign = TextAlign.Center,
                             modifier = Modifier.fillMaxWidth(),
                         )
@@ -394,7 +432,7 @@ fun MaresScreen(bookMode: Boolean = false) {
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text("+", color = colors.ink3, fontSize = 16.sp, lineHeight = 16.sp)
-                    Text(tr("adicionar maré"), color = colors.ink3, fontSize = 14.sp)
+                    Text(tr("adicionar maré"), color = colors.ink3, style = PautaType.Label)
                 }
             }
 
@@ -422,8 +460,11 @@ fun MaresScreen(bookMode: Boolean = false) {
         )
     }
     if (showTrend) {
+        // Every tide, not just the visible ones — reused from the memoised map.
+        // // PT: todas as marés, a partir do mapa memoizado.
+        val trendModels = remember(habits, modelsById) { habits.map { modelOf(it) } }
         TrendSheet(
-            habits = habits.map { modelOf(it) },
+            habits = trendModels,
             today = today,
             onPickMonth = { y, m -> year = y; month = m },
             onClose = { showTrend = false },
@@ -447,9 +488,7 @@ fun MaresScreen(bookMode: Boolean = false) {
             Text(
                 text = tr("Remover esta maré? Todo o histórico será perdido."),
                 color = colors.ink,
-                fontFamily = SerifFamily,
-                fontSize = 18.sp,
-                lineHeight = 25.sp,
+                style = PautaType.CardTitle,
             )
             Spacer(Modifier.height(18.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -464,6 +503,30 @@ fun MaresScreen(bookMode: Boolean = false) {
 }
 
 private data class CellDay(val d: Int, val key: String, val state: CellState, val isToday: Boolean, val count: Int)
+
+/** The habit's static fields plus its marked days — everything the pure
+ *  [HabitCalculator] math needs. // PT: o modelo puro de uma maré. */
+private fun habitModelOf(h: HabitEntity, log: Set<String>, respiros: Set<String>) = HabitModel(
+    id = h.id, createdAt = h.createdAt, cadence = h.cadence, anchor = h.anchor, weekdays = h.weekdays,
+    recurrence = h.recurrence, endsAt = h.endsAt, log = log, respiros = respiros,
+)
+
+/**
+ * P8: one row's month/streak numbers, computed together so they can be
+ * memoised as a unit. Every field costs a day-by-day walk of the tide's
+ * history — `bestStreak` walks from creation to today — and they used to run
+ * on each recomposition of each row, so marking a single day re-walked every
+ * tide on screen. // PT: as contas de um mês/streak, calculadas em bloco para
+ * poderem ser memoizadas juntas.
+ */
+private data class RowStats(
+    val pct: Int?,
+    val obs: Int,
+    val maturityTotal: Int,
+    val isMature: Boolean,
+    val streak: StreakResult?,
+    val bestStreak: Int,
+)
 
 @Composable
 private fun MaresHabitRow(
@@ -482,25 +545,39 @@ private fun MaresHabitRow(
     onOpenDetail: () -> Unit,
 ) {
     val colors = LocalPautaColors.current
-    val accent = habit.color
-        ?.takeIf { it.isNotBlank() }
-        ?.let { runCatching { Color(android.graphics.Color.parseColor(it)) }.getOrNull() }
-        ?: colors.accent
+    val accent = remember(habit.color, colors.accent) {
+        habit.color
+            ?.takeIf { it.isNotBlank() }
+            ?.let { runCatching { Color(android.graphics.Color.parseColor(it)) }.getOrNull() }
+            ?: colors.accent
+    }
 
     val ndays = DateUtils.daysInMonth(year, month)
     val isCount = habit.target != null && habit.cadence == "daily"
     val todayCount = countsForHabit[today] ?: 0
 
-    val pct = HabitCalculator.pctInMonth(model, year, month, today)
-    val range = HabitCalculator.observedRangeInMonth(model, year, month, today)
-    val stats = range?.let { HabitCalculator.periodStats(model, it.first, it.second) }
-    val obs = (stats?.observed ?: 0) - (stats?.respiros ?: 0)
-    val maturityTotal = HabitCalculator.maturityUnits(model)
-    val isMature = obs >= maturityTotal
-    val streak = if (isCurrentMonth) HabitCalculator.currentStreak(model, today) else null
-    val bestStreak = HabitCalculator.bestStreak(model, today)
+    // P8: keyed on the model, the viewed month and today — a mark on one tide
+    // leaves the others' models equal, so only the tide that actually changed
+    // pays for the walk. // PT: só a maré que mudou volta a fazer as contas.
+    val stats = remember(model, year, month, today, isCurrentMonth) {
+        val range = HabitCalculator.observedRangeInMonth(model, year, month, today)
+        val p = range?.let { HabitCalculator.periodStats(model, it.first, it.second) }
+        val obs = (p?.observed ?: 0) - (p?.respiros ?: 0)
+        val maturityTotal = HabitCalculator.maturityUnits(model)
+        RowStats(
+            pct = HabitCalculator.pctInMonth(model, year, month, today),
+            obs = obs,
+            maturityTotal = maturityTotal,
+            isMature = obs >= maturityTotal,
+            streak = if (isCurrentMonth) HabitCalculator.currentStreak(model, today) else null,
+            bestStreak = HabitCalculator.bestStreak(model, today),
+        )
+    }
 
-    val days = remember(model, countsForHabit, year, month, today) {
+    // `isCount` joins the keys: a target added to an existing tide doesn't change
+    // its model, but it does change every cell's state. // PT: a meta entra nas
+    // chaves — muda as células sem mudar o modelo.
+    val days = remember(model, countsForHabit, isCount, year, month, today) {
         (1..ndays).map { d ->
             val key = "%04d-%02d-%02d".format(year, month, d)
             val state = cellStateFor(model, habit.cadence, isCount, countsForHabit, key, today)
@@ -531,8 +608,7 @@ private fun MaresHabitRow(
                         Text(
                             text = label,
                             color = colors.ink3,
-                            fontFamily = MonoFamily,
-                            fontSize = 9.sp,
+                            style = PautaType.MetaSmall,
                             letterSpacing = 0.54.sp,
                             modifier = Modifier
                                 .clip(RoundedCornerShape(4.dp))
@@ -545,8 +621,7 @@ private fun MaresHabitRow(
                         Text(
                             text = "$todayCount/${habit.target}" + (habit.unit.ifBlank { tr("×") }.let { if (habit.unit.isNotBlank()) " $it" else it }),
                             color = accent,
-                            fontFamily = MonoFamily,
-                            fontSize = 9.sp,
+                            style = PautaType.MetaSmall,
                             letterSpacing = 0.54.sp,
                             modifier = Modifier
                                 .clip(RoundedCornerShape(4.dp))
@@ -569,35 +644,38 @@ private fun MaresHabitRow(
                 }
             }
             Column(horizontalAlignment = Alignment.End) {
-                if (pct == null) {
+                if (stats.pct == null) {
                     Text("—", color = colors.ink3, style = PautaType.MetaSmall)
                 } else {
                     Text(
-                        text = "$pct%",
-                        color = if (isMature) colors.ink2 else colors.ink3,
+                        text = "${stats.pct}%",
+                        color = if (stats.isMature) colors.ink2 else colors.ink3,
                         style = PautaType.Meta,
-                        fontStyle = if (isMature) FontStyle.Normal else FontStyle.Italic,
+                        fontStyle = if (stats.isMature) FontStyle.Normal else FontStyle.Italic,
                     )
-                    if (!isMature) {
+                    if (!stats.isMature) {
                         Spacer(Modifier.height(2.dp))
                         Text(
                             text = when (habit.cadence) {
-                                "weekly" -> trf("semana {obs}/{total}", "obs" to obs, "total" to maturityTotal)
-                                "monthly" -> trf("mês {obs}/{total}", "obs" to obs, "total" to maturityTotal)
-                                else -> trf("dia {obs}/{total}", "obs" to obs, "total" to maturityTotal)
+                                "weekly" -> trf("semana {obs}/{total}", "obs" to stats.obs, "total" to stats.maturityTotal)
+                                "monthly" -> trf("mês {obs}/{total}", "obs" to stats.obs, "total" to stats.maturityTotal)
+                                else -> trf("dia {obs}/{total}", "obs" to stats.obs, "total" to stats.maturityTotal)
                             },
                             color = colors.ink3,
-                            fontFamily = MonoFamily,
-                            fontSize = 9.sp,
+                            style = PautaType.MetaSmall,
                         )
-                    } else if (streak != null && streak.days >= 1) {
+                    } else if (stats.streak != null && stats.streak.days >= 1) {
+                        val streak = stats.streak
                         HabitCalculator.tideTier(streak.days)?.let { tier ->
                             Spacer(Modifier.height(4.dp))
+                            // Kept at the eyebrow's tighter tracking + SemiBold: this is a
+                            // badge on a row, not a section header, and SectionEyebrow's
+                            // 1.6sp would push the right column into the headline.
+                            // // PT: emblema de linha — mantém o peso e o espaçamento curto.
                             Text(
                                 text = tr(tier.name).uppercase(),
                                 color = accent,
-                                fontFamily = MonoFamily,
-                                fontSize = 9.sp,
+                                style = PautaType.MetaSmall,
                                 fontWeight = FontWeight.SemiBold,
                                 letterSpacing = 0.54.sp,
                             )
@@ -612,8 +690,7 @@ private fun MaresHabitRow(
                                     }
                                 },
                                 color = colors.ink2,
-                                fontFamily = MonoFamily,
-                                fontSize = 10.sp,
+                                style = PautaType.MetaSmall,
                             )
                         }
                     }
@@ -658,19 +735,18 @@ private fun MaresHabitRow(
         }
 
         // Best streak.
-        if (bestStreak >= 3) {
+        if (stats.bestStreak >= 3) {
             Spacer(Modifier.height(6.dp))
             Text(
                 text = buildAnnotatedString {
-                    append(trf("melhor: {n} dias", "n" to bestStreak))
-                    HabitCalculator.tideTier(bestStreak)?.let {
+                    append(trf("melhor: {n} dias", "n" to stats.bestStreak))
+                    HabitCalculator.tideTier(stats.bestStreak)?.let {
                         withStyle(SpanStyle(color = colors.ink4)) { append(" · " + tr(it.name)) }
                     }
                 },
                 color = colors.ink3,
-                fontFamily = MonoFamily,
-                fontSize = 9.sp,
-                letterSpacing = 0.72.sp, // 0.08em of 9sp
+                style = PautaType.MetaSmall,
+                letterSpacing = 0.72.sp,
             )
         }
     }
@@ -852,6 +928,49 @@ private fun cadenceChipLabel(habit: HabitEntity): String? {
 
 private fun monthLongName(month: Int): String = I18n.fmtMonthLong(month)
 
+/**
+ * P8: month navigation reads as movement through time. [ymIndex] is
+ * `year * 12 + (month - 1)`, so comparing the two states gives the direction
+ * for free — forwards enters from the right, backwards from the left — and
+ * jumping several months (the tap-to-today reset, the trend sheet's month
+ * picker) still animates the correct way. Half-width offsets keep it a nudge
+ * rather than a carousel. Reduced motion swaps the content with no travel and
+ * no size animation. // PT: a navegação de mês desliza no sentido do tempo; com
+ * movimento reduzido, troca sem animação.
+ */
+@Composable
+private fun MonthSlide(
+    ymIndex: Int,
+    animate: Boolean,
+    modifier: Modifier = Modifier,
+    contentAlignment: Alignment = Alignment.Center,
+    content: @Composable (year: Int, month: Int) -> Unit,
+) {
+    AnimatedContent(
+        targetState = ymIndex,
+        modifier = modifier,
+        contentAlignment = contentAlignment,
+        transitionSpec = {
+            if (!animate) {
+                (EnterTransition.None togetherWith ExitTransition.None)
+                    .using(SizeTransform { _, _ -> snap() })
+            } else {
+                val dir = if (targetState > initialState) 1 else -1
+                (
+                    (
+                        slideInHorizontally(PautaMotion.tween(PautaMotion.Base)) { w -> dir * w / 2 } +
+                            fadeIn(PautaMotion.tween(PautaMotion.Base))
+                        ) togetherWith (
+                        slideOutHorizontally(PautaMotion.tween(PautaMotion.Base)) { w -> -dir * w / 2 } +
+                            fadeOut(PautaMotion.tween(PautaMotion.Fast))
+                        )
+                    ).using(SizeTransform { _, _ -> PautaMotion.tween(PautaMotion.Base) })
+            }
+        },
+        label = "month-slide",
+    ) { idx -> content(idx / 12, idx % 12 + 1) }
+}
+
 /** The empty state's intro phrase (mares-phrases.jsx `intro`), picked
  *  deterministically by day so it doesn't change every render. */
 private val INTRO_PHRASES = listOf(
@@ -899,14 +1018,7 @@ private fun GridLegend() {
             LegendSwatch { drawDone(colors.ink) }
             LegendSwatch { drawEmptyBox(colors.ink3) }
             LegendSwatch { drawPre(colors.ink3) }
-            Text(
-                text = tr("legenda").uppercase(),
-                color = colors.ink3,
-                fontFamily = MonoFamily,
-                fontSize = 9.sp,
-                letterSpacing = 0.72.sp, // 0.08em of 9sp
-                modifier = Modifier.padding(start = 3.dp),
-            )
+            SectionEyebrow(tr("legenda"), modifier = Modifier.padding(start = 3.dp))
         }
         if (open) {
             Popup(
