@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.pauta.app.ui.theme.LocalPautaColors
 import com.pauta.app.ui.theme.MonoFamily
+import com.pauta.app.ui.theme.rememberMotionEnabled
 
 // P4 · Surface primitives — the one radius scale, the one paper card and the one
 // mono eyebrow, replacing the ad-hoc per-screen copies (radii 4…20, three private
@@ -50,8 +51,13 @@ fun PautaCard(
 ) {
     val colors = LocalPautaColors.current
     val shape = RoundedCornerShape(radius)
+    // P10: a tappable card dips under the finger — the app's stand-in for the
+    // ripple it refuses. Static cards read no preference and get no layer.
+    // // PT: um cartão tocável afunda ligeiramente; os estáticos não animam.
+    val press = if (onClick != null) rememberMotionEnabled() else false
     Column(
         modifier
+            .pressScale(press)
             .clip(shape)
             .border(1.dp, colors.rule, shape)
             .background(colors.paper2)

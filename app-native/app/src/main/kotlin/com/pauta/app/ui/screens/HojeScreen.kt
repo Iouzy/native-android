@@ -55,6 +55,7 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.buildAnnotatedString
@@ -79,15 +80,18 @@ import com.pauta.app.domain.Memory
 import com.pauta.app.i18n.I18n
 import com.pauta.app.i18n.tr
 import com.pauta.app.i18n.trf
+import com.pauta.app.ui.EmptyState
 import com.pauta.app.ui.PautaCard
 import com.pauta.app.ui.PautaIcons
 import com.pauta.app.ui.PautaRadius
 import com.pauta.app.ui.PeriodLabel
-import com.pauta.app.ui.PipPose
 import com.pauta.app.ui.SectionEyebrow
 import com.pauta.app.ui.TideToday
 import com.pauta.app.ui.clickableNoRipple
 import com.pauta.app.ui.computeTodayTides
+import com.pauta.app.ui.entranceStagger
+import com.pauta.app.ui.rememberEntrancePlay
+import com.pauta.app.ui.tick
 import com.pauta.app.ui.theme.LocalPautaColors
 import com.pauta.app.ui.theme.MonoFamily
 import com.pauta.app.ui.theme.PautaMotion
@@ -144,6 +148,10 @@ fun HojeScreen(onOpenHistory: () -> Unit, bookMode: Boolean = false) {
     // A3: every micro-animation below is gated on this — reduced motion snaps to
     // the old instant behaviour. // PT: animações respeitam "movimento reduzido".
     val animate = rememberMotionEnabled()
+    // P10: the haptic map's intention-check tick, and the one-shot list entrance.
+    // // PT: o toque háptico ao marcar e a entrada escalonada da lista.
+    val haptic = LocalHapticFeedback.current
+    val entrance = rememberEntrancePlay("hoje-intentions", animate)
     var showWeek by remember { mutableStateOf(false) }
     var showInsights by remember { mutableStateOf(false) }
     var showRoutines by remember { mutableStateOf(false) }
@@ -323,6 +331,11 @@ fun HojeScreen(onOpenHistory: () -> Unit, bookMode: Boolean = false) {
 
             // Intentions, grouped by time-of-day; rows keyed by id so A3 can
             // animate add/remove. // PT: intenções por período, com chaves estáveis.
+            // P10: the entrance stagger counts across the groups, so the list reads
+            // as one sequence rather than restarting under each time-of-day header.
+            // // PT: o escalonamento conta ao longo dos grupos — a lista entra como
+            // uma sequência só.
+            var entranceIndex = 0
             groups.forEach { (w, groupItems) ->
                 if (showHeaders) {
                     item(key = "when-$w") {
@@ -334,13 +347,21 @@ fun HojeScreen(onOpenHistory: () -> Unit, bookMode: Boolean = false) {
                         Spacer(Modifier.height(2.dp))
                     }
                 }
-                items(groupItems, key = { "intent-${it.id}" }) { item ->
+                val groupStart = entranceIndex
+                entranceIndex += groupItems.size
+                itemsIndexed(groupItems, key = { _, row -> "intent-${row.id}" }) { i, item ->
                     IntentionRow(
                         item = item,
                         animate = animate,
                         // A3: add/remove/reorder slides into place (LazyItemScope).
-                        modifier = if (animate) Modifier.animateItem() else Modifier,
-                        onToggle = { vm.toggleIntention(item.id) },
+                        modifier = (if (animate) Modifier.animateItem() else Modifier)
+                            .entranceStagger(groupStart + i, entrance),
+                        onToggle = {
+                            vm.toggleIntention(item.id)
+                            // The check is the tab's one decisive gesture — it gets
+                            // the tick. // PT: marcar é o gesto do separador.
+                            haptic.tick(prefs)
+                        },
                         onDelete = { vm.removeIntention(item.id) },
                         onCyclePriority = { vm.setIntentionPriority(item.id, nextPriority(item.priority)) },
                     )
@@ -349,20 +370,9 @@ fun HojeScreen(onOpenHistory: () -> Unit, bookMode: Boolean = false) {
             if (total == 0) {
                 item(key = "no-intentions") {
                     Spacer(Modifier.height(16.dp))
-                    // F2: a small Pip pose beside the empty phrase (hidden when the
-                    // parrot pref is off). // PT: o Pip ao lado do estado vazio.
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        if (prefs.parrot) {
-                            PipPose(height = 40.dp)
-                            Spacer(Modifier.width(12.dp))
-                        }
-                        Text(
-                            text = tr("Ainda sem intenções para hoje."),
-                            color = colors.ink4,
-                            style = PautaType.Label,
-                            modifier = Modifier.weight(1f),
-                        )
-                    }
+                    // P10: the shared empty state — same serif-italic line and Pip
+                    // pose as Pauta's and Marés'. // PT: o estado vazio partilhado.
+                    EmptyState(tr("Ainda sem intenções para hoje."), pip = true)
                 }
             }
 

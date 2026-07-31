@@ -64,6 +64,7 @@ import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontStyle
@@ -84,17 +85,20 @@ import com.pauta.app.domain.StreakResult
 import com.pauta.app.i18n.I18n
 import com.pauta.app.i18n.tr
 import com.pauta.app.i18n.trf
+import com.pauta.app.ui.EmptyState
 import com.pauta.app.ui.PautaButton
 import com.pauta.app.ui.PautaButtonVariant
 import com.pauta.app.ui.PautaCard
 import com.pauta.app.ui.PautaRadius
 import com.pauta.app.ui.PeriodLabel
 import com.pauta.app.ui.SectionEyebrow
-import com.pauta.app.ui.PipPose
 import com.pauta.app.ui.PautaSheet
 import com.pauta.app.ui.CellState
 import com.pauta.app.ui.cellStateFor
 import com.pauta.app.ui.clickableNoRipple
+import com.pauta.app.ui.entranceStagger
+import com.pauta.app.ui.rememberEntrancePlay
+import com.pauta.app.ui.tick
 import com.pauta.app.ui.theme.LocalPautaColors
 import com.pauta.app.ui.theme.MonoFamily
 import com.pauta.app.ui.theme.PautaMotion
@@ -132,6 +136,10 @@ fun MaresScreen(bookMode: Boolean = false) {
     // A3: cell fills, respiro hatching and row add/remove all snap when reduced.
     // // PT: animações das células respeitam "movimento reduzido".
     val animate = rememberMotionEnabled()
+    // P10: the day-fill tick and the tides' one-shot list entrance.
+    // // PT: o toque háptico ao preencher um dia e a entrada da lista.
+    val haptic = LocalHapticFeedback.current
+    val entrance = rememberEntrancePlay("mares-tides", animate)
 
     val nowYm = remember(today) { YearMonth.parse(today.substring(0, 7)) }
     var year by remember { mutableIntStateOf(nowYm.year) }
@@ -303,29 +311,16 @@ fun MaresScreen(bookMode: Boolean = false) {
                 // and the "Marés comuns" starter chips. // PT: estado vazio
                 // com frase, explicação e marés comuns.
                 item(key = "empty") {
-                    // F2: a small Pip pose beside the intro phrase (hidden when the
-                    // parrot pref is off). // PT: o Pip ao lado da frase de abertura.
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        if (prefs.parrot) {
-                            PipPose(height = 44.dp)
-                            Spacer(Modifier.width(12.dp))
-                        }
-                        Text(
-                            text = tr(introPhraseFor(today)),
-                            color = colors.ink3,
-                            fontFamily = SerifFamily,
-                            fontStyle = FontStyle.Italic,
-                            fontSize = 17.sp,
-                            lineHeight = 24.sp,
-                            modifier = Modifier.weight(1f),
-                        )
-                    }
-                    Spacer(Modifier.height(16.dp))
-                    Text(
-                        text = tr("Adicione comportamentos que quer praticar regularmente. Cada mês tem o seu grid."),
-                        color = colors.ink3,
-                        style = PautaType.Body,
-                        fontStyle = FontStyle.Italic,
+                    // P10: the shared empty state. Marés is the one that needs both
+                    // slots — the day's intro phrase leads, the explanation is the
+                    // line — and it keeps the taller Pip the tab always had.
+                    // // PT: o estado vazio partilhado, com frase de abertura por
+                    // cima da explicação e o Pip maior desta tab.
+                    EmptyState(
+                        line = tr("Adicione comportamentos que quer praticar regularmente. Cada mês tem o seu grid."),
+                        title = tr(introPhraseFor(today)),
+                        pip = true,
+                        pipHeight = 44.dp,
                     )
                     Spacer(Modifier.height(14.dp))
                     SectionEyebrow(tr("Marés comuns"), color = colors.ink4)
@@ -378,7 +373,11 @@ fun MaresScreen(bookMode: Boolean = false) {
                 // maré, com chave estável.
                 itemsIndexed(visibleHabits, key = { _, h -> "habit-${h.id}" }) { index, h ->
                     // A3: the whole item (its leading gap + row) slides on add/remove.
-                    Column(if (animate) Modifier.animateItem() else Modifier) {
+                    // P10: …and the list's first build staggers into place.
+                    Column(
+                        (if (animate) Modifier.animateItem() else Modifier)
+                            .entranceStagger(index, entrance),
+                    ) {
                         if (index > 0) Spacer(Modifier.height(22.dp))
                         MaresHabitRow(
                             habit = h,
@@ -389,9 +388,15 @@ fun MaresScreen(bookMode: Boolean = false) {
                             today = today,
                             isCurrentMonth = isCurrentMonth,
                             animate = animate,
-                            onToggle = { dayKey -> vm.toggleHabitDay(h.id, dayKey) },
-                            onIncrement = { dayKey, current -> vm.setHabitCount(h.id, dayKey, current + 1) },
-                            onRespiro = { dayKey -> vm.markRespiro(h.id, dayKey) },
+                            // P10 · the haptic map: filling a day (tap, count bump or
+                            // respiro) is the tab's gesture, so each one ticks.
+                            // // PT: preencher um dia dá um toque háptico.
+                            onToggle = { dayKey -> vm.toggleHabitDay(h.id, dayKey); haptic.tick(prefs) },
+                            onIncrement = { dayKey, current ->
+                                vm.setHabitCount(h.id, dayKey, current + 1)
+                                haptic.tick(prefs)
+                            },
+                            onRespiro = { dayKey -> vm.markRespiro(h.id, dayKey); haptic.tick(prefs) },
                             onUnmarkRespiro = { dayKey -> vm.unmarkRespiro(h.id, dayKey) },
                             onOpenDetail = { detailTarget = h },
                         )

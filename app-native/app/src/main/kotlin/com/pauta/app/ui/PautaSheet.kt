@@ -274,8 +274,12 @@ fun PautaButton(
     }
     val vPad = if (variant == PautaButtonVariant.Ghost) 11.dp else 13.dp
     val hPad = if (variant == PautaButtonVariant.Ghost) 14.dp else 20.dp
+    // P10: the press dip — only while the button can actually be pressed.
+    // // PT: o afundar ao toque, só quando o botão está ativo.
+    val press = if (enabled) rememberMotionEnabled() else false
     Box(
         modifier
+            .pressScale(press)
             .alpha(if (enabled) 1f else 0.4f)
             .clip(RoundedCornerShape(999.dp))
             .background(bg)

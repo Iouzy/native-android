@@ -32,6 +32,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.pauta.app.data.entity.BookEntity
 import com.pauta.app.i18n.tr
+import com.pauta.app.ui.EmptyState
 import com.pauta.app.ui.PautaCard
 import com.pauta.app.ui.SectionEyebrow
 import com.pauta.app.ui.clickableNoRipple
@@ -94,7 +95,9 @@ fun BookShelfScreen() {
             SectionEyebrow(tr("A ler agora"))
             Spacer(Modifier.height(12.dp))
             if (reading.isEmpty()) {
-                EmptyLine(tr("Nenhum livro em curso"))
+                // P10: the one empty state, shared with the planner faces.
+                // // PT: o estado vazio único, partilhado com as tabs do planner.
+                EmptyState(tr("Nenhum livro em curso"))
             } else {
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     items(reading, key = { "rd-${it.id}" }) { book ->
@@ -141,16 +144,6 @@ fun BookShelfScreen() {
     detailId?.let { id ->
         BookDetailSheet(bookId = id, onDismiss = { detailId = null })
     }
-}
-
-/** A quiet ink4 mono line standing in for an empty section. */
-@Composable
-private fun EmptyLine(text: String) {
-    Text(
-        text = text,
-        color = LocalPautaColors.current.ink4,
-        style = PautaType.Meta,
-    )
 }
 
 /** "Reading now" card: title, author, a tide-weight progress bar and the
