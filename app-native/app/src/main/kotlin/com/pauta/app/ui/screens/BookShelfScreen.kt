@@ -36,7 +36,7 @@ import com.pauta.app.ui.PautaCard
 import com.pauta.app.ui.SectionEyebrow
 import com.pauta.app.ui.clickableNoRipple
 import com.pauta.app.ui.theme.LocalPautaColors
-import com.pauta.app.ui.theme.MonoFamily
+import com.pauta.app.ui.theme.PautaType
 import com.pauta.app.ui.theme.SerifFamily
 import com.pauta.app.ui.viewmodel.AppViewModel
 
@@ -68,20 +68,18 @@ fun BookShelfScreen() {
         item(key = "header") {
             Spacer(Modifier.height(22.dp))
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
+                // P5: shared ScreenTitle role — the book faces were 34sp, two down
+                // from Marés. // PT: título no papel partilhado das tabs.
                 Text(
                     text = tr("Estante"),
                     color = colors.ink,
-                    fontFamily = SerifFamily,
-                    fontSize = 34.sp,
-                    lineHeight = 34.sp,
-                    letterSpacing = (-0.5).sp,
+                    style = PautaType.ScreenTitle,
                     modifier = Modifier.weight(1f),
                 )
                 Text(
                     text = tr("Adicionar livro") + " +",
                     color = colors.accent,
-                    fontFamily = MonoFamily,
-                    fontSize = 11.sp,
+                    style = PautaType.Meta,
                     letterSpacing = 0.44.sp,
                     modifier = Modifier
                         .clickableNoRipple { showAdd = true }
@@ -149,8 +147,7 @@ private fun EmptyLine(text: String) {
     Text(
         text = text,
         color = LocalPautaColors.current.ink4,
-        fontFamily = MonoFamily,
-        fontSize = 11.sp,
+        style = PautaType.Meta,
     )
 }
 
@@ -179,8 +176,7 @@ private fun BookProgressCard(book: BookEntity, onClick: () -> Unit) {
             Text(
                 text = book.author,
                 color = colors.ink3,
-                fontFamily = MonoFamily,
-                fontSize = 11.sp,
+                style = PautaType.Meta,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -192,16 +188,14 @@ private fun BookProgressCard(book: BookEntity, onClick: () -> Unit) {
             Text(
                 text = "${book.currentPage} / ${book.totalPages} $unit",
                 color = colors.ink3,
-                fontFamily = MonoFamily,
-                fontSize = 10.sp,
+                style = PautaType.MetaSmall,
             )
         } else {
             // Unknown length: no bar, just the position reached.
             Text(
                 text = "$unit ${book.currentPage}",
                 color = colors.ink3,
-                fontFamily = MonoFamily,
-                fontSize = 10.sp,
+                style = PautaType.MetaSmall,
             )
         }
     }
@@ -229,8 +223,7 @@ private fun BookListRow(book: BookEntity, onClick: () -> Unit) {
             Text(
                 text = book.author,
                 color = colors.ink3,
-                fontFamily = MonoFamily,
-                fontSize = 11.sp,
+                style = PautaType.Meta,
             )
         }
     }
@@ -268,8 +261,7 @@ private fun BookDoneCard(book: BookEntity, onClick: () -> Unit) {
             Text(
                 text = book.author,
                 color = colors.ink3,
-                fontFamily = MonoFamily,
-                fontSize = 10.sp,
+                style = PautaType.MetaSmall,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )

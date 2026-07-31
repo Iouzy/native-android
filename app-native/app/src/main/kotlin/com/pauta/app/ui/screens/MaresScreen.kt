@@ -88,6 +88,7 @@ import com.pauta.app.ui.clickableNoRipple
 import com.pauta.app.ui.theme.LocalPautaColors
 import com.pauta.app.ui.theme.MonoFamily
 import com.pauta.app.ui.theme.PautaMotion
+import com.pauta.app.ui.theme.PautaType
 import com.pauta.app.ui.theme.rememberMotionEnabled
 import com.pauta.app.ui.theme.SerifFamily
 import com.pauta.app.ui.viewmodel.AppViewModel
@@ -217,13 +218,12 @@ fun MaresScreen(bookMode: Boolean = false) {
                     Column(Modifier.weight(1f)) {
                         SectionEyebrow(if (isCurrentMonth) tr("Maré actual") else tr("Maré passada"))
                         Spacer(Modifier.height(4.dp))
+                        // P5: shared ScreenTitle role — was 38sp, the odd one out of the
+                        // three tabs. // PT: o mês no papel partilhado de título.
                         Text(
                             text = monthLongName(month),
                             color = colors.ink,
-                            fontFamily = SerifFamily,
-                            fontSize = 38.sp,
-                            lineHeight = 38.sp,
-                            letterSpacing = (-0.57).sp, // -0.015em of 38sp
+                            style = PautaType.ScreenTitle,
                         )
                     }
                     Column(
@@ -559,7 +559,7 @@ private fun MaresHabitRow(
                     Spacer(Modifier.height(2.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         if (habit.clock.isNotBlank()) {
-                            Text(habit.clock, color = colors.ink3, fontFamily = MonoFamily, fontSize = 11.sp)
+                            Text(habit.clock, color = colors.ink3, style = PautaType.Meta)
                             if (habit.time.isNotBlank()) Spacer(Modifier.width(6.dp))
                         }
                         if (habit.time.isNotBlank()) {
@@ -570,14 +570,13 @@ private fun MaresHabitRow(
             }
             Column(horizontalAlignment = Alignment.End) {
                 if (pct == null) {
-                    Text("—", color = colors.ink3, fontFamily = MonoFamily, fontSize = 10.sp)
+                    Text("—", color = colors.ink3, style = PautaType.MetaSmall)
                 } else {
                     Text(
                         text = "$pct%",
                         color = if (isMature) colors.ink2 else colors.ink3,
-                        fontFamily = MonoFamily,
+                        style = PautaType.Meta,
                         fontStyle = if (isMature) FontStyle.Normal else FontStyle.Italic,
-                        fontSize = 11.sp,
                     )
                     if (!isMature) {
                         Spacer(Modifier.height(2.dp))
@@ -967,8 +966,7 @@ private fun LegendRow(label: String, last: Boolean = false, draw: androidx.compo
             Text(
                 text = label,
                 color = colors.ink2,
-                fontFamily = MonoFamily,
-                fontSize = 11.sp,
+                style = PautaType.Meta,
                 letterSpacing = 0.22.sp, // 0.02em of 11sp
             )
         }

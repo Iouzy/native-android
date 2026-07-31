@@ -84,6 +84,7 @@ import com.pauta.app.ui.clickableNoRipple
 import com.pauta.app.ui.computeTodayTides
 import com.pauta.app.ui.theme.LocalPautaColors
 import com.pauta.app.ui.theme.MonoFamily
+import com.pauta.app.ui.theme.PautaType
 import com.pauta.app.ui.theme.SerifFamily
 import java.time.LocalDate
 import kotlinx.coroutines.delay
@@ -218,7 +219,10 @@ fun PautaScreen(bookMode: Boolean = false) {
                             prefix = I18n.fmtWeekdayDay(todayDate) + " ",
                             month = I18n.fmtMonthShort(todayDate.monthValue),
                         )
-                        Spacer(Modifier.height(6.dp))
+                        Spacer(Modifier.height(8.dp))
+                        // P5: the count line is this tab's headline — shared ScreenTitle
+                        // role + the same 8dp drop as Hoje, so swiping keeps the baseline.
+                        // // PT: a linha de contagem no papel partilhado de título.
                         Text(
                             text = buildAnnotatedString {
                                 append("$animBlockCount ")
@@ -230,10 +234,7 @@ fun PautaScreen(bookMode: Boolean = false) {
                                 append(" " + tr("em foco."))
                             },
                             color = colors.ink,
-                            fontFamily = SerifFamily,
-                            fontSize = 30.sp,
-                            lineHeight = 30.sp,
-                            letterSpacing = (-0.3).sp, // -0.01em of 30sp
+                            style = PautaType.ScreenTitle,
                         )
                     }
                     Spacer(Modifier.width(14.dp))
@@ -331,10 +332,8 @@ fun PautaScreen(bookMode: Boolean = false) {
                         Text(
                             text = if (filter != null) tr("Nada por aqui ainda.") else tr("Ainda nenhum bloco hoje. Comece quando quiser."),
                             color = colors.ink3,
-                            fontFamily = SerifFamily,
+                            style = PautaType.Body,
                             fontStyle = FontStyle.Italic,
-                            fontSize = 15.sp,
-                            lineHeight = 21.sp,
                             modifier = Modifier.weight(1f),
                         )
                     }
@@ -990,8 +989,7 @@ private fun TimelineRow(
             Text(
                 text = DateUtils.fmtClock(event.time),
                 color = colors.ink2,
-                fontFamily = MonoFamily,
-                fontSize = 11.sp,
+                style = PautaType.Meta,
             )
             Spacer(Modifier.height(4.dp))
             TimelineMarker(kind)

@@ -56,7 +56,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLayoutResult
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -91,6 +90,7 @@ import com.pauta.app.ui.computeTodayTides
 import com.pauta.app.ui.theme.LocalPautaColors
 import com.pauta.app.ui.theme.MonoFamily
 import com.pauta.app.ui.theme.PautaMotion
+import com.pauta.app.ui.theme.PautaType
 import com.pauta.app.ui.theme.rememberMotionEnabled
 import com.pauta.app.ui.theme.SerifFamily
 import com.pauta.app.ui.viewmodel.AppViewModel
@@ -254,9 +254,11 @@ fun HojeScreen(onOpenHistory: () -> Unit, bookMode: Boolean = false) {
                         }
                     }
                     if (isToday) {
-                        Spacer(Modifier.height(10.dp))
-                        // The headline question, with "hoje" in accent italic — the web's
-                        // `{tr("O que importa")} <em style={{color: accent}}>{tr("hoje")}</em>?`.
+                        Spacer(Modifier.height(8.dp))
+                        // The headline question, with "hoje" in accent italic. P5: on the
+                        // shared ScreenTitle role (and the same 8dp drop as Pauta) so the
+                        // headline no longer jumps size/baseline between tabs.
+                        // // PT: a pergunta do dia, no papel partilhado de título.
                         Text(
                             text = buildAnnotatedString {
                                 append(tr("O que importa"))
@@ -267,10 +269,7 @@ fun HojeScreen(onOpenHistory: () -> Unit, bookMode: Boolean = false) {
                                 append("?")
                             },
                             color = colors.ink,
-                            fontFamily = SerifFamily,
-                            fontSize = 44.sp,
-                            lineHeight = 44.sp,
-                            letterSpacing = (-0.66).sp, // -0.015em of 44sp
+                            style = PautaType.ScreenTitle,
                         )
                     }
                 }
@@ -295,8 +294,7 @@ fun HojeScreen(onOpenHistory: () -> Unit, bookMode: Boolean = false) {
                     Text(
                         text = pulseParts.joinToString("   ·   "),
                         color = colors.ink3,
-                        fontFamily = MonoFamily,
-                        fontSize = 11.sp,
+                        style = PautaType.Meta,
                         letterSpacing = 0.22.sp, // 0.02em of 11sp
                     )
                 }
@@ -351,7 +349,7 @@ fun HojeScreen(onOpenHistory: () -> Unit, bookMode: Boolean = false) {
                         Text(
                             text = tr("Ainda sem intenções para hoje."),
                             color = colors.ink4,
-                            fontSize = 14.sp,
+                            style = PautaType.Label,
                             modifier = Modifier.weight(1f),
                         )
                     }
@@ -476,8 +474,7 @@ fun HojeScreen(onOpenHistory: () -> Unit, bookMode: Boolean = false) {
                 Text(
                     text = tr("amanhã, recomeça."),
                     color = colors.ink4,
-                    fontFamily = MonoFamily,
-                    fontSize = 10.sp,
+                    style = PautaType.MetaSmall,
                     letterSpacing = 0.4.sp, // 0.04em of 10sp
                     textAlign = TextAlign.Center,
                     modifier = Modifier.fillMaxWidth(),
@@ -491,7 +488,7 @@ fun HojeScreen(onOpenHistory: () -> Unit, bookMode: Boolean = false) {
                     Text(
                         text = tr("Sem conteúdo neste dia."),
                         color = colors.ink4,
-                        fontSize = 14.sp,
+                        style = PautaType.Label,
                     )
                 }
             } else {
@@ -511,10 +508,8 @@ fun HojeScreen(onOpenHistory: () -> Unit, bookMode: Boolean = false) {
                             Text(
                                 text = "“" + pastReflection + "”",
                                 color = colors.ink2,
-                                fontFamily = SerifFamily,
+                                style = PautaType.Body,
                                 fontStyle = FontStyle.Italic,
-                                fontSize = 15.sp,
-                                lineHeight = 22.sp,
                             )
                         }
                     }
@@ -659,7 +654,7 @@ private fun TodayTideRow(tide: TideToday, last: Boolean, onAct: (() -> Unit)?) {
                     } else {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             if (clock.isNotBlank()) {
-                                Text(text = clock, color = colors.ink3, fontFamily = MonoFamily, fontSize = 11.sp)
+                                Text(text = clock, color = colors.ink3, style = PautaType.Meta)
                                 if (time.isNotBlank()) Spacer(Modifier.width(6.dp))
                             }
                             if (time.isNotBlank()) {
@@ -680,8 +675,7 @@ private fun TodayTideRow(tide: TideToday, last: Boolean, onAct: (() -> Unit)?) {
                 Text(
                     text = "${tide.count}/${tide.target}" + if (tide.habit.unit.isNotBlank()) " ${tide.habit.unit}" else "",
                     color = if (isDone) accent else colors.ink3,
-                    fontFamily = MonoFamily,
-                    fontSize = 10.sp,
+                    style = PautaType.MetaSmall,
                     letterSpacing = 0.4.sp,
                 )
             }
@@ -728,10 +722,8 @@ private fun MemoriasCard(memories: List<Memory>, onDismiss: () -> Unit) {
             Text(
                 text = "“" + mem.reflection + "”",
                 color = colors.ink2,
-                fontFamily = SerifFamily,
+                style = PautaType.Body,
                 fontStyle = FontStyle.Italic,
-                fontSize = 15.sp,
-                lineHeight = 22.sp,
             )
         }
     }
@@ -757,7 +749,7 @@ private fun CarryBanner(source: CarrySource, onCarry: () -> Unit) {
         Text(
             text = trf("Trazer {n} de {d}", "n" to source.items.size, "d" to shortDate(source.dayKey)),
             color = colors.accent,
-            fontSize = 14.sp,
+            style = PautaType.Label,
             fontWeight = FontWeight.Medium,
             modifier = Modifier.weight(1f),
         )
@@ -1068,14 +1060,13 @@ private fun ReflectionField(value: String, accent: Color, onChange: (String) -> 
             Text(
                 text = tr("Escreva quando quiser. Não precisa de ser longo."),
                 color = colors.ink4,
-                fontFamily = SerifFamily,
-                fontSize = 15.sp,
+                style = PautaType.Body,
             )
         },
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = 72.dp),
-        textStyle = TextStyle(color = colors.ink, fontFamily = SerifFamily, fontSize = 15.sp, lineHeight = 22.sp),
+        textStyle = PautaType.Body.copy(color = colors.ink),
         colors = TextFieldDefaults.colors(
             focusedContainerColor = Color.Transparent,
             unfocusedContainerColor = Color.Transparent,
