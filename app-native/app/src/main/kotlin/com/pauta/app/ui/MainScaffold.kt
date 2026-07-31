@@ -58,7 +58,6 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
@@ -397,16 +396,16 @@ private fun HomeShell(
     var showCapture by remember { mutableStateOf(false) }
 
     // P1: one quiet tick when the pager settles on a new tab — swipe or tap alike.
-    // Skips the first composition (arriving isn't a page change) and respects the
-    // haptics pref. LongPress is the subtlest type this Compose version offers.
+    // Skips the first composition (arriving isn't a page change). P10 routed it
+    // through the shared [tick], which owns the haptics pref and the feedback type.
     // // PT: um toque háptico discreto quando o pager assenta noutra tab; ignora a
-    // composição inicial e respeita a preferência de vibração.
+    // composição inicial e usa o [tick] partilhado.
     val haptic = LocalHapticFeedback.current
     var lastSettled by remember { mutableStateOf(pager.settledPage) }
     LaunchedEffect(pager.settledPage) {
         if (pager.settledPage != lastSettled) {
             lastSettled = pager.settledPage
-            if (prefs.haptics) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+            haptic.tick(prefs)
         }
     }
 
@@ -731,6 +730,12 @@ private fun TabBar(
                 Column(
                     Modifier
                         .weight(1f)
+                        // P10: the tab dips under the finger like every other
+                        // tappable surface. It sits inside the Row, so the sliding
+                        // indicator (drawn on the Row) is untouched by it.
+                        // // PT: a tab afunda ao toque; o indicador, desenhado na
+                        // linha, não é afetado.
+                        .pressScale(!reducedMotion)
                         .clickableNoRipple { onSelect(tab) }
                         .padding(vertical = 6.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,

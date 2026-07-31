@@ -62,11 +62,13 @@ import com.pauta.app.ui.SheetFieldGap
 import com.pauta.app.ui.SheetLabelGap
 import com.pauta.app.ui.TideToday
 import com.pauta.app.ui.clickableNoRipple
+import com.pauta.app.ui.pressScale
 import com.pauta.app.ui.theme.LocalPautaColors
 import com.pauta.app.ui.theme.MonoFamily
 import com.pauta.app.ui.theme.PautaType
 import com.pauta.app.ui.theme.SansFamily
 import com.pauta.app.ui.theme.SerifFamily
+import com.pauta.app.ui.theme.rememberMotionEnabled
 
 // The Pauta tab's modal sheets, ported 1:1 from src/sheets.jsx: StartSheet
 // (title + link-to-intention + resume-template + project + duration), the
@@ -574,6 +576,9 @@ internal fun SelectPill(label: String, selected: Boolean, accent: Color, large: 
     val colors = LocalPautaColors.current
     Box(
         Modifier
+            // P10: pills dip under the finger like the cards and buttons do.
+            // // PT: as pílulas afundam ao toque, como os cartões e botões.
+            .pressScale(rememberMotionEnabled())
             .clip(RoundedCornerShape(999.dp))
             .background(if (selected) accent.copy(alpha = 0.07f) else Color.Transparent)
             .border(1.dp, if (selected) accent else colors.rule, RoundedCornerShape(999.dp))

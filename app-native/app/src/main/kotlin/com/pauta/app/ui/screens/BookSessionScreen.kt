@@ -39,6 +39,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -53,6 +54,7 @@ import com.pauta.app.data.entity.FocusBlockEntity
 import com.pauta.app.domain.DateUtils
 import com.pauta.app.domain.FocusMath
 import com.pauta.app.i18n.tr
+import com.pauta.app.ui.EmptyState
 import com.pauta.app.ui.PautaButton
 import com.pauta.app.ui.PautaButtonVariant
 import com.pauta.app.ui.PautaCard
@@ -61,6 +63,7 @@ import com.pauta.app.ui.PautaSheet
 import com.pauta.app.ui.SectionEyebrow
 import com.pauta.app.ui.SheetEyebrow
 import com.pauta.app.ui.clickableNoRipple
+import com.pauta.app.ui.tick
 import com.pauta.app.ui.theme.LocalPautaColors
 import com.pauta.app.ui.theme.MonoFamily
 import com.pauta.app.ui.theme.PautaMotion
@@ -89,7 +92,9 @@ fun BookSessionScreen() {
     val sessionBlocks by vm.bookSessionBlocks.collectAsStateWithLifecycle()
     val allSessions by vm.allSessions.collectAsStateWithLifecycle()
     val today by vm.todayKey.collectAsStateWithLifecycle()
+    val prefs by vm.prefs.collectAsStateWithLifecycle()
     val motion = rememberMotionEnabled()
+    val haptic = LocalHapticFeedback.current
 
     // 1s clock tick driving the live timer (same as the planner's Pauta).
     var now by remember { mutableStateOf(System.currentTimeMillis()) }
@@ -196,6 +201,10 @@ fun BookSessionScreen() {
                                     project = "book:${b.id}",
                                     targetMin = targetMin.takeIf { it > 0 },
                                 )
+                                // P10: the same start tick as the planner's Pauta —
+                                // the book face is a lens over the same gesture.
+                                // // PT: o mesmo toque háptico da Pauta.
+                                haptic.tick(prefs)
                             }
                         },
                     )
@@ -228,11 +237,8 @@ fun BookSessionScreen() {
         }
         if (grouped.isEmpty()) {
             item(key = "history-empty") {
-                Text(
-                    text = tr("Nenhuma sessão ainda"),
-                    color = colors.ink4,
-                    style = PautaType.Meta,
-                )
+                // P10: the one empty state. // PT: o estado vazio único.
+                EmptyState(tr("Nenhuma sessão ainda"))
             }
         } else {
             grouped.forEach { (title, blocks) ->
@@ -288,6 +294,7 @@ fun BookSessionScreen() {
                 vm.updateProgress(book.id, newPage)
                 vm.concludeActive(note)
                 concludeFor = null
+                haptic.tick(prefs)
             },
             onClose = { concludeFor = null },
         )

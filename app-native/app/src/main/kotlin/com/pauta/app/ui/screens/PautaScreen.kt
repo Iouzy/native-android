@@ -59,7 +59,6 @@ import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
 import android.content.Context
 import android.media.RingtoneManager
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.SpanStyle
@@ -82,13 +81,16 @@ import com.pauta.app.domain.HabitCalculator.DayState
 import com.pauta.app.i18n.I18n
 import com.pauta.app.i18n.tr
 import com.pauta.app.i18n.trf
+import com.pauta.app.ui.EmptyState
 import com.pauta.app.ui.PautaCard
 import com.pauta.app.ui.PautaRadius
 import com.pauta.app.ui.PeriodLabel
-import com.pauta.app.ui.PipPose
 import com.pauta.app.ui.SectionEyebrow
 import com.pauta.app.ui.clickableNoRipple
 import com.pauta.app.ui.computeTodayTides
+import com.pauta.app.ui.entranceStagger
+import com.pauta.app.ui.rememberEntrancePlay
+import com.pauta.app.ui.tick
 import com.pauta.app.ui.theme.LocalPautaColors
 import com.pauta.app.ui.theme.MonoFamily
 import com.pauta.app.ui.theme.PautaMotion
@@ -210,7 +212,21 @@ fun PautaScreen(bookMode: Boolean = false) {
     LaunchedEffect(active?.id) { reachedPrompt = null }
 
     fun pauseWithNote(a: FocusBlockEntity) { vm.pauseActive(""); pauseNoteFor = a }
-    fun concludeOptimistic(a: FocusBlockEntity) { vm.concludeActive("", false); concludeFor = a to true }
+    // P10 · the haptic map: opening and closing a block are the tab's two decisive
+    // gestures, so both tick (pause/resume stay silent — they are mid-flight, not
+    // a commitment). // PT: começar e concluir um bloco dão um toque háptico;
+    // pausar e retomar ficam em silêncio.
+    fun concludeOptimistic(a: FocusBlockEntity) {
+        vm.concludeActive("", false)
+        concludeFor = a to true
+        haptic.tick(prefs)
+    }
+    fun startBlock(title: String, linkedToId: String?, project: String? = null, targetMin: Int? = null) {
+        vm.startBlock(title, linkedToId, project, targetMin)
+        haptic.tick(prefs)
+    }
+    // P10: the timeline's one-shot entrance. // PT: a entrada da linha do tempo.
+    val entrance = rememberEntrancePlay("pauta-timeline", !prefs.reducedMotion)
 
     Box(Modifier.fillMaxSize()) {
         LazyColumn(
@@ -288,9 +304,10 @@ fun PautaScreen(bookMode: Boolean = false) {
                                 val min = a.targetMs?.let { (it / 60_000L).toInt() } ?: 0
                                 reachedPrompt = min
                                 // F1: a single quiet tick as the tide crests on target
-                                // (A1's pref still governs it). // PT: um toque ao
-                                // cumprir a meta, conforme a preferência de vibração.
-                                if (prefs.haptics) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                // (A1's pref still governs it, via P10's shared
+                                // helper). // PT: um toque ao cumprir a meta,
+                                // conforme a preferência de vibração.
+                                haptic.tick(prefs)
                                 // T2: soft chime when the focus target is reached.
                                 // PT: sino suave ao atingir a meta, conforme a pref de som.
                                 if (prefs.sound) playChime(context)
@@ -350,21 +367,12 @@ fun PautaScreen(bookMode: Boolean = false) {
             }
             if (events.isEmpty()) {
                 item(key = "timeline-empty") {
-                    // F2: a small Pip pose beside the empty phrase (hidden when the
-                    // parrot pref is off). // PT: o Pip ao lado do estado vazio.
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        if (prefs.parrot) {
-                            PipPose(height = 40.dp)
-                            Spacer(Modifier.width(12.dp))
-                        }
-                        Text(
-                            text = if (filter != null) tr("Nada por aqui ainda.") else tr("Ainda nenhum bloco hoje. Comece quando quiser."),
-                            color = colors.ink3,
-                            style = PautaType.Body,
-                            fontStyle = FontStyle.Italic,
-                            modifier = Modifier.weight(1f),
-                        )
-                    }
+                    // P10: the shared empty state — same line and Pip pose as Hoje's
+                    // and Marés'. // PT: o estado vazio partilhado.
+                    EmptyState(
+                        line = if (filter != null) tr("Nada por aqui ainda.") else tr("Ainda nenhum bloco hoje. Comece quando quiser."),
+                        pip = true,
+                    )
                     if (filter == null) {
                         Spacer(Modifier.height(14.dp))
                         StarterChip(tr("Começar um bloco de foco")) { showStart = true }
@@ -378,6 +386,7 @@ fun PautaScreen(bookMode: Boolean = false) {
                     val block = blockById[e.blockId]
                     if (block != null) {
                         TimelineRow(
+                            modifier = Modifier.entranceStagger(i, entrance),
                             event = e,
                             block = block,
                             isLast = i == events.size - 1,
@@ -419,7 +428,7 @@ fun PautaScreen(bookMode: Boolean = false) {
             hasActive = active != null,
             activeTitle = active?.title.orEmpty(),
             onStart = { title, linkedToId, project, targetMin ->
-                vm.startBlock(title, linkedToId, project, targetMin)
+                startBlock(title, linkedToId, project, targetMin)
                 showStart = false
             },
             onClose = { showStart = false },
@@ -431,7 +440,7 @@ fun PautaScreen(bookMode: Boolean = false) {
                 currentBlock = a,
                 intentions = intentions,
                 onPick = { linkedToId, title ->
-                    vm.startBlock(title, linkedToId)
+                    startBlock(title, linkedToId)
                     showSwitch = false
                 },
                 onConcludeFirst = {
@@ -1050,13 +1059,14 @@ private fun TimelineRow(
     onFilter: (() -> Unit)?,
     onEdit: (() -> Unit)?,
     onEditNote: ((Long, String) -> Unit)?,
+    modifier: Modifier = Modifier,
 ) {
     val colors = LocalPautaColors.current
     val kind = event.kind
     val isStartish = kind == "start" || kind == "resume"
     val segDuration = (event.segEnd ?: 0L) - event.segStart
 
-    Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
+    Row(modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
         // time + marker rail
         Column(
             Modifier.width(52.dp).fillMaxHeight(),

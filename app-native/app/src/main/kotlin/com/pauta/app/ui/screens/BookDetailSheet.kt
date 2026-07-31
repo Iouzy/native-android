@@ -26,6 +26,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -39,6 +40,7 @@ import com.pauta.app.domain.DateUtils
 import com.pauta.app.domain.FocusMath
 import com.pauta.app.i18n.tr
 import com.pauta.app.i18n.trf
+import com.pauta.app.ui.EmptyState
 import com.pauta.app.ui.PautaButton
 import com.pauta.app.ui.PautaButtonVariant
 import com.pauta.app.ui.PautaSheet
@@ -48,6 +50,7 @@ import com.pauta.app.ui.SheetEyebrow
 import com.pauta.app.ui.SheetFieldGap
 import com.pauta.app.ui.SheetLabelGap
 import com.pauta.app.ui.clickableNoRipple
+import com.pauta.app.ui.tick
 import com.pauta.app.ui.theme.LocalPautaColors
 import com.pauta.app.ui.theme.MonoFamily
 import com.pauta.app.ui.theme.PautaType
@@ -69,6 +72,11 @@ import kotlin.math.roundToInt
 fun BookDetailSheet(bookId: String, onDismiss: () -> Unit) {
     val vm: AppViewModel = viewModel()
     val colors = LocalPautaColors.current
+    // P10 · the haptic map's last entry: arming a two-step delete ticks, so the
+    // "tap again" state announces itself without a glance. // PT: armar o
+    // eliminar em dois passos dá um toque háptico.
+    val prefs by vm.prefs.collectAsStateWithLifecycle()
+    val haptic = LocalHapticFeedback.current
     val reading by vm.booksReading.collectAsStateWithLifecycle()
     val tbr by vm.booksTbr.collectAsStateWithLifecycle()
     val done by vm.booksDone.collectAsStateWithLifecycle()
@@ -231,7 +239,12 @@ fun BookDetailSheet(bookId: String, onDismiss: () -> Unit) {
                     .clip(RoundedCornerShape(999.dp))
                     .border(1.dp, colors.rule, RoundedCornerShape(999.dp))
                     .clickableNoRipple {
-                        if (confirmDelete) vm.deleteBook(book.id) else confirmDelete = true
+                        if (confirmDelete) {
+                            vm.deleteBook(book.id)
+                        } else {
+                            confirmDelete = true
+                            haptic.tick(prefs)
+                        }
                     }
                     .padding(vertical = 11.dp),
                 contentAlignment = Alignment.Center,
@@ -251,7 +264,8 @@ fun BookDetailSheet(bookId: String, onDismiss: () -> Unit) {
         SheetEyebrow(tr("Notas & Citações"))
         Spacer(Modifier.height(SheetLabelGap))
         if (notes.isEmpty()) {
-            Text(tr("Sem notas ainda"), color = colors.ink4, style = PautaType.Meta)
+            // P10: the one empty state. // PT: o estado vazio único.
+            EmptyState(tr("Sem notas ainda"))
         } else {
             notes.forEach { note ->
                 val armed = armedNoteId == note.id
@@ -262,7 +276,7 @@ fun BookDetailSheet(bookId: String, onDismiss: () -> Unit) {
                         // // PT: pressão longa arma o eliminar; toque simples desarma.
                         .combinedClickable(
                             onClick = { if (armed) armedNoteId = null },
-                            onLongClick = { armedNoteId = note.id },
+                            onLongClick = { armedNoteId = note.id; haptic.tick(prefs) },
                         )
                         .padding(vertical = 8.dp),
                 ) {
@@ -307,7 +321,7 @@ fun BookDetailSheet(bookId: String, onDismiss: () -> Unit) {
         SheetEyebrow(tr("Sessões"))
         Spacer(Modifier.height(SheetLabelGap))
         if (bookBlocks.isEmpty()) {
-            Text(tr("Nenhuma sessão ainda"), color = colors.ink4, style = PautaType.Meta)
+            EmptyState(tr("Nenhuma sessão ainda"))
         } else {
             bookBlocks.forEach { b ->
                 Row(
