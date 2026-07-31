@@ -7,6 +7,8 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -47,6 +49,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
@@ -379,6 +383,20 @@ private fun HomeShell(
     // K9: the quote-capture sheet the book-mode chip below opens.
     var showCapture by remember { mutableStateOf(false) }
 
+    // P1: one quiet tick when the pager settles on a new tab — swipe or tap alike.
+    // Skips the first composition (arriving isn't a page change) and respects the
+    // haptics pref. LongPress is the subtlest type this Compose version offers.
+    // // PT: um toque háptico discreto quando o pager assenta noutra tab; ignora a
+    // composição inicial e respeita a preferência de vibração.
+    val haptic = LocalHapticFeedback.current
+    var lastSettled by remember { mutableStateOf(pager.settledPage) }
+    LaunchedEffect(pager.settledPage) {
+        if (pager.settledPage != lastSettled) {
+            lastSettled = pager.settledPage
+            if (prefs.haptics) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+        }
+    }
+
     // A7: a single app-wide snackbar offers "Anular" after a destructive single
     // delete (an intention or a focus block). The ViewModel emits the deleted
     // data; tapping Anular puts it back. Each event waits its turn, so two quick
@@ -429,6 +447,10 @@ private fun HomeShell(
             StatusRow(onMenu = onOpenSettings)
             HorizontalPager(
                 state = pager,
+                // P1: keep all three tabs composed — kills the first-swipe composition
+                // hitch and lets scroll/month/form state survive tab hops. // PT: as três
+                // tabs ficam vivas — sem soluço no primeiro swipe e o estado sobrevive.
+                beyondViewportPageCount = 2,
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth(),
@@ -440,9 +462,13 @@ private fun HomeShell(
                 }
             }
             TabBar(
-                current = Tab.entries[pager.currentPage],
+                // P1: highlight the *destination* — targetPage flips as soon as a tap or
+                // fling commits, where currentPage only flips past the midpoint. // PT:
+                // realça o destino, não a página assente — reage logo ao toque/fling.
+                current = Tab.entries[pager.targetPage],
                 onSelect = { tab -> scope.launch { pager.animateScrollToPage(tab.ordinal) } },
                 bookMode = prefs.bookMode,
+                reducedMotion = prefs.reducedMotion,
             )
         }
 
@@ -580,7 +606,12 @@ private fun StatusRow(onMenu: () -> Unit) {
 }
 
 @Composable
-private fun TabBar(current: Tab, onSelect: (Tab) -> Unit, bookMode: Boolean = false) {
+private fun TabBar(
+    current: Tab,
+    onSelect: (Tab) -> Unit,
+    bookMode: Boolean = false,
+    reducedMotion: Boolean = false,
+) {
     val colors = LocalPautaColors.current
     Column(
         Modifier
@@ -604,7 +635,14 @@ private fun TabBar(current: Tab, onSelect: (Tab) -> Unit, bookMode: Boolean = fa
         ) {
             Tab.entries.forEach { tab ->
                 val selected = tab == current
-                val tint = if (selected) colors.accent else colors.ink3
+                // P1: the accent↔ink3 flip eases instead of snapping (instant under
+                // reduced motion). // PT: a cor da tab transita suavemente; salta
+                // com o movimento reduzido ativo.
+                val tint by animateColorAsState(
+                    targetValue = if (selected) colors.accent else colors.ink3,
+                    animationSpec = if (reducedMotion) snap() else tween(180),
+                    label = "tabTint",
+                )
                 Column(
                     Modifier
                         .weight(1f)
