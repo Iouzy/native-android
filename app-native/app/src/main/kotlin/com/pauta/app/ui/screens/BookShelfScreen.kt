@@ -1,7 +1,6 @@
 package com.pauta.app.ui.screens
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -33,6 +32,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.pauta.app.data.entity.BookEntity
 import com.pauta.app.i18n.tr
+import com.pauta.app.ui.PautaCard
+import com.pauta.app.ui.SectionEyebrow
 import com.pauta.app.ui.clickableNoRipple
 import com.pauta.app.ui.theme.LocalPautaColors
 import com.pauta.app.ui.theme.MonoFamily
@@ -92,7 +93,7 @@ fun BookShelfScreen() {
 
         // ── Section 1 · A ler agora (status = "reading") ──
         item(key = "reading-section") {
-            SectionLabel(tr("A ler agora"))
+            SectionEyebrow(tr("A ler agora"))
             Spacer(Modifier.height(12.dp))
             if (reading.isEmpty()) {
                 EmptyLine(tr("Nenhum livro em curso"))
@@ -109,7 +110,7 @@ fun BookShelfScreen() {
         if (tbr.isNotEmpty()) {
             item(key = "tbr-header") {
                 Spacer(Modifier.height(36.dp))
-                SectionLabel(tr("A seguir"))
+                SectionEyebrow(tr("A seguir"))
                 Spacer(Modifier.height(4.dp))
             }
             items(tbr, key = { "tbr-${it.id}" }) { book ->
@@ -121,7 +122,7 @@ fun BookShelfScreen() {
         if (done.isNotEmpty()) {
             item(key = "done-section") {
                 Spacer(Modifier.height(36.dp))
-                SectionLabel(tr("Lidos"))
+                SectionEyebrow(tr("Lidos"))
                 Spacer(Modifier.height(12.dp))
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     items(done, key = { "dn-${it.id}" }) { book ->
@@ -142,19 +143,6 @@ fun BookShelfScreen() {
     }
 }
 
-/** The mono uppercase section eyebrow, matching the "Marés de hoje" strip. */
-@Composable
-private fun SectionLabel(label: String) {
-    val colors = LocalPautaColors.current
-    Text(
-        text = label.uppercase(),
-        color = colors.ink3,
-        fontFamily = MonoFamily,
-        fontSize = 9.sp,
-        letterSpacing = 1.8.sp, // 0.2em of 9sp
-    )
-}
-
 /** A quiet ink4 mono line standing in for an empty section. */
 @Composable
 private fun EmptyLine(text: String) {
@@ -172,14 +160,10 @@ private fun EmptyLine(text: String) {
 private fun BookProgressCard(book: BookEntity, onClick: () -> Unit) {
     val colors = LocalPautaColors.current
     val unit = if (book.format == "audiobook") "min." else "p."
-    Column(
-        Modifier
-            .width(168.dp)
-            .clip(RoundedCornerShape(12.dp))
-            .border(1.dp, colors.rule, RoundedCornerShape(12.dp))
-            .background(colors.paper2)
-            .clickableNoRipple(onClick)
-            .padding(14.dp),
+    PautaCard(
+        Modifier.width(168.dp),
+        padding = PaddingValues(14.dp),
+        onClick = onClick,
     ) {
         Text(
             text = book.title,
@@ -256,14 +240,10 @@ private fun BookListRow(book: BookEntity, onClick: () -> Unit) {
 @Composable
 private fun BookDoneCard(book: BookEntity, onClick: () -> Unit) {
     val colors = LocalPautaColors.current
-    Column(
-        Modifier
-            .width(150.dp)
-            .clip(RoundedCornerShape(12.dp))
-            .border(1.dp, colors.rule, RoundedCornerShape(12.dp))
-            .background(colors.paper2)
-            .clickableNoRipple(onClick)
-            .padding(14.dp),
+    PautaCard(
+        Modifier.width(150.dp),
+        padding = PaddingValues(14.dp),
+        onClick = onClick,
     ) {
         Text(
             text = book.title,

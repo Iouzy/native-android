@@ -75,8 +75,11 @@ import com.pauta.app.domain.HabitCalculator.DayState
 import com.pauta.app.i18n.I18n
 import com.pauta.app.i18n.tr
 import com.pauta.app.i18n.trf
+import com.pauta.app.ui.PautaCard
+import com.pauta.app.ui.PautaRadius
 import com.pauta.app.ui.PeriodLabel
 import com.pauta.app.ui.PipPose
+import com.pauta.app.ui.SectionEyebrow
 import com.pauta.app.ui.clickableNoRipple
 import com.pauta.app.ui.computeTodayTides
 import com.pauta.app.ui.theme.LocalPautaColors
@@ -279,7 +282,7 @@ fun PautaScreen(bookMode: Boolean = false) {
             // ── Paused blocks ── keyed cards so A3 can animate them.
             if (pausedBlocks.isNotEmpty()) {
                 item(key = "paused-header") {
-                    MonoSectionLabel(tr("Em pausa"))
+                    SectionEyebrow(tr("Em pausa"))
                     Spacer(Modifier.height(10.dp))
                 }
                 itemsIndexed(pausedBlocks, key = { _, b -> "paused-${b.id}" }) { index, b ->
@@ -313,7 +316,7 @@ fun PautaScreen(bookMode: Boolean = false) {
             // ── Timeline ──
             item(key = "timeline-header") {
                 Spacer(Modifier.height(18.dp))
-                MonoSectionLabel(if (filter != null) tr("Filtrado") else tr("Hoje"))
+                SectionEyebrow(if (filter != null) tr("Filtrado") else tr("Hoje"))
                 Spacer(Modifier.height(14.dp))
             }
             if (events.isEmpty()) {
@@ -500,18 +503,6 @@ fun PautaScreen(bookMode: Boolean = false) {
     }
 }
 
-/** The mono uppercase section label ("EM PAUSA", "HOJE", "FILTRADO"). */
-@Composable
-internal fun MonoSectionLabel(label: String) {
-    Text(
-        text = label.uppercase(),
-        color = LocalPautaColors.current.ink3,
-        fontFamily = MonoFamily,
-        fontSize = 10.sp,
-        letterSpacing = 1.8.sp, // 0.18em of 10sp
-    )
-}
-
 /** The header's bordered mono chips ("HISTÓRICO ↗", "+ REGISTAR"). */
 @Composable
 private fun HeaderChip(label: String, onClick: () -> Unit) {
@@ -523,8 +514,8 @@ private fun HeaderChip(label: String, onClick: () -> Unit) {
         fontSize = 9.sp,
         letterSpacing = 1.26.sp, // 0.14em of 9sp
         modifier = Modifier
-            .clip(RoundedCornerShape(8.dp))
-            .border(1.dp, colors.rule, RoundedCornerShape(8.dp))
+            .clip(RoundedCornerShape(PautaRadius.Chip))
+            .border(1.dp, colors.rule, RoundedCornerShape(PautaRadius.Chip))
             .clickableNoRipple(onClick)
             .padding(horizontal = 10.dp, vertical = 6.dp),
     )
@@ -537,7 +528,7 @@ private fun StartCtaCard(onClick: () -> Unit) {
     Row(
         Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
+            .clip(RoundedCornerShape(PautaRadius.Card))
             .background(colors.surfaceDark)
             .clickableNoRipple(onClick)
             .padding(horizontal = 22.dp, vertical = 20.dp),
@@ -643,7 +634,7 @@ private fun ActiveBlockCard(
     Column(
         Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
+            .clip(RoundedCornerShape(PautaRadius.Card))
             .background(colors.surfaceDark)
             .then(
                 if (target > 0) Modifier.drawBehind { drawTide(tideProgress, crest.value, colors.accent) }
@@ -847,63 +838,62 @@ private fun PausedBlockCard(
     val colors = LocalPautaColors.current
     val lastEnd = sessions.lastOrNull { it.endedAt != null }?.endedAt
     val totalMs = FocusMath.blockElapsedMs(sessions.map { FocusMath.FocusSeg(it.startedAt, it.endedAt) }, now)
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(colors.paper2)
-            .border(1.dp, colors.rule, RoundedCornerShape(12.dp))
-            .padding(horizontal = 16.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    PautaCard(
+        Modifier.fillMaxWidth(),
+        padding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
     ) {
-        Box(
-            Modifier.size(32.dp).clip(CircleShape).background(colors.paper3),
-            contentAlignment = Alignment.Center,
-        ) { PauseBars(colors.ink2, 12.dp) }
-        Column(Modifier.weight(1f)) {
-            Text(
-                text = block.title,
-                color = colors.ink,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Medium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Spacer(Modifier.height(3.dp))
-            Text(
-                text = trf(
-                    "pausado às {t} · {d} acumulado",
-                    "t" to (lastEnd?.let { DateUtils.fmtClock(it) } ?: "—"),
-                    "d" to FocusMath.fmtDuration(totalMs),
-                ),
-                color = colors.ink3,
-                fontFamily = MonoFamily,
-                fontSize = 10.sp,
-                letterSpacing = 0.4.sp, // 0.04em of 10sp
-            )
-        }
         Row(
-            Modifier
-                .clip(RoundedCornerShape(999.dp))
-                .background(colors.accent)
-                .clickableNoRipple(onResume)
-                .padding(horizontal = 14.dp, vertical = 9.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(5.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            PlayTriangle(colors.onDark, 10.dp)
-            Text(
-                text = tr("Retomar").uppercase(),
-                color = colors.onDark,
-                fontFamily = MonoFamily,
-                fontSize = 10.sp,
-                fontWeight = FontWeight.Medium,
-                letterSpacing = 0.8.sp,
-            )
-        }
-        Box(Modifier.size(30.dp).clickableNoRipple(onEdit), contentAlignment = Alignment.Center) {
-            KebabDots(colors.ink3)
+            Box(
+                Modifier.size(32.dp).clip(CircleShape).background(colors.paper3),
+                contentAlignment = Alignment.Center,
+            ) { PauseBars(colors.ink2, 12.dp) }
+            Column(Modifier.weight(1f)) {
+                Text(
+                    text = block.title,
+                    color = colors.ink,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Spacer(Modifier.height(3.dp))
+                Text(
+                    text = trf(
+                        "pausado às {t} · {d} acumulado",
+                        "t" to (lastEnd?.let { DateUtils.fmtClock(it) } ?: "—"),
+                        "d" to FocusMath.fmtDuration(totalMs),
+                    ),
+                    color = colors.ink3,
+                    fontFamily = MonoFamily,
+                    fontSize = 10.sp,
+                    letterSpacing = 0.4.sp, // 0.04em of 10sp
+                )
+            }
+            Row(
+                Modifier
+                    .clip(RoundedCornerShape(999.dp))
+                    .background(colors.accent)
+                    .clickableNoRipple(onResume)
+                    .padding(horizontal = 14.dp, vertical = 9.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(5.dp),
+            ) {
+                PlayTriangle(colors.onDark, 10.dp)
+                Text(
+                    text = tr("Retomar").uppercase(),
+                    color = colors.onDark,
+                    fontFamily = MonoFamily,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Medium,
+                    letterSpacing = 0.8.sp,
+                )
+            }
+            Box(Modifier.size(30.dp).clickableNoRipple(onEdit), contentAlignment = Alignment.Center) {
+                KebabDots(colors.ink3)
+            }
         }
     }
 }
@@ -1214,9 +1204,9 @@ private fun GoalReachedPrompt(
     Column(
         modifier
             .widthIn(max = 520.dp)
-            .clip(RoundedCornerShape(14.dp))
+            .clip(RoundedCornerShape(PautaRadius.Card))
             .background(colors.surfaceDark)
-            .border(1.dp, colors.accent, RoundedCornerShape(14.dp))
+            .border(1.dp, colors.accent, RoundedCornerShape(PautaRadius.Card))
             .padding(horizontal = 18.dp, vertical = 16.dp),
     ) {
         Text(

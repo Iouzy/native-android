@@ -47,7 +47,10 @@ import com.pauta.app.domain.FocusMath
 import com.pauta.app.i18n.tr
 import com.pauta.app.ui.PautaButton
 import com.pauta.app.ui.PautaButtonVariant
+import com.pauta.app.ui.PautaCard
+import com.pauta.app.ui.PautaRadius
 import com.pauta.app.ui.PautaSheet
+import com.pauta.app.ui.SectionEyebrow
 import com.pauta.app.ui.SheetEyebrow
 import com.pauta.app.ui.clickableNoRipple
 import com.pauta.app.ui.theme.LocalPautaColors
@@ -172,7 +175,7 @@ fun BookSessionScreen() {
         // ── Paused reading sessions (resume) ──
         if (pausedBlocks.isNotEmpty()) {
             item(key = "paused-header") {
-                MonoSectionLabel(tr("Em pausa"))
+                SectionEyebrow(tr("Em pausa"))
                 Spacer(Modifier.height(10.dp))
             }
             items(pausedBlocks, key = { "paused-${it.id}" }) { b ->
@@ -188,7 +191,7 @@ fun BookSessionScreen() {
 
         // ── Session history, grouped by book ──
         item(key = "history-header") {
-            MonoSectionLabel(tr("Sessões de leitura"))
+            SectionEyebrow(tr("Sessões de leitura"))
             Spacer(Modifier.height(14.dp))
         }
         if (grouped.isEmpty()) {
@@ -276,7 +279,7 @@ private fun ActiveReadingCard(
     Column(
         Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
+            .clip(RoundedCornerShape(PautaRadius.Card))
             .background(colors.surfaceDark)
             .padding(start = 22.dp, end = 22.dp, top = 22.dp, bottom = 18.dp),
     ) {
@@ -364,13 +367,9 @@ private fun StartReadingCard(
     onStart: () -> Unit,
 ) {
     val colors = LocalPautaColors.current
-    Column(
-        Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .border(1.dp, colors.rule, RoundedCornerShape(16.dp))
-            .background(colors.paper2)
-            .padding(20.dp),
+    PautaCard(
+        Modifier.fillMaxWidth(),
+        padding = PaddingValues(20.dp),
     ) {
         SheetEyebrow(tr("Iniciar sessão de leitura"))
         Spacer(Modifier.height(14.dp))
@@ -386,15 +385,15 @@ private fun StartReadingCard(
             )
             Spacer(Modifier.height(16.dp))
             PautaButton(tr("Começar"), Modifier.fillMaxWidth(), PautaButtonVariant.Primary, enabled = false) {}
-            return@Column
+            return@PautaCard
         }
 
         // Book row — tap to change when more than one book is being read.
         Row(
             Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(10.dp))
-                .border(1.dp, colors.rule, RoundedCornerShape(10.dp))
+                .clip(RoundedCornerShape(PautaRadius.Field))
+                .border(1.dp, colors.rule, RoundedCornerShape(PautaRadius.Field))
                 .then(if (canPick) Modifier.clickableNoRipple(onPick) else Modifier)
                 .padding(horizontal = 14.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -444,51 +443,50 @@ private fun StartReadingCard(
 @Composable
 private fun PausedReadingRow(title: String, totalMs: Long, onResume: () -> Unit) {
     val colors = LocalPautaColors.current
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(colors.paper2)
-            .border(1.dp, colors.rule, RoundedCornerShape(12.dp))
-            .padding(horizontal = 16.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    PautaCard(
+        Modifier.fillMaxWidth(),
+        padding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
     ) {
-        Column(Modifier.weight(1f)) {
-            Text(
-                text = title,
-                color = colors.ink,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Medium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Spacer(Modifier.height(3.dp))
-            Text(
-                text = FocusMath.fmtDuration(totalMs),
-                color = colors.ink3,
-                fontFamily = MonoFamily,
-                fontSize = 10.sp,
-            )
-        }
         Row(
-            Modifier
-                .clip(RoundedCornerShape(999.dp))
-                .background(colors.accent)
-                .clickableNoRipple(onResume)
-                .padding(horizontal = 14.dp, vertical = 9.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(5.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            PlayTriangle(colors.onDark, 10.dp)
-            Text(
-                text = tr("Retomar").uppercase(),
-                color = colors.onDark,
-                fontFamily = MonoFamily,
-                fontSize = 10.sp,
-                fontWeight = FontWeight.Medium,
-                letterSpacing = 0.8.sp,
-            )
+            Column(Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    color = colors.ink,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Spacer(Modifier.height(3.dp))
+                Text(
+                    text = FocusMath.fmtDuration(totalMs),
+                    color = colors.ink3,
+                    fontFamily = MonoFamily,
+                    fontSize = 10.sp,
+                )
+            }
+            Row(
+                Modifier
+                    .clip(RoundedCornerShape(999.dp))
+                    .background(colors.accent)
+                    .clickableNoRipple(onResume)
+                    .padding(horizontal = 14.dp, vertical = 9.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(5.dp),
+            ) {
+                PlayTriangle(colors.onDark, 10.dp)
+                Text(
+                    text = tr("Retomar").uppercase(),
+                    color = colors.onDark,
+                    fontFamily = MonoFamily,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Medium,
+                    letterSpacing = 0.8.sp,
+                )
+            }
         }
     }
 }
@@ -509,9 +507,9 @@ private fun BookPickerSheet(
                 Row(
                     Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(10.dp))
+                        .clip(RoundedCornerShape(PautaRadius.Field))
                         .background(if (sel) colors.paper2 else Color.Transparent)
-                        .border(1.dp, if (sel) colors.accent else colors.rule, RoundedCornerShape(10.dp))
+                        .border(1.dp, if (sel) colors.accent else colors.rule, RoundedCornerShape(PautaRadius.Field))
                         .clickableNoRipple { onPick(b.id) }
                         .padding(horizontal = 14.dp, vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically,
