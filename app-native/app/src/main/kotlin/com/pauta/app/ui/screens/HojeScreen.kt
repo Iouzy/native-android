@@ -1,5 +1,6 @@
 package com.pauta.app.ui.screens
 
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.animateIntAsState
@@ -95,6 +96,14 @@ import com.pauta.app.ui.theme.rememberMotionEnabled
 import com.pauta.app.ui.theme.SerifFamily
 import com.pauta.app.ui.viewmodel.AppViewModel
 import java.time.LocalDate
+
+// P6 · one card rhythm for the tab: every paper card on Hoje keeps PautaCard's
+// radius and one of these two gutters, so the pulse, carry, memórias and
+// reflection cards line their text up on the same inner edge (they used to
+// drift 12/14/22 horizontal and 12/20/24 vertical). // PT: um só ritmo de
+// cartões — mesmos raios e margens internas em toda a tab.
+private val HojeCardPadding = PaddingValues(horizontal = 20.dp, vertical = 20.dp)
+private val HojeCardPaddingTight = PaddingValues(horizontal = 20.dp, vertical = 14.dp)
 
 /**
  * The Hoje (Today) tab — date header with ±7-day navigation (like Marés) and
@@ -288,21 +297,23 @@ fun HojeScreen(onOpenHistory: () -> Unit, bookMode: Boolean = false) {
             // Day pulse + carry banner + add form sit above the intention list as
             // one quiet block. // PT: pulso, faixa de arrasto e formulário.
             item(key = "today-top") {
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(16.dp))
+                // P6: the pulse used to float as a bare mono line; it is now a card
+                // of its own — the same surface as memórias/reflexão — carrying the
+                // three counts plus a hairline of the day's intention progress.
+                // // PT: o pulso do dia passa a cartão, com a linha de progresso.
                 if (pulseParts.isNotEmpty()) {
-                    Spacer(Modifier.height(10.dp))
-                    Text(
-                        text = pulseParts.joinToString("   ·   "),
-                        color = colors.ink3,
-                        style = PautaType.Meta,
-                        letterSpacing = 0.22.sp, // 0.02em of 11sp
+                    DayPulseCard(
+                        parts = pulseParts,
+                        progress = if (total > 0) done.toFloat() / total else null,
+                        animate = animate,
                     )
+                    Spacer(Modifier.height(16.dp))
                 }
                 carry?.let { source ->
-                    Spacer(Modifier.height(16.dp))
                     CarryBanner(source = source, onCarry = { vm.carryOver() })
+                    Spacer(Modifier.height(16.dp))
                 }
-                Spacer(Modifier.height(18.dp))
                 AddIntentionForm(
                     accent = colors.accent,
                     onAdd = { text, priority, target, w -> vm.addIntention(text, priority, target, w) },
@@ -315,13 +326,12 @@ fun HojeScreen(onOpenHistory: () -> Unit, bookMode: Boolean = false) {
             groups.forEach { (w, groupItems) ->
                 if (showHeaders) {
                     item(key = "when-$w") {
-                        Spacer(Modifier.height(10.dp))
-                        Text(
-                            text = whenLabel(w),
-                            color = colors.ink3,
-                            fontWeight = FontWeight.Medium,
-                            fontSize = 12.sp,
-                        )
+                        // P6: the time-of-day headers were the odd one out (sans 12sp
+                        // medium) next to "Marés de hoje"; they now share the one
+                        // eyebrow. // PT: os períodos usam o eyebrow partilhado.
+                        Spacer(Modifier.height(14.dp))
+                        SectionEyebrow(whenLabel(w))
+                        Spacer(Modifier.height(2.dp))
                     }
                 }
                 items(groupItems, key = { "intent-${it.id}" }) { item ->
@@ -368,9 +378,8 @@ fun HojeScreen(onOpenHistory: () -> Unit, bookMode: Boolean = false) {
                             Text(
                                 text = "$animTideDone/$tideDenom",
                                 color = colors.ink4,
-                                fontFamily = MonoFamily,
-                                fontSize = 9.sp,
-                                letterSpacing = 0.54.sp, // 0.06em of 9sp
+                                style = PautaType.MetaSmall,
+                                letterSpacing = 0.6.sp,
                             )
                         }
                     }
@@ -423,38 +432,30 @@ fun HojeScreen(onOpenHistory: () -> Unit, bookMode: Boolean = false) {
                     animationSpec = if (animate) PautaMotion.tween() else snap(),
                     label = "reflection-saved",
                 )
-                PautaCard(
-                    Modifier.fillMaxWidth(),
-                    padding = PaddingValues(horizontal = 22.dp, vertical = 24.dp),
-                ) {
+                PautaCard(Modifier.fillMaxWidth(), padding = HojeCardPadding) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         SectionEyebrow(tr("Reflexão da noite"), Modifier.weight(1f))
                         Text(
                             text = tr("guardado") + " ✓",
                             color = colors.ink4,
-                            fontFamily = MonoFamily,
-                            fontSize = 9.sp,
+                            style = PautaType.MetaSmall,
                             letterSpacing = 1.0.sp,
                             modifier = Modifier.alpha(savedAlpha),
                         )
                     }
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(10.dp))
                     Text(
                         text = "“" + tr("O que valeu hoje?") + "”",
                         color = colors.ink2,
-                        fontFamily = SerifFamily,
+                        style = PautaType.CardTitle,
                         fontStyle = FontStyle.Italic,
-                        fontSize = 18.sp,
                     )
                     Spacer(Modifier.height(12.dp))
                     if (pulseParts.isNotEmpty()) {
-                        Text(
-                            text = pulseParts.joinToString("   ·   "),
-                            color = colors.ink3,
-                            fontFamily = MonoFamily,
-                            fontSize = 10.5.sp,
-                            letterSpacing = 0.21.sp,
-                        )
+                        // The same pulse line as the card at the top of the tab (that
+                        // one has scrolled away by now) — one composable, so the two
+                        // can't drift again. // PT: a mesma linha de pulso do topo.
+                        DayPulseLine(pulseParts)
                         Spacer(Modifier.height(12.dp))
                         Box(Modifier.fillMaxWidth().height(1.dp).background(colors.rule))
                         Spacer(Modifier.height(14.dp))
@@ -499,10 +500,7 @@ fun HojeScreen(onOpenHistory: () -> Unit, bookMode: Boolean = false) {
                 if (pastReflection.isNotBlank()) {
                     item(key = "past-reflection") {
                         Spacer(Modifier.height(32.dp))
-                        PautaCard(
-                            Modifier.fillMaxWidth(),
-                            padding = PaddingValues(horizontal = 22.dp, vertical = 24.dp),
-                        ) {
+                        PautaCard(Modifier.fillMaxWidth(), padding = HojeCardPadding) {
                             SectionEyebrow(tr("Reflexão da noite"))
                             Spacer(Modifier.height(10.dp))
                             Text(
@@ -555,16 +553,16 @@ fun HojeScreen(onOpenHistory: () -> Unit, bookMode: Boolean = false) {
 }
 
 /** The header's bordered mono chips, stacked top-right ("DIAS ANTERIORES ↗",
- *  "A SEMANA ↗", "REVISÃO ↗") — the same treatment as the Pauta tab. */
+ *  "A SEMANA ↗", "REVISÃO ↗") — the same treatment as the Pauta tab. P6 puts
+ *  them on the MetaSmall role (they were the last 9sp mono left on the tab). */
 @Composable
 private fun HeaderChip(label: String, onClick: () -> Unit) {
     val colors = LocalPautaColors.current
     Text(
         text = label.uppercase(),
         color = colors.ink3,
-        fontFamily = MonoFamily,
-        fontSize = 9.sp,
-        letterSpacing = 1.26.sp, // 0.14em of 9sp
+        style = PautaType.MetaSmall,
+        letterSpacing = 1.4.sp,
         modifier = Modifier
             .clip(RoundedCornerShape(PautaRadius.Chip))
             .border(1.dp, colors.rule, RoundedCornerShape(PautaRadius.Chip))
@@ -691,10 +689,7 @@ private fun TodayTideRow(tide: TideToday, last: Boolean, onAct: (() -> Unit)?) {
 @Composable
 private fun MemoriasCard(memories: List<Memory>, onDismiss: () -> Unit) {
     val colors = LocalPautaColors.current
-    PautaCard(
-        Modifier.fillMaxWidth(),
-        padding = PaddingValues(horizontal = 22.dp, vertical = 20.dp),
-    ) {
+    PautaCard(Modifier.fillMaxWidth(), padding = HojeCardPadding) {
         memories.forEachIndexed { i, mem ->
             if (i > 0) {
                 Spacer(Modifier.height(16.dp))
@@ -733,6 +728,39 @@ private fun nextPriority(current: Int?): Int? = when (current) {
     null -> 1; 1 -> 2; 2 -> 3; else -> null
 }
 
+/** P6 · The day pulse as a card — the one surface tying the three tabs together
+ *  (intentions · focus · tides), with a hairline of the day's intention progress
+ *  underneath when there are intentions to progress through. The bar rides the
+ *  same 450ms as the counting numerals, so they settle together.
+ *  // PT: o pulso do dia num cartão, com a barra a acompanhar os números. */
+@Composable
+private fun DayPulseCard(parts: List<String>, progress: Float?, animate: Boolean) {
+    PautaCard(Modifier.fillMaxWidth(), padding = HojeCardPaddingTight) {
+        DayPulseLine(parts)
+        if (progress != null) {
+            val shown by animateFloatAsState(
+                targetValue = progress,
+                animationSpec = if (animate) PautaMotion.tween(450) else snap(),
+                label = "pulse-progress",
+            )
+            Spacer(Modifier.height(12.dp))
+            ProgressBar(shown)
+        }
+    }
+}
+
+/** The pulse itself — shown at the top of the tab and again inside the night
+ *  reflection card. // PT: a linha do pulso, partilhada pelos dois sítios. */
+@Composable
+private fun DayPulseLine(parts: List<String>) {
+    Text(
+        text = parts.joinToString("   ·   "),
+        color = LocalPautaColors.current.ink3,
+        style = PautaType.Meta,
+        letterSpacing = 0.22.sp, // 0.02em of 11sp
+    )
+}
+
 /** One-tap "bring forward" of the most recent past day's unfinished intentions. */
 @Composable
 private fun CarryBanner(source: CarrySource, onCarry: () -> Unit) {
@@ -743,7 +771,9 @@ private fun CarryBanner(source: CarrySource, onCarry: () -> Unit) {
             .clip(RoundedCornerShape(PautaRadius.Card))
             .background(colors.accentBg)
             .clickableNoRipple(onCarry)
-            .padding(horizontal = 14.dp, vertical = 12.dp),
+            // P6: the accent banner keeps the cards' inner edge (was 14dp) so the
+            // block reads as one column. // PT: mesma margem interna dos cartões.
+            .padding(horizontal = 20.dp, vertical = 13.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
@@ -783,6 +813,23 @@ private fun IntentionRow(
         animationSpec = PautaMotion.tween(),
         label = "intention-strike",
     )
+    // P6: the settle — ticking an intention flashes the text accent (Fast) and
+    // then eases back down to the faded ink of a done row (Base), so the check
+    // lands instead of snapping. Only on the transition: rows that arrive already
+    // done (a tab hop, a scroll back) don't flash. // PT: ao marcar, o texto
+    // acende em acento e assenta na tinta apagada; só na transição.
+    val flash = remember { Animatable(0f) }
+    var wasDone by remember { mutableStateOf(item.done) }
+    LaunchedEffect(item.done) {
+        val justChecked = item.done && !wasDone
+        wasDone = item.done
+        if (!justChecked || !animate) {
+            flash.snapTo(0f)
+            return@LaunchedEffect
+        }
+        flash.animateTo(1f, PautaMotion.tween(PautaMotion.Fast))
+        flash.animateTo(0f, PautaMotion.tween())
+    }
     var textLayout by remember { mutableStateOf<TextLayoutResult?>(null) }
     Row(
         modifier
@@ -792,10 +839,11 @@ private fun IntentionRow(
     ) {
         DoneCircle(done = item.done, animate = animate, onToggle = onToggle)
         Spacer(Modifier.width(12.dp))
+        val settled = if (animate) lerp(colors.ink, colors.ink4, strike)
+        else if (item.done) colors.ink4 else colors.ink
         Text(
             text = item.text,
-            color = if (animate) lerp(colors.ink, colors.ink4, strike)
-            else if (item.done) colors.ink4 else colors.ink,
+            color = if (flash.value > 0f) lerp(settled, colors.accent, flash.value) else settled,
             textDecoration = if (!animate && item.done) TextDecoration.LineThrough else null,
             fontSize = 16.sp,
             onTextLayout = { textLayout = it },
