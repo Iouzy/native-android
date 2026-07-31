@@ -43,7 +43,7 @@ import com.pauta.app.ui.viewmodel.AppViewModel
  * native-only (K5): the book-mode face of the Hoje tab — a personal library
  * shelf with three sections (A ler agora · A seguir · Lidos) over live DB data,
  * plus an "Adicionar livro" action that opens [BookFormSheet]. Tapping a book
- * will open the detail sheet (K8); for now the tap is a no-op stub.
+ * opens [BookDetailSheet] (K8) — progress, rating, status, notes and sessions.
  * // PT: a estante do modo livro — em curso, a seguir, lidos + adicionar.
  */
 @Composable
@@ -54,10 +54,11 @@ fun BookShelfScreen() {
     val tbr by vm.booksTbr.collectAsStateWithLifecycle()
     val done by vm.booksDone.collectAsStateWithLifecycle()
     var showAdd by remember { mutableStateOf(false) }
+    var detailId by remember { mutableStateOf<String?>(null) }
 
-    // K8 wires this tap to BookDetailSheet; until then it's a quiet no-op so the
-    // shelf is fully usable for add/list. // PT: o toque abre o detalhe na K8.
-    val onOpenBook: (String) -> Unit = { /* K8: BookDetailSheet(bookId) */ }
+    // K8: any book tap opens the detail sheet, which owns progress/rating/
+    // status/notes/sessions. // PT: o toque abre a folha de detalhe do livro.
+    val onOpenBook: (String) -> Unit = { detailId = it }
 
     LazyColumn(
         Modifier.fillMaxSize(),
@@ -135,6 +136,9 @@ fun BookShelfScreen() {
 
     if (showAdd) {
         BookFormSheet(onClose = { showAdd = false })
+    }
+    detailId?.let { id ->
+        BookDetailSheet(bookId = id, onDismiss = { detailId = null })
     }
 }
 

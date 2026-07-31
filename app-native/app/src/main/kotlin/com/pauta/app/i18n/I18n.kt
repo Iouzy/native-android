@@ -735,6 +735,20 @@ object I18n {
         "Definir objetivo" to "Set goal", // native-only
         "Objetivo de livros por ano" to "Annual book goal", // native-only
         "Hábitos de leitura" to "Reading habits", // native-only
+
+        // ── K8 · book detail sheet ──
+        "Notas & Citações" to "Notes & Quotes", // native-only
+        "Sem notas ainda" to "No notes yet", // native-only
+        "Sessões" to "Sessions", // native-only
+        "Marcar como lido" to "Mark as read", // native-only
+        "Começar a ler" to "Start reading", // native-only
+        "Editar" to "Edit", // native-only
+        "CITAÇÃO" to "QUOTE", // native-only
+        "ANOTAÇÃO" to "ANNOTATION", // native-only
+        "PENSAMENTO" to "THOUGHT", // native-only
+        "Nº {n}" to "No. {n}", // native-only
+        "Página {x} de {y}" to "Page {x} of {y}", // native-only
+        "Min {x} de {y}" to "Min {x} of {y}", // native-only
     )
 }
 
