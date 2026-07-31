@@ -728,6 +728,42 @@ object I18n {
         "Sessões de leitura" to "Reading sessions", // native-only
         "Nenhuma sessão ainda" to "No sessions yet", // native-only
         "Adiciona um livro na Estante primeiro" to "Add a book on the Shelf first", // native-only
+
+        // ── K7 · Marés → reading habits + annual goal ──
+        "Objetivo anual" to "Annual goal", // native-only
+        "livros este ano" to "books this year", // native-only
+        "Definir objetivo" to "Set goal", // native-only
+        "Objetivo de livros por ano" to "Annual book goal", // native-only
+        "Hábitos de leitura" to "Reading habits", // native-only
+
+        // ── K8 · book detail sheet ──
+        "Notas & Citações" to "Notes & Quotes", // native-only
+        "Sem notas ainda" to "No notes yet", // native-only
+        "Sessões" to "Sessions", // native-only
+        "Marcar como lido" to "Mark as read", // native-only
+        "Começar a ler" to "Start reading", // native-only
+        "Editar" to "Edit", // native-only
+        "CITAÇÃO" to "QUOTE", // native-only
+        "ANOTAÇÃO" to "ANNOTATION", // native-only
+        "PENSAMENTO" to "THOUGHT", // native-only
+        "Nº {n}" to "No. {n}", // native-only
+        "Página {x} de {y}" to "Page {x} of {y}", // native-only
+        "Min {x} de {y}" to "Min {x} of {y}", // native-only
+
+        // ── K9 · quote & annotation capture ──
+        "Nova nota" to "New note", // native-only
+        "Citação" to "Quote", // native-only
+        "Anotação" to "Annotation", // native-only
+        "Pensamento" to "Thought", // native-only
+        "Página (opcional)" to "Page (optional)", // native-only
+        "Sem livros em curso — adiciona um na Estante" to "No books in progress — add one on the Shelf", // native-only
+        "Livro" to "Book", // native-only
+        "Fechar" to "Close", // native-only
+
+        // ── K-extra · pace stats + ETA ──
+        "Ritmo: ~{n} págs/hora" to "Pace: ~{n} pages/hour", // native-only
+        "Ritmo: ~{n} min/hora" to "Pace: ~{n} min/hour", // native-only
+        "Conclusão estimada: em ~{n} dias" to "Estimated finish: in ~{n} days", // native-only
     )
 }
 
