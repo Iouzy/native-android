@@ -223,7 +223,22 @@ fun MainScaffold(entry: AppEntry?, onEntryConsumed: () -> Unit) {
     else
         baseColors
 
-    Box(Modifier.fillMaxSize()) {
+    // The paper backdrop under the whole tree. Every destination paints its own
+    // `paper`, so at rest this is never seen — but a nav transition cross-fades
+    // two destinations (A8's fade, on P3's Slow), and while both layers are
+    // translucent whatever sits *behind* the Compose tree shows through. That was
+    // the Activity's window background, which is a DayNight resource: it follows
+    // the system, not the app's theme pref, so an app set to dark (or in book
+    // mode) on a light phone washed pale for ~380ms every time Settings, the
+    // History or any screen under them opened. Painting paper here keeps the
+    // fade over the app's own surface. // PT: o fundo de papel por baixo de tudo
+    // — sem ele, o fade das transições deixava ver o fundo da janela (que segue
+    // o sistema, não o tema da app) e a app "piscava" claro ao abrir Definições.
+    Box(
+        Modifier
+            .fillMaxSize()
+            .background(effectiveColors.paper),
+    ) {
         CompositionLocalProvider(LocalPautaColors provides effectiveColors) {
             NavHost(
                 navController = navController,
