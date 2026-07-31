@@ -38,6 +38,21 @@ val SerifFamily: FontFamily = FontFamily(
     Font(R.font.instrument_serif_italic, weight = FontWeight.Normal, style = FontStyle.Italic),
 )
 
+// P5: the small role set the screens actually use — one headline size for all
+// tab faces (the fix for the 38/44/34sp jump when swiping), plus the recurring
+// body/label/meta styles. Sizes are sp, so the textScale pref keeps scaling.
+// // PT: os papéis tipográficos dos ecrãs — um só tamanho de título para todas
+// as tabs, mais corpo/etiqueta/meta; em sp, para a pref de tamanho continuar
+// a funcionar.
+object PautaType {
+    val ScreenTitle = TextStyle(fontFamily = SerifFamily, fontSize = 36.sp, lineHeight = 38.sp, letterSpacing = (-0.5).sp)
+    val CardTitle = TextStyle(fontFamily = SerifFamily, fontSize = 20.sp, lineHeight = 25.sp)
+    val Body = TextStyle(fontFamily = SerifFamily, fontSize = 15.sp, lineHeight = 21.sp)
+    val Label = TextStyle(fontFamily = SansFamily, fontSize = 14.sp, lineHeight = 18.sp)
+    val Meta = TextStyle(fontFamily = MonoFamily, fontSize = 11.sp)
+    val MetaSmall = TextStyle(fontFamily = MonoFamily, fontSize = 10.sp)
+}
+
 val PautaTypography = Typography(
     displayLarge = TextStyle(fontFamily = SerifFamily, fontSize = 40.sp, lineHeight = 44.sp),
     displayMedium = TextStyle(fontFamily = SerifFamily, fontSize = 32.sp, lineHeight = 36.sp),

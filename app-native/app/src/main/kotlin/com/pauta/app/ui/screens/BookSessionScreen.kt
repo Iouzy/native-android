@@ -55,6 +55,7 @@ import com.pauta.app.ui.SheetEyebrow
 import com.pauta.app.ui.clickableNoRipple
 import com.pauta.app.ui.theme.LocalPautaColors
 import com.pauta.app.ui.theme.MonoFamily
+import com.pauta.app.ui.theme.PautaType
 import com.pauta.app.ui.theme.SerifFamily
 import com.pauta.app.ui.viewmodel.AppViewModel
 import kotlinx.coroutines.delay
@@ -129,13 +130,12 @@ fun BookSessionScreen() {
     ) {
         item(key = "header") {
             Spacer(Modifier.height(22.dp))
+            // P5: shared ScreenTitle role, same as Estante — the book faces keep
+            // one headline line. // PT: título no papel partilhado das tabs.
             Text(
                 text = tr("Sessão"),
                 color = colors.ink,
-                fontFamily = SerifFamily,
-                fontSize = 34.sp,
-                lineHeight = 34.sp,
-                letterSpacing = (-0.5).sp,
+                style = PautaType.ScreenTitle,
             )
             Spacer(Modifier.height(20.dp))
         }
@@ -199,8 +199,7 @@ fun BookSessionScreen() {
                 Text(
                     text = tr("Nenhuma sessão ainda"),
                     color = colors.ink4,
-                    fontFamily = MonoFamily,
-                    fontSize = 11.sp,
+                    style = PautaType.Meta,
                 )
             }
         } else {
@@ -224,15 +223,13 @@ fun BookSessionScreen() {
                             Text(
                                 text = DateUtils.dayKeyOf(b.createdAt),
                                 color = colors.ink3,
-                                fontFamily = MonoFamily,
-                                fontSize = 10.sp,
+                                style = PautaType.MetaSmall,
                                 modifier = Modifier.weight(1f),
                             )
                             Text(
                                 text = FocusMath.fmtDuration(blockMs(b.id)),
                                 color = colors.ink3,
-                                fontFamily = MonoFamily,
-                                fontSize = 10.sp,
+                                style = PautaType.MetaSmall,
                             )
                         }
                     }
@@ -414,8 +411,7 @@ private fun StartReadingCard(
                     Text(
                         text = book.author,
                         color = colors.ink3,
-                        fontFamily = MonoFamily,
-                        fontSize = 11.sp,
+                        style = PautaType.Meta,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
@@ -464,8 +460,7 @@ private fun PausedReadingRow(title: String, totalMs: Long, onResume: () -> Unit)
                 Text(
                     text = FocusMath.fmtDuration(totalMs),
                     color = colors.ink3,
-                    fontFamily = MonoFamily,
-                    fontSize = 10.sp,
+                    style = PautaType.MetaSmall,
                 )
             }
             Row(
@@ -518,7 +513,7 @@ private fun BookPickerSheet(
                         Text(b.title, color = colors.ink, fontFamily = SerifFamily, fontSize = 16.sp, lineHeight = 20.sp)
                         if (b.author.isNotBlank()) {
                             Spacer(Modifier.height(2.dp))
-                            Text(b.author, color = colors.ink3, fontFamily = MonoFamily, fontSize = 11.sp)
+                            Text(b.author, color = colors.ink3, style = PautaType.Meta)
                         }
                     }
                     if (sel) {

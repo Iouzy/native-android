@@ -288,7 +288,7 @@ identical — a 12→14 radius drift is fine, layout shifts are not.
 **Accept:** grep shows no remaining private eyebrow duplicates; card sites
 use `PautaCard`; both themes + sepia render correctly; CI green.
 
-### P5 · Type & header rhythm — Status: pending
+### P5 · Type & header rhythm — Status: done (PR #146)
 
 **Depends on:** nothing (coordinate with P4 if both touch the same lines).
 
@@ -444,3 +444,4 @@ slice: P1 → P2 → P5.
 2026-07-31 · P2 · #143 · sliding indicator drawn from live pager offset (drawBehind, measured label widths), icon spring nudge 1→1.06→1, reducedMotion pins to settledPage; motion specs inline pending P3
 2026-07-31 · P3 · #144 · PautaMotion (140/240/380 + Ease/Spring/tween helper) + rememberMotionEnabled(); nav→Slow, tint/chip-exit→Fast, strike/hatch/saved/chip-enter→Base, pulse keeps 450 on house easing; deliberate springs untouched; PautaSheet had no ad-hoc specs (P9 adds Slow entrance); leftover ad-hoc specs in PautaScreen/FocusTide/Parrot/Onboarding for P6/P7/P9
 2026-07-31 · P4 · #145 · PautaSurfaces.kt (PautaRadius 8/10/14/20, PautaCard, SectionEyebrow 10sp ls1.6); SheetEyebrow delegates; SectionLabel×2/MonoSectionLabel/FieldLabel + inline eyebrows removed; card pattern → PautaCard in Hoje/Pauta/Marés/PautaExtras/Book*/HistoryView; radii tokenised in swept files (sheet 18→20, 12/16→Card); leftover card sites in Settings/TierGuide/YearReview/Insights/HabitDetail/Routines/DateTimePickers/WeekAhead/Trend for P6–P9
+2026-07-31 · P5 · #146 · PautaType in Type.kt; five headlines (44/30/38/34/34) → ScreenTitle 36, Hoje/Pauta drop unified to 8dp; Meta/MetaSmall/Body/Label rolled through the five faces' meta/quote/empty lines; leftovers: HeaderChip 9sp + Marés overall-%/"marés passadas" link, dark-card timer/pills → P7, CardTitle unused until P6/P7; Marés headline still sits below its month strip (restructure would be a layout shift — P8 if wanted)
