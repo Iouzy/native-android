@@ -749,6 +749,16 @@ object I18n {
         "Nº {n}" to "No. {n}", // native-only
         "Página {x} de {y}" to "Page {x} of {y}", // native-only
         "Min {x} de {y}" to "Min {x} of {y}", // native-only
+
+        // ── K9 · quote & annotation capture ──
+        "Nova nota" to "New note", // native-only
+        "Citação" to "Quote", // native-only
+        "Anotação" to "Annotation", // native-only
+        "Pensamento" to "Thought", // native-only
+        "Página (opcional)" to "Page (optional)", // native-only
+        "Sem livros em curso — adiciona um na Estante" to "No books in progress — add one on the Shelf", // native-only
+        "Livro" to "Book", // native-only
+        "Fechar" to "Close", // native-only
     )
 }
 

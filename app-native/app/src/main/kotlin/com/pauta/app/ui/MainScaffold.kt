@@ -6,8 +6,10 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -23,6 +25,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarDuration
@@ -41,6 +44,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.input.key.Key
@@ -71,6 +75,7 @@ import com.pauta.app.ui.screens.MaresScreen
 import com.pauta.app.ui.screens.PautaScreen
 import com.pauta.app.ui.screens.PinMode
 import com.pauta.app.ui.screens.PinScreen
+import com.pauta.app.ui.screens.QuoteCaptureSheet
 import com.pauta.app.ui.screens.SettingsScreen
 import com.pauta.app.ui.screens.TierGuideScreen
 import com.pauta.app.ui.screens.YearReviewScreen
@@ -371,6 +376,8 @@ private fun HomeShell(
     // // PT: estado real para os humores do Pip.
     val activeBlock by vm.activeBlock.collectAsStateWithLifecycle()
     val intentions by vm.intentions.collectAsStateWithLifecycle()
+    // K9: the quote-capture sheet the book-mode chip below opens.
+    var showCapture by remember { mutableStateOf(false) }
 
     // A7: a single app-wide snackbar offers "Anular" after a destructive single
     // delete (an intention or a focus block). The ViewModel emits the deleted
@@ -437,6 +444,37 @@ private fun HomeShell(
                 onSelect = { tab -> scope.launch { pager.animateScrollToPage(tab.ordinal) } },
                 bookMode = prefs.bookMode,
             )
+        }
+
+        // K9: the quote-capture chip — book mode's quick jot, bottom-left at
+        // Pip's vertical offset (Pip keeps bottom-right; the snackbar floats
+        // centred above both). No FAB styling, no entrance animation when
+        // reduced motion is on. // PT: o atalho de nota rápida do modo livro.
+        AnimatedVisibility(
+            visible = prefs.bookMode,
+            enter = if (prefs.reducedMotion) EnterTransition.None else fadeIn(tween(220)),
+            exit = if (prefs.reducedMotion) ExitTransition.None else fadeOut(tween(150)),
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .navigationBarsPadding()
+                .padding(start = 12.dp, bottom = 84.dp),
+        ) {
+            Row(
+                Modifier
+                    .clip(RoundedCornerShape(999.dp))
+                    .background(colors.paper2)
+                    .border(1.dp, colors.rule, RoundedCornerShape(999.dp))
+                    .clickableNoRipple { showCapture = true }
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(5.dp),
+            ) {
+                Text("✎", color = colors.ink2, fontSize = 13.sp, lineHeight = 13.sp)
+                Text("+", color = colors.accent, fontSize = 13.sp, lineHeight = 13.sp)
+            }
+        }
+        if (showCapture) {
+            QuoteCaptureSheet(onClose = { showCapture = false })
         }
 
         // Pip lives just above the tab bar in the bottom-right corner.
