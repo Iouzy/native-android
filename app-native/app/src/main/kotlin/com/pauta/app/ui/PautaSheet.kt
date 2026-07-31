@@ -78,7 +78,7 @@ private fun PautaBottomSheet(title: String, onClose: () -> Unit, content: @Compo
     ModalBottomSheet(
         onDismissRequest = onClose,
         sheetState = sheetState,
-        shape = RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp), // the app's 18dp radius, top-only
+        shape = RoundedCornerShape(topStart = PautaRadius.Sheet, topEnd = PautaRadius.Sheet), // the sheet radius, top-only
         containerColor = colors.paper,
         contentColor = colors.ink,
         tonalElevation = 0.dp, // flat paper, no M3 tonal tint
@@ -108,7 +108,7 @@ private fun PautaBottomSheet(title: String, onClose: () -> Unit, content: @Compo
 
 /**
  * Wide-screen path: the web app's centred card on a dimmed backdrop — width
- * min(440, screen−28), radius 18, a sticky header with a mono uppercase eyebrow
+ * min(440, screen−28), the sheet radius, a sticky header with a mono uppercase eyebrow
  * title and a circular ×, body scrolling beneath. Tapping outside or the ×
  * closes it. // PT: o cartão centrado da web, para ecrãs largos.
  */
@@ -126,8 +126,8 @@ private fun PautaCenteredSheet(title: String, onClose: () -> Unit, content: @Com
                 .widthIn(max = 440.dp)
                 .fillMaxWidth()
                 .heightIn(max = maxHeight)
-                .shadow(24.dp, RoundedCornerShape(18.dp))
-                .clip(RoundedCornerShape(18.dp))
+                .shadow(24.dp, RoundedCornerShape(PautaRadius.Sheet))
+                .clip(RoundedCornerShape(PautaRadius.Sheet))
                 .background(colors.paper),
         ) {
             Row(
@@ -211,16 +211,11 @@ fun PautaButton(
     }
 }
 
-/** The mono uppercase section eyebrow used throughout the sheets. */
+/** The sheets' section eyebrow — kept for its ~40 call sites, now delegating to
+ *  the shared [SectionEyebrow] (P4). // PT: delega no eyebrow único. */
 @Composable
 fun SheetEyebrow(label: String, color: Color = LocalPautaColors.current.ink3) {
-    Text(
-        text = label.uppercase(),
-        color = color,
-        fontFamily = MonoFamily,
-        fontSize = 10.sp,
-        letterSpacing = 1.8.sp,
-    )
+    SectionEyebrow(label, color = color)
 }
 
 /** Accessibility label for the sheet's close affordance (kept for parity with

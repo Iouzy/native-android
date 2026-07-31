@@ -59,6 +59,8 @@ import com.pauta.app.domain.HistoryDay
 import com.pauta.app.i18n.I18n
 import com.pauta.app.i18n.Lang
 import com.pauta.app.i18n.tr
+import com.pauta.app.ui.PautaCard
+import com.pauta.app.ui.SectionEyebrow
 import com.pauta.app.ui.clickableNoRipple
 import com.pauta.app.ui.theme.LocalPautaColors
 import com.pauta.app.ui.theme.MonoFamily
@@ -384,13 +386,13 @@ private fun DayMemory(
             Text(tr("Sem conteúdo neste dia."), color = colors.ink4, fontSize = 14.sp)
         } else {
             if (intentions.isNotEmpty()) {
-                SectionLabel(tr("intenções"))
+                SectionEyebrow(tr("intenções"))
                 Spacer(Modifier.height(8.dp))
                 intentions.forEach { MemoryIntentionRow(it) }
             }
             if (blocks.isNotEmpty()) {
                 Spacer(Modifier.height(28.dp))
-                SectionLabel(tr("blocos"))
+                SectionEyebrow(tr("blocos"))
                 Spacer(Modifier.height(8.dp))
                 blocks.sortedByDescending { it.createdAt }.forEach { b ->
                     val ms = FocusMath.blockElapsedMs(
@@ -408,19 +410,6 @@ private fun DayMemory(
         }
         Spacer(Modifier.height(48.dp))
     }
-}
-
-/** An uppercase mono section eyebrow, the app's recurring quiet header. */
-@Composable
-private fun SectionLabel(text: String) {
-    val colors = LocalPautaColors.current
-    Text(
-        text = text.uppercase(),
-        color = colors.ink3,
-        fontFamily = MonoFamily,
-        fontSize = 9.sp,
-        letterSpacing = 1.8.sp,
-    )
 }
 
 /** One past intention, read-only: a dim done/pending mark and the text, struck
@@ -474,15 +463,11 @@ private fun MemoryBlockRow(block: FocusBlockEntity, elapsedMs: Long) {
 @Composable
 private fun ReflectionCard(reflection: String) {
     val colors = LocalPautaColors.current
-    Column(
-        Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
-            .border(1.dp, colors.rule, RoundedCornerShape(14.dp))
-            .background(colors.paper2)
-            .padding(horizontal = 22.dp, vertical = 22.dp),
+    PautaCard(
+        Modifier.fillMaxWidth(),
+        padding = PaddingValues(horizontal = 22.dp, vertical = 22.dp),
     ) {
-        SectionLabel(tr("Reflexão"))
+        SectionEyebrow(tr("Reflexão"))
         Spacer(Modifier.height(10.dp))
         Text(
             text = reflection,

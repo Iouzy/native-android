@@ -79,9 +79,12 @@ import com.pauta.app.domain.Memory
 import com.pauta.app.i18n.I18n
 import com.pauta.app.i18n.tr
 import com.pauta.app.i18n.trf
+import com.pauta.app.ui.PautaCard
 import com.pauta.app.ui.PautaIcons
+import com.pauta.app.ui.PautaRadius
 import com.pauta.app.ui.PeriodLabel
 import com.pauta.app.ui.PipPose
+import com.pauta.app.ui.SectionEyebrow
 import com.pauta.app.ui.TideToday
 import com.pauta.app.ui.clickableNoRipple
 import com.pauta.app.ui.computeTodayTides
@@ -362,14 +365,7 @@ fun HojeScreen(onOpenHistory: () -> Unit, bookMode: Boolean = false) {
                 item(key = "tides-header") {
                     Spacer(Modifier.height(36.dp))
                     Row(verticalAlignment = Alignment.Bottom) {
-                        Text(
-                            text = tr("Marés de hoje").uppercase(),
-                            color = colors.ink3,
-                            fontFamily = MonoFamily,
-                            fontSize = 9.sp,
-                            letterSpacing = 1.8.sp, // 0.2em of 9sp
-                            modifier = Modifier.weight(1f),
-                        )
+                        SectionEyebrow(tr("Marés de hoje"), Modifier.weight(1f))
                         if (tideDenom > 0) {
                             Text(
                                 text = "$animTideDone/$tideDenom",
@@ -429,23 +425,12 @@ fun HojeScreen(onOpenHistory: () -> Unit, bookMode: Boolean = false) {
                     animationSpec = if (animate) PautaMotion.tween() else snap(),
                     label = "reflection-saved",
                 )
-                Column(
-                    Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(14.dp))
-                        .border(1.dp, colors.rule, RoundedCornerShape(14.dp))
-                        .background(colors.paper2)
-                        .padding(horizontal = 22.dp, vertical = 24.dp),
+                PautaCard(
+                    Modifier.fillMaxWidth(),
+                    padding = PaddingValues(horizontal = 22.dp, vertical = 24.dp),
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = tr("Reflexão da noite").uppercase(),
-                            color = colors.ink3,
-                            fontFamily = MonoFamily,
-                            fontSize = 9.sp,
-                            letterSpacing = 1.8.sp,
-                            modifier = Modifier.weight(1f),
-                        )
+                        SectionEyebrow(tr("Reflexão da noite"), Modifier.weight(1f))
                         Text(
                             text = tr("guardado") + " ✓",
                             color = colors.ink4,
@@ -517,21 +502,11 @@ fun HojeScreen(onOpenHistory: () -> Unit, bookMode: Boolean = false) {
                 if (pastReflection.isNotBlank()) {
                     item(key = "past-reflection") {
                         Spacer(Modifier.height(32.dp))
-                        Column(
-                            Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(14.dp))
-                                .border(1.dp, colors.rule, RoundedCornerShape(14.dp))
-                                .background(colors.paper2)
-                                .padding(horizontal = 22.dp, vertical = 24.dp),
+                        PautaCard(
+                            Modifier.fillMaxWidth(),
+                            padding = PaddingValues(horizontal = 22.dp, vertical = 24.dp),
                         ) {
-                            Text(
-                                text = tr("Reflexão da noite").uppercase(),
-                                color = colors.ink3,
-                                fontFamily = MonoFamily,
-                                fontSize = 9.sp,
-                                letterSpacing = 1.8.sp,
-                            )
+                            SectionEyebrow(tr("Reflexão da noite"))
                             Spacer(Modifier.height(10.dp))
                             Text(
                                 text = "“" + pastReflection + "”",
@@ -596,8 +571,8 @@ private fun HeaderChip(label: String, onClick: () -> Unit) {
         fontSize = 9.sp,
         letterSpacing = 1.26.sp, // 0.14em of 9sp
         modifier = Modifier
-            .clip(RoundedCornerShape(8.dp))
-            .border(1.dp, colors.rule, RoundedCornerShape(8.dp))
+            .clip(RoundedCornerShape(PautaRadius.Chip))
+            .border(1.dp, colors.rule, RoundedCornerShape(PautaRadius.Chip))
             .clickableNoRipple(onClick)
             .padding(horizontal = 10.dp, vertical = 6.dp),
     )
@@ -722,13 +697,9 @@ private fun TodayTideRow(tide: TideToday, last: Boolean, onAct: (() -> Unit)?) {
 @Composable
 private fun MemoriasCard(memories: List<Memory>, onDismiss: () -> Unit) {
     val colors = LocalPautaColors.current
-    Column(
-        Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
-            .border(1.dp, colors.rule, RoundedCornerShape(14.dp))
-            .background(colors.paper2)
-            .padding(horizontal = 22.dp, vertical = 20.dp),
+    PautaCard(
+        Modifier.fillMaxWidth(),
+        padding = PaddingValues(horizontal = 22.dp, vertical = 20.dp),
     ) {
         memories.forEachIndexed { i, mem ->
             if (i > 0) {
@@ -737,12 +708,8 @@ private fun MemoriasCard(memories: List<Memory>, onDismiss: () -> Unit) {
                 Spacer(Modifier.height(16.dp))
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = (if (mem.yearsAgo == 1) tr("há um ano") else trf("há {n} anos", "n" to mem.yearsAgo)).uppercase(),
-                    color = colors.ink3,
-                    fontFamily = MonoFamily,
-                    fontSize = 9.sp,
-                    letterSpacing = 1.8.sp, // 0.2em of 9sp — matches the reflection eyebrow
+                SectionEyebrow(
+                    label = if (mem.yearsAgo == 1) tr("há um ano") else trf("há {n} anos", "n" to mem.yearsAgo),
                     modifier = Modifier.weight(1f),
                 )
                 // One × on the first row dismisses the whole card for the day.
@@ -781,7 +748,7 @@ private fun CarryBanner(source: CarrySource, onCarry: () -> Unit) {
     Row(
         Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(PautaRadius.Card))
             .background(colors.accentBg)
             .clickableNoRipple(onCarry)
             .padding(horizontal = 14.dp, vertical = 12.dp),
@@ -1068,7 +1035,7 @@ private fun Pill(label: String, selected: Boolean, accent: Color, onClick: () ->
     val colors = LocalPautaColors.current
     Box(
         Modifier
-            .clip(RoundedCornerShape(8.dp))
+            .clip(RoundedCornerShape(PautaRadius.Chip))
             .background(if (selected) accent.copy(alpha = 0.16f) else colors.paper2)
             .clickableNoRipple(onClick)
             .padding(horizontal = 12.dp, vertical = 7.dp),

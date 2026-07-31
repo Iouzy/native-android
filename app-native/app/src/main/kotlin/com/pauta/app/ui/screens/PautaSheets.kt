@@ -53,7 +53,9 @@ import com.pauta.app.i18n.trf
 import com.pauta.app.ui.PautaButton
 import com.pauta.app.ui.PautaButtonVariant
 import com.pauta.app.ui.PautaIcons
+import com.pauta.app.ui.PautaRadius
 import com.pauta.app.ui.PautaSheet
+import com.pauta.app.ui.SectionEyebrow
 import com.pauta.app.ui.SheetEyebrow
 import com.pauta.app.ui.TideToday
 import com.pauta.app.ui.clickableNoRipple
@@ -101,7 +103,7 @@ fun StartSheet(
             Box(
                 Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(8.dp))
+                    .clip(RoundedCornerShape(PautaRadius.Chip))
                     .background(colors.paper2)
                     .padding(horizontal = 12.dp, vertical = 10.dp),
             ) {
@@ -144,9 +146,9 @@ fun StartSheet(
                     Row(
                         Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(10.dp))
+                            .clip(RoundedCornerShape(PautaRadius.Field))
                             .background(if (sel) colors.paper2 else Color.Transparent)
-                            .border(1.dp, if (sel) colors.accent else colors.rule, RoundedCornerShape(10.dp))
+                            .border(1.dp, if (sel) colors.accent else colors.rule, RoundedCornerShape(PautaRadius.Field))
                             .clickableNoRipple {
                                 selectedIntention = i.id
                                 title = i.text
@@ -182,8 +184,8 @@ fun StartSheet(
                     Row(
                         Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(10.dp))
-                            .border(1.dp, colors.rule, RoundedCornerShape(10.dp))
+                            .clip(RoundedCornerShape(PautaRadius.Field))
+                            .border(1.dp, colors.rule, RoundedCornerShape(PautaRadius.Field))
                             .clickableNoRipple {
                                 title = b.title
                                 selectedIntention = null
@@ -297,13 +299,7 @@ fun ConcludeSheet(
     val deltaMs = totalMs - planned
 
     PautaSheet(title = tr("Concluir bloco"), onClose = onCancel) {
-        Text(
-            text = trf("✓ {d} em foco", "d" to FocusMath.fmtDuration(totalMs)).uppercase(),
-            color = colors.accent,
-            fontFamily = MonoFamily,
-            fontSize = 10.sp,
-            letterSpacing = 1.8.sp,
-        )
+        SectionEyebrow(trf("✓ {d} em foco", "d" to FocusMath.fmtDuration(totalMs)), color = colors.accent)
         Spacer(Modifier.height(6.dp))
         Text(block.title, color = colors.ink, fontFamily = SerifFamily, fontSize = 24.sp, lineHeight = 29.sp)
         Spacer(Modifier.height(if (planned > 0) 8.dp else 18.dp))
@@ -340,8 +336,8 @@ fun ConcludeSheet(
             Row(
                 Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(10.dp))
-                    .border(1.dp, colors.rule, RoundedCornerShape(10.dp))
+                    .clip(RoundedCornerShape(PautaRadius.Field))
+                    .border(1.dp, colors.rule, RoundedCornerShape(PautaRadius.Field))
                     .clickableNoRipple { markDone = !markDone }
                     .padding(horizontal = 14.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -504,9 +500,9 @@ internal fun BoxedField(
                 Modifier
                     .fillMaxWidth()
                     .heightIn(min = minHeight)
-                    .clip(RoundedCornerShape(10.dp))
+                    .clip(RoundedCornerShape(PautaRadius.Field))
                     .background(colors.paper2)
-                    .border(1.dp, if (isError) DangerRed else colors.rule, RoundedCornerShape(10.dp))
+                    .border(1.dp, if (isError) DangerRed else colors.rule, RoundedCornerShape(PautaRadius.Field))
                     .padding(horizontal = if (singleLine) 12.dp else 14.dp, vertical = if (singleLine) 10.dp else 12.dp),
             ) {
                 if (value.isEmpty()) {
@@ -634,9 +630,9 @@ fun SwitchSheet(
                 Row(
                     Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(10.dp))
+                        .clip(RoundedCornerShape(PautaRadius.Field))
                         .background(colors.paper)
-                        .border(1.dp, colors.rule, RoundedCornerShape(10.dp))
+                        .border(1.dp, colors.rule, RoundedCornerShape(PautaRadius.Field))
                         .clickableNoRipple { onPick(i.id, i.text) }
                         .padding(horizontal = 14.dp, vertical = 13.dp),
                     verticalAlignment = Alignment.CenterVertically,
@@ -650,9 +646,9 @@ fun SwitchSheet(
                 Row(
                     Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(10.dp))
+                        .clip(RoundedCornerShape(PautaRadius.Field))
                         .background(colors.paper)
-                        .border(1.dp, colors.accent, RoundedCornerShape(10.dp))
+                        .border(1.dp, colors.accent, RoundedCornerShape(PautaRadius.Field))
                         .padding(horizontal = 14.dp, vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -694,8 +690,8 @@ fun SwitchSheet(
                 Row(
                     Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(10.dp))
-                        .border(1.dp, colors.rule, RoundedCornerShape(10.dp))
+                        .clip(RoundedCornerShape(PautaRadius.Field))
+                        .border(1.dp, colors.rule, RoundedCornerShape(PautaRadius.Field))
                         .clickableNoRipple { adding = true }
                         .padding(horizontal = 14.dp, vertical = 13.dp),
                     verticalAlignment = Alignment.CenterVertically,

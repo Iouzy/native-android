@@ -5,6 +5,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -49,7 +50,10 @@ import com.pauta.app.i18n.tr
 import com.pauta.app.i18n.trf
 import com.pauta.app.ui.PautaButton
 import com.pauta.app.ui.PautaButtonVariant
+import com.pauta.app.ui.PautaCard
+import com.pauta.app.ui.PautaRadius
 import com.pauta.app.ui.PautaSheet
+import com.pauta.app.ui.SectionEyebrow
 import com.pauta.app.ui.clickableNoRipple
 import com.pauta.app.ui.theme.LocalPautaColors
 import com.pauta.app.ui.theme.MonoFamily
@@ -158,10 +162,10 @@ private fun ZenButton(label: String, filled: Boolean, onClick: () -> Unit) {
         fontSize = 14.sp,
         fontWeight = FontWeight.Medium,
         modifier = Modifier
-            .clip(RoundedCornerShape(10.dp))
+            .clip(RoundedCornerShape(PautaRadius.Field))
             .then(
                 if (filled) Modifier.background(colors.accent)
-                else Modifier.border(1.dp, Color(0x40F5F1EA), RoundedCornerShape(10.dp)) // rgba(245,241,234,0.25)
+                else Modifier.border(1.dp, Color(0x40F5F1EA), RoundedCornerShape(PautaRadius.Field)) // rgba(245,241,234,0.25)
             )
             .clickableNoRipple(onClick)
             .padding(horizontal = 20.dp, vertical = 11.dp),
@@ -275,13 +279,7 @@ internal fun EditBlockSheet(
     }
 
     PautaSheet(title = tr("Editar bloco"), onClose = onClose) {
-        Text(
-            text = "$statusLabel · ${FocusMath.fmtDuration(totalMs)}".uppercase(),
-            color = colors.ink3,
-            fontFamily = MonoFamily,
-            fontSize = 10.sp,
-            letterSpacing = 1.8.sp,
-        )
+        SectionEyebrow("$statusLabel · ${FocusMath.fmtDuration(totalMs)}")
         Spacer(Modifier.height(10.dp))
 
         // Title — the serif underline input.
@@ -305,11 +303,13 @@ internal fun EditBlockSheet(
         )
         Spacer(Modifier.height(18.dp))
 
-        FieldLabel(tr("Projecto"))
+        SectionEyebrow(tr("Projecto"))
+        Spacer(Modifier.height(8.dp))
         BoxedField(value = project, onChange = { project = it }, placeholder = tr("(sem projecto)"), singleLine = true, fontFamily = SansFamily, fontSize = 14.sp)
         Spacer(Modifier.height(18.dp))
 
-        FieldLabel(tr("Reflexão"))
+        SectionEyebrow(tr("Reflexão"))
+        Spacer(Modifier.height(8.dp))
         BoxedField(
             value = reflection,
             onChange = { reflection = it },
@@ -319,17 +319,15 @@ internal fun EditBlockSheet(
         Spacer(Modifier.height(18.dp))
 
         if (ordered.isNotEmpty()) {
-            FieldLabel(trf("Sessões ({n})", "n" to ordered.size))
+            SectionEyebrow(trf("Sessões ({n})", "n" to ordered.size))
+            Spacer(Modifier.height(8.dp))
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 ordered.forEachIndexed { i, seg ->
                     val dur = (seg.endedAt ?: now) - seg.startedAt
-                    Column(
-                        Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(colors.paper2)
-                            .border(1.dp, colors.rule, RoundedCornerShape(10.dp))
-                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                    PautaCard(
+                        Modifier.fillMaxWidth(),
+                        radius = PautaRadius.Field,
+                        padding = PaddingValues(horizontal = 12.dp, vertical = 10.dp),
                     ) {
                         Row(Modifier.fillMaxWidth()) {
                             Text(
@@ -404,18 +402,6 @@ internal fun EditBlockSheet(
                 .padding(vertical = 11.dp),
         )
     }
-}
-
-@Composable
-private fun FieldLabel(label: String) {
-    Text(
-        text = label.uppercase(),
-        color = LocalPautaColors.current.ink3,
-        fontFamily = MonoFamily,
-        fontSize = 10.sp,
-        letterSpacing = 1.8.sp,
-    )
-    Spacer(Modifier.height(8.dp))
 }
 
 /** The web's `border-bottom: 1.5px solid var(--ink)` title underline. */
@@ -552,8 +538,8 @@ internal fun PautaHistorySheet(
             Row(
                 Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(8.dp))
-                    .border(1.dp, colors.rule, RoundedCornerShape(8.dp)),
+                    .clip(RoundedCornerShape(PautaRadius.Chip))
+                    .border(1.dp, colors.rule, RoundedCornerShape(PautaRadius.Chip)),
             ) {
                 PStat(tr("Total 14d"), FocusMath.fmtDuration(totalMs), Modifier.weight(1f))
                 VertRule()
@@ -563,13 +549,7 @@ internal fun PautaHistorySheet(
             }
 
             Spacer(Modifier.height(24.dp))
-            Text(
-                text = tr("todos os dias com blocos").uppercase(),
-                color = colors.ink3,
-                fontFamily = MonoFamily,
-                fontSize = 10.sp,
-                letterSpacing = 1.5.sp, // 0.15em of 10sp
-            )
+            SectionEyebrow(tr("todos os dias com blocos"))
             Spacer(Modifier.height(10.dp))
             val allDays = remember(allSessions) {
                 allSessions.map { DateUtils.dayKeyOf(it.startedAt) }.toSet().sortedDescending()
@@ -591,9 +571,9 @@ internal fun PautaHistorySheet(
                         Row(
                             Modifier
                                 .fillMaxWidth()
-                                .clip(RoundedCornerShape(8.dp))
+                                .clip(RoundedCornerShape(PautaRadius.Chip))
                                 .background(if (isToday) colors.accent.copy(alpha = 0.03f) else colors.paper)
-                                .border(1.dp, colors.rule, RoundedCornerShape(8.dp))
+                                .border(1.dp, colors.rule, RoundedCornerShape(PautaRadius.Chip))
                                 .clickableNoRipple { picked = k }
                                 .padding(horizontal = 14.dp, vertical = 10.dp),
                             verticalAlignment = Alignment.CenterVertically,

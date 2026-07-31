@@ -76,7 +76,10 @@ import com.pauta.app.i18n.tr
 import com.pauta.app.i18n.trf
 import com.pauta.app.ui.PautaButton
 import com.pauta.app.ui.PautaButtonVariant
+import com.pauta.app.ui.PautaCard
+import com.pauta.app.ui.PautaRadius
 import com.pauta.app.ui.PeriodLabel
+import com.pauta.app.ui.SectionEyebrow
 import com.pauta.app.ui.PipPose
 import com.pauta.app.ui.PautaSheet
 import com.pauta.app.ui.CellState
@@ -166,13 +169,7 @@ fun MaresScreen(bookMode: Boolean = false) {
                     Spacer(Modifier.height(6.dp))
                     BookAnnualGoalCard()
                     Spacer(Modifier.height(26.dp))
-                    Text(
-                        text = tr("Hábitos de leitura").uppercase(),
-                        color = colors.ink3,
-                        fontFamily = MonoFamily,
-                        fontSize = 10.sp,
-                        letterSpacing = 2.sp, // 0.2em of 10sp
-                    )
+                    SectionEyebrow(tr("Hábitos de leitura"))
                     Spacer(Modifier.height(14.dp))
                 }
             }
@@ -218,13 +215,7 @@ fun MaresScreen(bookMode: Boolean = false) {
                 Spacer(Modifier.height(18.dp))
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
                     Column(Modifier.weight(1f)) {
-                        Text(
-                            text = (if (isCurrentMonth) tr("Maré actual") else tr("Maré passada")).uppercase(),
-                            color = colors.ink3,
-                            fontFamily = MonoFamily,
-                            fontSize = 10.sp,
-                            letterSpacing = 1.8.sp,
-                        )
+                        SectionEyebrow(if (isCurrentMonth) tr("Maré actual") else tr("Maré passada"))
                         Spacer(Modifier.height(4.dp))
                         Text(
                             text = monthLongName(month),
@@ -296,13 +287,7 @@ fun MaresScreen(bookMode: Boolean = false) {
                         lineHeight = 20.sp,
                     )
                     Spacer(Modifier.height(14.dp))
-                    Text(
-                        text = tr("Marés comuns").uppercase(),
-                        color = colors.ink4,
-                        fontFamily = MonoFamily,
-                        fontSize = 9.sp,
-                        letterSpacing = 1.44.sp, // 0.16em of 9sp
-                    )
+                    SectionEyebrow(tr("Marés comuns"), color = colors.ink4)
                     Spacer(Modifier.height(9.dp))
                     @OptIn(ExperimentalLayoutApi::class)
                     FlowRow(
@@ -317,13 +302,10 @@ fun MaresScreen(bookMode: Boolean = false) {
             } else {
                 // Como funciona — persistent, subtle hint.
                 item(key = "hint") {
-                    Column(
-                        Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(colors.paper2)
-                            .border(1.dp, colors.rule, RoundedCornerShape(8.dp))
-                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                    PautaCard(
+                        Modifier.fillMaxWidth(),
+                        radius = PautaRadius.Chip,
+                        padding = PaddingValues(horizontal = 12.dp, vertical = 10.dp),
                     ) {
                         Text(
                             text = buildAnnotatedString {
@@ -404,8 +386,8 @@ fun MaresScreen(bookMode: Boolean = false) {
                 Row(
                     Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
-                        .dashedRectBorder(colors.rule, 12.dp)
+                        .clip(RoundedCornerShape(PautaRadius.Card))
+                        .dashedRectBorder(colors.rule, PautaRadius.Card)
                         .clickableNoRipple { showAdd = true }
                         .padding(16.dp),
                     horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
@@ -907,9 +889,9 @@ private fun GridLegend() {
     Box {
         Row(
             Modifier
-                .clip(RoundedCornerShape(8.dp))
+                .clip(RoundedCornerShape(PautaRadius.Chip))
                 .background(if (open) colors.paper2 else Color.Transparent)
-                .border(1.dp, colors.rule, RoundedCornerShape(8.dp))
+                .border(1.dp, colors.rule, RoundedCornerShape(PautaRadius.Chip))
                 .clickableNoRipple { open = !open }
                 .padding(horizontal = 8.dp, vertical = 5.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -936,10 +918,10 @@ private fun GridLegend() {
                 Column(
                     Modifier
                         .width(210.dp)
-                        .shadow(12.dp, RoundedCornerShape(10.dp))
-                        .clip(RoundedCornerShape(10.dp))
+                        .shadow(12.dp, RoundedCornerShape(PautaRadius.Field))
+                        .clip(RoundedCornerShape(PautaRadius.Field))
                         .background(colors.paper)
-                        .border(1.dp, colors.rule, RoundedCornerShape(10.dp))
+                        .border(1.dp, colors.rule, RoundedCornerShape(PautaRadius.Field))
                         .padding(horizontal = 14.dp, vertical = 12.dp),
                 ) {
                     LegendRow(tr("feito")) { drawDone(colors.ink) }
