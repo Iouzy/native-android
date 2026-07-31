@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.pauta.app.data.entity.BookEntity
+import com.pauta.app.domain.BookMath
 import com.pauta.app.domain.DateUtils
 import com.pauta.app.domain.FocusMath
 import com.pauta.app.i18n.tr
@@ -47,6 +48,7 @@ import com.pauta.app.ui.theme.LocalPautaColors
 import com.pauta.app.ui.theme.MonoFamily
 import com.pauta.app.ui.theme.SerifFamily
 import com.pauta.app.ui.viewmodel.AppViewModel
+import kotlin.math.roundToInt
 
 /**
  * native-only (K8): the book detail sheet the shelf cards open — all book-level
@@ -164,6 +166,43 @@ fun BookDetailSheet(bookId: String, onDismiss: () -> Unit) {
         if (book.totalPages > 0) {
             Spacer(Modifier.height(6.dp))
             ProgressBar(book.currentPage.toFloat() / book.totalPages.coerceAtLeast(1))
+        }
+
+        // ── K-extra: pace + ETA ──
+        // Per-session page history isn't stored, so the spans take the last 5
+        // concluded sessions' durations with the book's total progress
+        // apportioned by duration — the overall rate, needing ≥ 2 sessions.
+        // // PT: ritmo global das últimas sessões; estimativa só com 2+ sessões.
+        val pace = remember(bookBlocks, segsByBlock, book.currentPage) {
+            val durs = bookBlocks.take(5).map { blockMs(it.id) }.filter { it > 0 }
+            val total = durs.sum()
+            if (total <= 0) null else BookMath.pagesPerHour(
+                durs.map { d -> BookMath.SessionSpan(((book.currentPage.toLong() * d) / total).toInt(), d) },
+            )
+        }
+        if (pace != null) {
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = trf(
+                    if (isAudiobook) "Ritmo: ~{n} min/hora" else "Ritmo: ~{n} págs/hora",
+                    "n" to pace.roundToInt(),
+                ),
+                color = colors.ink3,
+                fontFamily = MonoFamily,
+                fontSize = 10.sp,
+            )
+            val eta = if (book.totalPages > 0) {
+                BookMath.etaDays(book.totalPages - book.currentPage, pace)
+            } else null
+            if (eta != null && eta > 0) {
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    text = trf("Conclusão estimada: em ~{n} dias", "n" to eta),
+                    color = colors.ink3,
+                    fontFamily = MonoFamily,
+                    fontSize = 10.sp,
+                )
+            }
         }
 
         // ── Rating: tap to set 1–5; tap the current star to clear ──

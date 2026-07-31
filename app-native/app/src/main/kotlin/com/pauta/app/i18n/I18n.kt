@@ -759,6 +759,11 @@ object I18n {
         "Sem livros em curso — adiciona um na Estante" to "No books in progress — add one on the Shelf", // native-only
         "Livro" to "Book", // native-only
         "Fechar" to "Close", // native-only
+
+        // ── K-extra · pace stats + ETA ──
+        "Ritmo: ~{n} págs/hora" to "Pace: ~{n} pages/hour", // native-only
+        "Ritmo: ~{n} min/hora" to "Pace: ~{n} min/hour", // native-only
+        "Conclusão estimada: em ~{n} dias" to "Estimated finish: in ~{n} days", // native-only
     )
 }
 
