@@ -226,7 +226,7 @@ correctly; reduced motion = instant jumps; CI green.
 
 ## Phase P-1 — foundations (P3, P4, P5 independent of each other)
 
-### P3 · Motion tokens — Status: pending
+### P3 · Motion tokens — Status: done (PR #144)
 
 **Depends on:** P1 (so its specs can be folded in).
 
@@ -442,3 +442,4 @@ slice: P1 → P2 → P5.
 <!-- e.g. 2026-08-01 · P1 · #n · beyondViewportPageCount=2, targetPage highlight, tint tween, settle haptic -->
 2026-07-31 · P1 · #142 · beyondViewportPageCount=2, targetPage highlight, tint tween(180) w/ reducedMotion snap, settle haptic (LongPress — no SegmentTick in UI 1.7)
 2026-07-31 · P2 · #143 · sliding indicator drawn from live pager offset (drawBehind, measured label widths), icon spring nudge 1→1.06→1, reducedMotion pins to settledPage; motion specs inline pending P3
+2026-07-31 · P3 · #144 · PautaMotion (140/240/380 + Ease/Spring/tween helper) + rememberMotionEnabled(); nav→Slow, tint/chip-exit→Fast, strike/hatch/saved/chip-enter→Base, pulse keeps 450 on house easing; deliberate springs untouched; PautaSheet had no ad-hoc specs (P9 adds Slow entrance); leftover ad-hoc specs in PautaScreen/FocusTide/Parrot/Onboarding for P6/P7/P9
