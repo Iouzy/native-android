@@ -57,6 +57,7 @@ import com.pauta.app.ui.SectionEyebrow
 import com.pauta.app.ui.clickableNoRipple
 import com.pauta.app.ui.theme.LocalPautaColors
 import com.pauta.app.ui.theme.MonoFamily
+import com.pauta.app.ui.theme.PautaType
 import com.pauta.app.ui.theme.SansFamily
 import com.pauta.app.ui.theme.SerifFamily
 import java.time.LocalDate
@@ -108,30 +109,26 @@ internal fun ZenFocus(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(20.dp),
             ) {
-                Text(
-                    text = tr("em foco").uppercase(),
-                    color = colors.onDark2,
-                    fontFamily = MonoFamily,
-                    fontSize = 10.sp,
-                    letterSpacing = 2.4.sp, // 0.24em of 10sp
-                )
+                SectionEyebrow(tr("em foco"), color = colors.onDark2)
                 Text(
                     text = block.title,
                     color = colors.onDark,
-                    fontFamily = SerifFamily,
-                    fontSize = 22.sp,
-                    lineHeight = 26.sp,
+                    style = PautaType.CardTitle,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.widthIn(max = 320.dp),
                 )
+                // P7: zen's digits are the same role as the card's, scaled up — the
+                // `.copy()` carries the tabular figures, so the centred line stops
+                // twitching as the seconds roll. // PT: os mesmos dígitos, maiores.
                 Text(
                     text = FocusMath.fmtTimer(totalElapsed),
                     color = colors.accent,
-                    fontFamily = MonoFamily,
-                    fontSize = 64.sp,
-                    fontWeight = FontWeight.Medium,
-                    letterSpacing = 1.28.sp, // 0.02em of 64sp
-                    lineHeight = 64.sp,
+                    style = PautaType.Timer.copy(
+                        fontSize = 64.sp,
+                        lineHeight = 64.sp,
+                        fontWeight = FontWeight.Medium,
+                        letterSpacing = 1.28.sp, // 0.02em of 64sp
+                    ),
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(top = 8.dp)) {
                     ZenButton(tr("Pausar"), filled = false, onClick = onPause)
@@ -286,7 +283,9 @@ internal fun EditBlockSheet(
         BasicTextField(
             value = title,
             onValueChange = { title = it },
-            textStyle = TextStyle(color = colors.ink, fontFamily = SerifFamily, fontSize = 22.sp, lineHeight = 26.sp),
+            // P7: the block title reads at the same size wherever a sheet shows it.
+            // // PT: o título do bloco no mesmo papel em todas as folhas.
+            textStyle = PautaType.CardTitle.copy(color = colors.ink),
             cursorBrush = SolidColor(colors.accent),
             modifier = Modifier
                 .fillMaxWidth()
@@ -295,7 +294,7 @@ internal fun EditBlockSheet(
             decorationBox = { inner ->
                 Box {
                     if (title.isEmpty()) {
-                        Text(tr("título do bloco"), color = colors.ink4, fontFamily = SerifFamily, fontSize = 22.sp)
+                        Text(tr("título do bloco"), color = colors.ink4, style = PautaType.CardTitle)
                     }
                     inner()
                 }
@@ -335,15 +334,13 @@ internal fun EditBlockSheet(
                                     trf("{a} → {b}", "a" to DateUtils.fmtClock(seg.startedAt), "b" to DateUtils.fmtClock(it))
                                 } ?: trf("{a} · em curso", "a" to DateUtils.fmtClock(seg.startedAt)),
                                 color = colors.ink2,
-                                fontFamily = MonoFamily,
-                                fontSize = 11.sp,
+                                style = PautaType.Meta,
                                 modifier = Modifier.weight(1f),
                             )
                             Text(
                                 text = FocusMath.fmtDuration(dur),
                                 color = colors.ink3,
-                                fontFamily = MonoFamily,
-                                fontSize = 10.sp,
+                                style = PautaType.MetaSmall,
                             )
                         }
                         val editable = seg.endedAt != null && (i < ordered.size - 1 || block.status != "done")
@@ -454,13 +451,7 @@ internal fun PautaHistorySheet(
                     .padding(horizontal = 15.dp, vertical = 9.dp),
             )
             Spacer(Modifier.height(16.dp))
-            Text(
-                text = I18n.fmtDateLong(LocalDate.parse(pickedKey)).uppercase(),
-                color = colors.ink3,
-                fontFamily = MonoFamily,
-                fontSize = 9.sp,
-                letterSpacing = 1.44.sp, // 0.16em of 9sp
-            )
+            SectionEyebrow(I18n.fmtDateLong(LocalDate.parse(pickedKey)))
             Spacer(Modifier.height(4.dp))
             val c = countOf(pickedKey)
             Text(
@@ -591,9 +582,8 @@ internal fun PautaHistorySheet(
                                         Text(
                                             text = "· " + tr("hoje").uppercase(),
                                             color = colors.accent,
-                                            fontFamily = MonoFamily,
-                                            fontSize = 9.sp,
-                                            letterSpacing = 0.9.sp,
+                                            style = PautaType.MetaSmall,
+                                            letterSpacing = 1.sp,
                                         )
                                     }
                                 }
@@ -601,8 +591,7 @@ internal fun PautaHistorySheet(
                                 Text(
                                     text = "$count " + (if (count == 1) tr("bloco") else tr("blocos")),
                                     color = colors.ink3,
-                                    fontFamily = MonoFamily,
-                                    fontSize = 10.sp,
+                                    style = PautaType.MetaSmall,
                                     letterSpacing = 0.6.sp,
                                 )
                             }

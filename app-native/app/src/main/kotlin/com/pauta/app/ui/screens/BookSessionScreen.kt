@@ -1,5 +1,13 @@
 package com.pauta.app.ui.screens
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -55,8 +63,10 @@ import com.pauta.app.ui.SheetEyebrow
 import com.pauta.app.ui.clickableNoRipple
 import com.pauta.app.ui.theme.LocalPautaColors
 import com.pauta.app.ui.theme.MonoFamily
+import com.pauta.app.ui.theme.PautaMotion
 import com.pauta.app.ui.theme.PautaType
 import com.pauta.app.ui.theme.SerifFamily
+import com.pauta.app.ui.theme.rememberMotionEnabled
 import com.pauta.app.ui.viewmodel.AppViewModel
 import kotlinx.coroutines.delay
 
@@ -79,6 +89,7 @@ fun BookSessionScreen() {
     val sessionBlocks by vm.bookSessionBlocks.collectAsStateWithLifecycle()
     val allSessions by vm.allSessions.collectAsStateWithLifecycle()
     val today by vm.todayKey.collectAsStateWithLifecycle()
+    val motion = rememberMotionEnabled()
 
     // 1s clock tick driving the live timer (same as the planner's Pauta).
     var now by remember { mutableStateOf(System.currentTimeMillis()) }
@@ -141,33 +152,54 @@ fun BookSessionScreen() {
         }
 
         // ── Active session OR the start card ──
+        // P7: the same crossfade as the planner's hero slot — the book face
+        // deliberately echoes those layouts, so it echoes the motion too.
+        // // PT: a mesma fusão do cartão herói da Pauta.
         item(key = "active-or-start") {
-            if (activeBook != null) {
-                ActiveReadingCard(
-                    block = activeBook,
-                    bookTitle = activeBookEntity?.title ?: activeBook.title,
-                    elapsed = activeSessions.lastOrNull()?.let { now - it.startedAt } ?: 0L,
-                    onPause = { vm.pauseActive("") },
-                    onConclude = { activeBookEntity?.let { concludeFor = it } },
-                )
-            } else {
-                StartReadingCard(
-                    book = selectedBook,
-                    canPick = reading.size > 1,
-                    targetMin = targetMin,
-                    onChangeTarget = { targetMin = it },
-                    onPick = { showPicker = true },
-                    onStart = {
-                        selectedBook?.let { b ->
-                            vm.startBlock(
-                                title = b.title,
-                                linkedToId = null,
-                                project = "book:${b.id}",
-                                targetMin = targetMin.takeIf { it > 0 },
-                            )
-                        }
-                    },
-                )
+            AnimatedContent(
+                targetState = activeBook,
+                contentKey = { it?.id },
+                transitionSpec = {
+                    if (!motion) {
+                        (EnterTransition.None togetherWith ExitTransition.None)
+                            .using(SizeTransform { _, _ -> snap() })
+                    } else {
+                        (
+                            fadeIn(PautaMotion.tween(PautaMotion.Base)) togetherWith
+                                fadeOut(PautaMotion.tween(PautaMotion.Fast))
+                            ).using(SizeTransform { _, _ -> PautaMotion.tween(PautaMotion.Base) })
+                    }
+                },
+                label = "book-session-hero",
+            ) { a ->
+                if (a != null) {
+                    ActiveReadingCard(
+                        bookTitle = activeBookEntity?.title ?: a.title,
+                        elapsed = activeSessions.lastOrNull()?.let { now - it.startedAt } ?: 0L,
+                        totalMs = blockMs(a.id),
+                        targetMs = a.targetMs ?: 0L,
+                        onPause = { vm.pauseActive("") },
+                        onConclude = { activeBookEntity?.let { concludeFor = it } },
+                    )
+                } else {
+                    StartReadingCard(
+                        book = selectedBook,
+                        canPick = reading.size > 1,
+                        targetMin = targetMin,
+                        onChangeTarget = { targetMin = it },
+                        onPick = { showPicker = true },
+                        onStart = {
+                            selectedBook?.let { b ->
+                                vm.startBlock(
+                                    title = b.title,
+                                    linkedToId = null,
+                                    project = "book:${b.id}",
+                                    targetMin = targetMin.takeIf { it > 0 },
+                                )
+                            }
+                        },
+                    )
+                }
             }
             Spacer(Modifier.height(22.dp))
         }
@@ -263,12 +295,15 @@ fun BookSessionScreen() {
 }
 
 /** The dark running-session card: book title above a live mono timer, with
- *  Pausar / Concluir actions. A close equivalent of the planner's active card. */
+ *  Pausar / Concluir actions. A close equivalent of the planner's active card —
+ *  P7 gave it that card's tabular timer digits, target hairline and shared pills.
+ *  // PT: o cartão escuro da sessão, com os mesmos dígitos, fio de meta e pílulas. */
 @Composable
 private fun ActiveReadingCard(
-    block: FocusBlockEntity,
     bookTitle: String,
     elapsed: Long,
+    totalMs: Long,
+    targetMs: Long,
     onPause: () -> Unit,
     onConclude: () -> Unit,
 ) {
@@ -280,13 +315,7 @@ private fun ActiveReadingCard(
             .background(colors.surfaceDark)
             .padding(start = 22.dp, end = 22.dp, top = 22.dp, bottom = 18.dp),
     ) {
-        Text(
-            text = tr("em curso").uppercase(),
-            color = colors.onDark2,
-            fontFamily = MonoFamily,
-            fontSize = 10.sp,
-            letterSpacing = 2.sp, // 0.2em of 10sp
-        )
+        SectionEyebrow(tr("em curso"), color = colors.onDark2)
         Spacer(Modifier.height(10.dp))
         Text(
             text = bookTitle,
@@ -297,57 +326,29 @@ private fun ActiveReadingCard(
         )
         Spacer(Modifier.height(18.dp))
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
-            Text(
-                text = FocusMath.fmtTimer(elapsed),
-                color = colors.onDark,
-                fontFamily = MonoFamily,
-                fontSize = 42.sp,
-                fontWeight = FontWeight.Light,
-                letterSpacing = (-0.84).sp, // -0.02em of 42sp
-                lineHeight = 40.sp,
-                modifier = Modifier.weight(1f),
-            )
-            Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                DarkOutlinePill(tr("Pausar"), icon = { PauseBars(colors.onDark, 10.dp) }, onClick = onPause)
+            Column(Modifier.weight(1f)) {
                 Text(
-                    text = tr("Concluir").uppercase(),
+                    text = FocusMath.fmtTimer(elapsed),
                     color = colors.onDark,
-                    fontFamily = MonoFamily,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Medium,
-                    letterSpacing = 1.1.sp, // 0.1em of 11sp
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(999.dp))
-                        .background(colors.accent)
-                        .clickableNoRipple(onConclude)
-                        .padding(horizontal = 16.dp, vertical = 10.dp),
+                    style = PautaType.Timer,
                 )
+                // A reading session can carry a duration too (the start card's
+                // 25/50/90 pills), so it gets the planner's target hairline.
+                // // PT: a sessão também tem meta — logo, o mesmo fio.
+                if (targetMs > 0) {
+                    TargetUnderline(
+                        progress = totalMs.toFloat() / targetMs,
+                        reached = totalMs >= targetMs,
+                        modifier = Modifier.padding(top = 8.dp),
+                    )
+                }
+            }
+            Spacer(Modifier.width(12.dp))
+            Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                DarkPillButton(tr("Pausar"), icon = { PauseBars(colors.onDark, 10.dp) }, onClick = onPause)
+                DarkAccentPill(tr("Concluir"), onClick = onConclude)
             }
         }
-    }
-}
-
-/** A translucent outlined mono pill on the dark card (mirrors Pausar/Trocar). */
-@Composable
-private fun DarkOutlinePill(label: String, icon: @Composable () -> Unit, onClick: () -> Unit) {
-    val colors = LocalPautaColors.current
-    Row(
-        Modifier
-            .clip(RoundedCornerShape(999.dp))
-            .border(1.dp, Color(0x38F5F1EA), RoundedCornerShape(999.dp)) // rgba(245,241,234,0.22)
-            .clickableNoRipple(onClick)
-            .padding(horizontal = 12.dp, vertical = 9.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        icon()
-        Text(
-            text = label.uppercase(),
-            color = colors.onDark,
-            fontFamily = MonoFamily,
-            fontSize = 10.sp,
-            letterSpacing = 0.8.sp, // 0.08em of 10sp
-        )
     }
 }
 
@@ -451,7 +452,7 @@ private fun PausedReadingRow(title: String, totalMs: Long, onResume: () -> Unit)
                 Text(
                     text = title,
                     color = colors.ink,
-                    fontSize = 14.sp,
+                    style = PautaType.Label,
                     fontWeight = FontWeight.Medium,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -463,25 +464,7 @@ private fun PausedReadingRow(title: String, totalMs: Long, onResume: () -> Unit)
                     style = PautaType.MetaSmall,
                 )
             }
-            Row(
-                Modifier
-                    .clip(RoundedCornerShape(999.dp))
-                    .background(colors.accent)
-                    .clickableNoRipple(onResume)
-                    .padding(horizontal = 14.dp, vertical = 9.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(5.dp),
-            ) {
-                PlayTriangle(colors.onDark, 10.dp)
-                Text(
-                    text = tr("Retomar").uppercase(),
-                    color = colors.onDark,
-                    fontFamily = MonoFamily,
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Medium,
-                    letterSpacing = 0.8.sp,
-                )
-            }
+            ResumePill(onResume)
         }
     }
 }

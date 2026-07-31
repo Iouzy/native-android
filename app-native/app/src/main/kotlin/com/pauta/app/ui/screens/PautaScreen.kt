@@ -1,5 +1,9 @@
 package com.pauta.app.ui.screens
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -9,6 +13,9 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -84,6 +91,7 @@ import com.pauta.app.ui.clickableNoRipple
 import com.pauta.app.ui.computeTodayTides
 import com.pauta.app.ui.theme.LocalPautaColors
 import com.pauta.app.ui.theme.MonoFamily
+import com.pauta.app.ui.theme.PautaMotion
 import com.pauta.app.ui.theme.PautaType
 import com.pauta.app.ui.theme.SerifFamily
 import java.time.LocalDate
@@ -247,37 +255,57 @@ fun PautaScreen(bookMode: Boolean = false) {
             }
 
             // ── Active block / start CTA ──
+            // P7: the hero slot crossfades between the two faces instead of
+            // snapping — starting, pausing and resuming now read as one surface
+            // changing state. Keyed on the block id so the 1s tick (and note
+            // edits) never restart the transition. // PT: o cartão herói
+            // atravessa em fusão entre "a começar" e "em curso".
             item(key = "active-or-start") {
-                active?.let { a ->
-                    ActiveBlockCard(
-                        block = a,
-                        sessions = sessionsOf(a.id),
-                        now = now,
-                        intention = a.linkedToId?.let { id -> intentions.firstOrNull { it.id == id } },
-                        reducedMotion = prefs.reducedMotion,
-                        onReached = {
-                            val min = a.targetMs?.let { (it / 60_000L).toInt() } ?: 0
-                            reachedPrompt = min
-                            // F1: a single quiet tick as the tide crests on target
-                            // (A1's pref still governs it). // PT: um toque ao
-                            // cumprir a meta, conforme a preferência de vibração.
-                            if (prefs.haptics) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            // T2: soft chime when the focus target is reached.
-                            // PT: sino suave ao atingir a meta, conforme a pref de som.
-                            if (prefs.sound) playChime(context)
-                        },
-                        onPause = { pauseWithNote(a) },
-                        onSwitch = { showSwitch = true },
-                        onConclude = { concludeOptimistic(a) },
-                        onCancel = { discardFor = a },
-                        onZen = { zen = true },
-                    )
-                    Spacer(Modifier.height(22.dp))
+                AnimatedContent(
+                    targetState = active,
+                    contentKey = { it?.id },
+                    transitionSpec = {
+                        if (prefs.reducedMotion) {
+                            (EnterTransition.None togetherWith ExitTransition.None)
+                                .using(SizeTransform { _, _ -> snap() })
+                        } else {
+                            (
+                                fadeIn(PautaMotion.tween(PautaMotion.Base)) togetherWith
+                                    fadeOut(PautaMotion.tween(PautaMotion.Fast))
+                                ).using(SizeTransform { _, _ -> PautaMotion.tween(PautaMotion.Base) })
+                        }
+                    },
+                    label = "pauta-hero",
+                ) { a ->
+                    if (a != null) {
+                        ActiveBlockCard(
+                            block = a,
+                            sessions = sessionsOf(a.id),
+                            now = now,
+                            intention = a.linkedToId?.let { id -> intentions.firstOrNull { it.id == id } },
+                            reducedMotion = prefs.reducedMotion,
+                            onReached = {
+                                val min = a.targetMs?.let { (it / 60_000L).toInt() } ?: 0
+                                reachedPrompt = min
+                                // F1: a single quiet tick as the tide crests on target
+                                // (A1's pref still governs it). // PT: um toque ao
+                                // cumprir a meta, conforme a preferência de vibração.
+                                if (prefs.haptics) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                // T2: soft chime when the focus target is reached.
+                                // PT: sino suave ao atingir a meta, conforme a pref de som.
+                                if (prefs.sound) playChime(context)
+                            },
+                            onPause = { pauseWithNote(a) },
+                            onSwitch = { showSwitch = true },
+                            onConclude = { concludeOptimistic(a) },
+                            onCancel = { discardFor = a },
+                            onZen = { zen = true },
+                        )
+                    } else {
+                        StartCtaCard { showStart = true }
+                    }
                 }
-                if (active == null) {
-                    StartCtaCard { showStart = true }
-                    Spacer(Modifier.height(22.dp))
-                }
+                Spacer(Modifier.height(22.dp))
             }
 
             // ── Paused blocks ── keyed cards so A3 can animate them.
@@ -507,11 +535,12 @@ fun PautaScreen(bookMode: Boolean = false) {
 private fun HeaderChip(label: String, onClick: () -> Unit) {
     val colors = LocalPautaColors.current
     Text(
+        // P7: the last 9sp header chip joins Hoje's MetaSmall (P6 did the same).
+        // // PT: a última etiqueta a 9sp passa ao papel MetaSmall.
         text = label.uppercase(),
         color = colors.ink3,
-        fontFamily = MonoFamily,
-        fontSize = 9.sp,
-        letterSpacing = 1.26.sp, // 0.14em of 9sp
+        style = PautaType.MetaSmall,
+        letterSpacing = 1.4.sp, // 0.14em of 10sp
         modifier = Modifier
             .clip(RoundedCornerShape(PautaRadius.Chip))
             .border(1.dp, colors.rule, RoundedCornerShape(PautaRadius.Chip))
@@ -534,15 +563,12 @@ private fun StartCtaCard(onClick: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f)) {
-            Text(
-                text = tr("começar").uppercase(),
-                color = colors.onDark2,
-                fontFamily = MonoFamily,
-                fontSize = 10.sp,
-                letterSpacing = 2.sp, // 0.2em of 10sp
-            )
+            // P7: the dark surfaces' eyebrows go through the shared SectionEyebrow
+            // (onDark2 variant) and the card line through CardTitle.
+            // // PT: eyebrow e título do cartão nos papéis partilhados.
+            SectionEyebrow(tr("começar"), color = colors.onDark2)
             Spacer(Modifier.height(4.dp))
-            Text(tr("Um novo bloco"), color = colors.onDark, fontFamily = SerifFamily, fontSize = 22.sp)
+            Text(tr("Um novo bloco"), color = colors.onDark, style = PautaType.CardTitle)
         }
         Box(
             Modifier.size(38.dp).clip(CircleShape).background(colors.accent),
@@ -645,20 +671,16 @@ private fun ActiveBlockCard(
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             PulsingDot(color = colors.accent, animate = !reducedMotion)
             Spacer(Modifier.width(8.dp))
-            Text(
-                text = (if (hasResumed) tr("retomado · em curso") else tr("em curso")).uppercase(),
+            SectionEyebrow(
+                label = if (hasResumed) tr("retomado · em curso") else tr("em curso"),
                 color = colors.onDark2,
-                fontFamily = MonoFamily,
-                fontSize = 10.sp,
-                letterSpacing = 2.sp, // 0.2em of 10sp
                 modifier = Modifier.weight(1f),
             )
             current?.let {
                 Text(
                     text = trf("início {t}", "t" to DateUtils.fmtClock(it.startedAt)),
                     color = colors.onDark2,
-                    fontFamily = MonoFamily,
-                    fontSize = 10.sp,
+                    style = PautaType.MetaSmall,
                     letterSpacing = 0.6.sp, // 0.06em of 10sp
                 )
             }
@@ -695,12 +717,20 @@ private fun ActiveBlockCard(
                 Text(
                     text = FocusMath.fmtTimer(elapsed),
                     color = colors.onDark,
-                    fontFamily = MonoFamily,
-                    fontSize = 42.sp,
-                    fontWeight = FontWeight.Light,
-                    letterSpacing = (-0.84).sp, // -0.02em of 42sp
-                    lineHeight = 40.sp,
+                    style = PautaType.Timer,
                 )
+                // P7: with a target set, a hairline under the digits measures the
+                // way there. The tide behind the card is the mood; this is the
+                // number. It moves only with the caller's 1s tick — no animation
+                // loop, so reduced motion needs no special case.
+                // // PT: fio sob os dígitos a medir o caminho até à meta.
+                if (target > 0) {
+                    TargetUnderline(
+                        progress = tideProgress,
+                        reached = reached,
+                        modifier = Modifier.padding(top = 6.dp, bottom = 2.dp),
+                    )
+                }
                 if (hasResumed) {
                     Text(
                         text = trf("{d} no total", "d" to FocusMath.fmtDuration(totalElapsed)),
@@ -725,19 +755,7 @@ private fun ActiveBlockCard(
                     DarkPillButton(tr("Pausar"), icon = { PauseBars(colors.onDark, 10.dp) }, onClick = onPause)
                     DarkPillButton(tr("Trocar"), icon = { Text("›", color = colors.onDark, fontSize = 12.sp, lineHeight = 12.sp) }, onClick = onSwitch)
                 }
-                Text(
-                    text = tr("Concluir").uppercase(),
-                    color = colors.onDark,
-                    fontFamily = MonoFamily,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Medium,
-                    letterSpacing = 1.1.sp, // 0.1em of 11sp
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(999.dp))
-                        .background(colors.accent)
-                        .clickableNoRipple(onConclude)
-                        .padding(horizontal = 16.dp, vertical = 10.dp),
-                )
+                DarkAccentPill(tr("Concluir"), onClick = onConclude)
             }
         }
     }
@@ -800,9 +818,14 @@ private fun ZenCorners(color: Color) {
     }
 }
 
-/** The dark card's outlined mono pill buttons (Pausar / Trocar). */
+/**
+ * The dark card's outlined mono pill buttons (Pausar / Trocar). P7 made it
+ * `internal`: the book-mode session card carried a byte-identical private copy
+ * (`DarkOutlinePill`), so both faces now share one pill.
+ * // PT: pílula contornada dos cartões escuros, partilhada com o modo livro.
+ */
 @Composable
-private fun DarkPillButton(label: String, icon: (@Composable () -> Unit)? = null, onClick: () -> Unit) {
+internal fun DarkPillButton(label: String, icon: (@Composable () -> Unit)? = null, onClick: () -> Unit) {
     val colors = LocalPautaColors.current
     Row(
         Modifier
@@ -817,9 +840,81 @@ private fun DarkPillButton(label: String, icon: (@Composable () -> Unit)? = null
         Text(
             text = label.uppercase(),
             color = colors.onDark,
-            fontFamily = MonoFamily,
-            fontSize = 10.sp,
+            style = PautaType.MetaSmall,
             letterSpacing = 0.8.sp, // 0.08em of 10sp
+        )
+    }
+}
+
+/** The filled accent pill on a dark card — the "Concluir" action, shared by the
+ *  planner's block card and the book face's session card.
+ *  // PT: a pílula accent de "Concluir", partilhada pelas duas faces. */
+@Composable
+internal fun DarkAccentPill(label: String, onClick: () -> Unit) {
+    val colors = LocalPautaColors.current
+    Text(
+        text = label.uppercase(),
+        color = colors.onDark,
+        style = PautaType.Meta,
+        fontWeight = FontWeight.Medium,
+        letterSpacing = 1.1.sp, // 0.1em of 11sp
+        modifier = Modifier
+            .clip(RoundedCornerShape(999.dp))
+            .background(colors.accent)
+            .clickableNoRipple(onClick)
+            .padding(horizontal = 16.dp, vertical = 10.dp),
+    )
+}
+
+/** The accent "Retomar" pill on a paused row — planner and book face alike.
+ *  // PT: a pílula de retomar, igual nas duas faces. */
+@Composable
+internal fun ResumePill(onClick: () -> Unit) {
+    val colors = LocalPautaColors.current
+    Row(
+        Modifier
+            .clip(RoundedCornerShape(999.dp))
+            .background(colors.accent)
+            .clickableNoRipple(onClick)
+            .padding(horizontal = 14.dp, vertical = 9.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(5.dp),
+    ) {
+        PlayTriangle(colors.onDark, 10.dp)
+        Text(
+            text = tr("Retomar").uppercase(),
+            color = colors.onDark,
+            style = PautaType.MetaSmall,
+            fontWeight = FontWeight.Medium,
+            letterSpacing = 0.8.sp,
+        )
+    }
+}
+
+/**
+ * The timer's target hairline: a faint track on the dark surface with an accent
+ * fill at [progress] (0..1), turning full accent once [reached]. Deliberately
+ * un-animated — it advances with the card's existing 1s tick, so it costs no
+ * extra frames and behaves identically under reduced motion.
+ * // PT: o fio da meta sob os dígitos — avança com o tique de 1s, sem animação.
+ */
+@Composable
+internal fun TargetUnderline(progress: Float, reached: Boolean, modifier: Modifier = Modifier) {
+    val colors = LocalPautaColors.current
+    val bar = RoundedCornerShape(1.dp)
+    Box(
+        modifier
+            .fillMaxWidth()
+            .height(2.dp)
+            .clip(bar)
+            .background(Color(0x1FF5F1EA)), // rgba(245,241,234,0.12) — the dark card's hairline
+    ) {
+        Box(
+            Modifier
+                .fillMaxWidth(progress.coerceIn(0f, 1f))
+                .height(2.dp)
+                .clip(bar)
+                .background(if (reached) colors.accent else colors.accent.copy(alpha = 0.7f)),
         )
     }
 }
@@ -853,7 +948,7 @@ private fun PausedBlockCard(
                 Text(
                     text = block.title,
                     color = colors.ink,
-                    fontSize = 14.sp,
+                    style = PautaType.Label,
                     fontWeight = FontWeight.Medium,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -866,30 +961,11 @@ private fun PausedBlockCard(
                         "d" to FocusMath.fmtDuration(totalMs),
                     ),
                     color = colors.ink3,
-                    fontFamily = MonoFamily,
-                    fontSize = 10.sp,
+                    style = PautaType.MetaSmall,
                     letterSpacing = 0.4.sp, // 0.04em of 10sp
                 )
             }
-            Row(
-                Modifier
-                    .clip(RoundedCornerShape(999.dp))
-                    .background(colors.accent)
-                    .clickableNoRipple(onResume)
-                    .padding(horizontal = 14.dp, vertical = 9.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(5.dp),
-            ) {
-                PlayTriangle(colors.onDark, 10.dp)
-                Text(
-                    text = tr("Retomar").uppercase(),
-                    color = colors.onDark,
-                    fontFamily = MonoFamily,
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Medium,
-                    letterSpacing = 0.8.sp,
-                )
-            }
+            ResumePill(onResume)
             Box(Modifier.size(30.dp).clickableNoRipple(onEdit), contentAlignment = Alignment.Center) {
                 KebabDots(colors.ink3)
             }
@@ -1049,8 +1125,7 @@ private fun TimelineRow(
                 Text(
                     text = "└─ " + FocusMath.fmtDuration(segDuration),
                     color = colors.ink3,
-                    fontFamily = MonoFamily,
-                    fontSize = 10.sp,
+                    style = PautaType.MetaSmall,
                     letterSpacing = 0.4.sp,
                 )
             }
@@ -1061,8 +1136,7 @@ private fun TimelineRow(
                     Text(
                         text = tr("em curso"),
                         color = colors.accent,
-                        fontFamily = MonoFamily,
-                        fontSize = 10.sp,
+                        style = PautaType.MetaSmall,
                         letterSpacing = 0.4.sp,
                     )
                 }
@@ -1207,20 +1281,12 @@ private fun GoalReachedPrompt(
             .border(1.dp, colors.accent, RoundedCornerShape(PautaRadius.Card))
             .padding(horizontal = 18.dp, vertical = 16.dp),
     ) {
-        Text(
-            text = tr("meta cumprida").uppercase(),
-            color = colors.accent,
-            fontFamily = MonoFamily,
-            fontSize = 9.sp,
-            letterSpacing = 1.8.sp, // 0.2em of 9sp
-        )
+        SectionEyebrow(tr("meta cumprida"), color = colors.accent)
         Spacer(Modifier.height(6.dp))
         Text(
             text = if (targetMin > 0) trf("Cumpriu os {n} min planeados.", "n" to targetMin) else tr("Cumpriu a meta planeada."),
             color = colors.onDark,
-            fontFamily = SerifFamily,
-            fontSize = 19.sp,
-            lineHeight = 24.sp,
+            style = PautaType.CardTitle,
         )
         Spacer(Modifier.height(14.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {

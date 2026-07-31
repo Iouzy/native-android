@@ -61,6 +61,7 @@ import com.pauta.app.ui.TideToday
 import com.pauta.app.ui.clickableNoRipple
 import com.pauta.app.ui.theme.LocalPautaColors
 import com.pauta.app.ui.theme.MonoFamily
+import com.pauta.app.ui.theme.PautaType
 import com.pauta.app.ui.theme.SansFamily
 import com.pauta.app.ui.theme.SerifFamily
 
@@ -119,7 +120,9 @@ fun StartSheet(
             Spacer(Modifier.height(14.dp))
         }
 
-        Text(tr("Em que vais focar?"), color = colors.ink, fontFamily = SerifFamily, fontSize = 22.sp)
+        // P7: every Pauta sheet's block line is one role now (was 20 / 22 / 24sp
+        // across the four sheets). // PT: a linha do bloco num só papel.
+        Text(tr("Em que vais focar?"), color = colors.ink, style = PautaType.CardTitle)
         Spacer(Modifier.height(4.dp))
         UnderlineField(
             value = title,
@@ -197,9 +200,9 @@ fun StartSheet(
                         horizontalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
                         Text(b.title, color = colors.ink, fontSize = 14.sp, modifier = Modifier.weight(1f))
-                        b.project?.let { Text(it, color = colors.ink3, fontFamily = MonoFamily, fontSize = 10.sp) }
+                        b.project?.let { Text(it, color = colors.ink3, style = PautaType.MetaSmall) }
                         b.targetMs?.takeIf { it > 0 }?.let {
-                            Text(FocusMath.fmtDuration(it), color = colors.accent, fontFamily = MonoFamily, fontSize = 10.sp)
+                            Text(FocusMath.fmtDuration(it), color = colors.accent, style = PautaType.MetaSmall)
                         }
                     }
                 }
@@ -257,7 +260,7 @@ fun PauseSheet(
     PautaSheet(title = tr("Pausar bloco"), onClose = onResume) {
         Text(tr("pausado"), color = colors.ink3, fontFamily = SerifFamily, fontStyle = FontStyle.Italic, fontSize = 14.sp)
         Spacer(Modifier.height(4.dp))
-        Text(block.title, color = colors.ink, fontFamily = SerifFamily, fontSize = 22.sp, lineHeight = 26.sp)
+        Text(block.title, color = colors.ink, style = PautaType.CardTitle)
         Spacer(Modifier.height(18.dp))
 
         SheetEyebrow(tr("O que ficou em mente? (opcional)"))
@@ -301,7 +304,7 @@ fun ConcludeSheet(
     PautaSheet(title = tr("Concluir bloco"), onClose = onCancel) {
         SectionEyebrow(trf("✓ {d} em foco", "d" to FocusMath.fmtDuration(totalMs)), color = colors.accent)
         Spacer(Modifier.height(6.dp))
-        Text(block.title, color = colors.ink, fontFamily = SerifFamily, fontSize = 24.sp, lineHeight = 29.sp)
+        Text(block.title, color = colors.ink, style = PautaType.CardTitle)
         Spacer(Modifier.height(if (planned > 0) 8.dp else 18.dp))
 
         // Plan vs. actual — only when the block carried a planned duration.
@@ -315,9 +318,8 @@ fun ConcludeSheet(
                     }
                 },
                 color = colors.ink3,
-                fontFamily = MonoFamily,
-                fontSize = 10.5.sp,
-                letterSpacing = 0.21.sp,
+                style = PautaType.MetaSmall,
+                letterSpacing = 0.2.sp,
             )
             Spacer(Modifier.height(18.dp))
         }
@@ -617,9 +619,7 @@ fun SwitchSheet(
         Text(
             text = currentBlock.title,
             color = colors.ink,
-            fontFamily = SerifFamily,
-            fontSize = 20.sp,
-            lineHeight = 24.sp,
+            style = PautaType.CardTitle,
         )
         Spacer(Modifier.height(18.dp))
 
