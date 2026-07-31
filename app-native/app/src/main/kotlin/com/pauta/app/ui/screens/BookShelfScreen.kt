@@ -294,9 +294,10 @@ private fun BookDoneCard(book: BookEntity, onClick: () -> Unit) {
 }
 
 /** A slim accent-on-rule progress bar, the same visual weight as the tide-fill
- *  cells — a track with an accent fill clipped to [fraction]. */
+ *  cells — a track with an accent fill clipped to [fraction]. Internal so K7's
+ *  annual-goal card and K8's detail sheet can reuse it. */
 @Composable
-private fun ProgressBar(fraction: Float) {
+internal fun ProgressBar(fraction: Float) {
     val colors = LocalPautaColors.current
     Box(
         Modifier

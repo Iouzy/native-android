@@ -728,6 +728,13 @@ object I18n {
         "Sessões de leitura" to "Reading sessions", // native-only
         "Nenhuma sessão ainda" to "No sessions yet", // native-only
         "Adiciona um livro na Estante primeiro" to "Add a book on the Shelf first", // native-only
+
+        // ── K7 · Marés → reading habits + annual goal ──
+        "Objetivo anual" to "Annual goal", // native-only
+        "livros este ano" to "books this year", // native-only
+        "Definir objetivo" to "Set goal", // native-only
+        "Objetivo de livros por ano" to "Annual book goal", // native-only
+        "Hábitos de leitura" to "Reading habits", // native-only
     )
 }
 

@@ -98,9 +98,14 @@ import java.time.YearMonth
  * increments; long-press an empty day marks a respiro; tapping the name opens the
  * detail sheet (where edit / archive / remove live — A7 dropped the
  * undiscoverable long-press-to-delete). // PT: tab Marés segundo a grelha da web.
+ *
+ * @param bookMode when true (K7) the annual-goal card + "Hábitos de leitura"
+ *   eyebrow lead the list and the tides below become the reading habits — the
+ *   same engine, embedded unchanged as items of this LazyColumn (a nested
+ *   scrollable would clash). Off = the planner Marés, untouched.
  */
 @Composable
-fun MaresScreen() {
+fun MaresScreen(bookMode: Boolean = false) {
     val colors = LocalPautaColors.current
     val vm: AppViewModel = viewModel()
     val habits by vm.habits.collectAsStateWithLifecycle()
@@ -151,6 +156,25 @@ fun MaresScreen() {
             contentPadding = PaddingValues(horizontal = 24.dp),
         ) {
             item(key = "top") { Spacer(Modifier.height(8.dp)) }
+
+            // K7 (book mode): the annual reading goal leads, then the reading-
+            // habits eyebrow; everything below is the normal Marés, unchanged.
+            // // PT: objetivo anual + eyebrow de hábitos de leitura à cabeça.
+            if (bookMode) {
+                item(key = "book-goal") {
+                    Spacer(Modifier.height(6.dp))
+                    BookAnnualGoalCard()
+                    Spacer(Modifier.height(26.dp))
+                    Text(
+                        text = tr("Hábitos de leitura").uppercase(),
+                        color = colors.ink3,
+                        fontFamily = MonoFamily,
+                        fontSize = 10.sp,
+                        letterSpacing = 2.sp, // 0.2em of 10sp
+                    )
+                    Spacer(Modifier.height(14.dp))
+                }
+            }
 
             // Month navigation (stands in for the web's MonthStrip).
             item(key = "month-nav") {

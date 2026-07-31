@@ -429,7 +429,7 @@ private fun HomeShell(
                 when (Tab.entries[page]) {
                     Tab.HOJE -> HojeScreen(onOpenHistory = onOpenHistory, bookMode = prefs.bookMode)
                     Tab.PAUTA -> PautaScreen(bookMode = prefs.bookMode)
-                    Tab.MARES -> MaresScreen()
+                    Tab.MARES -> MaresScreen(bookMode = prefs.bookMode)
                 }
             }
             TabBar(
