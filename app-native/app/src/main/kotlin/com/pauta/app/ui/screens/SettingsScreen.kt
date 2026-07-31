@@ -19,11 +19,13 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -64,7 +66,11 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.pauta.app.i18n.tr
 import com.pauta.app.i18n.trf
+import com.pauta.app.ui.PautaCard
+import com.pauta.app.ui.PautaRadius
 import com.pauta.app.ui.PautaSheet
+import com.pauta.app.ui.SectionEyebrow
+import com.pauta.app.ui.SheetFieldGap
 import com.pauta.app.ui.canUseBiometric
 import com.pauta.app.ui.clickableNoRipple
 import com.pauta.app.ui.theme.LocalPautaColors
@@ -262,9 +268,9 @@ fun SettingsScreen(
             Box(
                 Modifier
                     .size(44.dp)
-                    .clip(RoundedCornerShape(12.dp))
+                    .clip(RoundedCornerShape(PautaRadius.Field))
                     .background(colors.accent.copy(alpha = 0.08f))
-                    .border(1.dp, colors.accent.copy(alpha = 0.2f), RoundedCornerShape(12.dp)),
+                    .border(1.dp, colors.accent.copy(alpha = 0.2f), RoundedCornerShape(PautaRadius.Field)),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
@@ -354,7 +360,10 @@ fun SettingsScreen(
                 onSelect = { vm.setTheme(it) },
             )
             CardDivider()
-            Column(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+            Column(
+                Modifier.fillMaxWidth().heightIn(min = RowMinHeight).padding(vertical = RowVPadding),
+                verticalArrangement = Arrangement.Center,
+            ) {
                 Text(tr("Cor de destaque"), color = colors.ink2, fontSize = 14.sp)
                 Spacer(Modifier.height(8.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -480,8 +489,8 @@ fun SettingsScreen(
                     fontSize = 10.sp,
                     letterSpacing = 0.08.sp,
                     modifier = Modifier
-                        .clip(RoundedCornerShape(8.dp))
-                        .border(1.dp, colors.rule, RoundedCornerShape(8.dp))
+                        .clip(RoundedCornerShape(PautaRadius.Chip))
+                        .border(1.dp, colors.rule, RoundedCornerShape(PautaRadius.Chip))
                         .clickableNoRipple {
                             testNotifMsg = null
                             val ok = sendTestReminder(context)
@@ -644,12 +653,9 @@ fun SettingsScreen(
                     // PT: notas da versão, mostradas como texto simples.
                     val notes = updAvailable!!.notes
                     if (notes.isNotBlank()) {
-                        Text(
-                            tr("Novidades").uppercase(),
+                        SectionEyebrow(
+                            tr("Novidades"),
                             color = colors.ink4,
-                            fontFamily = MonoFamily,
-                            fontSize = 11.sp,
-                            letterSpacing = 0.5.sp,
                             modifier = Modifier.padding(bottom = 4.dp),
                         )
                         Text(
@@ -680,7 +686,13 @@ fun SettingsScreen(
         }
 
         // ── ZONA PERIGOSA ────────────────────────────────────────────────
-        Section(tr("Zona perigosa"))
+        // The one section you should never reach by accident: an extra gap and a
+        // full-width rule cut it off from the list above, and its header carries
+        // the danger red the rows use. // PT: a zona perigosa fica separada por
+        // um espaço maior e uma linha; o cabeçalho vem em vermelho.
+        Spacer(Modifier.height(SectionGap))
+        HorizontalDivider(color = colors.rule)
+        Section(tr("Zona perigosa"), color = DangerRed)
         SectionCard {
             ActionRow(
                 label = tr("Recarregar exemplo"),
@@ -778,7 +790,7 @@ private fun shareBackup(context: android.content.Context, json: String) {
 private fun TimeRow(label: String, value: String, onCommit: (String) -> Unit) {
     val colors = LocalPautaColors.current
     Row(
-        Modifier.fillMaxWidth().padding(vertical = 8.dp),
+        Modifier.fillMaxWidth().heightIn(min = RowMinHeight).padding(vertical = RowVPadding),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(label, color = colors.ink, fontSize = 16.sp, modifier = Modifier.weight(1f))
@@ -790,30 +802,36 @@ private fun TimeRow(label: String, value: String, onCommit: (String) -> Unit) {
     }
 }
 
+// P9 · Settings anatomy — one section header (the app's [SectionEyebrow], not a
+// private sans copy), one card (the shared [PautaCard]) and one row height, so
+// scrolling the list reads as a single rhythm instead of eight. // PT: a
+// anatomia das definições — um só cabeçalho, um só cartão, uma só altura de
+// linha.
+
+/** The gap above a section header. // PT: espaço antes de cada secção. */
+private val SectionGap = 24.dp
+
+/** Every settings row's vertical padding, and the floor that keeps an action row
+ *  the same height as the toggle row above it (a M3 [Switch] is 32dp tall, plain
+ *  text isn't). // PT: a altura mínima que alinha linhas de acção e de
+ *  interruptor. */
+private val RowVPadding = 11.dp
+private val RowMinHeight = 56.dp
+
 @Composable
-private fun Section(title: String) {
-    val colors = LocalPautaColors.current
-    Spacer(Modifier.height(26.dp))
-    Text(
-        title.uppercase(),
-        color = colors.ink3,
-        fontSize = 11.sp,
-        fontWeight = FontWeight.SemiBold,
-    )
+private fun Section(title: String, color: Color = LocalPautaColors.current.ink3) {
+    Spacer(Modifier.height(SectionGap))
+    SectionEyebrow(title, color = color)
     Spacer(Modifier.height(8.dp))
 }
 
-/** Rounded card grouping rows — matches the web DataGroup visual. */
+/** Rounded card grouping rows — the shared paper card, padded so its rows keep
+ *  the gutter they had. // PT: o cartão partilhado a agrupar as linhas. */
 @Composable
 private fun SectionCard(content: @Composable ColumnScope.() -> Unit) {
-    val colors = LocalPautaColors.current
-    Column(
-        Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(colors.paper2)
-            .border(1.dp, colors.rule, RoundedCornerShape(12.dp))
-            .padding(horizontal = 14.dp),
+    PautaCard(
+        modifier = Modifier.fillMaxWidth(),
+        padding = PaddingValues(horizontal = 16.dp),
         content = content,
     )
 }
@@ -837,7 +855,9 @@ private fun ActionRow(
         Modifier
             .fillMaxWidth()
             .clickableNoRipple(onClick)
-            .padding(vertical = 10.dp),
+            .heightIn(min = RowMinHeight)
+            .padding(vertical = RowVPadding),
+        verticalArrangement = Arrangement.Center,
     ) {
         Text(
             text = label,
@@ -883,7 +903,7 @@ private fun ArchivedHabitsSheet(
             fontSize = 13.sp,
             lineHeight = 19.sp,
         )
-        Spacer(Modifier.height(14.dp))
+        Spacer(Modifier.height(SheetFieldGap))
         habits.forEachIndexed { i, h ->
             if (i > 0) CardDivider()
             ArchivedHabitRow(habit = h, onRestore = { onRestore(h) }, onDelete = { onDelete(h) })
@@ -945,7 +965,7 @@ private fun ToggleRow(
 ) {
     val colors = LocalPautaColors.current
     Row(
-        Modifier.fillMaxWidth().padding(vertical = 8.dp),
+        Modifier.fillMaxWidth().heightIn(min = RowMinHeight).padding(vertical = RowVPadding),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f)) {
@@ -977,7 +997,10 @@ private fun SegmentedRow(
     onSelect: (String) -> Unit,
 ) {
     val colors = LocalPautaColors.current
-    Column(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+    Column(
+        Modifier.fillMaxWidth().heightIn(min = RowMinHeight).padding(vertical = RowVPadding),
+        verticalArrangement = Arrangement.Center,
+    ) {
         Text(label, color = colors.ink2, fontSize = 14.sp)
         Spacer(Modifier.height(8.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -985,9 +1008,9 @@ private fun SegmentedRow(
                 val isSel = value == selected
                 Box(
                     Modifier
-                        .clip(RoundedCornerShape(8.dp))
+                        .clip(RoundedCornerShape(PautaRadius.Chip))
                         .background(if (isSel) colors.accent.copy(alpha = 0.16f) else colors.paper)
-                        .border(1.dp, if (isSel) colors.accent.copy(alpha = 0.3f) else colors.rule, RoundedCornerShape(8.dp))
+                        .border(1.dp, if (isSel) colors.accent.copy(alpha = 0.3f) else colors.rule, RoundedCornerShape(PautaRadius.Chip))
                         .clickableNoRipple { onSelect(value) }
                         .padding(horizontal = 14.dp, vertical = 8.dp),
                 ) {

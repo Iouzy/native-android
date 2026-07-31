@@ -1,5 +1,7 @@
 package com.pauta.app.ui
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
@@ -22,14 +24,21 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -37,6 +46,27 @@ import androidx.compose.ui.window.DialogProperties
 import com.pauta.app.i18n.tr
 import com.pauta.app.ui.theme.LocalPautaColors
 import com.pauta.app.ui.theme.MonoFamily
+import com.pauta.app.ui.theme.PautaMotion
+import com.pauta.app.ui.theme.rememberMotionEnabled
+
+// P9 · Sheet anatomy — the four gaps every sheet body is built from, so the
+// ~dozen forms stop mixing 6/10/14/16/18/20/22/24 for the same job. Anything
+// tighter than these (a title and the field right under it, a hint under a
+// control group) stays a local literal — these are the *structural* gaps.
+// // PT: a anatomia das folhas — os quatro espaçamentos de que todos os
+// formulários são feitos; os espaços mais curtos continuam locais.
+
+/** The gutter of every sheet body — header and content share it. // PT: a margem lateral. */
+val SheetGutter: Dp = 24.dp
+
+/** Between two field groups (an eyebrow + its control and the next). // PT: entre grupos. */
+val SheetFieldGap: Dp = 18.dp
+
+/** Between an eyebrow/label and the control it names. // PT: entre etiqueta e campo. */
+val SheetLabelGap: Dp = 8.dp
+
+/** Above a sheet's action row (Cancelar / Confirmar). // PT: antes dos botões. */
+val SheetActionGap: Dp = 22.dp
 
 /**
  * The app's modal surface, responsive to width. On a phone (< 600dp wide) it is
@@ -54,12 +84,44 @@ fun PautaSheet(title: String, onClose: () -> Unit, content: @Composable ColumnSc
     // "phone, reach the bottom" and "there's room to centre a card". // PT: 600dp
     // é o limite compacto→médio do Material (telemóvel vs. ecrã com espaço).
     val isPhone = LocalConfiguration.current.screenWidthDp < 600
+    // Read the pref out here, not inside the popup/dialog subcomposition — one
+    // read, and neither surface needs its own ViewModel lookup. // PT: lê a
+    // preferência uma vez, fora da subcomposição da folha.
+    val entrance = rememberSheetEntrance(rememberMotionEnabled())
     if (isPhone) {
-        PautaBottomSheet(title, onClose, content)
+        PautaBottomSheet(title, onClose, entrance, content)
     } else {
-        PautaCenteredSheet(title, onClose, content)
+        PautaCenteredSheet(title, onClose, entrance, content)
     }
 }
+
+/**
+ * P9: the one sheet entrance, 0 → 1 over [PautaMotion.Slow] on the house easing.
+ * Material3 owns the bottom sheet's slide and exposes no spec to retune, so what
+ * both faces *share* — and what makes them read as one gesture — is the content
+ * fade; the centred card, which M3 gives no motion at all, adds a short rise on
+ * top of it. Under reduced motion the value starts (and stays) at 1, so a sheet
+ * simply appears. // PT: a entrada única das folhas — o mesmo fade nas duas
+ * faces (o cartão centrado sobe um pouco, por não ter animação própria); com
+ * movimento reduzido aparece já assente.
+ */
+@Composable
+private fun rememberSheetEntrance(motion: Boolean): Float {
+    var shown by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { shown = true }
+    val progress by animateFloatAsState(
+        targetValue = if (shown || !motion) 1f else 0f,
+        animationSpec = if (motion) PautaMotion.tween(PautaMotion.Slow) else snap(),
+        label = "sheetEntrance",
+    )
+    return progress
+}
+
+/** The fade half of the entrance. Skipped entirely once settled, so a resting
+ *  sheet carries no extra graphics layer. // PT: o fade da entrada; sem camada
+ *  extra depois de assentar. */
+private fun Modifier.entranceFade(progress: Float): Modifier =
+    if (progress < 1f) this.alpha(progress) else this
 
 /**
  * Phone path: a bottom sheet anchored to the thumb. The drag handle is the
@@ -70,7 +132,12 @@ fun PautaSheet(title: String, onClose: () -> Unit, content: @Composable ColumnSc
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun PautaBottomSheet(title: String, onClose: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
+private fun PautaBottomSheet(
+    title: String,
+    onClose: () -> Unit,
+    entrance: Float,
+    content: @Composable ColumnScope.() -> Unit,
+) {
     val colors = LocalPautaColors.current
     // skipPartiallyExpanded: form sheets open fully — no half-height stop to
     // fight through. // PT: abre logo em altura cheia, sem paragem a meio.
@@ -87,20 +154,22 @@ private fun PautaBottomSheet(title: String, onClose: () -> Unit, content: @Compo
         Box(
             Modifier
                 .fillMaxWidth()
-                .padding(start = 24.dp, end = 24.dp, bottom = 10.dp),
+                .entranceFade(entrance)
+                .padding(start = SheetGutter, end = SheetGutter, bottom = 10.dp),
         ) {
             SheetEyebrow(title)
         }
         Column(
             Modifier
                 .fillMaxWidth()
+                .entranceFade(entrance)
                 // imePadding BEFORE verticalScroll shrinks the scroll viewport to
                 // sit above the keyboard, so the focused field is brought into a
                 // visible region (not behind the IME). // PT: encolhe a área de
                 // scroll para cima do teclado — o campo focado fica visível.
                 .imePadding()
                 .verticalScroll(rememberScrollState())
-                .padding(start = 24.dp, end = 24.dp, bottom = 22.dp),
+                .padding(start = SheetGutter, end = SheetGutter, bottom = SheetActionGap),
             content = content,
         )
     }
@@ -113,7 +182,12 @@ private fun PautaBottomSheet(title: String, onClose: () -> Unit, content: @Compo
  * closes it. // PT: o cartão centrado da web, para ecrãs largos.
  */
 @Composable
-private fun PautaCenteredSheet(title: String, onClose: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
+private fun PautaCenteredSheet(
+    title: String,
+    onClose: () -> Unit,
+    entrance: Float,
+    content: @Composable ColumnScope.() -> Unit,
+) {
     val colors = LocalPautaColors.current
     val maxHeight = (LocalConfiguration.current.screenHeightDp * 0.86f).dp
     Dialog(
@@ -126,6 +200,19 @@ private fun PautaCenteredSheet(title: String, onClose: () -> Unit, content: @Com
                 .widthIn(max = 440.dp)
                 .fillMaxWidth()
                 .heightIn(max = maxHeight)
+                // The rise the bottom sheet gets from its own slide. Outside the
+                // shadow so the card's drop shadow travels with it. // PT: a
+                // subida que o bottom sheet já tem no seu deslize.
+                .then(
+                    if (entrance < 1f) {
+                        Modifier.graphicsLayer {
+                            alpha = entrance
+                            translationY = (1f - entrance) * 10.dp.toPx()
+                        }
+                    } else {
+                        Modifier
+                    },
+                )
                 .shadow(24.dp, RoundedCornerShape(PautaRadius.Sheet))
                 .clip(RoundedCornerShape(PautaRadius.Sheet))
                 .background(colors.paper),
@@ -133,18 +220,13 @@ private fun PautaCenteredSheet(title: String, onClose: () -> Unit, content: @Com
             Row(
                 Modifier
                     .fillMaxWidth()
-                    .padding(start = 22.dp, end = 16.dp, top = 14.dp, bottom = 10.dp),
+                    .padding(start = SheetGutter, end = 16.dp, top = 14.dp, bottom = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(
-                    text = title.uppercase(),
-                    color = colors.ink3,
-                    fontFamily = MonoFamily,
-                    fontSize = 10.sp,
-                    letterSpacing = 1.8.sp, // 0.18em of 10sp
-                    maxLines = 1,
-                    modifier = Modifier.weight(1f),
-                )
+                // The same eyebrow the bottom sheet's title row uses — the two
+                // faces differ only in the dismiss affordance (handle vs. ×).
+                // // PT: o mesmo eyebrow do bottom sheet; só o fecho difere.
+                SheetEyebrow(title, modifier = Modifier.weight(1f))
                 Box(
                     Modifier
                         .size(30.dp)
@@ -160,7 +242,7 @@ private fun PautaCenteredSheet(title: String, onClose: () -> Unit, content: @Com
                 Modifier
                     .fillMaxWidth()
                     .verticalScroll(rememberScrollState())
-                    .padding(start = 24.dp, end = 24.dp, bottom = 22.dp),
+                    .padding(start = SheetGutter, end = SheetGutter, bottom = SheetActionGap),
                 content = content,
             )
         }
@@ -214,8 +296,12 @@ fun PautaButton(
 /** The sheets' section eyebrow — kept for its ~40 call sites, now delegating to
  *  the shared [SectionEyebrow] (P4). // PT: delega no eyebrow único. */
 @Composable
-fun SheetEyebrow(label: String, color: Color = LocalPautaColors.current.ink3) {
-    SectionEyebrow(label, color = color)
+fun SheetEyebrow(
+    label: String,
+    modifier: Modifier = Modifier,
+    color: Color = LocalPautaColors.current.ink3,
+) {
+    SectionEyebrow(label, modifier = modifier, color = color)
 }
 
 /** Accessibility label for the sheet's close affordance (kept for parity with

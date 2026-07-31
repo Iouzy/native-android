@@ -35,11 +35,16 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.pauta.app.i18n.tr
 import com.pauta.app.ui.PautaButton
 import com.pauta.app.ui.PautaButtonVariant
+import com.pauta.app.ui.PautaRadius
 import com.pauta.app.ui.PautaSheet
+import com.pauta.app.ui.SheetActionGap
 import com.pauta.app.ui.SheetEyebrow
+import com.pauta.app.ui.SheetFieldGap
+import com.pauta.app.ui.SheetLabelGap
 import com.pauta.app.ui.clickableNoRipple
 import com.pauta.app.ui.theme.LocalPautaColors
 import com.pauta.app.ui.theme.MonoFamily
+import com.pauta.app.ui.theme.PautaType
 import com.pauta.app.ui.theme.SerifFamily
 import com.pauta.app.ui.viewmodel.AppViewModel
 
@@ -92,7 +97,7 @@ fun QuoteCaptureSheet(onClose: () -> Unit) {
                 fontSize = 14.sp,
                 lineHeight = 19.sp,
             )
-            Spacer(Modifier.height(18.dp))
+            Spacer(Modifier.height(SheetActionGap))
             PautaButton(tr("Fechar"), Modifier.fillMaxWidth(), PautaButtonVariant.Ghost) { onClose() }
             return@PautaSheet
         }
@@ -105,7 +110,7 @@ fun QuoteCaptureSheet(onClose: () -> Unit) {
         }
 
         // ── Texto ──
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(SheetFieldGap))
         BoxedField(
             value = text,
             onChange = { text = it },
@@ -117,11 +122,11 @@ fun QuoteCaptureSheet(onClose: () -> Unit) {
 
         // ── Página (hidden for audiobooks) ──
         if (!isAudiobook) {
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(SheetFieldGap))
             SheetEyebrow(tr("Página (opcional)"))
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(SheetLabelGap))
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("p.", color = colors.ink3, fontFamily = MonoFamily, fontSize = 12.sp)
+                Text("p.", color = colors.ink3, style = PautaType.Meta)
                 Box(Modifier.width(96.dp)) {
                     BoxedField(
                         value = page,
@@ -138,16 +143,14 @@ fun QuoteCaptureSheet(onClose: () -> Unit) {
         }
 
         // ── Livro: a fixed label with one reading book, chips when several ──
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(SheetFieldGap))
         SheetEyebrow(tr("Livro"))
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(SheetLabelGap))
         if (reading.size == 1) {
             Text(
                 text = reading.first().title,
                 color = colors.ink2,
-                fontFamily = SerifFamily,
-                fontSize = 15.sp,
-                lineHeight = 20.sp,
+                style = PautaType.Body,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -158,16 +161,14 @@ fun QuoteCaptureSheet(onClose: () -> Unit) {
                     Text(
                         text = b.title,
                         color = if (sel) colors.ink else colors.ink3,
-                        fontFamily = SerifFamily,
-                        fontSize = 15.sp,
-                        lineHeight = 20.sp,
+                        style = PautaType.Body,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(10.dp))
+                            .clip(RoundedCornerShape(PautaRadius.Field))
                             .background(if (sel) colors.paper2 else androidx.compose.ui.graphics.Color.Transparent)
-                            .border(1.dp, if (sel) colors.accent else colors.rule, RoundedCornerShape(10.dp))
+                            .border(1.dp, if (sel) colors.accent else colors.rule, RoundedCornerShape(PautaRadius.Field))
                             .clickableNoRipple { bookId = b.id }
                             .padding(horizontal = 12.dp, vertical = 10.dp),
                     )
@@ -175,7 +176,7 @@ fun QuoteCaptureSheet(onClose: () -> Unit) {
             }
         }
 
-        Spacer(Modifier.height(22.dp))
+        Spacer(Modifier.height(SheetActionGap))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             PautaButton(tr("Cancelar"), Modifier.weight(1f), PautaButtonVariant.Ghost) { onClose() }
             PautaButton(tr("Guardar"), Modifier.weight(2f), PautaButtonVariant.Primary) { submit() }

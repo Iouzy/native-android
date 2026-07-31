@@ -42,11 +42,16 @@ import com.pauta.app.i18n.tr
 import com.pauta.app.ui.PautaButton
 import com.pauta.app.ui.PautaButtonVariant
 import com.pauta.app.ui.PautaIcons
+import com.pauta.app.ui.PautaRadius
 import com.pauta.app.ui.PautaSheet
+import com.pauta.app.ui.SheetActionGap
 import com.pauta.app.ui.SheetEyebrow
+import com.pauta.app.ui.SheetFieldGap
+import com.pauta.app.ui.SheetLabelGap
 import com.pauta.app.ui.clickableNoRipple
 import com.pauta.app.ui.theme.LocalPautaColors
 import com.pauta.app.ui.theme.MonoFamily
+import com.pauta.app.ui.theme.PautaType
 import com.pauta.app.ui.theme.SerifFamily
 
 /**
@@ -150,11 +155,11 @@ fun AddHabitSheet(onSubmit: (HabitDraft) -> Unit, onClose: () -> Unit) {
             Spacer(Modifier.height(6.dp))
             FieldError(tr("Dá um nome à maré."))
         }
-        Spacer(Modifier.height(14.dp))
+        Spacer(Modifier.height(SheetFieldGap))
         BoxedField(time, { time = it }, tr("Quando? (opcional, ex.: manhã)"), singleLine = true)
 
         if (!expanded) {
-            Spacer(Modifier.height(14.dp))
+            Spacer(Modifier.height(SheetFieldGap))
             Text(
                 text = tr("+ mais opções (descrição, recorrência)"),
                 color = colors.ink3,
@@ -164,17 +169,17 @@ fun AddHabitSheet(onSubmit: (HabitDraft) -> Unit, onClose: () -> Unit) {
                 modifier = Modifier.clickableNoRipple { expanded = true },
             )
         } else {
-            Spacer(Modifier.height(14.dp))
+            Spacer(Modifier.height(SheetFieldGap))
             BoxedField(description, { description = it }, tr("Porquê esta maré? (opcional)"), minHeight = 64.dp)
 
-            Spacer(Modifier.height(18.dp))
+            Spacer(Modifier.height(SheetFieldGap))
             SheetEyebrow(tr("hora certa") + " · " + tr("opcional"))
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(SheetLabelGap))
             ClockField(clock) { clock = it }
 
-            Spacer(Modifier.height(18.dp))
+            Spacer(Modifier.height(SheetFieldGap))
             SheetEyebrow(tr("frequência"))
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(SheetLabelGap))
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 SelectPill(tr("diária"), cadence == "daily", colors.accent, large = true) { cadence = "daily" }
                 SelectPill(tr("semanal"), cadence == "weekly", colors.accent, large = true) { cadence = "weekly" }
@@ -182,9 +187,9 @@ fun AddHabitSheet(onSubmit: (HabitDraft) -> Unit, onClose: () -> Unit) {
             }
 
             if (cadence == "daily") {
-                Spacer(Modifier.height(16.dp))
+                Spacer(Modifier.height(SheetFieldGap))
                 SheetEyebrow(tr("dias da semana"))
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(SheetLabelGap))
                 ChipFlow {
                     WEEKDAY_PILLS.forEach { (wd, label) ->
                         SelectPill(tr(label), wd in weekdays, colors.accent) {
@@ -195,7 +200,7 @@ fun AddHabitSheet(onSubmit: (HabitDraft) -> Unit, onClose: () -> Unit) {
                 Spacer(Modifier.height(6.dp))
                 FormHint(if (weekdays.isEmpty()) tr("todos os dias") else tr("só nos dias escolhidos"))
 
-                Spacer(Modifier.height(16.dp))
+                Spacer(Modifier.height(SheetFieldGap))
                 CheckRow(countable, tr("uma meta com quantidade (ex.: 2L de água, 3 treinos)")) {
                     countable = !countable
                 }
@@ -241,9 +246,9 @@ fun AddHabitSheet(onSubmit: (HabitDraft) -> Unit, onClose: () -> Unit) {
                 )
             }
 
-            Spacer(Modifier.height(18.dp))
+            Spacer(Modifier.height(SheetFieldGap))
             SheetEyebrow(tr("recorrência"))
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(SheetLabelGap))
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 RecurrenceOption(tr("permanente"), tr("todos os dias, sem fim"), recurrence == "forever") { recurrence = "forever" }
                 RecurrenceOption(tr("por um período"), tr("durante X dias"), recurrence == "period") { recurrence = "period" }
@@ -259,7 +264,7 @@ fun AddHabitSheet(onSubmit: (HabitDraft) -> Unit, onClose: () -> Unit) {
             }
         }
 
-        Spacer(Modifier.height(22.dp))
+        Spacer(Modifier.height(SheetActionGap))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             PautaButton(tr("Cancelar"), Modifier.weight(1f), PautaButtonVariant.Ghost) { onClose() }
             PautaButton(tr("Adicionar"), Modifier.weight(2f), PautaButtonVariant.Primary) { submit() }
@@ -318,7 +323,7 @@ fun EditHabitSheet(
 
     PautaSheet(title = tr("Editar maré"), onClose = onClose) {
         SheetEyebrow(tr("nome"))
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(SheetLabelGap))
         UnderlineField(
             name, { name = it }, tr("Nome da maré (ex.: meditar)"),
             isError = triedSubmit && name.isBlank(),
@@ -330,28 +335,28 @@ fun EditHabitSheet(
             FieldError(tr("Dá um nome à maré."))
         }
 
-        Spacer(Modifier.height(18.dp))
+        Spacer(Modifier.height(SheetFieldGap))
         SheetEyebrow(tr("Cor"))
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(SheetLabelGap))
         ColorSwatchRow(selected = color, onPick = { color = it })
 
-        Spacer(Modifier.height(18.dp))
+        Spacer(Modifier.height(SheetFieldGap))
         SheetEyebrow(tr("quando"))
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(SheetLabelGap))
         BoxedField(time, { time = it }, tr("ex.: manhã, antes de dormir"), singleLine = true)
 
-        Spacer(Modifier.height(18.dp))
+        Spacer(Modifier.height(SheetFieldGap))
         SheetEyebrow(tr("hora certa") + " · " + tr("opcional"))
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(SheetLabelGap))
         ClockField(clock) { clock = it }
 
-        Spacer(Modifier.height(18.dp))
+        Spacer(Modifier.height(SheetFieldGap))
         SheetEyebrow(tr("descrição · porquê esta maré?"))
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(SheetLabelGap))
         BoxedField(description, { description = it }, tr("A intenção, o motivo, o sentimento que quer cultivar."), minHeight = 64.dp)
 
         if (habit.cadence == "daily") {
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(SheetFieldGap))
             CheckRow(countable, tr("meta com quantidade (ex.: 2L de água, 3 treinos)")) { countable = !countable }
             if (countable) {
                 Spacer(Modifier.height(10.dp))
@@ -365,9 +370,9 @@ fun EditHabitSheet(
             }
         }
 
-        Spacer(Modifier.height(18.dp))
+        Spacer(Modifier.height(SheetFieldGap))
         SheetEyebrow(tr("recorrência"))
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(SheetLabelGap))
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             RecurrenceOption(tr("permanente"), tr("todos os dias, sem fim"), recurrence == "forever") { recurrence = "forever" }
             RecurrenceOption(tr("por um período"), tr("durante X dias"), recurrence == "period") { recurrence = "period" }
@@ -382,7 +387,7 @@ fun EditHabitSheet(
             }
         }
 
-        Spacer(Modifier.height(22.dp))
+        Spacer(Modifier.height(SheetActionGap))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             PautaButton(tr("Cancelar"), Modifier.weight(1f), PautaButtonVariant.Ghost) { onClose() }
             PautaButton(tr("Guardar"), Modifier.weight(2f), PautaButtonVariant.Primary) { save() }
@@ -496,9 +501,9 @@ private fun RecurrenceOption(label: String, hint: String, selected: Boolean, onC
     Column(
         Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
+            .clip(RoundedCornerShape(PautaRadius.Field))
             .background(if (selected) colors.accent.copy(alpha = 0.07f) else Color.Transparent)
-            .border(1.dp, if (selected) colors.accent else colors.rule, RoundedCornerShape(10.dp))
+            .border(1.dp, if (selected) colors.accent else colors.rule, RoundedCornerShape(PautaRadius.Field))
             .clickableNoRipple(onClick)
             .padding(horizontal = 12.dp, vertical = 9.dp),
     ) {
@@ -528,8 +533,7 @@ private fun ColorSwatchRow(selected: String?, onPick: (String?) -> Unit) {
     Text(
         text = if (selected == null) tr("automático") else selected.lowercase(),
         color = colors.ink3,
-        fontFamily = MonoFamily,
-        fontSize = 9.sp,
+        style = PautaType.MetaSmall,
         letterSpacing = 0.72.sp,
     )
 }

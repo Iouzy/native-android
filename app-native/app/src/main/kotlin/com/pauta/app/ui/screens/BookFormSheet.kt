@@ -33,7 +33,10 @@ import com.pauta.app.i18n.tr
 import com.pauta.app.ui.PautaButton
 import com.pauta.app.ui.PautaButtonVariant
 import com.pauta.app.ui.PautaSheet
+import com.pauta.app.ui.SheetActionGap
 import com.pauta.app.ui.SheetEyebrow
+import com.pauta.app.ui.SheetFieldGap
+import com.pauta.app.ui.SheetLabelGap
 import com.pauta.app.ui.clickableNoRipple
 import com.pauta.app.ui.theme.LocalPautaColors
 import com.pauta.app.ui.viewmodel.AppViewModel
@@ -84,7 +87,7 @@ fun BookFormSheet(book: BookEntity? = null, onClose: () -> Unit) {
 
     PautaSheet(title = if (editing) tr("Editar livro") else tr("Adicionar livro"), onClose = onClose) {
         SheetEyebrow(tr("Título"))
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(SheetLabelGap))
         UnderlineField(
             title, { title = it }, tr("Título"),
             modifier = Modifier.focusRequester(titleFocus),
@@ -96,59 +99,59 @@ fun BookFormSheet(book: BookEntity? = null, onClose: () -> Unit) {
             FieldError(tr("Dá um título ao livro."))
         }
 
-        Spacer(Modifier.height(18.dp))
+        Spacer(Modifier.height(SheetFieldGap))
         SheetEyebrow(tr("Autor"))
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(SheetLabelGap))
         BoxedField(author, { author = it }, tr("Autor"), singleLine = true, imeAction = ImeAction.Next)
 
-        Spacer(Modifier.height(18.dp))
+        Spacer(Modifier.height(SheetFieldGap))
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.Top) {
             Column(Modifier.weight(2f)) {
                 SheetEyebrow(tr("Série"))
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(SheetLabelGap))
                 BoxedField(series, { series = it }, tr("Série"), singleLine = true, imeAction = ImeAction.Next)
             }
             Column(Modifier.width(88.dp)) {
                 SheetEyebrow(tr("Nº na série"))
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(SheetLabelGap))
                 DigitField(seriesNo, max = 3) { seriesNo = it }
             }
         }
 
-        Spacer(Modifier.height(18.dp))
+        Spacer(Modifier.height(SheetFieldGap))
         SheetEyebrow(tr("Formato"))
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(SheetLabelGap))
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             SelectPill(tr("Físico"), format == "physical", colors.accent, large = true) { format = "physical" }
             SelectPill(tr("Ebook"), format == "ebook", colors.accent, large = true) { format = "ebook" }
             SelectPill(tr("Audiolivro"), format == "audiobook", colors.accent, large = true) { format = "audiobook" }
         }
 
-        Spacer(Modifier.height(18.dp))
+        Spacer(Modifier.height(SheetFieldGap))
         SheetEyebrow(if (isAudiobook) tr("Total de minutos") else tr("Total de páginas"))
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(SheetLabelGap))
         Box(Modifier.width(120.dp)) {
             DigitField(total, max = 6, imeAction = ImeAction.Done, keyboardActions = KeyboardActions(onDone = { submit() })) { total = it }
         }
 
-        Spacer(Modifier.height(18.dp))
+        Spacer(Modifier.height(SheetFieldGap))
         SheetEyebrow(tr("Género"))
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(SheetLabelGap))
         BoxedField(genre, { genre = it }, tr("Género"), singleLine = true, imeAction = ImeAction.Done, keyboardActions = KeyboardActions(onDone = { submit() }))
 
         // Estado is only set on add; an existing book changes status through the
         // detail sheet (K8). // PT: o estado só se escolhe ao adicionar.
         if (!editing) {
-            Spacer(Modifier.height(18.dp))
+            Spacer(Modifier.height(SheetFieldGap))
             SheetEyebrow(tr("Estado"))
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(SheetLabelGap))
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 SelectPill(tr("A ler"), status == "reading", colors.accent, large = true) { status = "reading" }
                 SelectPill(tr("A seguir"), status == "tbr", colors.accent, large = true) { status = "tbr" }
             }
         }
 
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(SheetActionGap))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             PautaButton(tr("Cancelar"), Modifier.weight(1f), PautaButtonVariant.Ghost) { onClose() }
             PautaButton(if (editing) tr("Guardar") else tr("Adicionar"), Modifier.weight(2f), PautaButtonVariant.Primary) { submit() }
