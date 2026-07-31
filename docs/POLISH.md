@@ -352,7 +352,7 @@ history rows onto `PautaCard`/type roles. Same treatment mirrored in
 **Accept:** timer digits don't jitter horizontally; pause/resume crossfades
 (snaps under reduced motion); both lenses; CI green.
 
-### P8 · Marés sweep + render performance — Status: in-progress (PR #pending)
+### P8 · Marés sweep + render performance — Status: done (PR #149)
 
 **Files:** `ui/screens/MaresScreen.kt` (+ `BookHabitsScreen.kt` header card).
 
