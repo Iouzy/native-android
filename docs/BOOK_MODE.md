@@ -557,7 +557,7 @@ note saved); `project = "book:<id>"` set on the block; normal Pauta is
 unchanged when `bookMode` is false; existing `vm.blocks` flow excludes reading
 blocks (verified by checking the normal Pauta tab shows nothing new); CI green.
 
-### K7 · Marés → reading habits + annual goal — Status: pending
+### K7 · Marés → reading habits + annual goal — Status: done (PR #140)
 
 **Depends on:** K2, K3
 
@@ -618,7 +618,7 @@ below the goal card; `bookMode` off → normal Marés identical to today; CI gre
 
 ## Phase K-4 — depth (K8 and K9 are independent of each other; both need K5)
 
-### K8 · Book detail sheet — Status: pending
+### K8 · Book detail sheet — Status: done (PR #140)
 
 **Depends on:** K5 (shelf taps open this; needs books to exist)
 
@@ -691,7 +691,7 @@ stats in the header (those are K-extra).
 changes, note delete, book edit/delete all work and persist; session history
 shows the correct book's sessions; CI green.
 
-### K9 · Quote & annotation capture — Status: pending
+### K9 · Quote & annotation capture — Status: done (PR #140)
 
 **Depends on:** K5 (needs books to exist for the book picker)
 
@@ -744,7 +744,7 @@ layout interference with Pip or snackbar; CI green.
 
 ## Phase K-5 — extras (ship after K1–K9 are all done)
 
-### K-extra · Pace stats + ETA — Status: pending
+### K-extra · Pace stats + ETA — Status: done (PR #140)
 
 **Depends on:** K6 (needs sessions with page deltas), K8 (displayed in detail)
 
@@ -811,3 +811,7 @@ book content yet). Each subsequent task adds one tab or one feature layer.
 2026-06-27 · K4 · #137 · bookPautaColors(dark) in Color.kt with parchment tokens (light paper #F2E8D5 / dark #28190F, ink/rule/tabbarBg/pageBg all sepia); NavHost in MainScaffold wrapped in CompositionLocalProvider — sepia when bookMode on, base palette when off; PIN/onboarding overlays outside provider, unaffected
 2026-06-27 · K5 · #138 · Hoje→Estante shelf (BookShelfScreen): A ler agora (LazyRow progress cards, pages/min format-aware) · A seguir (list rows) · Lidos (LazyRow cards w/ ★ rating); "Adicionar livro +" opens BookFormSheet (add+edit, format/status chips, 2-step delete); HojeScreen gains bookMode param + early return, MainScaffold passes prefs.bookMode; book tap a no-op stub pending K8; 22 native-only i18n strings; planner view untouched when off
 2026-06-27 · K6 · #139 · Pauta→Sessão reading timer (BookSessionScreen): start card with book picker (booksReading, pre-selects single) + optional duration → startBlock project "book:<id>"; live dark active card (timer, Pausar, Concluir); BookConcludeSheet asks page/min (format-aware) + session note → updateProgress + concludeActive (note→reflection); paused-session resume + history grouped by book from bookSessionBlocks; PautaScreen gains bookMode param + early return, MainScaffold passes prefs.bookMode; 8 native-only i18n strings; planner Pauta untouched when off
+2026-07-31 · K7 · #140 · Marés→objetivo anual + hábitos de leitura: BookAnnualGoalCard ("N livros este ano" + Definir objetivo → / "N/M" + barra + ✎ edit, AnnualGoalSheet saves via setAnnualGoal) and the HÁBITOS DE LEITURA eyebrow lead MaresScreen's own LazyColumn when bookMode (embedding this way round avoids nested scrollables); normal Marés unchanged below and identical when off; 5 native-only i18n strings
+2026-07-31 · K8 · #140 · BookDetailSheet: header (título/autor/Série · Nº n/formato), inline tap-to-edit progress (pág/min format-aware) + bar, 1–5 ★ rating (tap current clears), Começar a ler / Marcar como lido (rating confirm sheet → finishBook), Editar → BookFormSheet, Eliminar 2-step; Notas & Citações (kind tag, p. n, long-press 2-step delete) + Sessões (date · duration · reflection) from bookSessionBlocks; shelf taps wired (K5 stub replaced), sheet self-dismisses if book vanishes; 12 native-only i18n strings
+2026-07-31 · K9 · #140 · quote capture: chip in HomeShell (bottom-left at Pip's offset, bookMode only, quiet pill, AnimatedVisibility snaps under reduced motion) → QuoteCaptureSheet (kind chips default Anotação, serif autofocus text, page field hidden for audiobooks, book label/picker/empty-hint); confirm → addNote; 8 native-only i18n strings
+2026-07-31 · K-extra · #140 · BookMath (pure, tested): pagesPerHour overall-rate (null <2 usable spans) + etaDays (ceil, 0 when done, null without pace); BookDetailSheet header shows Ritmo ~N págs/hora (min/hora audiolivros) + Conclusão estimada em ~N dias, spans from last 5 concluded sessions with progress apportioned by duration; hidden without data or total; 3 native-only i18n strings
