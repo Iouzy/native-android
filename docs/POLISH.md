@@ -162,7 +162,7 @@ Either model may do any task; this is a cost/benefit hint, not a rule.
 
 ## Phase P-0 — the tab bug (do these first)
 
-### P1 · Pager smoothness + honest tab highlight — Status: pending
+### P1 · Pager smoothness + honest tab highlight — Status: done (PR #142)
 
 **Depends on:** nothing. **This is the bug fix; ship it before anything else.**
 
@@ -440,3 +440,4 @@ slice: P1 → P2 → P5.
 ## Log (append one line per shipped task: date · task · PR · note)
 
 <!-- e.g. 2026-08-01 · P1 · #n · beyondViewportPageCount=2, targetPage highlight, tint tween, settle haptic -->
+2026-07-31 · P1 · #142 · beyondViewportPageCount=2, targetPage highlight, tint tween(180) w/ reducedMotion snap, settle haptic (LongPress — no SegmentTick in UI 1.7)
