@@ -29,6 +29,11 @@ suggested model. When asked to "do task X" or "do the next pending task": read
 that file, do ONLY that task following its spec + Global guardrails, ship via
 the workflow below, and update the task's Status + Log in the same PR.
 
+Two more task files follow the exact same protocol: `docs/BOOK_MODE.md`
+(book-mode feature, K1–K9 + K-extra — complete) and `docs/POLISH.md`
+(UI polish/modernisation, P1…P10 — fixes the tab-switch jank first, then
+motion/surface/type foundations, then per-screen sweeps).
+
 ## Architecture (`app-native/`)
 
 - **Stack:** Kotlin 2.0 · Jetpack Compose (Material3, BOM 2024.09.03) · Room +
