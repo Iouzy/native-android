@@ -741,7 +741,9 @@ object I18n {
         "livros este ano" to "books this year", // native-only
         "Definir objetivo" to "Set goal", // native-only
         "Objetivo de livros por ano" to "Annual book goal", // native-only
-        "Hábitos de leitura" to "Reading habits", // native-only
+        // K7's "Hábitos de leitura" eyebrow is gone with R7 — the tides under it
+        // were never reading habits — and its key went with it rather than
+        // staying here dead. // PT: o rótulo antigo saiu, e a chave com ele.
 
         // ── K8 · book detail sheet ──
         "Notas & Citações" to "Notes & Quotes", // native-only
@@ -855,6 +857,24 @@ object I18n {
         // real da estimativa.
         "Ritmo: {n} palavras/min" to "Pace: {n} words/min", // native-only
         "Ritmo: ≈ {n} palavras/min" to "Pace: ≈ {n} words/min", // native-only
+
+        // ── R7 · the reading rhythm (Hábitos tab) ──
+        // "Hábitos" itself is already in this map (K3) and is deliberately reused:
+        // the tab's old "Hábitos de leitura" eyebrow was the lie R7 removes.
+        // // PT: "Hábitos" já existe — o rótulo antigo é que era falso.
+        "Dias de leitura" to "Reading days", // native-only
+        "Sequência atual" to "Current streak", // native-only
+        "melhor" to "best", // native-only
+        "Minutos por dia" to "Minutes per day", // native-only
+        "Páginas por semana" to "Pages per week", // native-only
+        "Ritmo ao longo do tempo" to "Speed over time", // native-only
+        "Livros terminados" to "Books finished", // native-only
+        "Ainda sem leituras registadas." to "No reading recorded yet.", // native-only
+        // Chart captions + the day grid's TalkBack summary.
+        "últimos {n} dias" to "last {n} days", // native-only
+        "últimas {n} semanas" to "last {n} weeks", // native-only
+        "máx {n} min" to "max {n} min", // native-only
+        "{n} dias de leitura este mês" to "{n} reading days this month", // native-only
     )
 }
 
