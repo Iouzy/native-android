@@ -847,6 +847,14 @@ object I18n {
         "Ritmo: ~{n} págs/hora" to "Pace: ~{n} pages/hour", // native-only
         "Ritmo: ~{n} min/hora" to "Pace: ~{n} min/hour", // native-only
         "Conclusão estimada: em ~{n} dias" to "Estimated finish: in ~{n} days", // native-only
+
+        // ── R6 · reading speed ──
+        // Two lines and not one: the "≈" is what separates a counted EPUB from a
+        // figure derived from 280 words a page, and hiding that difference would
+        // be the dishonest half of the stat. // PT: o "≈" distingue a contagem
+        // real da estimativa.
+        "Ritmo: {n} palavras/min" to "Pace: {n} words/min", // native-only
+        "Ritmo: ≈ {n} palavras/min" to "Pace: ≈ {n} words/min", // native-only
     )
 }
 
