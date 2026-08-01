@@ -61,7 +61,7 @@ unchanged. The ones that bite hardest here:
 
 ## Phase U-0 — the bug and the two annoyances
 
-### U1 · Sheets: stop the keyboard fighting the open animation — Status: pending
+### U1 · Sheets: stop the keyboard fighting the open animation — Status: done (PR #156)
 
 **Depends on:** nothing
 
@@ -504,3 +504,5 @@ with the shared primitive. Either order works — just don't leave two.
 ## Log (append one line per shipped task: date · task · PR · note)
 
 <!-- e.g. 2026-08-02 · U1 · #n · autofocus waits for the sheet to settle instead of a 120ms guess -->
+
+2026-08-01 · U1 · #156 · `LocalSheetSettled` (from `sheetState.currentValue`) replaces the 120ms guess in `rememberAutoFocusRequester`; keyboard hidden before dismiss; the three other copies of the delay folded into the shared requester. Deviation: the settle signal is used regardless of `reducedMotion` — M3 still slides the sheet under that pref, so short-circuiting would have kept the bug for those users.
