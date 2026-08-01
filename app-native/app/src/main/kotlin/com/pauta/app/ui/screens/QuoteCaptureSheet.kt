@@ -67,7 +67,6 @@ fun QuoteCaptureSheet(onClose: () -> Unit) {
     var page by remember { mutableStateOf("") }
     var bookId by remember { mutableStateOf<String?>(null) }
     var triedSubmit by remember { mutableStateOf(false) }
-    val textFocus = rememberAutoFocusRequester()
 
     // Keep the pick pinned to the reading shelf: default to the first (often
     // only) book, re-pick if the chosen one leaves. // PT: escolhe o livro em curso.
@@ -87,6 +86,9 @@ fun QuoteCaptureSheet(onClose: () -> Unit) {
     }
 
     PautaSheet(title = tr("Nova nota"), onClose = onClose) {
+        // U1: inside the body, so the capture field waits for the sheet to settle
+        // before raising the keyboard. // PT: espera que a folha assente.
+        val textFocus = rememberAutoFocusRequester()
         if (reading.isEmpty()) {
             // No book being read: the capture has nowhere to land, so say so.
             Text(

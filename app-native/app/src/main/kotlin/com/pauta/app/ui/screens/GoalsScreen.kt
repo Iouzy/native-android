@@ -27,14 +27,12 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -44,7 +42,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import kotlinx.coroutines.delay
 import com.pauta.app.data.entity.GoalEntity
 import com.pauta.app.domain.DateUtils
 import com.pauta.app.i18n.tr
@@ -180,10 +177,10 @@ private fun AddField(placeholder: String, small: Boolean = false, autoFocus: Boo
     var text by remember { mutableStateOf("") }
     // Done commits and clears but keeps focus, so goals/milestones can be typed in
     // a row from the keyboard alone. // PT: Enter regista e limpa, mantendo o foco.
-    val focusRequester = remember { FocusRequester() }
-    LaunchedEffect(Unit) {
-        if (autoFocus) { delay(120); runCatching { focusRequester.requestFocus() } }
-    }
+    // U1: the shared requester. This one lives on a full screen, not in a sheet,
+    // so it takes the fallback beat — but the beat is now defined in one place.
+    // // PT: ecrã inteiro, sem folha: usa a pausa de recurso, agora única.
+    val focusRequester = rememberAutoFocusRequester(autoFocus)
     fun commit() { if (text.isNotBlank()) { onAdd(text); text = "" } }
     TextField(
         value = text,

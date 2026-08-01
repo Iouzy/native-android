@@ -64,8 +64,6 @@ fun BookFormSheet(book: BookEntity? = null, onClose: () -> Unit) {
     var status by remember { mutableStateOf(book?.status ?: "tbr") }
     var triedSubmit by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
-    // A6-style: título is focused on open and its IME Next chains down the form.
-    val titleFocus = rememberAutoFocusRequester()
     val isAudiobook = format == "audiobook"
 
     fun submit() {
@@ -86,6 +84,10 @@ fun BookFormSheet(book: BookEntity? = null, onClose: () -> Unit) {
     }
 
     PautaSheet(title = if (editing) tr("Editar livro") else tr("Adicionar livro"), onClose = onClose) {
+        // A6-style: título is focused on open and its IME Next chains down the
+        // form. U1: inside the body, so the focus waits for the sheet to settle.
+        // // PT: foca o título quando a folha assenta.
+        val titleFocus = rememberAutoFocusRequester()
         SheetEyebrow(tr("Título"))
         Spacer(Modifier.height(SheetLabelGap))
         UnderlineField(

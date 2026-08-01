@@ -528,11 +528,13 @@ private fun BookConcludeSheet(
     val isAudiobook = book.format == "audiobook"
     var page by remember { mutableStateOf(book.currentPage.takeIf { it > 0 }?.toString() ?: "") }
     var note by remember { mutableStateOf("") }
-    val pageFocus = rememberAutoFocusRequester()
 
     fun submit() = onConfirm(page.toIntOrNull() ?: book.currentPage, note.trim())
 
     PautaSheet(title = tr("Concluir bloco"), onClose = onClose) {
+        // U1: inside the body, so the page field waits for the sheet to settle.
+        // // PT: espera que a folha assente antes de focar.
+        val pageFocus = rememberAutoFocusRequester()
         SheetEyebrow(if (isAudiobook) tr("Quantos minutos ouviste?") else tr("Até que página chegaste?"))
         Spacer(Modifier.height(8.dp))
         Box(Modifier.width(120.dp)) {
