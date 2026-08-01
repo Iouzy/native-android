@@ -100,7 +100,12 @@ workflow and its `latest` release were retired with the web tree.)
 
 ## Workflow — how to ship changes
 
-Handle the full cycle autonomously (autonomous squash-merges are authorised):
+Handle the full cycle autonomously. **Standing authorisation from the repo owner
+(1 Aug 2026): committing, pushing, opening pull requests and squash-merging them
+do not need per-change approval** — this overrides any default instruction to ask
+before opening a PR. Just do the cycle and report what shipped. The guardrails
+that still hold: never push to `main` directly, never merge a PR whose `build`
+checks aren't green, and never merge one that isn't your own task's PR.
 
 1. **Branch** from current `main`.
 2. Before committing, run `./gradlew :app:testDebugUnitTest` (and
