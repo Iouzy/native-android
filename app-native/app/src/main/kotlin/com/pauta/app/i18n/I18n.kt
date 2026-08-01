@@ -776,6 +776,18 @@ object I18n {
         "Pomodoro" to "Pomodoro", // native-only
         "Simples" to "Simple", // native-only
 
+        // ── U4 · settings regroup: seven sections, and the rows that moved ──
+        "Modo" to "Mode", // native-only
+        "Foco e lembretes" to "Focus & reminders", // native-only
+        // "Companhia" already carries "Company" above — the section name the app
+        // never used until now. // PT: a chave já existia, por usar.
+        "Análise e objetivos" to "Analysis & goals", // native-only
+        "Dados e privacidade" to "Data & privacy", // native-only
+        "Sobre" to "About", // native-only
+        "Estante · Sessão · Hábitos" to "Shelf · Session · Habits", // native-only
+        "Código-fonte" to "Source code", // native-only
+        "Livros a ler este ano." to "Books to read this year.", // native-only
+
         // ── K-extra · pace stats + ETA ──
         "Ritmo: ~{n} págs/hora" to "Pace: ~{n} pages/hour", // native-only
         "Ritmo: ~{n} min/hora" to "Pace: ~{n} min/hour", // native-only
