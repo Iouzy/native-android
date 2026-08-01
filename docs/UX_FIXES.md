@@ -279,7 +279,7 @@ priority / when / minutes still save exactly as before; CI green.
 
 ## Phase U-2 — Settings (U5 → U6 → U7 in order; each depends on the last)
 
-### U4 · Settings: regroup + row hierarchy — Status: pending
+### U4 · Settings: regroup + row hierarchy — Status: done (PR #162)
 
 **Depends on:** nothing
 
@@ -504,6 +504,8 @@ with the shared primitive. Either order works — just don't leave two.
 ## Log (append one line per shipped task: date · task · PR · note)
 
 <!-- e.g. 2026-08-02 · U1 · #n · autofocus waits for the sheet to settle instead of a 120ms guess -->
+
+2026-08-01 · U4 · #162 · ten Settings sections become seven — `Companhia` takes the three toggles that were never appearance, `Modo` leads with the lens (plus the annual goal), Acessibilidade folds into Aparência, and `ActionRow` stops painting every label accent: label in ink, accent only on the value, a `clearAndSetSemantics` `›` for tappability, and the house `DangerRed` in place of the stray Material red. Deviation: the source link doesn't stay in the centred footer with a corrected URL — the footer is gone and the link is a `Código-fonte ↗` row of `Sobre`, which is the shape U6 expects to find there.
 
 2026-08-01 · U3 · #161 · the composer's three rows of unlabeled pills collapse into one wrapped `ChipFlow` under `PRIORIDADE` · `QUANDO` · `MIN` labels; both raw `TextField`s become `UnderlineField`/`BoxedField` (new optional `fontSize`), `Adicionar` becomes a compact `PautaButton`, and the four header chips leave their staircase column for a right-aligned flow. Deviation: the group labels ride the shared 10sp `SectionEyebrow` rather than the spec's 9sp mono — P6 retired the last 9sp on this tab and a fourth mono size would undo it.
 
