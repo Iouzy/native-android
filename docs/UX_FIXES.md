@@ -206,7 +206,7 @@ unchanged; CI green.
 
 ## Phase U-1 — the Hoje tab
 
-### U3 · The intention composer — Status: pending
+### U3 · The intention composer — Status: done (PR #161)
 
 **Depends on:** nothing (U1 first is nicer to test against)
 
@@ -504,6 +504,8 @@ with the shared primitive. Either order works — just don't leave two.
 ## Log (append one line per shipped task: date · task · PR · note)
 
 <!-- e.g. 2026-08-02 · U1 · #n · autofocus waits for the sheet to settle instead of a 120ms guess -->
+
+2026-08-01 · U3 · #161 · the composer's three rows of unlabeled pills collapse into one wrapped `ChipFlow` under `PRIORIDADE` · `QUANDO` · `MIN` labels; both raw `TextField`s become `UnderlineField`/`BoxedField` (new optional `fontSize`), `Adicionar` becomes a compact `PautaButton`, and the four header chips leave their staircase column for a right-aligned flow. Deviation: the group labels ride the shared 10sp `SectionEyebrow` rather than the spec's 9sp mono — P6 retired the last 9sp on this tab and a fourth mono size would undo it.
 
 2026-08-01 · U2 · #159 · one shared `DurationPicker` (presets + `Outro…`, 1–600, invalid blocks confirm) replaces the hard-coded 25/50/90 in Novo bloco and the reading session; preset set is a Settings choice on the new `timerPresets` column (Room 9). Deviation: the column is nullable (NULL = never chosen) rather than defaulting to `"pomodoro"` — distinguishing "untouched" from "chose Pomodoro" is the only way reading can default to `simples` *and* the setting still switch both sets.
 
