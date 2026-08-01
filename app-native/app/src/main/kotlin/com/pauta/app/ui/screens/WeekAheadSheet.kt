@@ -14,14 +14,12 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.SolidColor
@@ -32,7 +30,6 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import kotlinx.coroutines.delay
 import com.pauta.app.data.entity.PlannedIntentionEntity
 import com.pauta.app.domain.DateUtils
 import com.pauta.app.i18n.I18n
@@ -104,10 +101,10 @@ private fun PlanDayRow(
     // Done commits and clears but keeps focus, so several plans can be typed in a
     // row without leaving the keyboard. // PT: Enter regista e limpa, mantendo o
     // foco para escrever vários planos seguidos.
-    val focusRequester = remember { FocusRequester() }
-    LaunchedEffect(Unit) {
-        if (autoFocus) { delay(120); runCatching { focusRequester.requestFocus() } }
-    }
+    // U1: the shared requester, so the first day's field waits for the sheet to
+    // finish arriving instead of racing it with a fixed delay. // PT: espera que a
+    // folha assente, em vez de correr contra ela.
+    val focusRequester = rememberAutoFocusRequester(autoFocus)
 
     fun commit() {
         val t = text.trim()

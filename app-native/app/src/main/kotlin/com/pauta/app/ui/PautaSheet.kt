@@ -21,14 +21,21 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.ProvidableCompositionLocal
+import androidx.compose.runtime.State
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -37,6 +44,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -69,6 +77,19 @@ val SheetLabelGap: Dp = 8.dp
 val SheetActionGap: Dp = 22.dp
 
 /**
+ * U1 · Has the surrounding sheet finished arriving? `null` when the composable
+ * asking isn't inside a [PautaSheet] at all (an inline editor, a full screen), so
+ * callers can fall back. This is the signal an autofocused field waits on instead
+ * of guessing a duration: raising the keyboard while the sheet is still sliding
+ * makes `imePadding()` re-lay-out a half-drawn sheet, which is the visible jump
+ * U1 exists to kill. // PT: diz se a folha já assentou; `null` fora de uma folha.
+ * O campo com foco automático espera por este sinal em vez de adivinhar um tempo
+ * — abrir o teclado a meio do deslize faz saltar a folha.
+ */
+val LocalSheetSettled: ProvidableCompositionLocal<State<Boolean>?> =
+    staticCompositionLocalOf { null }
+
+/**
  * The app's modal surface, responsive to width. On a phone (< 600dp wide) it is
  * a [ModalBottomSheet] — a drag handle, drag-to-dismiss and `imePadding()` so it
  * fits one-handed use and the keyboard never covers a field; on a wide screen
@@ -88,10 +109,17 @@ fun PautaSheet(title: String, onClose: () -> Unit, content: @Composable ColumnSc
     // read, and neither surface needs its own ViewModel lookup. // PT: lê a
     // preferência uma vez, fora da subcomposição da folha.
     val entrance = rememberSheetEntrance(rememberMotionEnabled())
+    // U1 · The reverse direction: put the keyboard away *before* the sheet starts
+    // leaving, so the sheet doesn't drop through the gap the IME leaves behind.
+    // Covers every dismiss the sheet itself owns — scrim, back, drag handle, ×.
+    // // PT: esconde o teclado antes de a folha sair, para não cair no vazio que
+    // o teclado deixa.
+    val keyboard = LocalSoftwareKeyboardController.current
+    val dismiss: () -> Unit = { keyboard?.hide(); onClose() }
     if (isPhone) {
-        PautaBottomSheet(title, onClose, entrance, content)
+        PautaBottomSheet(title, dismiss, entrance, content)
     } else {
-        PautaCenteredSheet(title, onClose, entrance, content)
+        PautaCenteredSheet(title, dismiss, entrance, content)
     }
 }
 
@@ -142,6 +170,16 @@ private fun PautaBottomSheet(
     // skipPartiallyExpanded: form sheets open fully — no half-height stop to
     // fight through. // PT: abre logo em altura cheia, sem paragem a meio.
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    // U1 · `currentValue`, not `targetValue`: the former flips when the expand
+    // animation *finishes*, the latter the moment it is asked for — which is
+    // exactly the race the old 120ms guess kept losing. Nothing here consults
+    // `reducedMotion`: M3 owns this slide and exposes no spec to retune, so the
+    // honest test is the animation's own end, whatever its duration (instant
+    // under a 0× animator scale, five seconds under 5×). // PT: usa `currentValue`
+    // — muda quando a animação acaba, não quando começa; serve qualquer duração.
+    val settled = remember(sheetState) {
+        derivedStateOf { sheetState.currentValue == SheetValue.Expanded }
+    }
     ModalBottomSheet(
         onDismissRequest = onClose,
         sheetState = sheetState,
@@ -170,8 +208,9 @@ private fun PautaBottomSheet(
                 .imePadding()
                 .verticalScroll(rememberScrollState())
                 .padding(start = SheetGutter, end = SheetGutter, bottom = SheetActionGap),
-            content = content,
-        )
+        ) {
+            CompositionLocalProvider(LocalSheetSettled provides settled) { content() }
+        }
     }
 }
 
@@ -190,6 +229,12 @@ private fun PautaCenteredSheet(
 ) {
     val colors = LocalPautaColors.current
     val maxHeight = (LocalConfiguration.current.screenHeightDp * 0.86f).dp
+    // U1 · A dialog has no slide to wait out — it is laid out where it lands — so
+    // "settled" here means "the window has drawn one frame", enough for the focus
+    // target to be attached. // PT: o cartão não desliza; assenta ao fim de um
+    // frame, o suficiente para o campo já existir.
+    val settled = remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { withFrameNanos { }; settled.value = true }
     Dialog(
         onDismissRequest = onClose,
         properties = DialogProperties(usePlatformDefaultWidth = false),
@@ -243,8 +288,9 @@ private fun PautaCenteredSheet(
                     .fillMaxWidth()
                     .verticalScroll(rememberScrollState())
                     .padding(start = SheetGutter, end = SheetGutter, bottom = SheetActionGap),
-                content = content,
-            )
+            ) {
+                CompositionLocalProvider(LocalSheetSettled provides settled) { content() }
+            }
         }
     }
 }

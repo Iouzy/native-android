@@ -28,6 +28,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -45,11 +47,13 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import com.pauta.app.data.entity.FocusBlockEntity
 import com.pauta.app.data.entity.IntentionEntity
 import com.pauta.app.domain.FocusMath
 import com.pauta.app.i18n.tr
 import com.pauta.app.i18n.trf
+import com.pauta.app.ui.LocalSheetSettled
 import com.pauta.app.ui.PautaButton
 import com.pauta.app.ui.PautaButtonVariant
 import com.pauta.app.ui.PautaIcons
@@ -92,11 +96,6 @@ fun StartSheet(
     var selectedIntention by remember { mutableStateOf<String?>(null) }
     var project by remember { mutableStateOf("") }
     var targetMin by remember { mutableStateOf(0) } // 0 = no target
-    // A6: the title is focused on open (keyboard up, no tap) and the first empty
-    // submit flips [triedSubmit], turning the underline + hint danger instead of
-    // leaving a silently-disabled button. // PT: foca o título ao abrir; validação
-    // inline em vez de botão desligado.
-    val titleFocus = rememberAutoFocusRequester()
     var triedSubmit by remember { mutableStateOf(false) }
 
     fun submit() {
@@ -105,6 +104,12 @@ fun StartSheet(
     }
 
     PautaSheet(title = tr("Novo bloco"), onClose = onClose) {
+        // A6: the title is focused on open (keyboard up, no tap) and the first
+        // empty submit flips [triedSubmit], turning the underline + hint danger
+        // instead of leaving a silently-disabled button. U1: declared inside the
+        // sheet body so it can hear the sheet settle. // PT: foca o título quando a
+        // folha assenta; validação inline em vez de botão desligado.
+        val titleFocus = rememberAutoFocusRequester()
         if (hasActive) {
             Box(
                 Modifier
@@ -527,16 +532,41 @@ internal fun BoxedField(
 // inline; literal deliberado, como o resto do texto destrutivo.
 internal val DangerRed = Color(0xFFA8474A)
 
-/** A [FocusRequester] that grabs focus once, just after the sheet's entrance — a
- *  form opens with its first field focused and the keyboard up, no tap needed.
- *  The short beat lets the bottom-sheet animation attach the node before we
- *  request (requesting mid-attach is silently dropped). // PT: foca o primeiro
- *  campo ao abrir, sem toque; a pausa breve deixa o nó montar primeiro. */
+/** The wait used only where there is no [LocalSheetSettled] to listen to — an
+ *  inline editor inside an already-open surface, a full screen. One beat for the
+ *  node to attach; nothing here is racing a sheet. // PT: espera curta só fora das
+ *  folhas, onde não há animação com que competir. */
+private const val AutoFocusFallbackDelayMs = 120L
+
+/**
+ * U1 · A [FocusRequester] that grabs focus once the surface holding it has
+ * actually arrived — a form opens with its first field focused and the keyboard
+ * up, no tap needed, and the keyboard arrives *after* the sheet instead of
+ * shoving it mid-slide.
+ *
+ * Inside a [PautaSheet] it waits on [LocalSheetSettled], so the wait is exactly
+ * as long as the animation is (instant when there is none, five seconds under a
+ * 5× animator scale). Outside one the local is absent and the old short beat
+ * stands in, which keeps every non-sheet call site working unchanged. Pass
+ * [enabled] `false` where the focus is conditional. // PT: foca o primeiro campo
+ * quando a folha assenta, não ao fim de um tempo adivinhado; fora de uma folha
+ * mantém-se a pausa curta de sempre.
+ */
 @Composable
-internal fun rememberAutoFocusRequester(): FocusRequester {
+internal fun rememberAutoFocusRequester(enabled: Boolean = true): FocusRequester {
     val fr = remember { FocusRequester() }
-    LaunchedEffect(Unit) {
-        delay(120)
+    val settled = LocalSheetSettled.current
+    LaunchedEffect(fr, settled, enabled) {
+        if (!enabled) return@LaunchedEffect
+        if (settled != null) {
+            snapshotFlow { settled.value }.first { it }
+            // One frame past the settle so the focus target is attached —
+            // requesting mid-attach is silently dropped. // PT: um frame depois de
+            // assentar; pedir foco a meio da montagem não faz nada.
+            withFrameNanos { }
+        } else {
+            delay(AutoFocusFallbackDelayMs)
+        }
         runCatching { fr.requestFocus() }
     }
     return fr
@@ -756,11 +786,6 @@ fun ManualBlockSheet(
         mutableStateOf(java.time.LocalTime.now().let { "%02d:%02d".format(it.hour, it.minute) })
     }
     var dur by remember { mutableStateOf("") }
-    // A6: focus the "o quê" on open; Done there hops to the duration, Done on the
-    // duration submits. Blank title / out-of-range duration show inline hints
-    // rather than a silently-disabled button. // PT: foca o "o quê"; Seguir salta
-    // para a duração; validação inline em vez de botão desligado.
-    val titleFocus = rememberAutoFocusRequester()
     val durFocus = remember { FocusRequester() }
     var triedSubmit by remember { mutableStateOf(false) }
 
@@ -784,6 +809,12 @@ fun ManualBlockSheet(
     }
 
     PautaSheet(title = tr("Registar tempo"), onClose = onClose) {
+        // A6: focus the "o quê" on open; Done there hops to the duration, Done on
+        // the duration submits. Blank title / out-of-range duration show inline
+        // hints rather than a silently-disabled button. U1: inside the body, so it
+        // waits for the sheet. // PT: foca o "o quê" quando a folha assenta; Seguir
+        // salta para a duração; validação inline em vez de botão desligado.
+        val titleFocus = rememberAutoFocusRequester()
         Text(
             text = tr("Esqueceu-se de iniciar o cronómetro? Registe o bloco à mão."),
             color = colors.ink3,

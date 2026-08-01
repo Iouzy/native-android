@@ -148,10 +148,10 @@ private fun CreateRoutineSection(
     onSaveFromToday: (String) -> Unit,
 ) {
     var name by remember { mutableStateOf("") }
-    val focus = remember { FocusRequester() }
-    // The short beat lets the sheet's entrance attach the node before we request
-    // (mirrors rememberAutoFocusRequester). // PT: pausa breve antes de focar.
-    LaunchedEffect(Unit) { if (autoFocus) { delay(120); runCatching { focus.requestFocus() } } }
+    // U1: the shared requester, which waits for the sheet to settle — this used to
+    // carry its own copy of the 120ms guess. // PT: usa o requester partilhado, que
+    // espera pela folha, em vez de repetir a pausa fixa.
+    val focus = rememberAutoFocusRequester(autoFocus)
     val canSubmit = name.isNotBlank()
 
     Column(Modifier.fillMaxWidth()) {

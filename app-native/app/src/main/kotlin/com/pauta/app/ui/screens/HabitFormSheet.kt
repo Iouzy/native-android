@@ -114,10 +114,6 @@ fun AddHabitSheet(onSubmit: (HabitDraft) -> Unit, onClose: () -> Unit) {
     var unit by remember { mutableStateOf("") }
     var weekdays by remember { mutableStateOf(listOf<Int>()) }
     var expanded by remember { mutableStateOf(false) }
-    // A6: name is focused on open and Done on it submits; the first blank submit
-    // flips [triedSubmit] so the underline + hint turn danger rather than leaving
-    // a dead button. // PT: foca o nome ao abrir; validação inline.
-    val nameFocus = rememberAutoFocusRequester()
     var triedSubmit by remember { mutableStateOf(false) }
 
     fun submit() {
@@ -144,6 +140,12 @@ fun AddHabitSheet(onSubmit: (HabitDraft) -> Unit, onClose: () -> Unit) {
     }
 
     PautaSheet(title = tr("Nova maré"), onClose = onClose) {
+        // A6: name is focused on open and Done on it submits; the first blank
+        // submit flips [triedSubmit] so the underline + hint turn danger rather
+        // than leaving a dead button. U1: declared inside the sheet body so the
+        // focus waits for the sheet to settle. // PT: foca o nome quando a folha
+        // assenta; validação inline.
+        val nameFocus = rememberAutoFocusRequester()
         UnderlineField(
             name, { name = it }, tr("Nome da maré (ex.: meditar)"),
             modifier = Modifier.focusRequester(nameFocus),

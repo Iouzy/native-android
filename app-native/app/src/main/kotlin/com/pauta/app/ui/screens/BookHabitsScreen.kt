@@ -119,7 +119,6 @@ fun BookAnnualGoalCard() {
 private fun AnnualGoalSheet(current: Int, onClose: () -> Unit) {
     val vm: AppViewModel = viewModel()
     var value by remember { mutableStateOf(current.takeIf { it > 0 }?.toString() ?: "") }
-    val focus = rememberAutoFocusRequester()
 
     fun submit() {
         vm.setAnnualGoal(value.toIntOrNull() ?: 0)
@@ -127,6 +126,9 @@ private fun AnnualGoalSheet(current: Int, onClose: () -> Unit) {
     }
 
     PautaSheet(title = tr("Objetivo anual"), onClose = onClose) {
+        // U1: inside the body, so the number field waits for the sheet to settle.
+        // // PT: espera que a folha assente antes de focar.
+        val focus = rememberAutoFocusRequester()
         SheetEyebrow(tr("Objetivo de livros por ano"))
         Spacer(Modifier.height(8.dp))
         Box(Modifier.width(120.dp)) {
