@@ -8,6 +8,8 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.AnimationSpec
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
@@ -90,6 +92,7 @@ import com.pauta.app.ui.screens.TierGuideScreen
 import com.pauta.app.ui.screens.YearReviewScreen
 import com.pauta.app.ui.theme.LocalPautaColors
 import com.pauta.app.ui.theme.bookPautaColors
+import com.pauta.app.ui.theme.lerpPautaColors
 import com.pauta.app.ui.theme.MonoFamily
 import com.pauta.app.ui.theme.PautaMotion
 import com.pauta.app.ui.theme.rememberMotionEnabled
@@ -212,11 +215,37 @@ fun MainScaffold(entry: AppEntry?, onEntryConsumed: () -> Unit) {
 
     // K4: sepia/parchment colours wrap the whole NavHost; overlays (PIN, onboarding)
     // remain outside so they always use the base palette.
+    //
+    // U7: the swap used to happen in a single frame, so toggling the lens flashed
+    // the whole app from paper to parchment. Now one progress value drives a blend
+    // of the two token sets over [PautaMotion.Slow] — the page turns instead of
+    // blinking. At rest (0f / 1f) the exact palette object is used, so nothing but
+    // the ~380ms of the transition pays for the interpolation, and reduced motion
+    // snaps as before. // PT: a troca de lente deixa de ser um piscar — as duas
+    // paletas misturam-se ao longo de uma transição; parada, usa a paleta exata.
     val baseColors = LocalPautaColors.current
-    val effectiveColors = if (prefs.bookMode)
-        bookPautaColors(dark = baseColors.isDark)
-    else
-        baseColors
+    val bookColors = bookPautaColors(dark = baseColors.isDark)
+    // Arriving in book mode is not a transition. Prefs come from Room a beat
+    // after the first frame, so the lens flips from its default once at launch —
+    // that one has to snap, or every cold start fades in like a mode change the
+    // user never made. The latch only opens after the frame that applied the
+    // stored value. // PT: o primeiro valor (o que vem da base de dados) salta;
+    // só as trocas seguintes é que se esbatem.
+    val prefsReady by vm.prefsReady.collectAsStateWithLifecycle()
+    var lensSettled by remember { mutableStateOf(false) }
+    LaunchedEffect(prefsReady) { if (prefsReady) lensSettled = true }
+    val lensSpec: AnimationSpec<Float> =
+        if (animate && lensSettled) PautaMotion.tween(PautaMotion.Slow) else snap()
+    val lens by animateFloatAsState(
+        targetValue = if (prefs.bookMode) 1f else 0f,
+        animationSpec = lensSpec,
+        label = "bookLens",
+    )
+    val effectiveColors = when {
+        lens <= 0f -> baseColors
+        lens >= 1f -> bookColors
+        else -> lerpPautaColors(baseColors, bookColors, lens)
+    }
 
     // The paper backdrop under the whole tree. Every destination paints its own
     // `paper`, so at rest this is never seen — but a nav transition cross-fades
@@ -292,8 +321,8 @@ fun MainScaffold(entry: AppEntry?, onEntryConsumed: () -> Unit) {
         }
 
         // First-run welcome carousel — drawn last so it covers everything; gated
-        // on prefsReady so it never flashes for existing users.
-        val prefsReady by vm.prefsReady.collectAsStateWithLifecycle()
+        // on prefsReady so it never flashes for existing users. (Collected above,
+        // where the lens crossfade also needs it. // PT: recolhido acima.)
         if (prefsReady && !prefs.onboardingSeen) {
             OnboardingOverlay(onDone = { vm.setOnboardingSeen() })
         }
@@ -438,6 +467,28 @@ private fun HomeShell(
         }
     }
 
+    // U7: the fast path between the two lenses — a long press on the settings
+    // gear. A single tap still opens Settings, so nothing is taken away; the
+    // header pill inside Settings is what teaches this shortcut exists. The
+    // switch is confirmed by the same snackbar the deletes use, with an "Anular"
+    // that puts the lens back, because a whole-app repaint triggered by a press
+    // you may not have meant deserves a way out. // PT: manter premido a
+    // engrenagem troca de lente (toque simples continua a abrir as Definições),
+    // com toque háptico e snackbar "Anular".
+    fun toggleLens() {
+        val next = !prefs.bookMode
+        vm.setBookMode(next)
+        haptic.tick(prefs)
+        scope.launch {
+            val result = snackbarHostState.showSnackbar(
+                message = if (next) tr("Modo livro ligado") else tr("Modo livro desligado"),
+                actionLabel = tr("Anular"),
+                duration = SnackbarDuration.Short,
+            )
+            if (result == SnackbarResult.ActionPerformed) vm.setBookMode(!next)
+        }
+    }
+
     Box(Modifier.fillMaxSize()) {
         Column(
             Modifier
@@ -464,7 +515,7 @@ private fun HomeShell(
                     } else false
                 },
         ) {
-            StatusRow(onMenu = onOpenSettings)
+            StatusRow(onMenu = onOpenSettings, onToggleLens = { toggleLens() })
             HorizontalPager(
                 state = pager,
                 // P1: keep all three tabs composed — kills the first-swipe composition
@@ -582,26 +633,40 @@ private fun exitPop(animate: Boolean): ExitTransition =
         fadeOut(PautaMotion.tween(PautaMotion.Slow))
 
 /** The web's `.statusbar` row: just the quiet settings affordance, pushed to
- *  the right, under the (transparent) system status bar. */
+ *  the right, under the (transparent) system status bar. U7 gave the gear a
+ *  long press: it toggles the lens without opening anything. The 16dp icon is
+ *  smaller than the 48dp touch target guidance, so the gesture hangs off a
+ *  padded box rather than the glyph itself. // PT: a engrenagem ganha um toque
+ *  longo (troca de lente) numa área de toque maior que o ícone. */
 @Composable
-private fun StatusRow(onMenu: () -> Unit) {
+private fun StatusRow(onMenu: () -> Unit, onToggleLens: () -> Unit) {
     val colors = LocalPautaColors.current
     Row(
         Modifier
             .fillMaxWidth()
             .statusBarsPadding()
-            .padding(start = 24.dp, end = 24.dp, top = 14.dp),
+            .padding(start = 24.dp, end = 12.dp, top = 2.dp),
         horizontalArrangement = Arrangement.End,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(
-            imageVector = PautaIcons.Gear,
-            contentDescription = tr("Definições"),
-            tint = colors.ink2,
-            modifier = Modifier
-                .size(16.dp)
-                .clickableNoRipple(onMenu),
-        )
+        Box(
+            Modifier
+                .combinedClickableNoRipple(
+                    onClick = onMenu,
+                    onLongClick = onToggleLens,
+                    // TalkBack announces the long press as a named action, so the
+                    // shortcut isn't gesture-only. // PT: o toque longo é anunciado.
+                    onLongClickLabel = tr("Modo livro"),
+                )
+                .padding(horizontal = 12.dp, vertical = 12.dp),
+        ) {
+            Icon(
+                imageVector = PautaIcons.Gear,
+                contentDescription = tr("Definições"),
+                tint = colors.ink2,
+                modifier = Modifier.size(16.dp),
+            )
+        }
     }
 }
 

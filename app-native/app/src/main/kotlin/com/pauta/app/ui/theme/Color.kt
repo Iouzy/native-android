@@ -3,6 +3,7 @@ package com.pauta.app.ui.theme
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 
 /**
  * The full Pauta design-token palette, ported 1:1 from the CSS custom properties
@@ -134,4 +135,34 @@ fun bookPautaColors(dark: Boolean): PautaColors = if (dark) PautaColors(
     tabbarBg = Color(0xFFF2E8D5),
     pageBg = Color(0xFFF2E8D5),
     isDark = false,
+)
+
+/**
+ * U7 · native-only: blend two token sets, so switching the lens can be animated
+ * instead of swapped in a single frame. Every colour token is interpolated;
+ * [PautaColors.isDark] isn't a colour, so it snaps at the halfway point (in
+ * practice both sides share it — book mode is built from the base palette's
+ * darkness — but a blend has to answer the question anyway). // PT: mistura duas
+ * paletas para a troca de lente poder ser animada; o `isDark` não é cor, salta a
+ * meio.
+ */
+fun lerpPautaColors(start: PautaColors, stop: PautaColors, fraction: Float): PautaColors = PautaColors(
+    paper = lerp(start.paper, stop.paper, fraction),
+    paper2 = lerp(start.paper2, stop.paper2, fraction),
+    paper3 = lerp(start.paper3, stop.paper3, fraction),
+    ink = lerp(start.ink, stop.ink, fraction),
+    ink2 = lerp(start.ink2, stop.ink2, fraction),
+    ink3 = lerp(start.ink3, stop.ink3, fraction),
+    ink4 = lerp(start.ink4, stop.ink4, fraction),
+    rule = lerp(start.rule, stop.rule, fraction),
+    accent = lerp(start.accent, stop.accent, fraction),
+    accentSoft = lerp(start.accentSoft, stop.accentSoft, fraction),
+    accentBg = lerp(start.accentBg, stop.accentBg, fraction),
+    good = lerp(start.good, stop.good, fraction),
+    surfaceDark = lerp(start.surfaceDark, stop.surfaceDark, fraction),
+    onDark = lerp(start.onDark, stop.onDark, fraction),
+    onDark2 = lerp(start.onDark2, stop.onDark2, fraction),
+    tabbarBg = lerp(start.tabbarBg, stop.tabbarBg, fraction),
+    pageBg = lerp(start.pageBg, stop.pageBg, fraction),
+    isDark = if (fraction < 0.5f) start.isDark else stop.isDark,
 )

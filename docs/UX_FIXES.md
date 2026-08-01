@@ -416,7 +416,7 @@ idle, checking, up-to-date, available with notes, network failure); an
 available update is visible from the list without opening the sheet; ~80 lines
 leave the main scroll; CI green.
 
-### U7 · The mode switcher — Status: pending
+### U7 · The mode switcher — Status: in-progress (PR pending)
 
 **Depends on:** U4
 
