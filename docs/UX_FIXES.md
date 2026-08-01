@@ -416,7 +416,7 @@ idle, checking, up-to-date, available with notes, network failure); an
 available update is visible from the list without opening the sheet; ~80 lines
 leave the main scroll; CI green.
 
-### U7 · The mode switcher — Status: pending
+### U7 · The mode switcher — Status: done (PR #163)
 
 **Depends on:** U4
 
@@ -504,6 +504,8 @@ with the shared primitive. Either order works — just don't leave two.
 ## Log (append one line per shipped task: date · task · PR · note)
 
 <!-- e.g. 2026-08-02 · U1 · #n · autofocus waits for the sheet to settle instead of a 120ms guess -->
+
+2026-08-01 · U7 · #163 · the lens leaves the card: a `PAUTA │ LIVRO` pill in the Settings header, a long-press on the gear (haptic + `Anular` snackbar) as the fast path, and `lerpPautaColors` turning the one-frame palette swap into a `PautaMotion.Slow` blend. Deviation: `Livro` was already in the `EN` map, so the spec's third new string was reused rather than duplicated — and the Modo card's descriptive line names *both* routes, since the gear long-press has nowhere else to be taught.
 
 2026-08-01 · U4 · #162 · ten Settings sections become seven — `Companhia` takes the three toggles that were never appearance, `Modo` leads with the lens (plus the annual goal), Acessibilidade folds into Aparência, and `ActionRow` stops painting every label accent: label in ink, accent only on the value, a `clearAndSetSemantics` `›` for tappability, and the house `DangerRed` in place of the stray Material red. Deviation: the source link doesn't stay in the centred footer with a corrected URL — the footer is gone and the link is a `Código-fonte ↗` row of `Sobre`, which is the shape U6 expects to find there.
 

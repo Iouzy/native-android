@@ -788,6 +788,16 @@ object I18n {
         "Código-fonte" to "Source code", // native-only
         "Livros a ler este ano." to "Books to read this year.", // native-only
 
+        // ── U7 · the mode switcher ──
+        // "Livro" already carries "Book" above (the book-form field label), and
+        // the switcher's other side is the app's own name, untranslated.
+        // // PT: "Livro" já existe; o outro lado é o nome da app.
+        "Modo livro ligado" to "Book mode on", // native-only
+        "Modo livro desligado" to "Book mode off", // native-only
+        "Lente" to "Lens", // native-only
+        "Troque no cabeçalho, ou mantenha premido o ícone das definições." to
+            "Switch it in the header, or long-press the settings icon.", // native-only
+
         // ── K-extra · pace stats + ETA ──
         "Ritmo: ~{n} págs/hora" to "Pace: ~{n} pages/hour", // native-only
         "Ritmo: ~{n} min/hora" to "Pace: ~{n} min/hour", // native-only

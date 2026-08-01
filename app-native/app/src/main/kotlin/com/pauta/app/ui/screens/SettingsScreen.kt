@@ -13,6 +13,9 @@ import java.io.File
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.AnimationSpec
+import androidx.compose.animation.core.snap
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -52,7 +55,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -77,6 +84,8 @@ import com.pauta.app.ui.canUseBiometric
 import com.pauta.app.ui.clickableNoRipple
 import com.pauta.app.ui.theme.LocalPautaColors
 import com.pauta.app.ui.theme.MonoFamily
+import com.pauta.app.ui.theme.PautaMotion
+import com.pauta.app.ui.theme.rememberMotionEnabled
 import com.pauta.app.ui.theme.SerifFamily
 import com.pauta.app.ui.viewmodel.AppViewModel
 
@@ -262,8 +271,11 @@ fun SettingsScreen(
     ) {
         Spacer(Modifier.height(16.dp))
 
-        // Navigation header
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        // Navigation header. U7: the whole right side used to be empty while the
+        // app's biggest state change sat six rows into a card below — the lens
+        // switcher lives here now, where a header control belongs. // PT: o
+        // seletor de lente ocupa o lado direito do cabeçalho, antes vazio.
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text(
                 "←",
                 color = colors.accent,
@@ -271,7 +283,18 @@ fun SettingsScreen(
                 modifier = Modifier.clickableNoRipple(onClose),
             )
             Spacer(Modifier.width(14.dp))
-            Text(tr("Definições"), color = colors.ink, fontFamily = SerifFamily, fontSize = 26.sp)
+            // The title takes the slack, so the pill stays pinned right and a
+            // long title (or textScale 1.3) wraps instead of pushing it off the
+            // edge. // PT: o título fica com a folga; a pílula não é empurrada.
+            Text(
+                tr("Definições"),
+                color = colors.ink,
+                fontFamily = SerifFamily,
+                fontSize = 26.sp,
+                modifier = Modifier.weight(1f),
+            )
+            Spacer(Modifier.width(12.dp))
+            LensSwitch(bookMode = prefs.bookMode, onSelect = { vm.setBookMode(it) })
         }
 
         // Hero — app identity, matches web DataSheet hero header
@@ -322,16 +345,35 @@ fun SettingsScreen(
         // // PT: sete secções por uso; a Aparência deixa de ser gaveta de tudo.
 
         // ── MODO ─────────────────────────────────────────────────────────
-        // The app's biggest state change, first — not buried six rows into
-        // Aparência. (U7 turns this into a header control; the toggle is the
-        // placeholder until then.) // PT: a lente, à cabeça.
+        // U4 put the lens first; U7 moved the control itself into the header, so
+        // what stays here is the state and the two ways to change it — a section
+        // whose subject is now operated from somewhere else still has to say
+        // where. // PT: a lente à cabeça; o controlo mudou-se para o cabeçalho e
+        // esta linha diz onde está.
         Section(tr("Modo"))
         SectionCard {
-            ToggleRow(
-                label = tr("Modo livro"),
-                checked = prefs.bookMode,
-                subtitle = tr("Transforma as três tabs numa companheira de leitura"),
-            ) { vm.setBookMode(it) }
+            Row(
+                Modifier.fillMaxWidth().heightIn(min = RowMinHeight).padding(vertical = RowVPadding),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(tr("Lente"), color = colors.ink, fontSize = 16.sp)
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        tr("Troque no cabeçalho, ou mantenha premido o ícone das definições."),
+                        color = colors.ink3,
+                        fontSize = 12.sp,
+                        lineHeight = 16.sp,
+                    )
+                }
+                Spacer(Modifier.width(12.dp))
+                Text(
+                    if (prefs.bookMode) tr("Livro") else "Pauta",
+                    color = colors.accent,
+                    fontSize = 13.sp,
+                    textAlign = TextAlign.End,
+                )
+            }
             // Only reading has an annual goal, so the row only exists in the lens
             // that uses it. // PT: só o modo livro tem objetivo anual.
             if (prefs.bookMode) {
@@ -870,6 +912,57 @@ private val SectionGap = 24.dp
  *  interruptor. */
 private val RowVPadding = 11.dp
 private val RowMinHeight = 56.dp
+
+/**
+ * U7 · The lens switcher, in the settings header. Deliberately not a bare
+ * [Switch]: a naked toggle in a header says nothing about what it toggles, while
+ * two named sides say it in two words. Mono uppercase, accent fill on the active
+ * side, `clickableNoRipple` like every other quiet control. The tint animates on
+ * [PautaMotion.Fast] so it lands with the app-wide palette crossfade rather than
+ * snapping ahead of it. // PT: o seletor de lente — dois lados nomeados, não um
+ * interruptor mudo; a cor acompanha o esbatimento da paleta.
+ */
+@Composable
+private fun LensSwitch(bookMode: Boolean, onSelect: (Boolean) -> Unit) {
+    val colors = LocalPautaColors.current
+    Row(
+        Modifier
+            .clip(RoundedCornerShape(PautaRadius.Chip))
+            .border(1.dp, colors.rule, RoundedCornerShape(PautaRadius.Chip)),
+    ) {
+        LensSide("Pauta", selected = !bookMode) { onSelect(false) }
+        LensSide(tr("Livro"), selected = bookMode) { onSelect(true) }
+    }
+}
+
+@Composable
+private fun LensSide(label: String, selected: Boolean, onClick: () -> Unit) {
+    val colors = LocalPautaColors.current
+    val animate = rememberMotionEnabled()
+    val spec: AnimationSpec<Color> = if (animate) PautaMotion.tween(PautaMotion.Fast) else snap()
+    val bg by animateColorAsState(
+        if (selected) colors.accent else Color.Transparent,
+        animationSpec = spec,
+        label = "lensBg",
+    )
+    val fg by animateColorAsState(
+        if (selected) colors.onDark else colors.ink3,
+        animationSpec = spec,
+        label = "lensFg",
+    )
+    Text(
+        label.uppercase(),
+        color = fg,
+        fontFamily = MonoFamily,
+        fontSize = 11.sp,
+        letterSpacing = 1.sp,
+        modifier = Modifier
+            .semantics { this.selected = selected; this.role = Role.Tab }
+            .background(bg)
+            .clickableNoRipple(onClick)
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+    )
+}
 
 @Composable
 private fun Section(title: String, color: Color = LocalPautaColors.current.ink3) {

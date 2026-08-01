@@ -40,15 +40,23 @@ fun Modifier.clickableNoRipple(onClick: () -> Unit): Modifier = composed {
 }
 
 /** [clickableNoRipple] with a long-press, for quiet rows that hide a second
- *  action (e.g. long-press a tide's name to remove it). */
+ *  action (e.g. long-press a tide's name to remove it). Pass
+ *  [onLongClickLabel] to name that hidden action for TalkBack, which otherwise
+ *  has no way to reach it. // PT: o rótulo dá nome ao toque longo para o
+ *  TalkBack — sem ele a ação é só um gesto. */
 @OptIn(ExperimentalFoundationApi::class)
-fun Modifier.combinedClickableNoRipple(onClick: () -> Unit, onLongClick: () -> Unit): Modifier = composed {
+fun Modifier.combinedClickableNoRipple(
+    onClick: () -> Unit,
+    onLongClick: () -> Unit,
+    onLongClickLabel: String? = null,
+): Modifier = composed {
     val interaction = remember { MutableInteractionSource() }
     combinedClickable(
         interactionSource = interaction,
         indication = null,
         onClick = onClick,
         onLongClick = onLongClick,
+        onLongClickLabel = onLongClickLabel,
     )
 }
 
