@@ -12,8 +12,11 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.border
 import androidx.compose.foundation.text.KeyboardActions
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -25,10 +28,14 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.pauta.app.data.AttachResult
+import com.pauta.app.data.ImportedFile
 import com.pauta.app.data.entity.BookEntity
+import com.pauta.app.domain.BookImport
 import com.pauta.app.i18n.tr
 import com.pauta.app.ui.PautaButton
 import com.pauta.app.ui.PautaButtonVariant
@@ -39,6 +46,8 @@ import com.pauta.app.ui.SheetFieldGap
 import com.pauta.app.ui.SheetLabelGap
 import com.pauta.app.ui.clickableNoRipple
 import com.pauta.app.ui.theme.LocalPautaColors
+import com.pauta.app.ui.theme.MonoFamily
+import com.pauta.app.ui.theme.PautaType
 import com.pauta.app.ui.viewmodel.AppViewModel
 
 /**
@@ -66,19 +75,73 @@ fun BookFormSheet(book: BookEntity? = null, onClose: () -> Unit) {
     var confirmDelete by remember { mutableStateOf(false) }
     val isAudiobook = format == "audiobook"
 
+    // R2 · the attached document. The id is allocated up front so a file can be
+    // copied and validated while the sheet is still open — on a new book the
+    // columns then travel into addBook, on an existing one attachFile has
+    // already written them. // PT: o ficheiro anexado; o id é reservado já para
+    // a cópia poder ser validada com a folha aberta.
+    val draftId = remember { book?.id ?: vm.newBookId() }
+    var attached by remember {
+        mutableStateOf(
+            book?.let { b -> b.filePath?.let { path -> ImportedFile(path, b.fileKind ?: "pdf", b.fileName) } },
+        )
+    }
+    var attachedPages by remember { mutableStateOf(0) }
+    var copying by remember { mutableStateOf(false) }
+    var attachError by remember { mutableStateOf<String?>(null) }
+    var saved by remember { mutableStateOf(false) }
+
+    // A file staged for a book the user then walked away from would be an orphan
+    // in filesDir — drop it. // PT: se a folha fecha sem gravar, o ficheiro
+    // preparado é descartado.
+    DisposableEffect(Unit) {
+        onDispose { if (!saved && !editing) attached?.let { vm.discardAttachment(it.path) } }
+    }
+
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            copying = true
+            attachError = null
+            vm.attachFile(draftId, uri) { result ->
+                copying = false
+                when (result) {
+                    is AttachResult.Ok -> {
+                        attached = result.file
+                        attachedPages = result.pageCount
+                    }
+                    AttachResult.UnsupportedType -> attachError = tr("Só PDF e EPUB por agora.")
+                    AttachResult.CopyFailed -> attachError = tr("Não foi possível copiar o ficheiro.")
+                    is AttachResult.Rejected -> attachError = when (result.reason) {
+                        BookImport.Rejection.TOO_LARGE -> tr("Este ficheiro é demasiado grande.")
+                        BookImport.Rejection.DRM -> tr("Este EPUB está protegido por DRM.")
+                        else -> tr("Este ficheiro parece danificado.")
+                    }
+                }
+            }
+        }
+    }
+
     fun submit() {
         if (title.isBlank()) { triedSubmit = true; return }
         val sn = seriesNo.toIntOrNull()
-        val tp = total.toIntOrNull()?.coerceAtLeast(0) ?: 0
+        // A PDF knows its own length: fill the total only when the user left it
+        // empty. // PT: o total só vem do PDF se o campo ficar vazio.
+        val typed = total.toIntOrNull()?.coerceAtLeast(0) ?: 0
+        val tp = if (typed == 0 && attachedPages > 0) attachedPages else typed
+        saved = true
         if (editing) {
             vm.updateBook(
                 book!!.copy(
                     title = title.trim(), author = author.trim(), series = series.trim(),
                     seriesNumber = sn, format = format, totalPages = tp, genre = genre.trim(),
+                    filePath = attached?.path, fileKind = attached?.kind, fileName = attached?.name ?: "",
                 ),
             )
         } else {
-            vm.addBook(title.trim(), author.trim(), series.trim(), sn, format, tp, genre.trim(), status)
+            vm.addBook(
+                title.trim(), author.trim(), series.trim(), sn, format, tp, genre.trim(), status,
+                id = draftId, file = attached,
+            )
         }
         onClose()
     }
@@ -129,6 +192,62 @@ fun BookFormSheet(book: BookEntity? = null, onClose: () -> Unit) {
             SelectPill(tr("Audiolivro"), format == "audiobook", colors.accent, large = true) { format = "audiobook" }
         }
 
+        // ── R2 · o ficheiro anexado ──
+        // Audiobooks have nothing to read in-app, so the row is for page-based
+        // formats only. // PT: audiolivros não têm ficheiro para ler.
+        if (!isAudiobook) {
+            Spacer(Modifier.height(SheetFieldGap))
+            SheetEyebrow(tr("Ficheiro"))
+            Spacer(Modifier.height(SheetLabelGap))
+            val file = attached
+            when {
+                copying -> Text(tr("A copiar…"), color = colors.ink3, style = PautaType.Meta)
+                file != null -> Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Text(
+                        text = "📄 " + file.name,
+                        color = colors.ink3,
+                        style = PautaType.Meta,
+                        fontFamily = MonoFamily,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Text(
+                        text = tr("remover"),
+                        color = colors.ink4,
+                        style = PautaType.MetaSmall,
+                        modifier = Modifier
+                            .clickableNoRipple {
+                                // On an existing book the row and the file go
+                                // together; on a draft only the staged file exists.
+                                if (editing) vm.detachFile(draftId) else vm.discardAttachment(file.path)
+                                attached = null
+                                attachedPages = 0
+                                attachError = null
+                            }
+                            .padding(vertical = 4.dp),
+                    )
+                }
+                else -> Text(
+                    text = tr("Anexar ficheiro"),
+                    color = colors.ink3,
+                    style = PautaType.Meta,
+                    modifier = Modifier
+                        .clickableNoRipple {
+                            picker.launch(arrayOf("application/pdf", "application/epub+zip"))
+                        }
+                        .padding(vertical = 4.dp),
+                )
+            }
+            attachError?.let {
+                Spacer(Modifier.height(6.dp))
+                FieldError(it)
+            }
+        }
+
         Spacer(Modifier.height(SheetFieldGap))
         SheetEyebrow(if (isAudiobook) tr("Total de minutos") else tr("Total de páginas"))
         Spacer(Modifier.height(SheetLabelGap))
@@ -156,7 +275,14 @@ fun BookFormSheet(book: BookEntity? = null, onClose: () -> Unit) {
         Spacer(Modifier.height(SheetActionGap))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             PautaButton(tr("Cancelar"), Modifier.weight(1f), PautaButtonVariant.Ghost) { onClose() }
-            PautaButton(if (editing) tr("Guardar") else tr("Adicionar"), Modifier.weight(2f), PautaButtonVariant.Primary) { submit() }
+            // Confirming mid-copy would save a book pointing at half a file.
+            // // PT: não se grava a meio da cópia.
+            PautaButton(
+                label = if (editing) tr("Guardar") else tr("Adicionar"),
+                modifier = Modifier.weight(2f),
+                variant = PautaButtonVariant.Primary,
+                enabled = !copying,
+            ) { submit() }
         }
 
         // Delete is edit-only and two-step: the first tap arms the confirm, the

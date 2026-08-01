@@ -1,5 +1,9 @@
 package com.pauta.app.data
 
+import android.content.Context
+import android.net.Uri
+import com.pauta.app.domain.BookImport
+import com.pauta.app.service.DocumentParse
 import com.pauta.app.data.entity.BookEntity
 import com.pauta.app.data.entity.BookNoteEntity
 import com.pauta.app.data.entity.DayEntity
@@ -759,12 +763,18 @@ class PautaRepository(private val db: AppDatabase) {
         totalPages: Int,
         genre: String,
         status: String,
+        // R2: the add form allocates the id up front so a file can be attached
+        // *before* the book exists (the copy has to be validated while the sheet
+        // is still open). Both are null on every other path. // PT: id reservado
+        // pelo formulário, para o ficheiro poder ser anexado antes de gravar.
+        id: String? = null,
+        file: ImportedFile? = null,
     ): String {
         val now = System.currentTimeMillis()
-        val id = newId("bk_")
+        val bookId = id ?: newId("bk_")
         bookDao.upsert(
             BookEntity(
-                id = id,
+                id = bookId,
                 title = title.trim(),
                 author = author.trim(),
                 series = series.trim(),
@@ -779,14 +789,20 @@ class PautaRepository(private val db: AppDatabase) {
                 genre = genre.trim(),
                 position = bookDao.getAll().count { it.status == status },
                 createdAt = now,
+                filePath = file?.path,
+                fileKind = file?.kind,
+                fileName = file?.name ?: "",
             ),
         )
-        return id
+        return bookId
     }
 
     suspend fun updateBook(book: BookEntity) = bookDao.upsert(book)
 
-    suspend fun deleteBook(id: String) {
+    /** Removes the book, its notes and — R2 — its attached file. // PT: apaga o
+     *  livro, as notas e o ficheiro anexado. */
+    suspend fun deleteBook(context: Context, id: String) {
+        bookDao.getById(id)?.let { BookFiles.delete(context, it) }
         bookNoteDao.run { getAll().filter { it.bookId == id }.forEach { deleteById(it.id) } }
         bookDao.deleteById(id)
     }
@@ -802,6 +818,79 @@ class PautaRepository(private val db: AppDatabase) {
     suspend fun finishBook(id: String, rating: Int?) {
         val b = bookDao.getById(id) ?: return
         bookDao.upsert(b.copy(status = "done", finishedAt = System.currentTimeMillis(), rating = rating ?: b.rating))
+    }
+
+    // ── Ficheiros anexados (R2) ───────────────────────────────
+    /**
+     * Copies a picked document into private storage and, when the book already
+     * exists, points its row at it. The form's add path calls this with an id
+     * that has no row yet — the columns then travel into [addBook] instead.
+     *
+     * A PDF is only kept if it actually opens in the `:reader` process; that both
+     * gives us the page count and makes "starts with %PDF-, isn't a PDF" fail
+     * closed. `totalPages` is filled from that count **only** when it is still 0
+     * — a number the user typed is never overwritten. // PT: copia o ficheiro,
+     * confirma que abre no processo :reader e preenche o total de páginas só se
+     * ainda estiver a zero.
+     */
+    suspend fun attachFile(context: Context, bookId: String, uri: Uri): AttachResult {
+        val imported = try {
+            BookFiles.importFrom(context, uri, bookId)
+        } catch (e: BookImport.RejectedException) {
+            return when (e.reason) {
+                BookImport.Rejection.UNSUPPORTED -> AttachResult.UnsupportedType
+                else -> AttachResult.Rejected(e.reason)
+            }
+        } catch (_: Exception) {
+            return AttachResult.CopyFailed
+        }
+        if (imported == null) return AttachResult.CopyFailed
+
+        var pages = 0
+        if (imported.kind == "pdf") {
+            pages = DocumentParse.pdfPageCount(context, imported.path)
+            if (pages <= 0) {
+                BookFiles.deleteAt(context, imported.path)
+                return AttachResult.Rejected(BookImport.Rejection.CORRUPT)
+            }
+        }
+
+        bookDao.getById(bookId)?.let { b ->
+            bookDao.upsert(
+                b.copy(
+                    filePath = imported.path,
+                    fileKind = imported.kind,
+                    fileName = imported.name,
+                    totalPages = if (b.totalPages == 0 && pages > 0) pages else b.totalPages,
+                ),
+            )
+        }
+        return AttachResult.Ok(imported.kind, pages, imported)
+    }
+
+    /** Forgets the attached file and deletes it. The book stays. */
+    suspend fun detachFile(context: Context, bookId: String) {
+        val b = bookDao.getById(bookId)
+        if (b != null) {
+            BookFiles.delete(context, b)
+            bookDao.upsert(b.copy(filePath = null, fileKind = null, fileName = "", readPosition = ""))
+        } else {
+            // A staged file for a book that was never saved. // PT: ficheiro
+            // preparado para um livro que não chegou a existir.
+            for (ext in listOf("pdf", "epub")) BookFiles.fileFor(context, bookId, ext).delete()
+        }
+    }
+
+    /** The reader's bookmark — page index (pdf) or "spine:percent" (epub). */
+    suspend fun setReadPosition(bookId: String, position: String) {
+        val b = bookDao.getById(bookId) ?: return
+        bookDao.upsert(b.copy(readPosition = position))
+    }
+
+    /** Total words in the attached book (real for EPUB, estimated elsewhere). */
+    suspend fun setWordCount(bookId: String, words: Int) {
+        val b = bookDao.getById(bookId) ?: return
+        bookDao.upsert(b.copy(wordCount = words.coerceAtLeast(0)))
     }
 
     /** Count of books finished on/after the given epoch ms — the K7 annual goal. */

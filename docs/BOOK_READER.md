@@ -290,7 +290,7 @@ OS, and WebView through Google Play system updates. Two consequences:
 Everything below extends the `BookEntity` defined in `docs/BOOK_MODE.md`.
 Read that table first — it is unchanged; these are new columns only.
 
-### `BookEntity` additions (Room v8 → v9)
+### `BookEntity` additions (Room v9 → v10)
 
 | Column | Type | Default | Notes |
 |---|---|---|---|
@@ -300,7 +300,8 @@ Read that table first — it is unchanged; these are new columns only.
 | `readPosition` | String | `""` | reader bookmark — page index (pdf) or `spineIndex:scrollPercent` (epub) |
 | `wordCount` | Int | `0` | total words; counted for EPUB, estimated for PDF/physical |
 
-**`MIGRATION_8_9`:**
+**`MIGRATION_9_10`** (version 9 was taken by U2's `timerPresets` in
+`docs/UX_FIXES.md`, which shipped first — hence 9→10, not 8→9):
 
 ```sql
 ALTER TABLE books ADD COLUMN filePath TEXT;
@@ -399,7 +400,7 @@ reader can be built.
 
 **Files to touch:**
 - `data/entity/Entities.kt` — the five new `BookEntity` columns
-- `data/AppDatabase.kt` — version 9, `MIGRATION_8_9`, register it
+- `data/AppDatabase.kt` — version 10, `MIGRATION_9_10`, register it
 - `data/PautaRepository.kt` — attach / detach / resolve
 - `data/BookFiles.kt` (new) — the storage helper
 - `ui/viewmodel/AppViewModel.kt` — thin delegates
@@ -945,7 +946,7 @@ data; CI green.
 ```
 R1 (quick fixes — independent, do first)
 
-R2 (attach files: Room v8→v9 + BookFiles + form row)
+R2 (attach files: Room v9→v10 + BookFiles + form row)
  ├─ R3 (PDF reader + reader shell)
  │   └─ R5 (reader ↔ session: auto-progress)
  │       ├─ R6 (WPM)
