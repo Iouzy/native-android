@@ -51,11 +51,231 @@ All guardrails from `docs/NATIVE_IMPROVEMENTS.md`, `docs/BOOK_MODE.md` and
 - **The reader is quiet.** Same paper/ink identity, sepia palette in book mode,
   `SerifFamily` for body text. No Material chrome, no toolbars that don't fade,
   no page-curl animations. Reading is the app at its most minimal.
+- **No cover art. This is settled — don't re-propose it.** The app has no
+  imagery anywhere, and that is the identity: serif titles, mono meta, paper
+  and ink. Extracting covers is technically easy (EPUBs declare one in the OPF
+  manifest; a PDF's page 1 renders as a thumbnail), which is exactly why this
+  needs saying out loud. Shelf cards stay typographic — title, author,
+  progress. Decided August 2026 by the owner, on identity grounds, not effort.
 - **Reading position is derived, never nagged.** Once a file is attached the app
   stops asking "até que página chegaste?" — it knows.
 - **Prefs are law:** `reducedMotion` and `haptics` gate every new animation and
   tick, `textScale` and `highContrast` still apply, TalkBack descriptions on
   every new control.
+- **An attached book is untrusted input.** It is parsed by native code and
+  rendered in a browser engine, and it may have come from anywhere. The
+  **Security model** section below is binding on R2, R3 and R4 — read it before
+  writing any of them.
+
+---
+
+## Security model — read before R2, R3 or R4
+
+**An attached book is untrusted input.** It arrives as a file the user picked,
+it may have come from anywhere, and it is parsed by native code and rendered in
+a browser engine. Treat every byte of it as hostile. The rules below are
+**requirements, not suggestions** — each task's Accept section restates the ones
+it owns, and a PR that skips one is not done.
+
+### Threat model, and what actually applies to this stack
+
+| Threat | Applies here? | Control |
+|---|---|---|
+| JS embedded in a PDF | **No** — `PdfRenderer` is native platform code with no script engine. There is no PDF.js and no `isEvalSupported` to set. | Don't add a JS-based PDF library. That is the control. |
+| Malformed PDF → native memory corruption | **Yes, and it is the main PDF risk.** The parser is native and runs in-process; a crash there cannot be caught by Kotlin. | Process isolation (below) |
+| JS embedded in EPUB XHTML | **Yes** — EPUB is HTML rendered by a real browser engine | WebView lockdown (below) |
+| Exfiltration from document content | **Yes** — a remote `<img>`, a CSS `url()`, a beacon | Block network at the WebView, plus CSP |
+| Zip bomb | **Yes** — EPUB is a zip | Ratio + total + count limits |
+| Zip Slip (path traversal via `../` entry names) | **Yes** — the classic EPUB vuln, and it is **not** on the original checklist | Never resolve an entry to a path; read entries by name from the open archive only |
+| XXE / billion laughs in `container.xml` and the OPF | **Yes** — both are XML, and this is **not** on the original checklist | Disable DTDs and entity expansion |
+| `intent://` and custom-scheme links launching other apps | **Yes** — also **not** on the original checklist | Refuse every navigation |
+| DRM / encrypted EPUB rendering as garbage | Yes, minor | Detect and reject |
+| Third-party library CVEs | **No libraries to pin** — the guardrail forbids new dependencies. `PdfRenderer` ships with the OS; WebView updates through Google Play system updates. | See "Versioning" below |
+
+### 1 · Import limits (owned by R2)
+
+Enforced in `BookFiles.importFrom` **before** the file is stored, streaming —
+never read the whole thing into memory to measure it:
+
+| Limit | Value | Why |
+|---|---|---|
+| Max file size | 200 MB | above this, refuse rather than fill the user's storage |
+| Max total uncompressed (EPUB) | 500 MB | zip bomb |
+| Max compression ratio, per entry and overall | 100:1 | zip bomb |
+| Max entry count (EPUB) | 10 000 | zip bomb by entry count |
+| Max single entry uncompressed | 50 MB | one huge chapter |
+
+Read the declared sizes from the zip's central directory (`ZipEntry.getSize()`
+/ `getCompressedSize()`), **and** enforce the same ceilings against a running
+byte counter while copying — a crafted archive can lie in its header, so the
+declared size is a fast reject, not the guarantee. Abort and delete the partial
+file the moment a counter trips.
+
+**Entry names are validated, never resolved.** Reject any entry whose name
+contains `..`, starts with `/`, contains a backslash, or is an absolute path.
+Chapter content is read via `ZipFile.getEntry(name)` on the open archive —
+the reader **never** extracts the EPUB to disk, so there is no directory for a
+traversal to escape into.
+
+**Sniff by magic bytes, not extension** (already in R2): `%PDF-` at offset 0
+for PDF; for EPUB, the zip signature plus a `mimetype` entry whose content is
+exactly `application/epub+zip`. Reject anything else with a user-facing error.
+
+**Reject encrypted books:** if `META-INF/encryption.xml` exists, refuse the
+import with `"Este EPUB está protegido por DRM."` rather than rendering
+mojibake.
+
+### 2 · Parsing isolation (owned by R2 and R3)
+
+`PdfRenderer` and the zip/XML parsing run in a **separate process** with no
+exported surface:
+
+```xml
+<service
+    android:name=".service.DocumentParseService"
+    android:process=":reader"
+    android:exported="false" />
+```
+
+A native crash in the PDF parser then kills `:reader`, not the app — the user
+sees "Não foi possível abrir este ficheiro", and their planner data, their
+running focus block and their unsaved state all survive. This is the single
+most valuable control for PDFs, because a native crash is otherwise unhandleable.
+
+The `:reader` process:
+- is `exported="false"` — no other app can reach it
+- receives an already-validated file path from the main process; it never opens
+  a `content://` URI or resolves a path itself
+- returns rendered bitmaps / parsed chapter HTML over the binder, and nothing
+  else. It writes no files and holds no permissions of its own.
+- gets its own crash path: the main process detects the death (`DeathRecipient`
+  / a failed binding) and surfaces the friendly error rather than retrying in a
+  loop.
+
+Note that a separate `android:process` shares the app's UID and therefore its
+storage permissions — it is a **crash and fault-containment boundary, not a
+privilege boundary**. That is the honest and still-worthwhile guarantee here;
+don't document it as a sandbox.
+
+### 3 · WebView lockdown (owned by R4)
+
+There is no iframe `sandbox` attribute at the WebView level. These settings are
+the equivalent, and **all of them are mandatory**:
+
+```kotlin
+settings.javaScriptEnabled = false               // no allow-scripts
+settings.allowFileAccess = false
+settings.allowContentAccess = false
+settings.allowFileAccessFromFileURLs = false
+settings.allowUniversalAccessFromFileURLs = false
+settings.blockNetworkLoads = true                // no exfiltration, full stop
+settings.setGeolocationEnabled(false)
+settings.domStorageEnabled = false
+settings.databaseEnabled = false
+settings.mediaPlaybackRequiresUserGesture = true
+// never: addJavascriptInterface(...)  — not under any condition
+```
+
+**Opaque origin (the `allow-same-origin` equivalent):** load with
+`loadDataWithBaseURL(null, html, "text/html", "utf-8", null)`. A null base URL
+gives the document an opaque origin, so it cannot read app storage, cannot
+reach other origins, and has no same-origin privileges to abuse. Never load
+chapters from a `file://` URL.
+
+**Refuse every navigation and every subresource:**
+
+```kotlin
+webViewClient = object : WebViewClient() {
+    // Nothing in a book may navigate — not http, not file, not intent://,
+    // not a custom scheme. Taps on links do nothing.
+    override fun shouldOverrideUrlLoading(v: WebView, r: WebResourceRequest) = true
+    // Belt to blockNetworkLoads' braces: every subresource returns empty.
+    override fun shouldInterceptRequest(v: WebView, r: WebResourceRequest) =
+        WebResourceResponse("text/plain", "utf-8", ByteArrayInputStream(ByteArray(0)))
+}
+webChromeClient = null   // no JS dialogs, no fullscreen, no permission prompts
+```
+
+Internal chapter links (`href="chapter7.xhtml#p3"`) are **not** exceptions to
+this — resolve them in Kotlin against the parsed spine and scroll the reader
+ourselves. The WebView never navigates.
+
+**CSP as defense in depth.** Inject into the `<head>` of every wrapped chapter:
+
+```html
+<meta http-equiv="Content-Security-Policy"
+      content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; sandbox">
+```
+
+`default-src 'none'` blocks everything not re-allowed; `img-src data:` permits
+only inlined images the parser itself embedded; `style-src 'unsafe-inline'` is
+required for the injected theme stylesheet and is safe with scripting disabled;
+the bare `sandbox` directive applies the maximum restrictions with no
+`allow-*` tokens — no scripts, opaque origin. This is a **second** layer: the
+WebView settings above are the primary control and must stand on their own if
+the CSP is ever dropped by an engine quirk.
+
+**Sanitise before rendering anyway** (already in R4): strip `<script>`,
+`<iframe>`, `<object>`, `<embed>`, `<link>`, `<base>`, `<form>`, every `on*=`
+attribute, and any `javascript:` / `data:text/html` / `intent:` URL. Prefer an
+allow-list of tags and attributes over a block-list — a block-list of HTML is a
+losing game, and the set of tags a book needs is small (`p`, headings, `em`,
+`strong`, `blockquote`, `ul`/`ol`/`li`, `img`, `a`, `br`, `hr`, `table` and
+friends).
+
+### 4 · XML parsing (owned by R4)
+
+`container.xml` and the OPF are attacker-controlled XML. On the
+`XmlPullParser`:
+
+```kotlin
+setFeature(XmlPullParser.FEATURE_PROCESS_DOCDECL, false)   // no DTD
+setFeature(XmlPullParser.FEATURE_VALIDATION, false)
+```
+
+No `DocumentBuilderFactory` without `disallow-doctype-decl`; no external entity
+resolution; no XInclude. Cap the parse at the entry-size limit above so a
+deeply nested document can't exhaust the stack — catch `StackOverflowError` at
+the parse boundary and treat it as a malformed file.
+
+### 5 · Only what the user imported (owned by R2, R3, R4)
+
+- Files enter **only** through the SAF `OpenDocument` picker in `BookFormSheet`.
+  There is no intent filter for opening books from other apps, no
+  `ACTION_VIEW` handler, no directory scan, no "recent books on device".
+- The reader opens exactly one path: the one stored in `BookEntity.filePath`,
+  which always resolves inside `filesDir/books/`. Verify with
+  `File.canonicalPath.startsWith(BookFiles.dir(context).canonicalPath)` before
+  opening — cheap, and it closes off a tampered database row.
+- Nothing in a document can cause a fetch: `blockNetworkLoads`, the request
+  interceptor and the CSP each independently prevent it.
+
+### 6 · Versioning
+
+There is nothing to pin, and that is deliberate — the no-new-dependencies
+guardrail means there is no PDF or EPUB library in the tree to carry a CVE.
+The two engines both update outside our release cycle: `PdfRenderer` with the
+OS, and WebView through Google Play system updates. Two consequences:
+
+- **Never vendor a parser to work around a limitation.** If a format can't be
+  handled with the framework, the answer is to refuse that file with a clear
+  message, not to add a library. Revisit that only as an explicit, separate
+  decision.
+- **Don't assume a current WebView.** Read `WebViewCompat.getCurrentWebViewPackage()`
+  and, on a very old or absent WebView, refuse to render EPUBs with
+  `"Atualiza o Android System WebView para ler EPUBs."` rather than rendering
+  in an engine whose security posture is unknown. PDFs are unaffected.
+
+### Security acceptance — every reader PR
+
+- No `addJavascriptInterface` anywhere in the tree.
+- `javaScriptEnabled` is never set true, in any code path or debug flag.
+- No new dependency in `build.gradle.kts`.
+- The parse service is `exported="false"` and on `:reader`.
+- Unit tests exist for: a zip bomb, a `../` entry name, an XXE payload in the
+  OPF, a chapter containing `<script>` and `on*=`, a PDF-magic file that is not
+  a PDF, and an `encryption.xml` present. Each must be **rejected or neutered**,
+  asserted — not merely "doesn't crash".
 
 ---
 
@@ -245,6 +465,22 @@ overwrite a number the user typed.
 | `Ficheiro` | `File` |
 | `remover` | `remove` |
 
+**Security — this task owns the import gate.** Implement §1 of the Security
+model in full: the size / ratio / entry-count / total-uncompressed limits,
+enforced against a running byte counter and not just the zip's declared sizes;
+entry-name validation (reject `..`, leading `/`, backslashes, absolute paths);
+magic-byte sniffing; `META-INF/encryption.xml` → reject as DRM. Abort and
+delete the partial file the instant a limit trips. This task also adds the
+`:reader` process declaration (§2) even though R3 is what first uses it.
+
+**New i18n strings for the rejections (`// native-only`):**
+
+| PT | EN |
+|---|---|
+| `Este ficheiro é demasiado grande.` | `This file is too large.` |
+| `Este ficheiro parece danificado.` | `This file appears to be corrupt.` |
+| `Este EPUB está protegido por DRM.` | `This EPUB is DRM-protected.` |
+
 **Out of scope:** rendering anything. This task attaches and stores; it does
 not open.
 
@@ -253,6 +489,18 @@ and `fileName`, and fills `totalPages` when it was 0; attaching a `.txt`
 renamed to `.pdf` is rejected; deleting the book removes the file; a `pauta.v4`
 export/import round-trip is byte-identical to before (the `WebBackup` tests
 must pass untouched); CI green.
+
+**Security accept — asserted by unit tests, not eyeballed:**
+- a 42-byte zip that expands to >1 GB is **rejected**, and no partial file is
+  left in `filesDir/books/`
+- an EPUB whose central directory understates an entry's real size is still
+  rejected once the running counter trips
+- an entry named `../../../databases/pauta.db` is rejected
+- a file starting with `%PDF-` whose remainder is not a PDF is rejected at
+  import or fails closed at open — never stored as a usable book
+- an EPUB containing `META-INF/encryption.xml` is rejected as DRM
+- `AndroidManifest.xml` declares the parse service `exported="false"` on
+  `android:process=":reader"`
 
 ---
 
@@ -322,10 +570,30 @@ the detail sheet's `Ler` button reverts to the manual progress editor.
 **Out of scope:** EPUB, text selection, search inside the document,
 annotations anchored to a page, night-mode inversion of PDF pages.
 
+**Security — this task owns process isolation.** `PdfRenderer` is native
+platform code and a malformed PDF can corrupt memory or abort the process; that
+crash **cannot be caught in Kotlin**. So all `PdfRenderer` work happens in the
+`:reader` process declared in R2 (§2 of the Security model), and the main
+process renders bitmaps handed back over the binder. When `:reader` dies, the
+main process detects it, shows `"Não foi possível abrir este ficheiro."`, and
+does **not** retry in a loop. The user's focus block, unsaved state and planner
+data all survive, which is the whole point.
+
+Also: verify the path before opening —
+`File(filePath).canonicalPath.startsWith(BookFiles.dir(context).canonicalPath)`
+— so a tampered database row can't point the reader at an arbitrary file.
+
 **Accept:** a real multi-page PDF opens, scrolls smoothly, zooms and restores
 its position after closing and reopening; rotating the device doesn't leak the
 renderer or crash; a 300-page PDF doesn't OOM; chrome hides and returns on tap;
 CI green.
+
+**Security accept:**
+- no `PdfRenderer` reference exists outside the `:reader` process code
+- killing `:reader` mid-render (`adb shell am kill`) leaves the app alive, shows
+  the friendly error, and preserves a running focus block
+- a `filePath` pointing outside `filesDir/books/` is refused before any file
+  handle is opened
 
 ### R4 · EPUB reader — Status: pending
 
@@ -362,12 +630,18 @@ fine; the spine order and the `href`s are all that matter. Handle the common
 shapes: OPF anywhere in the archive, relative hrefs, `<spine toc=…>` present or
 absent. A malformed EPUB throws `EpubFormatException`, caught at the UI edge.
 
-**Sanitising is mandatory.** The HTML comes from a file the user supplied, and
-it renders in a WebView. Strip `<script>`, `<iframe>`, `<object>`, `<embed>`,
-`on*=` attributes and `javascript:` URLs before rendering. In the WebView:
-`javaScriptEnabled = false`, `allowFileAccess = false`,
-`allowContentAccess = false`, no `addJavascriptInterface`, and a
-`WebViewClient` that refuses every navigation except the initial load.
+**Security — this task owns the browser engine.** EPUB is HTML rendered by real
+Chromium, which makes it the highest-risk surface in the app. Implement §3
+(WebView lockdown, opaque origin, refuse-every-navigation, CSP, allow-list
+sanitiser) and §4 (XML parsing with DTDs and entity expansion disabled) of the
+Security model **in full**. Two points that are easy to get wrong:
+
+- **Internal chapter links are not an exception.** `href="ch7.xhtml#p3"` is
+  resolved in Kotlin against the parsed spine and scrolled by us. The WebView
+  itself never navigates — `shouldOverrideUrlLoading` returns `true`
+  unconditionally, for every scheme.
+- **Prefer an allow-list to a block-list.** The tags a book needs are few;
+  enumerating the dangerous ones is a game you lose to the next HTML spec.
 
 **`EpubReader`** — one `WebView` per chapter inside a `LazyColumn` is too heavy;
 use **one WebView, one chapter at a time**, with the reader shell's swipe/tap
@@ -390,8 +664,13 @@ shows `"43%"`. Every progress display must handle it — shelf card, detail
 sheet, conclude prompt, reader chrome.
 
 **Unit tests** in `src/test/` for `parseEpub`, `countWords` and the sanitiser,
-against small hand-built zip fixtures (a valid book, a book with no OPF, a
-chapter containing a `<script>` and an `onclick=`).
+against small hand-built zip fixtures. At minimum: a valid book · a book with
+no OPF · a chapter containing `<script>`, `onclick=`, `javascript:` and
+`data:text/html` · an OPF carrying an XXE payload (external entity pointing at
+`/etc/hosts`) · an OPF with a billion-laughs entity expansion · a chapter with
+a remote `<img src="https://…">` and a CSS `url()` · a chapter with an
+`intent://` link · a 10 000-deep nested `<div>`. Every one must be **rejected
+or neutered, asserted** — "it didn't crash" is not a passing test.
 
 **New i18n strings (`// native-only`):**
 
@@ -405,8 +684,22 @@ contents as a navigable list (that's a later extra), text selection.
 
 **Accept:** a real EPUB opens in Pauta's own type and palette; chapters advance
 and the position restores exactly; the progress line tracks words not chapters;
-a `<script>` in a chapter never executes; the parser's unit tests are green;
-CI green.
+the parser's unit tests are green; CI green.
+
+**Security accept — verified on device with a hostile fixture EPUB, not just
+unit-tested:**
+- a chapter's `<script>` never executes (prove it: a script that would set
+  `document.title` leaves the title untouched)
+- an `<img src="https://…">` and a CSS `url(https://…)` produce **no network
+  request** — confirm with a proxy or `tcpdump`, not by eye
+- an `intent://` or `market://` link launches nothing
+- `javaScriptEnabled` is `false` on every code path; `addJavascriptInterface`
+  appears nowhere in the tree
+- chapters load via `loadDataWithBaseURL(null, …)`; no `file://` load exists
+- the OPF XXE fixture reads no file and the billion-laughs fixture does not
+  hang or OOM
+- an ancient/absent WebView degrades to the update message rather than
+  rendering
 
 ---
 
