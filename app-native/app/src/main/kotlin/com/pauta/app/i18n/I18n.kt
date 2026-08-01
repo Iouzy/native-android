@@ -760,6 +760,9 @@ object I18n {
         "Livro" to "Book", // native-only
         "Fechar" to "Close", // native-only
 
+        // ── R1 · capture in the shelf header ──
+        "Nota" to "Note", // native-only
+
         // ── U2 · timer preset sets + custom minutes ──
         "Outro…" to "Custom…", // native-only
         "Entre 1 e 600 min." to "Between 1 and 600 min.", // native-only

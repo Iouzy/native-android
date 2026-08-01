@@ -4,6 +4,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -25,6 +27,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -48,6 +55,7 @@ import com.pauta.app.ui.viewmodel.AppViewModel
  * opens [BookDetailSheet] (K8) — progress, rating, status, notes and sessions.
  * // PT: a estante do modo livro — em curso, a seguir, lidos + adicionar.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun BookShelfScreen() {
     val vm: AppViewModel = viewModel()
@@ -56,6 +64,9 @@ fun BookShelfScreen() {
     val tbr by vm.booksTbr.collectAsStateWithLifecycle()
     val done by vm.booksDone.collectAsStateWithLifecycle()
     var showAdd by remember { mutableStateOf(false) }
+    // R1: quick capture moved off the floating chip and into the header. // PT: a
+    // folha de captura rápida, agora aberta a partir do cabeçalho.
+    var showCapture by remember { mutableStateOf(false) }
     var detailId by remember { mutableStateOf<String?>(null) }
 
     // K8: any book tap opens the detail sheet, which owns progress/rating/
@@ -75,17 +86,38 @@ fun BookShelfScreen() {
                     text = tr("Estante"),
                     color = colors.ink,
                     style = PautaType.ScreenTitle,
-                    modifier = Modifier.weight(1f),
                 )
-                Text(
-                    text = tr("Adicionar livro") + " +",
-                    color = colors.accent,
-                    style = PautaType.Meta,
-                    letterSpacing = 0.44.sp,
-                    modifier = Modifier
-                        .clickableNoRipple { showAdd = true }
-                        .padding(start = 12.dp, top = 6.dp, bottom = 6.dp),
-                )
+                // The weighted spacer is measured last, so the actions flow below
+                // gets what the title leaves — and wraps inside it at a large text
+                // scale instead of pushing the title off the row. // PT: o espaçador
+                // com peso mede-se por último; as acções recebem o resto e quebram lá
+                // dentro.
+                Spacer(Modifier.weight(1f))
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.End),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
+                    // R1: quick capture lives here now — the floating chip that sat on
+                    // the tab bar's hairline is gone. Quiet ink beside the accent
+                    // "Adicionar livro". // PT: a captura rápida passou para o
+                    // cabeçalho, discreta ao lado de "Adicionar livro".
+                    HeaderAction(
+                        label = "✎ " + tr("Nota") + " +",
+                        color = colors.ink2,
+                        description = tr("Nova nota"),
+                    ) { showCapture = true }
+                    Text(
+                        text = "·",
+                        color = colors.ink4,
+                        style = PautaType.Meta,
+                        modifier = Modifier.padding(vertical = 6.dp),
+                    )
+                    HeaderAction(
+                        label = tr("Adicionar livro") + " +",
+                        color = colors.accent,
+                        description = tr("Adicionar livro"),
+                    ) { showAdd = true }
+                }
             }
             Spacer(Modifier.height(20.dp))
         }
@@ -141,9 +173,34 @@ fun BookShelfScreen() {
     if (showAdd) {
         BookFormSheet(onClose = { showAdd = false })
     }
+    if (showCapture) {
+        QuoteCaptureSheet(onClose = { showCapture = false })
+    }
     detailId?.let { id ->
         BookDetailSheet(bookId = id, onDismiss = { detailId = null })
     }
+}
+
+/** A header action: quiet mono text with a touch target, announced to TalkBack
+ *  by [description] because the glyphs ("✎", "+") don't read as words.
+ *  // PT: acção do cabeçalho — texto mono discreto com descrição para o TalkBack. */
+@Composable
+private fun HeaderAction(
+    label: String,
+    color: Color,
+    description: String,
+    onClick: () -> Unit,
+) {
+    Text(
+        text = label,
+        color = color,
+        style = PautaType.Meta,
+        letterSpacing = 0.44.sp,
+        modifier = Modifier
+            .clickableNoRipple(onClick)
+            .padding(vertical = 6.dp)
+            .semantics { contentDescription = description; role = Role.Button },
+    )
 }
 
 /** "Reading now" card: title, author, a tide-weight progress bar and the
