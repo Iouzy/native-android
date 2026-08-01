@@ -28,6 +28,7 @@ import com.pauta.app.i18n.I18n
 import com.pauta.app.i18n.Lang
 import com.pauta.app.ui.AppEntry
 import com.pauta.app.ui.MainScaffold
+import com.pauta.app.ui.ScreenMode
 import com.pauta.app.ui.Tab
 import com.pauta.app.ui.theme.PautaTheme
 import com.pauta.app.ui.theme.ThemeMode
@@ -103,11 +104,19 @@ class MainActivity : FragmentActivity() {
             val density = LocalDensity.current
             val scaled = Density(density.density, density.fontScale * prefs.textScale)
 
-            // Fullscreen + keep-awake follow the live preferences.
+            // Fullscreen + keep-awake follow the live preferences — plus, R3, what
+            // the screen on top is asking for: the reader hides the bars while it
+            // is open and keeps the screen on while a page is in front of you.
+            // Both are read *here*, during composition, so a change recomposes and
+            // re-applies below; a SideEffect's own reads aren't tracked. // PT: as
+            // bandeiras seguem as preferências e o que o ecrã atual pede (o leitor);
+            // lidas na composição para a mudança chegar cá.
             val activeBlock by vm.activeBlock.collectAsStateWithLifecycle()
+            val immersive = prefs.immersive || ScreenMode.immersive
+            val keepScreenOn = prefs.keepAwake && (activeBlock != null || ScreenMode.keepAwake)
             SideEffect {
                 val controller = WindowCompat.getInsetsController(window, window.decorView)
-                if (prefs.immersive) {
+                if (immersive) {
                     controller.systemBarsBehavior =
                         WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
                     controller.hide(WindowInsetsCompat.Type.systemBars())
@@ -115,7 +124,7 @@ class MainActivity : FragmentActivity() {
                     controller.show(WindowInsetsCompat.Type.systemBars())
                 }
                 // Don't let the phone sleep while a block is running (web keepAwake).
-                if (prefs.keepAwake && activeBlock != null) {
+                if (keepScreenOn) {
                     window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
                 } else {
                     window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)

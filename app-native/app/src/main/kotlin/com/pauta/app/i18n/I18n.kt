@@ -822,6 +822,19 @@ object I18n {
         "Este ficheiro parece danificado." to "This file appears to be corrupt.", // native-only
         "Este EPUB está protegido por DRM." to "This EPUB is DRM-protected.", // native-only
 
+        // ── R3 · the reader ──
+        // "Ler" already carries "Read" above, from the suggested tides. // PT:
+        // "Ler" já existe, vindo das marés sugeridas.
+        "O ficheiro já não está aqui." to "The file is no longer here.", // native-only
+        "Anexar de novo" to "Attach again", // native-only
+        "A abrir…" to "Opening…", // native-only
+        // What the user sees when :reader refuses a file or dies trying — the
+        // friendly end of §2's process isolation. // PT: o que se vê quando o
+        // processo :reader recusa (ou morre com) um ficheiro.
+        "Não foi possível abrir este ficheiro." to "Could not open this file.", // native-only
+        // TalkBack only: the reader's "⋯" opens the book's detail sheet.
+        "Detalhes do livro" to "Book details", // native-only
+
         // ── K-extra · pace stats + ETA ──
         "Ritmo: ~{n} págs/hora" to "Pace: ~{n} pages/hour", // native-only
         "Ritmo: ~{n} min/hora" to "Pace: ~{n} min/hour", // native-only

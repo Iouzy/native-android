@@ -75,10 +75,13 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
+import android.net.Uri
 import androidx.navigation.NavController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.pauta.app.i18n.tr
 import com.pauta.app.ui.screens.GoalsScreen
 import com.pauta.app.ui.screens.HistoryView
@@ -87,6 +90,7 @@ import com.pauta.app.ui.screens.MaresScreen
 import com.pauta.app.ui.screens.PautaScreen
 import com.pauta.app.ui.screens.PinMode
 import com.pauta.app.ui.screens.PinScreen
+import com.pauta.app.ui.screens.ReaderScreen
 import com.pauta.app.ui.screens.SettingsScreen
 import com.pauta.app.ui.screens.TierGuideScreen
 import com.pauta.app.ui.screens.YearReviewScreen
@@ -129,6 +133,13 @@ private object Route {
     const val YEAR_REVIEW = "yearReview"
     const val TIER_GUIDE = "tierGuide"
     const val HISTORY = "history"
+
+    /** R3: the reader, which is a destination and not a sheet — it takes the whole
+     *  surface, the system bars and the back stack with it. // PT: o leitor é um
+     *  destino de página inteira. */
+    const val READER = "reader/{bookId}"
+    const val READER_ARG = "bookId"
+    fun reader(bookId: String): String = "reader/" + Uri.encode(bookId)
 }
 
 /**
@@ -280,6 +291,18 @@ fun MainScaffold(entry: AppEntry?, onEntryConsumed: () -> Unit) {
                             onTabConsumed = { tabRequest = null },
                             onOpenSettings = { navController.open(Route.SETTINGS) },
                             onOpenHistory = { navController.open(Route.HISTORY) },
+                            onOpenReader = { id -> navController.open(Route.reader(id)) },
+                        )
+                    }
+                }
+                composable(
+                    route = Route.READER,
+                    arguments = listOf(navArgument(Route.READER_ARG) { type = NavType.StringType }),
+                ) { entry ->
+                    AppScoped(appOwner) {
+                        ReaderScreen(
+                            bookId = entry.arguments?.getString(Route.READER_ARG).orEmpty(),
+                            onClose = { navController.popBackStack() },
                         )
                     }
                 }
@@ -406,6 +429,7 @@ private fun HomeShell(
     onTabConsumed: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenHistory: () -> Unit,
+    onOpenReader: (String) -> Unit,
 ) {
     val colors = LocalPautaColors.current
     val scope = rememberCoroutineScope()
@@ -527,7 +551,11 @@ private fun HomeShell(
                     .fillMaxWidth(),
             ) { page ->
                 when (Tab.entries[page]) {
-                    Tab.HOJE -> HojeScreen(onOpenHistory = onOpenHistory, bookMode = prefs.bookMode)
+                    Tab.HOJE -> HojeScreen(
+                        onOpenHistory = onOpenHistory,
+                        bookMode = prefs.bookMode,
+                        onOpenReader = onOpenReader,
+                    )
                     Tab.PAUTA -> PautaScreen(bookMode = prefs.bookMode)
                     Tab.MARES -> MaresScreen(bookMode = prefs.bookMode)
                 }

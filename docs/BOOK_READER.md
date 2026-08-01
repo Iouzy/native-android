@@ -507,7 +507,7 @@ must pass untouched); CI green.
 
 ## Phase R-2 — the readers (R3 and R4 are independent; both need R2)
 
-### R3 · PDF reader — Status: pending
+### R3 · PDF reader — Status: done (PR #167)
 
 **Depends on:** R2
 
@@ -964,6 +964,8 @@ and read it in the app; everything after makes it smarter.
 ## Log (append one line per shipped task: date · task · PR · note)
 
 <!-- e.g. 2026-08-02 · R1 · #n · capture chip moved to the shelf header; reading presets 15/30/45/60 + custom -->
+
+2026-08-01 · R3 · #167 · a PDF opens in the app now. The shell (`ReaderScreen`) is a navigation destination that takes the window with it — bars hidden regardless of the `immersive` pref and given back on exit, via a new `ui/ScreenMode.kt` that `MainActivity` reads *during composition* (a `SideEffect`'s own reads aren't tracked, so the flags would never have re-applied). The interesting half is the wire: a rendered page is several megabytes and a binder transaction is one, so `:reader` streams `[w][h][ARGB_8888]` down a pipe the caller supplied and the end of that stream is the entire answer — a bad page index, a renderer that threw and a process that died are all EOF, which is exactly the shape §2 wants. Death is final: the session unbinds on `onServiceDisconnected` and every later call returns null, because rebinding is what a retry loop looks like. `PdfRenderer` is now named in one file only. The 2048px cap came out as pure `domain/ReaderMath.fitPage` so the one sum that can silently OOM a 300-page book is JVM-tested. An attached EPUB keeps the manual editor — R4 owns that branch, and offering "Ler" for it would be offering a dead end.
 
 2026-08-01 · R2 · #166 · books carry files now: five native-only columns, Room v9 → v10 as `MIGRATION_9_10` (U2 had already taken v9, so the spec's `MIGRATION_8_9` naming is corrected here), and `filesDir/books/<bookId>.<ext>` as the only place one can land. The import gate is split in two — `domain/BookImport.kt` is pure and carries every rule (so all six security cases are JVM tests, plus five more), `data/BookFiles.kt` is the Android skin. The zip's own headers are a fast reject and nothing more: every ceiling is enforced again against a running byte counter, which is the only thing that catches an archive understating an entry by 2 MB. `PdfRenderer` already runs in `:reader` rather than waiting for R3 — R2 needs a page count, and doing it there both honours §2 and makes a `%PDF-` decoy fail closed. R3's "o ficheiro já não está aqui" line was left for R3, which owns that string.
 

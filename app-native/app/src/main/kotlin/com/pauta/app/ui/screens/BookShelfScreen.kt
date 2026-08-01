@@ -54,10 +54,15 @@ import com.pauta.app.ui.viewmodel.AppViewModel
  * plus an "Adicionar livro" action that opens [BookFormSheet]. Tapping a book
  * opens [BookDetailSheet] (K8) — progress, rating, status, notes and sessions.
  * // PT: a estante do modo livro — em curso, a seguir, lidos + adicionar.
+ *
+ * @param onOpenReader R3: opens the reader for a book with a readable file. A
+ *   book in progress that carries a document goes straight there on a tap; its
+ *   quiet lines still open the detail sheet. // PT: abre o leitor; as linhas
+ *   discretas do cartão continuam a abrir o detalhe.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun BookShelfScreen() {
+fun BookShelfScreen(onOpenReader: (String) -> Unit = {}) {
     val vm: AppViewModel = viewModel()
     val colors = LocalPautaColors.current
     val reading by vm.booksReading.collectAsStateWithLifecycle()
@@ -133,7 +138,11 @@ fun BookShelfScreen() {
             } else {
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     items(reading, key = { "rd-${it.id}" }) { book ->
-                        BookProgressCard(book) { onOpenBook(book.id) }
+                        BookProgressCard(
+                            book = book,
+                            onOpenReader = { onOpenReader(book.id) },
+                            onOpenDetail = { onOpenBook(book.id) },
+                        )
                     }
                 }
             }
@@ -177,7 +186,11 @@ fun BookShelfScreen() {
         QuoteCaptureSheet(onClose = { showCapture = false })
     }
     detailId?.let { id ->
-        BookDetailSheet(bookId = id, onDismiss = { detailId = null })
+        BookDetailSheet(
+            bookId = id,
+            onDismiss = { detailId = null },
+            onOpenReader = { detailId = null; onOpenReader(id) },
+        )
     }
 }
 
@@ -204,15 +217,23 @@ private fun HeaderAction(
 }
 
 /** "Reading now" card: title, author, a tide-weight progress bar and the
- *  page/minute count — pages for physical/ebook, minutes for audiobooks. */
+ *  page/minute count — pages for physical/ebook, minutes for audiobooks.
+ *
+ *  R3: when the book carries a document, the card itself opens the reader — the
+ *  shortest path between "I am reading this" and the page. The quiet lines under
+ *  the title (the author, and the progress meta, which is always there) stay a
+ *  way into the detail sheet, so nothing becomes unreachable on a card with no
+ *  author. // PT: com ficheiro, o cartão abre o leitor; as linhas discretas
+ *  continuam a abrir o detalhe (mesmo sem autor). */
 @Composable
-private fun BookProgressCard(book: BookEntity, onClick: () -> Unit) {
+private fun BookProgressCard(book: BookEntity, onOpenReader: () -> Unit, onOpenDetail: () -> Unit) {
     val colors = LocalPautaColors.current
     val unit = if (book.format == "audiobook") "min." else "p."
+    val canRead = rememberCanRead(book)
     PautaCard(
         Modifier.width(168.dp),
         padding = PaddingValues(14.dp),
-        onClick = onClick,
+        onClick = if (canRead) onOpenReader else onOpenDetail,
     ) {
         Text(
             text = book.title,
@@ -231,25 +252,25 @@ private fun BookProgressCard(book: BookEntity, onClick: () -> Unit) {
                 style = PautaType.Meta,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
+                modifier = if (canRead) Modifier.clickableNoRipple(onOpenDetail) else Modifier,
             )
         }
         Spacer(Modifier.height(12.dp))
         if (book.totalPages > 0) {
             ProgressBar(book.currentPage.toFloat() / book.totalPages.coerceAtLeast(1))
             Spacer(Modifier.height(6.dp))
-            Text(
-                text = "${book.currentPage} / ${book.totalPages} $unit",
-                color = colors.ink3,
-                style = PautaType.MetaSmall,
-            )
-        } else {
-            // Unknown length: no bar, just the position reached.
-            Text(
-                text = "$unit ${book.currentPage}",
-                color = colors.ink3,
-                style = PautaType.MetaSmall,
-            )
         }
+        Text(
+            text = if (book.totalPages > 0) {
+                "${book.currentPage} / ${book.totalPages} $unit"
+            } else {
+                // Unknown length: no bar, just the position reached.
+                "$unit ${book.currentPage}"
+            },
+            color = colors.ink3,
+            style = PautaType.MetaSmall,
+            modifier = if (canRead) Modifier.clickableNoRipple(onOpenDetail) else Modifier,
+        )
     }
 }
 
