@@ -391,7 +391,7 @@ starts a session with that target; planner mode untouched; CI green.
 
 ## Phase R-1 — attaching files
 
-### R2 · Data layer: attached files — Status: pending
+### R2 · Data layer: attached files — Status: done (PR #166)
 
 **Depends on:** R1 (not strictly — but ship R1's small stuff first)
 
@@ -964,5 +964,7 @@ and read it in the app; everything after makes it smarter.
 ## Log (append one line per shipped task: date · task · PR · note)
 
 <!-- e.g. 2026-08-02 · R1 · #n · capture chip moved to the shelf header; reading presets 15/30/45/60 + custom -->
+
+2026-08-01 · R2 · #166 · books carry files now: five native-only columns, Room v9 → v10 as `MIGRATION_9_10` (U2 had already taken v9, so the spec's `MIGRATION_8_9` naming is corrected here), and `filesDir/books/<bookId>.<ext>` as the only place one can land. The import gate is split in two — `domain/BookImport.kt` is pure and carries every rule (so all six security cases are JVM tests, plus five more), `data/BookFiles.kt` is the Android skin. The zip's own headers are a fast reject and nothing more: every ceiling is enforced again against a running byte counter, which is the only thing that catches an archive understating an entry by 2 MB. `PdfRenderer` already runs in `:reader` rather than waiting for R3 — R2 needs a page count, and doing it there both honours §2 and makes a `%PDF-` decoy fail closed. R3's "o ficheiro já não está aqui" line was left for R3, which owns that string.
 
 2026-08-01 · R1 · #160 · the floating capture chip is gone — quick capture is now a quiet mono action in the shelf header (`✎ Nota +  ·  Adicionar livro +`, wrapping in a `FlowRow` at a large text scale), so nothing floats over the tab bar. Part (b) needed no code: U2 (#159) already gives a reading session the shared `DurationPicker` with the `simples` set (15/30/45/60 + `Outro…`, 1–600), which R1 says to reuse — so the only new string is `Nota` (`Outro…` came with U2; `Minutos` is unused by that picker and was skipped rather than added dead).
