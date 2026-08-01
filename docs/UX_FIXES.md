@@ -343,7 +343,7 @@ sections in the order above; Zona perigosa unchanged; only values are accent;
 the hero subtitle follows the mode; the source link is correct; book mode and
 planner both look right; CI green.
 
-### U5 · Settings search — Status: pending
+### U5 · Settings search — Status: done (PR #164)
 
 **Depends on:** U4
 
@@ -504,6 +504,8 @@ with the shared primitive. Either order works — just don't leave two.
 ## Log (append one line per shipped task: date · task · PR · note)
 
 <!-- e.g. 2026-08-02 · U1 · #n · autofocus waits for the sheet to settle instead of a 120ms guess -->
+
+2026-08-01 · U5 · #164 · every Settings row now declares itself once as a `SettingsRow` (label · subtitle · search-only keywords · content) and the screen renders that one index either grouped or filtered; an un-autofocused `UnderlineField` under the header matches accent- and case-insensitively over both, rows stay in their section card with their eyebrow, and clearing returns to the offset captured before filtering clamped it. Deviations: `keywords` are deliberately *not* `tr`-wrapped — they are never rendered and have to carry both languages at once, which is the only way "backup" finds *Cópia automática* in PT; and the hero block stands down while a query is live, so results start under the field rather than behind the app identity.
 
 2026-08-01 · U7 · #163 · the lens leaves the card: a `PAUTA │ LIVRO` pill in the Settings header, a long-press on the gear (haptic + `Anular` snackbar) as the fast path, and `lerpPautaColors` turning the one-frame palette swap into a `PautaMotion.Slow` blend. Deviation: `Livro` was already in the `EN` map, so the spec's third new string was reused rather than duplicated — and the Modo card's descriptive line names *both* routes, since the gear long-press has nowhere else to be taught.
 
