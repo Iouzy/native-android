@@ -122,6 +122,11 @@ enum class Tab(val ptLabel: String) {
 sealed interface AppEntry {
     data class OpenTab(val tab: Tab) : AppEntry
     data class ShareText(val text: String) : AppEntry
+
+    /** R8: a cold start through one of the two launcher icons. It sets the same
+     *  `bookMode` preference the settings toggle sets — one boolean, last action
+     *  wins. // PT: arranque por um dos dois ícones; liga/desliga o modo livro. */
+    data class OpenMode(val bookMode: Boolean) : AppEntry
 }
 
 /** A8: the full-surface screens reached from the shell are real navigation
@@ -191,6 +196,13 @@ fun MainScaffold(entry: AppEntry?, onEntryConsumed: () -> Unit) {
                 tabRequest = Tab.HOJE
                 pendingShare = e.text
             }
+            // R8: the book icon and the main icon are two doors onto one app, and a
+            // door does exactly what the settings toggle does — it writes the mode
+            // preference. Nothing else here changes: the tabs, the shell and the
+            // sepia wash all follow `prefs.bookMode` as they already did. // PT: o
+            // ícone escreve a preferência de modo; o resto da casca segue-a como já
+            // seguia.
+            is AppEntry.OpenMode -> vm.setBookMode(e.bookMode)
             null -> Unit
         }
         if (entry != null) onEntryConsumed()
