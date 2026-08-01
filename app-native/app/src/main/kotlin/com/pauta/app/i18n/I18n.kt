@@ -124,6 +124,9 @@ object I18n {
         "noite" to "night",
         "sem hora" to "no time",
         "min" to "min", // native-only
+        // U3: the composer's group labels — what makes "1 2 3" mean something.
+        // ("quando" already exists below, in the Marés form.)
+        "prioridade" to "priority", // native-only
         "Adicionar" to "Add",
         "Ainda sem intenções para hoje." to "No intentions for today yet.", // native-only
         "Reflexão da noite" to "Evening reflection",
@@ -149,6 +152,9 @@ object I18n {
         "intenção" to "intention", // native-only
         "dias anteriores" to "previous days",
         "a semana" to "the week",
+        // U3: the Hoje header chips are one flow now, and the eyebrow uppercases
+        // them anyway — so "Rotinas" joins the others in lowercase at the source.
+        "rotinas" to "routines", // native-only
         "A semana" to "The week",
         "Deixe preparado o que importa nos próximos dias. Cada plano vira as intenções desse dia quando ele chegar." to "Set up what matters over the next days. Each plan becomes that day's intentions when it arrives.",
         "planear intenção…" to "plan an intention…",

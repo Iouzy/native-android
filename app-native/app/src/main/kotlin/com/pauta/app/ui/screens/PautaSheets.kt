@@ -451,7 +451,10 @@ fun ConcludeSheet(
 
 /** The start sheet's headline input: borderless with a 1.5dp ink underline (the
  *  underline + caret turn danger when [isError]). [imeAction]/[keyboardActions]
- *  let the field submit from the keyboard. */
+ *  let the field submit from the keyboard. [fontSize] is the sheets' headline
+ *  18sp by default; U3's Hoje composer asks for 16sp so the line it writes
+ *  matches the intentions it produces. // PT: [fontSize] permite ao compositor
+ *  de Hoje ficar do tamanho das intenções que escreve. */
 @Composable
 internal fun UnderlineField(
     value: String,
@@ -459,6 +462,7 @@ internal fun UnderlineField(
     placeholder: String,
     modifier: Modifier = Modifier,
     isError: Boolean = false,
+    fontSize: androidx.compose.ui.unit.TextUnit = 18.sp,
     imeAction: ImeAction = ImeAction.Default,
     keyboardActions: KeyboardActions = KeyboardActions.Default,
 ) {
@@ -468,7 +472,7 @@ internal fun UnderlineField(
             value = value,
             onValueChange = onChange,
             singleLine = true,
-            textStyle = TextStyle(color = colors.ink, fontFamily = SansFamily, fontSize = 18.sp),
+            textStyle = TextStyle(color = colors.ink, fontFamily = SansFamily, fontSize = fontSize),
             cursorBrush = SolidColor(if (isError) DangerRed else colors.accent),
             keyboardOptions = KeyboardOptions(imeAction = imeAction),
             keyboardActions = keyboardActions,
@@ -478,7 +482,7 @@ internal fun UnderlineField(
             decorationBox = { inner ->
                 Box {
                     if (value.isEmpty()) {
-                        Text(placeholder, color = colors.ink4, fontFamily = SansFamily, fontSize = 18.sp)
+                        Text(placeholder, color = colors.ink4, fontFamily = SansFamily, fontSize = fontSize)
                     }
                     inner()
                 }

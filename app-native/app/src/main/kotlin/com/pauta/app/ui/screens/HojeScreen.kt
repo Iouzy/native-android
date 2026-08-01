@@ -1,5 +1,12 @@
 package com.pauta.app.ui.screens
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
@@ -11,6 +18,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -35,7 +44,6 @@ import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.outlined.Circle
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
@@ -81,6 +89,7 @@ import com.pauta.app.i18n.I18n
 import com.pauta.app.i18n.tr
 import com.pauta.app.i18n.trf
 import com.pauta.app.ui.EmptyState
+import com.pauta.app.ui.PautaButton
 import com.pauta.app.ui.PautaCard
 import com.pauta.app.ui.PautaIcons
 import com.pauta.app.ui.PautaRadius
@@ -237,66 +246,77 @@ fun HojeScreen(onOpenHistory: () -> Unit, bookMode: Boolean = false) {
         Modifier.fillMaxSize(),
         contentPadding = PaddingValues(horizontal = 24.dp),
     ) {
-        // Header — web-style two columns: the date (top-left, with the 7-day
-        // back-nav) and the big serif question fill the left; the three actions
-        // stack as quiet outlined chips top-right, exactly like the Pauta tab.
-        // // PT: cabeçalho em duas colunas, como na web — data à esquerda, ações à direita.
+        // Header — the date (with the 7-day back-nav) top-left and the actions as
+        // quiet outlined chips top-right, then the big serif question across the
+        // full width below. // PT: data e ações em cima, a pergunta a toda a
+        // largura por baixo.
         item(key = "header") {
             Spacer(Modifier.height(22.dp))
+            // U3: the four actions used to stack in a right-hand Column, so four
+            // different chip widths made a staircase — and the column stole width
+            // from the headline. They now flow, right-aligned, beside the date
+            // only; the question below gets the full measure. // PT: as ações
+            // passam a fluir alinhadas à direita, em vez de uma escada.
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
-                Column(Modifier.weight(1f)) {
-                    val selDate = LocalDate.parse(selectedDayKey)
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        if (canGoBack) {
-                            Icon(
-                                Icons.Filled.ChevronLeft,
-                                contentDescription = tr("dia anterior"),
-                                tint = colors.ink3,
-                                modifier = Modifier.size(20.dp).clickableNoRipple { selectedDayOffset-- },
-                            )
-                            Spacer(Modifier.width(2.dp))
-                        }
-                        PeriodLabel(
-                            prefix = I18n.fmtWeekdayDay(selDate) + " ",
-                            month = I18n.fmtMonthShort(selDate.monthValue),
+                val selDate = LocalDate.parse(selectedDayKey)
+                Row(Modifier.padding(top = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                    if (canGoBack) {
+                        Icon(
+                            Icons.Filled.ChevronLeft,
+                            contentDescription = tr("dia anterior"),
+                            tint = colors.ink3,
+                            modifier = Modifier.size(20.dp).clickableNoRipple { selectedDayOffset-- },
                         )
-                        if (canGoForward) {
-                            Spacer(Modifier.width(2.dp))
-                            Icon(
-                                Icons.Filled.ChevronRight,
-                                contentDescription = tr("dia seguinte"),
-                                tint = colors.ink3,
-                                modifier = Modifier.size(20.dp).clickableNoRipple { selectedDayOffset++ },
-                            )
-                        }
+                        Spacer(Modifier.width(2.dp))
                     }
-                    if (isToday) {
-                        Spacer(Modifier.height(8.dp))
-                        // The headline question, with "hoje" in accent italic. P5: on the
-                        // shared ScreenTitle role (and the same 8dp drop as Pauta) so the
-                        // headline no longer jumps size/baseline between tabs.
-                        // // PT: a pergunta do dia, no papel partilhado de título.
-                        Text(
-                            text = buildAnnotatedString {
-                                append(tr("O que importa"))
-                                append(" ")
-                                withStyle(SpanStyle(color = colors.accent, fontStyle = FontStyle.Italic)) {
-                                    append(tr("hoje"))
-                                }
-                                append("?")
-                            },
-                            color = colors.ink,
-                            style = PautaType.ScreenTitle,
+                    PeriodLabel(
+                        prefix = I18n.fmtWeekdayDay(selDate) + " ",
+                        month = I18n.fmtMonthShort(selDate.monthValue),
+                    )
+                    if (canGoForward) {
+                        Spacer(Modifier.width(2.dp))
+                        Icon(
+                            Icons.Filled.ChevronRight,
+                            contentDescription = tr("dia seguinte"),
+                            tint = colors.ink3,
+                            modifier = Modifier.size(20.dp).clickableNoRipple { selectedDayOffset++ },
                         )
                     }
                 }
                 Spacer(Modifier.width(14.dp))
-                Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                @OptIn(ExperimentalLayoutApi::class)
+                FlowRow(
+                    modifier = Modifier.weight(1f),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.End),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    // The eyebrow uppercases anyway, so the source strings are all
+                    // lowercase now (Rotinas was the odd one). // PT: minúsculas em
+                    // todas — o eyebrow trata das maiúsculas.
                     HeaderChip(tr("dias anteriores") + " ↗") { onOpenHistory() }
                     HeaderChip(tr("a semana") + " ↗") { showWeek = true }
-                    HeaderChip(tr("Rotinas") + " ↗") { showRoutines = true }
+                    HeaderChip(tr("rotinas") + " ↗") { showRoutines = true }
                     HeaderChip(tr("revisão") + " ↗") { showInsights = true }
                 }
+            }
+            if (isToday) {
+                Spacer(Modifier.height(8.dp))
+                // The headline question, with "hoje" in accent italic. P5: on the
+                // shared ScreenTitle role (and the same 8dp drop as Pauta) so the
+                // headline no longer jumps size/baseline between tabs.
+                // // PT: a pergunta do dia, no papel partilhado de título.
+                Text(
+                    text = buildAnnotatedString {
+                        append(tr("O que importa"))
+                        append(" ")
+                        withStyle(SpanStyle(color = colors.accent, fontStyle = FontStyle.Italic)) {
+                            append(tr("hoje"))
+                        }
+                        append("?")
+                    },
+                    color = colors.ink,
+                    style = PautaType.ScreenTitle,
+                )
             }
         }
 
@@ -323,7 +343,6 @@ fun HojeScreen(onOpenHistory: () -> Unit, bookMode: Boolean = false) {
                     Spacer(Modifier.height(16.dp))
                 }
                 AddIntentionForm(
-                    accent = colors.accent,
                     onAdd = { text, priority, target, w -> vm.addIntention(text, priority, target, w) },
                 )
                 Spacer(Modifier.height(8.dp))
@@ -1008,9 +1027,22 @@ private fun PastIntentionRow(item: IntentionEntity) {
     }
 }
 
+/**
+ * U3 · The intention composer. At rest it is still one underlined line reading
+ * "Nova intenção…". Typing used to unfold *three* stacked rows of unlabeled grey
+ * pills; it now reveals a single wrapped row where each group carries a small
+ * mono label — the pills were always fine, it was never saying what `1 2 3` meant
+ * that made this the least finished surface in the planner. Both fields are the
+ * app's own primitives now, so the composer matches every sheet.
+ * // PT: o compositor — uma linha em repouso, e uma só linha de pílulas
+ * etiquetadas (prioridade · quando · min) ao começar a escrever.
+ */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun AddIntentionForm(accent: Color, onAdd: (String, Int?, Int?, String?) -> Unit) {
+private fun AddIntentionForm(onAdd: (String, Int?, Int?, String?) -> Unit) {
     val colors = LocalPautaColors.current
+    val accent = colors.accent
+    val animate = rememberMotionEnabled()
     var text by remember { mutableStateOf("") }
     var priority by remember { mutableStateOf<Int?>(null) }
     var target by remember { mutableStateOf("") }
@@ -1024,67 +1056,103 @@ private fun AddIntentionForm(accent: Color, onAdd: (String, Int?, Int?, String?)
     }
 
     Column(Modifier.fillMaxWidth()) {
-        TextField(
+        UnderlineField(
             value = text,
-            onValueChange = { text = it },
-            placeholder = { Text(tr("Nova intenção…"), color = colors.ink4) },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
-            textStyle = LocalTextStyle.current.copy(color = colors.ink, fontSize = 16.sp),
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+            onChange = { text = it },
+            placeholder = tr("Nova intenção…"),
+            // The composer writes 16sp intentions; the sheets' 18sp headline would
+            // out-shout the list it feeds. // PT: do tamanho das intenções da lista.
+            fontSize = 16.sp,
+            imeAction = ImeAction.Done,
             keyboardActions = KeyboardActions(onDone = { commit() }),
-            colors = transparentFieldColors(accent, colors.ink),
         )
-        // The priority / time-of-day / duration controls appear once you start
-        // typing, so the empty state stays a single quiet line. // PT: controlos
-        // surgem ao começar a escrever.
-        if (expanded) {
-            Spacer(Modifier.height(10.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Pill("1", priority == 1, accent) { priority = if (priority == 1) null else 1 }
-                Pill("2", priority == 2, accent) { priority = if (priority == 2) null else 2 }
-                Pill("3", priority == 3, accent) { priority = if (priority == 3) null else 3 }
-            }
-            Spacer(Modifier.height(8.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Pill(tr("manhã"), whenSel == "manha", accent) { whenSel = if (whenSel == "manha") null else "manha" }
-                Pill(tr("tarde"), whenSel == "tarde", accent) { whenSel = if (whenSel == "tarde") null else "tarde" }
-                Pill(tr("noite"), whenSel == "noite", accent) { whenSel = if (whenSel == "noite") null else "noite" }
-            }
-            Spacer(Modifier.height(8.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                TextField(
-                    value = target,
-                    onValueChange = { target = it.filter { c -> c.isDigit() }.take(3) },
-                    placeholder = { Text(tr("min"), color = colors.ink4) },
-                    singleLine = true,
-                    modifier = Modifier.width(96.dp),
-                    textStyle = LocalTextStyle.current.copy(color = colors.ink, fontSize = 15.sp),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
-                    keyboardActions = KeyboardActions(onDone = { commit() }),
-                    colors = transparentFieldColors(accent, colors.ink),
-                )
-                Spacer(Modifier.weight(1f))
-                Text(
-                    text = tr("Adicionar"),
-                    color = accent,
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 15.sp,
-                    modifier = Modifier
-                        .clickableNoRipple { commit() }
-                        .padding(8.dp),
-                )
+        // The details appear once you start typing, so the resting state stays a
+        // single quiet line — and they fold away again on commit or on clearing
+        // the field, rather than vanishing. // PT: os detalhes surgem ao escrever e
+        // recolhem ao concluir; instantâneo com movimento reduzido.
+        AnimatedVisibility(
+            visible = expanded,
+            enter = if (animate) {
+                fadeIn(PautaMotion.tween()) + expandVertically(PautaMotion.tween())
+            } else EnterTransition.None,
+            exit = if (animate) {
+                fadeOut(PautaMotion.tween(PautaMotion.Fast)) + shrinkVertically(PautaMotion.tween())
+            } else ExitTransition.None,
+        ) {
+            Column(Modifier.fillMaxWidth()) {
+                Spacer(Modifier.height(12.dp))
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
+                    // One flow, not three rows: labels and pills are all direct
+                    // children so a big textScale wraps between them instead of
+                    // clipping a group that can't fit. // PT: um só fluxo — com
+                    // texto grande quebra de linha em vez de cortar.
+                    FlowRow(
+                        modifier = Modifier.weight(1f),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        // Everything on the line rides its vertical centre — the
+                        // minutes field is a few dp taller than a pill, and top
+                        // alignment would show it. // PT: tudo centrado na linha.
+                        val mid = Modifier.align(Alignment.CenterVertically)
+                        ComposerLabel(tr("prioridade"), mid)
+                        Pill("1", priority == 1, accent, mid) { priority = if (priority == 1) null else 1 }
+                        Pill("2", priority == 2, accent, mid) { priority = if (priority == 2) null else 2 }
+                        Pill("3", priority == 3, accent, mid) { priority = if (priority == 3) null else 3 }
+                        ComposerLabel(tr("quando"), mid)
+                        Pill(tr("manhã"), whenSel == "manha", accent, mid) { whenSel = if (whenSel == "manha") null else "manha" }
+                        Pill(tr("tarde"), whenSel == "tarde", accent, mid) { whenSel = if (whenSel == "tarde") null else "tarde" }
+                        Pill(tr("noite"), whenSel == "noite", accent, mid) { whenSel = if (whenSel == "noite") null else "noite" }
+                        ComposerLabel(tr("min"), mid)
+                        Box(Modifier.width(62.dp).align(Alignment.CenterVertically)) {
+                            BoxedField(
+                                value = target,
+                                onChange = { target = it.filter { c -> c.isDigit() }.take(3) },
+                                placeholder = "40",
+                                singleLine = true,
+                                fontFamily = MonoFamily,
+                                fontSize = 13.sp,
+                                keyboardType = KeyboardType.Number,
+                                imeAction = ImeAction.Done,
+                                keyboardActions = KeyboardActions(onDone = { commit() }),
+                            )
+                        }
+                    }
+                    Spacer(Modifier.width(10.dp))
+                    // The commit action for the whole form — a real button now, not
+                    // a bare accent word. // PT: o botão que fecha o formulário.
+                    PautaButton(tr("Adicionar"), compact = true) { commit() }
+                }
             }
         }
     }
 }
 
+/** The composer's group labels — the fix that makes `1 2 3` mean something. On
+ *  the shared eyebrow (mono, uppercase, 10sp) rather than a fourth bespoke mono
+ *  size, tinted ink4 so it stays quieter than the pills it names. // PT: as
+ *  etiquetas dos grupos de pílulas, no eyebrow partilhado. */
+@Composable
+private fun ComposerLabel(label: String, modifier: Modifier = Modifier) {
+    SectionEyebrow(
+        label = label,
+        modifier = modifier,
+        color = LocalPautaColors.current.ink4,
+    )
+}
+
 /** A small pill toggle used for priority / time-of-day selection. */
 @Composable
-private fun Pill(label: String, selected: Boolean, accent: Color, onClick: () -> Unit) {
+private fun Pill(
+    label: String,
+    selected: Boolean,
+    accent: Color,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
     val colors = LocalPautaColors.current
     Box(
-        Modifier
+        modifier
             .clip(RoundedCornerShape(PautaRadius.Chip))
             .background(if (selected) accent.copy(alpha = 0.16f) else colors.paper2)
             .clickableNoRipple(onClick)
@@ -1137,18 +1205,3 @@ private fun ReflectionField(value: String, accent: Color, onChange: (String) -> 
         ),
     )
 }
-
-/** A TextField with a transparent paper-coloured container and an accent caret/
- *  underline, so inputs read as part of the paper surface rather than Material
- *  boxes. */
-@Composable
-private fun transparentFieldColors(accent: Color, ink: Color) = TextFieldDefaults.colors(
-    focusedContainerColor = Color.Transparent,
-    unfocusedContainerColor = Color.Transparent,
-    disabledContainerColor = Color.Transparent,
-    cursorColor = accent,
-    focusedIndicatorColor = accent,
-    unfocusedIndicatorColor = LocalPautaColors.current.rule,
-    focusedTextColor = ink,
-    unfocusedTextColor = ink,
-)
