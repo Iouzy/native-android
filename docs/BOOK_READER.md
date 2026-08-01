@@ -51,6 +51,12 @@ All guardrails from `docs/NATIVE_IMPROVEMENTS.md`, `docs/BOOK_MODE.md` and
 - **The reader is quiet.** Same paper/ink identity, sepia palette in book mode,
   `SerifFamily` for body text. No Material chrome, no toolbars that don't fade,
   no page-curl animations. Reading is the app at its most minimal.
+- **No cover art. This is settled — don't re-propose it.** The app has no
+  imagery anywhere, and that is the identity: serif titles, mono meta, paper
+  and ink. Extracting covers is technically easy (EPUBs declare one in the OPF
+  manifest; a PDF's page 1 renders as a thumbnail), which is exactly why this
+  needs saying out loud. Shelf cards stay typographic — title, author,
+  progress. Decided August 2026 by the owner, on identity grounds, not effort.
 - **Reading position is derived, never nagged.** Once a file is attached the app
   stops asking "até que página chegaste?" — it knows.
 - **Prefs are law:** `reducedMotion` and `haptics` gate every new animation and
