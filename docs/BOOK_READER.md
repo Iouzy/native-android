@@ -325,7 +325,7 @@ shows a derived word figure. EPUBs get a real count and drop the "≈".
 
 ## Phase R-0 — the small stuff (do this first)
 
-### R1 · Quick fixes: capture chip + reading durations — Status: pending
+### R1 · Quick fixes: capture chip + reading durations — Status: done (PR #160)
 
 **Depends on:** nothing
 
@@ -963,3 +963,5 @@ and read it in the app; everything after makes it smarter.
 ## Log (append one line per shipped task: date · task · PR · note)
 
 <!-- e.g. 2026-08-02 · R1 · #n · capture chip moved to the shelf header; reading presets 15/30/45/60 + custom -->
+
+2026-08-01 · R1 · #160 · the floating capture chip is gone — quick capture is now a quiet mono action in the shelf header (`✎ Nota +  ·  Adicionar livro +`, wrapping in a `FlowRow` at a large text scale), so nothing floats over the tab bar. Part (b) needed no code: U2 (#159) already gives a reading session the shared `DurationPicker` with the `simples` set (15/30/45/60 + `Outro…`, 1–600), which R1 says to reuse — so the only new string is `Nota` (`Outro…` came with U2; `Minutos` is unused by that picker and was skipped rather than added dead).
