@@ -29,10 +29,19 @@ suggested model. When asked to "do task X" or "do the next pending task": read
 that file, do ONLY that task following its spec + Global guardrails, ship via
 the workflow below, and update the task's Status + Log in the same PR.
 
-Two more task files follow the exact same protocol: `docs/BOOK_MODE.md`
-(book-mode feature, K1–K9 + K-extra — complete) and `docs/POLISH.md`
-(UI polish/modernisation, P1…P10 — fixes the tab-switch jank first, then
-motion/surface/type foundations, then per-screen sweeps).
+Four more task files follow the exact same protocol:
+
+- `docs/BOOK_MODE.md` — book-mode feature, K1–K9 + K-extra (**complete**).
+- `docs/POLISH.md` — UI polish/modernisation, P1…P10 (**complete**): tab-switch
+  jank first, then motion/surface/type foundations, then per-screen sweeps.
+- `docs/BOOK_READER.md` — turns book mode from a tracker into a reader, R1…R8:
+  attach a PDF/EPUB to a book, read it in-app (framework `PdfRenderer` /
+  `ZipFile` + WebView — no new deps), progress that updates itself, reading
+  speed, the Hábitos-tab rebuild, and the second launcher icon.
+- `docs/UX_FIXES.md` — usability fixes P1–P10 didn't cover, U1…U7: the
+  sheet/keyboard race, timer presets + custom minutes, the Hoje composer, and
+  the Settings information architecture (regroup, search, update sheet, mode
+  switcher).
 
 ## Architecture (`app-native/`)
 
