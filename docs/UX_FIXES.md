@@ -380,7 +380,7 @@ or the filtered one from it. Do not maintain the row definitions twice.
 in both languages; filtered rows are fully functional (toggles toggle, actions
 act); clearing restores the list; CI green.
 
-### U6 · Update state as a sheet + the Sobre section — Status: pending
+### U6 · Update state as a sheet + the Sobre section — Status: done (PR #165)
 
 **Depends on:** U4
 
@@ -504,6 +504,8 @@ with the shared primitive. Either order works — just don't leave two.
 ## Log (append one line per shipped task: date · task · PR · note)
 
 <!-- e.g. 2026-08-02 · U1 · #n · autofocus waits for the sheet to settle instead of a 120ms guess -->
+
+2026-08-01 · U6 · #165 · the updater's seven-branch `when` leaves the main scroll for `UpdateSheet` — same branches, same order, same calls into `AppViewModel`, `service/AppUpdater` untouched — and `Sobre` becomes `Versão` · `Atualizações` · `Código-fonte ↗`, the middle row folding all seven states into one value short enough to sit in a row (`42%`, `Nova versão`, `Está atualizado.`, or `Tentar outra vez` for either failure, with the sentence-long apologies kept in the sheet). Deviations: `Nova versão` had to be added as a string after all — `Transferir nova versão` is the download button, not a status; `ActionRow` gains a `valueColor` so "atualizado" can report in ink3 rather than take U4's accent, which is reserved for what wants something; and the up-to-date state gains a re-check button, since inline it was a dead end that made a second check cost an app relaunch.
 
 2026-08-01 · U5 · #164 · every Settings row now declares itself once as a `SettingsRow` (label · subtitle · search-only keywords · content) and the screen renders that one index either grouped or filtered; an un-autofocused `UnderlineField` under the header matches accent- and case-insensitively over both, rows stay in their section card with their eyebrow, and clearing returns to the offset captured before filtering clamped it. Deviations: `keywords` are deliberately *not* `tr`-wrapped — they are never rendered and have to carry both languages at once, which is the only way "backup" finds *Cópia automática* in PT; and the hero block stands down while a query is live, so results start under the field rather than behind the app identity.
 
