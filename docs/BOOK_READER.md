@@ -758,7 +758,7 @@ that session and the book's progress matches where the reader was left; a
 10-second peek saves nothing; books without a file still use the manual flow
 unchanged; CI green.
 
-### R6 · Reading speed (WPM) — Status: pending
+### R6 · Reading speed (WPM) — Status: done (PR #169)
 
 **Depends on:** R5 (needs sessions carrying honest page deltas)
 
@@ -964,6 +964,8 @@ and read it in the app; everything after makes it smarter.
 ## Log (append one line per shipped task: date · task · PR · note)
 
 <!-- e.g. 2026-08-02 · R1 · #n · capture chip moved to the shelf header; reading presets 15/30/45/60 + custom -->
+
+2026-08-01 · R6 · #169 · the "Ritmo" line stopped talking in pages. WPM is derived from `pagesPerHour` rather than summed independently — the two describe the same sessions, so a second summation could only ever produce a second answer — which also means null under identical conditions and no new validity rules to keep in step. The unit a book counts turned out to be the whole question: a page for physical/ebook/PDF, but one *percent* for an EPUB the reader has counted, because R4 shows percent everywhere and never pages. That branch is unreachable until R4 lands (nothing sets `wordCount` yet), and an attached-but-uncounted EPUB falls back to the page estimate, which is exactly what it is still tracked in. An audiobook returns null rather than 280-words-a-minute: its progress is already time, and time over time is a ratio that would look like a reading speed without being one. The `≈` lives behind one predicate (`hasCountedWords`) so the sheet and the math can't drift on which figures are estimates. The spans changed too — R5's measured `pagesDelta` is now preferred, and *exclusively*: mixing a measured span with the book's total apportioned by duration counts the same pages twice, so a book with any measured session uses only those, and one with none keeps K-extra's apportioning untouched.
 
 2026-08-01 · R5 · #168 · nobody types a page number any more. Opening a document that renders starts (or joins) the K6 session, and closing writes the bookmark, the progress and the block *together* — one lock, one write, because they describe the same act and two read-modify-writes over the book's row would have lost one of them (the debounced bookmark write went under the same lock for that reason). The spec's "page delta" needed somewhere to live, so `focus_blocks` gained a nullable native-only `pagesDelta` (Room v10 → v11): NULL means nobody counted, which is not zero, and R6 can now ask the sessions instead of apportioning a book's total by duration. The peek guard is `durationMs` + "did the page change", so it needs no memory of who started the session — a joined 20-minute session is never mistaken for a peek. Discarding leaves progress *untouched*, not reset, because a hand-typed page can be far ahead of the bookmark. The receipt reuses the undo snackbar (`PendingUndo` widened from "a reversible delete" to "a reversible change"), and its `Anular` undoes the save while leaving the bookmark where the reading actually got to. Concluding by hand also stopped asking the page for a book the reader can open — the guardrail says the app knows.
 
