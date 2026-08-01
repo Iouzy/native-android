@@ -247,6 +247,14 @@ data class BookEntity(
     val genre: String = "",             // free text (comma-separated tags)
     val position: Int = 0,              // ordering within status shelf
     val createdAt: Long,
+    // native-only (R2): the attached document. Device-local and outside the
+    // pauta.v4 export — a restored backup brings back the book, not the file.
+    // // PT: o ficheiro anexado; local, fora do v4.
+    val filePath: String? = null,       // absolute, always inside filesDir/books/; null = none
+    val fileKind: String? = null,       // "pdf" | "epub"; null when filePath is null
+    val fileName: String = "",          // the original display name, for the UI
+    val readPosition: String = "",      // page index (pdf) or "spineIndex:scrollPercent" (epub)
+    val wordCount: Int = 0,             // counted for EPUB, estimated for PDF/physical
 )
 
 /**

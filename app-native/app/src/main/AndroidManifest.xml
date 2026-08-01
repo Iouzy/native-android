@@ -75,6 +75,17 @@
                 android:value="focus_timer" />
         </service>
 
+        <!-- R2 (§2 of the reader's security model): attached books are parsed in
+             their own process. A malformed PDF can abort PdfRenderer natively —
+             a crash Kotlin cannot catch — so it takes :reader down and leaves the
+             app, its data and a running focus block untouched. Not exported: no
+             other app can reach it. // PT: os livros anexados são lidos noutro
+             processo, para um crash nativo não levar a app com ele. -->
+        <service
+            android:name=".service.DocumentParseService"
+            android:process=":reader"
+            android:exported="false" />
+
         <!-- Notification action buttons (pause / conclude). -->
         <receiver
             android:name=".service.FocusActionReceiver"

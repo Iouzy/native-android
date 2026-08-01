@@ -146,6 +146,19 @@ fun BookDetailSheet(bookId: String, onDismiss: () -> Unit) {
                 .padding(horizontal = 6.dp, vertical = 2.dp),
         )
 
+        // ── R2 · the attached file ──
+        // Just the name for now: reading it is R3/R4's job. // PT: por agora só o
+        // nome — abrir o ficheiro é tarefa do leitor.
+        if (book.filePath != null) {
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = "📄 " + book.fileName,
+                color = colors.ink3,
+                style = PautaType.MetaSmall,
+                fontFamily = MonoFamily,
+            )
+        }
+
         // ── Progress: tap the line to edit inline ──
         Spacer(Modifier.height(SheetFieldGap))
         if (editingProgress) {

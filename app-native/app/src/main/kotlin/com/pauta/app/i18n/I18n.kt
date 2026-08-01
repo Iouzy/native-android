@@ -810,6 +810,18 @@ object I18n {
         // linha mostra a versão, não a palavra.
         "Versão" to "Version", // native-only
 
+        // ── R2 · attached book files ──
+        // "remover" already carries "remove" above, from the routines editor.
+        // // PT: "remover" já existe, vindo do editor de rotinas.
+        "Anexar ficheiro" to "Attach file", // native-only
+        "Só PDF e EPUB por agora." to "PDF and EPUB only for now.", // native-only
+        "A copiar…" to "Copying…", // native-only
+        "Não foi possível copiar o ficheiro." to "Could not copy the file.", // native-only
+        "Ficheiro" to "File", // native-only
+        "Este ficheiro é demasiado grande." to "This file is too large.", // native-only
+        "Este ficheiro parece danificado." to "This file appears to be corrupt.", // native-only
+        "Este EPUB está protegido por DRM." to "This EPUB is DRM-protected.", // native-only
+
         // ── K-extra · pace stats + ETA ──
         "Ritmo: ~{n} págs/hora" to "Pace: ~{n} pages/hour", // native-only
         "Ritmo: ~{n} min/hora" to "Pace: ~{n} min/hour", // native-only

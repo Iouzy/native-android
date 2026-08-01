@@ -1,6 +1,7 @@
 package com.pauta.app.ui.viewmodel
 
 import android.app.Application
+import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.pauta.app.PautaApplication
@@ -21,6 +22,9 @@ import com.pauta.app.data.entity.PrefsEntity
 import com.pauta.app.data.entity.RoutineEntity
 import com.pauta.app.data.entity.RoutineItemEntity
 import com.pauta.app.data.dao.SearchHit
+import com.pauta.app.data.AttachResult
+import com.pauta.app.data.BookFiles
+import com.pauta.app.data.ImportedFile
 import com.pauta.app.data.SafBackup
 import com.pauta.app.domain.CarrySource
 import com.pauta.app.domain.DateUtils
@@ -327,14 +331,39 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         totalPages: Int,
         genre: String,
         status: String,
+        id: String? = null,
+        file: ImportedFile? = null,
     ) = viewModelScope.launch {
-        repo.addBook(title, author, series, seriesNumber, format, totalPages, genre, status)
+        repo.addBook(title, author, series, seriesNumber, format, totalPages, genre, status, id, file)
     }
 
     fun updateBook(book: BookEntity) = viewModelScope.launch { repo.updateBook(book) }
-    fun deleteBook(id: String) = viewModelScope.launch { repo.deleteBook(id) }
+    fun deleteBook(id: String) = viewModelScope.launch { repo.deleteBook(getApplication(), id) }
     fun updateProgress(id: String, currentPage: Int) = viewModelScope.launch { repo.updateProgress(id, currentPage) }
     fun finishBook(id: String, rating: Int?) = viewModelScope.launch { repo.finishBook(id, rating) }
+
+    // ── Ficheiros anexados (R2) ───────────────────────────────
+    /** An id for a book the form hasn't saved yet, so a file can be attached
+     *  before it exists. // PT: id reservado para o livro ainda por gravar. */
+    fun newBookId(): String = repo.newId("bk_")
+
+    /** Copy a picked document into private storage; [onResult] says what happened. */
+    fun attachFile(bookId: String, uri: Uri, onResult: (AttachResult) -> Unit) =
+        viewModelScope.launch { onResult(repo.attachFile(getApplication(), bookId, uri)) }
+
+    fun detachFile(bookId: String) = viewModelScope.launch { repo.detachFile(getApplication(), bookId) }
+
+    /** Drop a file staged for a book the user then abandoned. // PT: descarta o
+     *  ficheiro de um livro que não chegou a ser gravado. */
+    fun discardAttachment(path: String) =
+        viewModelScope.launch { BookFiles.deleteAt(getApplication(), path) }
+
+    fun setReadPosition(bookId: String, position: String) =
+        viewModelScope.launch { repo.setReadPosition(bookId, position) }
+
+    fun setWordCount(bookId: String, words: Int) =
+        viewModelScope.launch { repo.setWordCount(bookId, words) }
+
     fun addNote(bookId: String, kind: String, text: String, page: Int?) =
         viewModelScope.launch { repo.addNote(bookId, kind, text, page) }
     fun deleteNote(id: String) = viewModelScope.launch { repo.deleteNote(id) }
