@@ -7,6 +7,7 @@
      valores em inglês só para os rótulos de sistema; a UI continua traduzida em
      código. -->
 <resources>
+    <string name="app_name_book">Book</string>
     <string name="focus_tile_label">Start focus</string>
     <string name="widget_mares_description">Today\'s tides — tap to mark</string>
 

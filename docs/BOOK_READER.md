@@ -890,7 +890,7 @@ exactly as the planner's; `bookMode` off → Marés is pixel-identical to today;
 
 ## Phase R-4 — packaging
 
-### R8 · Second launcher icon — Status: pending
+### R8 · Second launcher icon — Status: done (PR #171)
 
 **Depends on:** nothing technically, but ship it last — it's the bow on top
 
@@ -964,6 +964,8 @@ and read it in the app; everything after makes it smarter.
 ## Log (append one line per shipped task: date · task · PR · note)
 
 <!-- e.g. 2026-08-02 · R1 · #n · capture chip moved to the shelf header; reading presets 15/30/45/60 + custom -->
+
+2026-08-01 · R8 · #171 · two icons, one boolean. The book icon is an `activity-alias` onto `MainActivity`, so the only thing separating the doors is the component name the OS launched with, and all a door does is write the `bookMode` preference the settings toggle already writes — which is the whole design: a shortcut to the toggle, not a parallel mode system, so there is one source of truth and the last action wins. The read is on cold start only, and the reason is worth writing down: the app's own component name rides on *every* intent it ever gets back — a share sheet, the document picker — so reading it on resume would flip the mode under someone returning from picking a PDF. The mapping came out as pure `domain/LauncherDoor` so it could be JVM-tested, and the case that earned the test is the third one: an unrecognised or absent component returns null and leaves the preference *alone*, because silence about the mode is not a request for the planner. Both aliases stay `enabled="true"` and no `PackageManager` goes near them — a disabled component is how a home-screen shortcut is lost for good. `launchMode` is inherited, so the two doors land in the same task and recents still shows the app once. The mark is an open book at the tide icon's stroke weight, colour and safe zone, since two icons from one app should look like it.
 
 2026-08-01 · R7 · #170 · the header stopped lying. The tides under it were never reading habits, so the eyebrow is now just `HÁBITOS` and its old key left the dictionary with it. The tab is a real screen: book mode early-returns to `BookHabitsScreen` like Hoje and Pauta already did, and the tides come back *inside* it — `MaresScreen`'s list moved into `MaresContent(leading)` and the reading sections are its leading items, because one LazyColumn is the only way two scrollables don't fight. Nothing new is stored: `domain/ReadingStats.kt` derives all of it from sessions the app already has. The flattening is where the thinking went — a session's day, its minutes and its words live in three different tables, so the screen reduces one to a `Session(dayKey, minutes, pages?, words?)` and the math stays pure. Both are nullable because *nobody counted* is not zero: a hand-concluded session has no page delta, an audiobook counts minutes, and a counted EPUB counts percentage points, so each stays out of a page total rather than dragging it down. The day grid draws the tides' own cells (a new `interactive = false`, not a second renderer) and is read-only on purpose — reading is proven by a session. The one place this parts company with the tides is the streak: a tide breaks on an unmarked today because a self-report can be made at any hour, but a day that hasn't ended is not yet a day without reading, so the current streak counts back from yesterday and midnight is what takes it.
 

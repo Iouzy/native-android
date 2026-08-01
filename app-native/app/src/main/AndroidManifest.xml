@@ -65,6 +65,31 @@
                 android:resource="@xml/shortcuts" />
         </activity>
 
+        <!-- R8: the second door. One app, one database, one task — the alias just
+             launches MainActivity through a different component, which the activity
+             reads on a cold start to set the `bookMode` preference. It is a shortcut
+             to the in-app toggle, not a parallel mode.
+
+             enabled="true" and never touched by PackageManager: disabling a
+             component is how a home-screen shortcut is lost for good, and both
+             icons must survive an OTA update. launchMode is inherited from the
+             target, so both doors resolve to the same task and the app appears once
+             in recents. // PT: segundo ícone — a mesma Activity por outro
+             componente; só liga a preferência de modo livro. -->
+        <activity-alias
+            android:name=".BookLauncher"
+            android:targetActivity=".MainActivity"
+            android:enabled="true"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_book"
+            android:roundIcon="@mipmap/ic_launcher_book_round"
+            android:label="@string/app_name_book">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
         <!-- Foreground service owning the ongoing focus-timer notification. -->
         <service
             android:name=".service.FocusService"

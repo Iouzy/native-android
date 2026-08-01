@@ -24,6 +24,7 @@ import androidx.core.view.WindowInsetsControllerCompat
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.pauta.app.domain.LauncherDoor
 import com.pauta.app.i18n.I18n
 import com.pauta.app.i18n.Lang
 import com.pauta.app.ui.AppEntry
@@ -46,6 +47,12 @@ import com.pauta.app.ui.viewmodel.AppViewModel
  * intention. Both are parsed into an [AppEntry] and handed to the Compose tree.
  * // PT: porta de entrada do SO — atalhos/azulejo abrem a tab certa; partilha de
  * texto vira uma intenção; tudo via [AppEntry].
+ *
+ * R8: the app has two launcher icons, and this is the activity behind both — the
+ * book one is an `activity-alias` onto it. A cold start reads which component it
+ * came through and sets `bookMode` from it, which is the same single preference
+ * the settings toggle writes. // PT: dois ícones, uma Activity — o arranque a
+ * frio diz qual a porta e liga (ou desliga) o modo livro.
  *
  * C3: a [FragmentActivity] (still an androidx ComponentActivity, so Compose's
  * setContent/edge-to-edge keep working) because the biometric-unlock prompt
@@ -70,7 +77,7 @@ class MainActivity : FragmentActivity() {
         // state and must NOT re-fire the original shortcut/share. // PT: só a
         // criação inicial lê o intent — a recriação (ex.: mudança de idioma) não
         // pode repetir o atalho/partilha.
-        if (savedInstanceState == null) entry.value = parseEntry(intent)
+        if (savedInstanceState == null) entry.value = parseEntry(intent, coldStart = true)
 
         setContent {
             val vm: AppViewModel = viewModel()
@@ -157,15 +164,27 @@ class MainActivity : FragmentActivity() {
 
     /** C4: map a launch/new intent to an [AppEntry] — the focus/quick-capture/tides
      *  shortcuts open a tab (the SHORTCUT_FOCUS one mirrors the QS tile), and an
-     *  ACTION_SEND `text/plain` share becomes a candidate intention. Anything else
-     *  (a plain MAIN launch) is null. // PT: traduz o intent numa entrada. */
-    private fun parseEntry(intent: Intent?): AppEntry? = when (intent?.action) {
+     *  ACTION_SEND `text/plain` share becomes a candidate intention. R8 adds the
+     *  plain MAIN launch: on a cold start it says which of the two launcher icons
+     *  was tapped. Anything else is null. // PT: traduz o intent numa entrada. */
+    private fun parseEntry(intent: Intent?, coldStart: Boolean = false): AppEntry? = when (intent?.action) {
         ACTION_SHORTCUT_FOCUS -> AppEntry.OpenTab(Tab.PAUTA)
         ACTION_SHORTCUT_NEW_INTENTION -> AppEntry.OpenTab(Tab.HOJE)
         ACTION_SHORTCUT_MARES -> AppEntry.OpenTab(Tab.MARES)
         Intent.ACTION_SEND -> {
             val text = intent.getCharSequenceExtra(Intent.EXTRA_TEXT)?.toString()?.trim()
             if (intent.type == "text/plain" && !text.isNullOrBlank()) AppEntry.ShareText(text) else null
+        }
+        // R8: which door did we come through? Only a genuine launcher tap counts —
+        // MAIN + LAUNCHER — and only on a cold start, because the app's own
+        // component name is on every intent it ever receives back (a share sheet,
+        // the document picker) and re-reading it on resume would flip the mode
+        // under the user. // PT: só um toque real no ícone conta, e só no arranque
+        // a frio; ler o intent ao voltar trocaria o modo sozinho.
+        Intent.ACTION_MAIN -> {
+            val launcher = intent.hasCategory(Intent.CATEGORY_LAUNCHER)
+            val door = LauncherDoor.bookModeFor(intent.component?.className)
+            if (coldStart && launcher && door != null) AppEntry.OpenMode(door) else null
         }
         else -> null
     }

@@ -6,6 +6,11 @@
      rótulos de sistema. -->
 <resources>
     <string name="app_name">Pauta</string>
+    <!-- R8: the second launcher icon's label. It opens the same app, the same
+         database and the same activity — only the mode differs. The launcher
+         reads it before Compose exists, so it lives here and not in I18n.kt.
+         // PT: rótulo do segundo ícone; a mesma app, outra porta. -->
+    <string name="app_name_book">Livro</string>
     <string name="focus_tile_label">Iniciar foco</string>
     <!-- Widget-picker description (a system surface, PT source like the rest of
          strings.xml). -->
