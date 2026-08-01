@@ -205,6 +205,16 @@ data class PrefsEntity(
     // device UI state → not part of the pauta.v4 shape, so not exported.
     // // PT: dia em que a memória foi dispensada — escondida só nesse dia.
     val memoriaDismissedDay: String? = null,
+    // native-only (U2): which set of durations every timer offers —
+    // "pomodoro" (25/50/90) or "simples" (15/30/45/60). Null means the user never
+    // chose: the planner then falls back to Pomodoro (the documented default) and
+    // a reading session to Simples, since reading isn't Pomodoro work. Storing the
+    // choice as "unset" rather than a pre-filled "pomodoro" is what lets book mode
+    // tell "never touched it" from "explicitly wants Pomodoro". Device-local, so
+    // not part of the pauta.v4 shape and not exported. // PT: conjunto de tempos do
+    // temporizador; null = nunca escolhido (Pomodoro no planeador, Simples na
+    // leitura).
+    val timerPresets: String? = null,
     // native-only (K1): book mode turns the three tabs into a reading companion.
     // A device-local lens over the same app — never part of the pauta.v4 shape,
     // so neither field is exported. // PT: modo livro — lente local sobre as tabs.

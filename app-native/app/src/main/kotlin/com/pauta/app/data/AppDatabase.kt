@@ -61,7 +61,7 @@ import com.pauta.app.data.entity.RoutineItemEntity
         BookEntity::class,
         BookNoteEntity::class,
     ],
-    version = 8,
+    version = 9,
     exportSchema = false,
 )
 @TypeConverters(Converters::class)
@@ -189,6 +189,16 @@ abstract class AppDatabase : RoomDatabase() {
                     )
                     """.trimIndent(),
                 )
+            }
+        }
+
+        // U2: the native-only timer preset set. Nullable on purpose — NULL means
+        // "never chosen", which is how a reading session knows it may default to
+        // the simpler 15/30/45/60 while the planner keeps Pomodoro. // PT: coluna
+        // do conjunto de tempos; NULL = nunca escolhido.
+        private val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE prefs ADD COLUMN timerPresets TEXT")
             }
         }
 
@@ -367,7 +377,10 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "pauta.db",
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
+                    .addMigrations(
+                        MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5,
+                        MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9,
+                    )
                     .addCallback(SEARCH_CALLBACK)
                     .build()
                     .also { instance = it }
