@@ -706,7 +706,7 @@ unit-tested:**
 
 ## Phase R-3 — what the reader makes possible
 
-### R5 · Reader ↔ session: progress that updates itself — Status: pending
+### R5 · Reader ↔ session: progress that updates itself — Status: done (PR #168)
 
 **Depends on:** R3 (R4 too if it has landed — handle both kinds)
 
@@ -964,6 +964,8 @@ and read it in the app; everything after makes it smarter.
 ## Log (append one line per shipped task: date · task · PR · note)
 
 <!-- e.g. 2026-08-02 · R1 · #n · capture chip moved to the shelf header; reading presets 15/30/45/60 + custom -->
+
+2026-08-01 · R5 · #168 · nobody types a page number any more. Opening a document that renders starts (or joins) the K6 session, and closing writes the bookmark, the progress and the block *together* — one lock, one write, because they describe the same act and two read-modify-writes over the book's row would have lost one of them (the debounced bookmark write went under the same lock for that reason). The spec's "page delta" needed somewhere to live, so `focus_blocks` gained a nullable native-only `pagesDelta` (Room v10 → v11): NULL means nobody counted, which is not zero, and R6 can now ask the sessions instead of apportioning a book's total by duration. The peek guard is `durationMs` + "did the page change", so it needs no memory of who started the session — a joined 20-minute session is never mistaken for a peek. Discarding leaves progress *untouched*, not reset, because a hand-typed page can be far ahead of the bookmark. The receipt reuses the undo snackbar (`PendingUndo` widened from "a reversible delete" to "a reversible change"), and its `Anular` undoes the save while leaving the bookmark where the reading actually got to. Concluding by hand also stopped asking the page for a book the reader can open — the guardrail says the app knows.
 
 2026-08-01 · R3 · #167 · a PDF opens in the app now. The shell (`ReaderScreen`) is a navigation destination that takes the window with it — bars hidden regardless of the `immersive` pref and given back on exit, via a new `ui/ScreenMode.kt` that `MainActivity` reads *during composition* (a `SideEffect`'s own reads aren't tracked, so the flags would never have re-applied). The interesting half is the wire: a rendered page is several megabytes and a binder transaction is one, so `:reader` streams `[w][h][ARGB_8888]` down a pipe the caller supplied and the end of that stream is the entire answer — a bad page index, a renderer that threw and a process that died are all EOF, which is exactly the shape §2 wants. Death is final: the session unbinds on `onServiceDisconnected` and every later call returns null, because rebinding is what a retry loop looks like. `PdfRenderer` is now named in one file only. The 2048px cap came out as pure `domain/ReaderMath.fitPage` so the one sum that can silently OOM a 300-page book is JVM-tested. An attached EPUB keeps the manual editor — R4 owns that branch, and offering "Ler" for it would be offering a dead end.
 
