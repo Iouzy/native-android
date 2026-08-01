@@ -319,11 +319,13 @@ fun SettingsScreen(
     // its companions moved out to [Companhia], the lens to [Modo], and
     // Acessibilidade folded in — to a user, text size *is* appearance.
     // // PT: sete secções por uso; a Aparência deixa de ser gaveta de tudo.
-    // Built as plain, independently-typed statements rather than one nested
-    // `buildList` expression: a single tree of that many lambdas and default
-    // arguments is one enormous inference problem, and the Kotlin front end
-    // takes minutes over it. // PT: instruções soltas e tipadas — a árvore
-    // aninhada punha o compilador de joelhos.
+    // Built as plain, explicitly typed statements rather than one nested
+    // `buildList { add(SettingsSection(…, buildList { … })) }` tree: every row
+    // here carries a lambda and a fistful of default arguments, and the nested
+    // form hands all of them to the inference engine as a single problem. One
+    // statement per row keeps each one typed on its own, and reads better while
+    // it's at it. // PT: instruções soltas e tipadas, uma por linha — mais
+    // legível e sem uma árvore de inferência única.
     val sections = mutableListOf<SettingsSection>()
     // ── MODO ─────────────────────────────────────────────────────────
     // U4 put the lens first; U7 moved the control itself into the header, so
