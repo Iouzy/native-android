@@ -319,479 +319,483 @@ fun SettingsScreen(
     // its companions moved out to [Companhia], the lens to [Modo], and
     // Acessibilidade folded in — to a user, text size *is* appearance.
     // // PT: sete secções por uso; a Aparência deixa de ser gaveta de tudo.
-    val sections: List<SettingsSection> = buildList {
-        // ── MODO ─────────────────────────────────────────────────────────
-        // U4 put the lens first; U7 moved the control itself into the header, so
-        // what stays here is the state and the two ways to change it — a section
-        // whose subject is now operated from somewhere else still has to say
-        // where. // PT: a lente à cabeça; o controlo mudou-se para o cabeçalho e
-        // esta linha diz onde está.
-        add(SettingsSection(tr("Modo"), buildList {
-            add(infoRow(
-                label = tr("Lente"),
-                subtitle = tr("Troque no cabeçalho, ou mantenha premido o ícone das definições."),
-                value = if (prefs.bookMode) tr("Livro") else "Pauta",
-                keywords = "modo livro book mode lens",
-            ))
-            // Only reading has an annual goal, so the row only exists in the lens
-            // that uses it. // PT: só o modo livro tem objetivo anual.
-            if (prefs.bookMode) add(actionRow(
-                label = tr("Objetivo anual"),
-                subtitle = tr("Livros a ler este ano."),
-                value = if (prefs.bookAnnualGoal > 0) "${prefs.bookAnnualGoal}" else tr("Definir objetivo"),
-                keywords = "livro book goal objetivo",
-            ) { showGoalSheet = true })
-        }))
+    // Built as plain, independently-typed statements rather than one nested
+    // `buildList` expression: a single tree of that many lambdas and default
+    // arguments is one enormous inference problem, and the Kotlin front end
+    // takes minutes over it. // PT: instruções soltas e tipadas — a árvore
+    // aninhada punha o compilador de joelhos.
+    val sections = mutableListOf<SettingsSection>()
+    // ── MODO ─────────────────────────────────────────────────────────
+    // U4 put the lens first; U7 moved the control itself into the header, so
+    // what stays here is the state and the two ways to change it — a section
+    // whose subject is now operated from somewhere else still has to say
+    // where. // PT: a lente à cabeça; o controlo mudou-se para o cabeçalho e
+    // esta linha diz onde está.
+    val modoRows = mutableListOf<SettingsRow>()
+    modoRows.add(infoRow(
+        label = tr("Lente"),
+        subtitle = tr("Troque no cabeçalho, ou mantenha premido o ícone das definições."),
+        value = if (prefs.bookMode) tr("Livro") else "Pauta",
+        keywords = "modo livro book mode lens",
+    ))
+    // Only reading has an annual goal, so the row only exists in the lens
+    // that uses it. // PT: só o modo livro tem objetivo anual.
+    if (prefs.bookMode) modoRows.add(actionRow(
+        label = tr("Objetivo anual"),
+        subtitle = tr("Livros a ler este ano."),
+        value = if (prefs.bookAnnualGoal > 0) "${prefs.bookAnnualGoal}" else tr("Definir objetivo"),
+        keywords = "livro book goal objetivo",
+    ) { showGoalSheet = true })
+    sections += SettingsSection(tr("Modo"), modoRows)
 
-        // ── APARÊNCIA ────────────────────────────────────────────────────
-        add(SettingsSection(tr("Aparência"), buildList {
-            add(segmentedRow(
-                label = tr("Língua"),
-                options = listOf("pt" to "Português", "en" to "English"),
-                selected = prefs.lang,
-                keywords = "language idioma língua português english",
-            ) { vm.setLang(it) })
-            add(segmentedRow(
-                label = tr("Tema"),
-                options = listOf("auto" to tr("Auto"), "light" to tr("Claro"), "dark" to tr("Escuro")),
-                selected = prefs.theme,
-                keywords = "theme tema escuro claro dark light",
-            ) { vm.setTheme(it) })
-            add(SettingsRow(tr("Cor de destaque"), keywords = "accent colour color cor") {
-                Column(
-                    Modifier.fillMaxWidth().heightIn(min = RowMinHeight).padding(vertical = RowVPadding),
-                    verticalArrangement = Arrangement.Center,
-                ) {
-                    Text(tr("Cor de destaque"), color = colors.ink2, fontSize = 14.sp)
-                    Spacer(Modifier.height(8.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        ACCENT_PRESETS.forEach { (value, hex) ->
-                            val selected = prefs.accent == value
-                            Box(
-                                Modifier
-                                    .size(30.dp)
-                                    .clip(CircleShape)
-                                    .background(parseHex(hex))
-                                    .clickableNoRipple { vm.setAccent(value) },
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                if (selected) Box(Modifier.size(10.dp).clip(CircleShape).background(Color.White))
-                            }
-                        }
-                    }
-                }
-            })
-            // Three sizes, changed roughly once ever: not worth a permanent row
-            // of pills. // PT: três tamanhos, escolhidos uma vez — folha, não
-            // pílulas.
-            add(pickerRow(
-                label = tr("Tamanho do texto"),
-                options = listOf("1.0" to tr("Normal"), "1.15" to tr("Grande"), "1.3" to tr("Maior")),
-                selected = when {
-                    prefs.textScale >= 1.3f -> "1.3"
-                    prefs.textScale >= 1.15f -> "1.15"
-                    else -> "1.0"
-                },
-                keywords = "text size texto tamanho letra font",
-            ) { vm.setTextScale(it.toFloat()) })
-            add(toggleRow(
-                label = tr("Alto contraste"),
-                checked = prefs.highContrast,
-                subtitle = tr("Reforça o texto e as linhas. Segue o sistema por omissão."),
-                keywords = "contrast contraste acessibilidade accessibility",
-            ) { vm.setHighContrast(it) })
-            add(toggleRow(
-                label = tr("Reduzir movimento"),
-                checked = prefs.reducedMotion,
-                subtitle = tr("Desliga animações. Segue o sistema por omissão."),
-                keywords = "motion movimento animação animation acessibilidade accessibility",
-            ) { vm.setReducedMotion(it) })
-        }))
-
-        // ── FOCO E LEMBRETES ─────────────────────────────────────────────
-        // A block and the notification that nudges you into one are the same
-        // errand. // PT: o bloco e o aviso que o lembra são o mesmo assunto.
-        add(SettingsSection(tr("Foco e lembretes"), buildList {
-            add(toggleRow(
-                label = tr("Manter ecrã ligado"),
-                checked = prefs.keepAwake,
-                subtitle = tr("Não deixa o telemóvel adormecer durante um bloco."),
-                keywords = "screen awake ecrã",
-            ) { vm.setKeepAwake(it) })
-            add(toggleRow(
-                label = tr("Som ao concluir"),
-                checked = prefs.sound,
-                subtitle = tr("Um sino suave ao terminar um bloco ou atingir a meta."),
-                keywords = "sound som sino bell",
-            ) { vm.setSound(it) })
-            // U2: which durations every timer offers. Unset reads as Pomodoro here
-            // — that's the app-wide default — while a reading session quietly uses
-            // the simpler set until this is chosen. Both sets always end in
-            // "Outro…", so a custom time is one tap away either way. // PT: os
-            // tempos oferecidos pelo temporizador; por escolher = Pomodoro.
-            add(segmentedRow(
-                label = tr("Tempos do temporizador"),
-                options = listOf(
-                    TimerPresets.Pomodoro to tr("Pomodoro"),
-                    TimerPresets.Simples to tr("Simples"),
-                ),
-                selected = prefs.timerPresets ?: TimerPresets.Pomodoro,
-                keywords = "timer temporizador minutos minutes pomodoro foco focus",
-            ) { vm.setTimerPresets(it) })
-            add(toggleRow(
-                label = tr("Notificações"),
-                checked = prefs.remindersEnabled,
-                subtitle = tr("Avisos locais enquanto a app está aberta."),
-                keywords = "notifications notificações lembretes reminders avisos",
-                onChange = { enabled ->
-                    vm.setRemindersEnabled(enabled)
-                    if (enabled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-                        ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+    // ── APARÊNCIA ────────────────────────────────────────────────────
+    val aparenciaRows = mutableListOf<SettingsRow>()
+    aparenciaRows.add(segmentedRow(
+        label = tr("Língua"),
+        options = listOf("pt" to "Português", "en" to "English"),
+        selected = prefs.lang,
+        keywords = "language idioma língua português english",
+    ) { vm.setLang(it) })
+    aparenciaRows.add(segmentedRow(
+        label = tr("Tema"),
+        options = listOf("auto" to tr("Auto"), "light" to tr("Claro"), "dark" to tr("Escuro")),
+        selected = prefs.theme,
+        keywords = "theme tema escuro claro dark light",
+    ) { vm.setTheme(it) })
+    aparenciaRows.add(SettingsRow(tr("Cor de destaque"), keywords = "accent colour color cor") {
+        Column(
+            Modifier.fillMaxWidth().heightIn(min = RowMinHeight).padding(vertical = RowVPadding),
+            verticalArrangement = Arrangement.Center,
+        ) {
+            Text(tr("Cor de destaque"), color = colors.ink2, fontSize = 14.sp)
+            Spacer(Modifier.height(8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                ACCENT_PRESETS.forEach { (value, hex) ->
+                    val selected = prefs.accent == value
+                    Box(
+                        Modifier
+                            .size(30.dp)
+                            .clip(CircleShape)
+                            .background(parseHex(hex))
+                            .clickableNoRipple { vm.setAccent(value) },
+                        contentAlignment = Alignment.Center,
                     ) {
-                        notifLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        if (selected) Box(Modifier.size(10.dp).clip(CircleShape).background(Color.White))
                     }
-                },
-            ))
-            if (prefs.remindersEnabled) {
-                val reminderKeys = "notificações notifications lembretes reminders hora time"
-                add(timeRow(tr("Plano do dia"), prefs.plannerTime, reminderKeys) { vm.setPlannerTime(it) })
-                add(timeRow(tr("Hábitos pendentes"), prefs.habitsTime, reminderKeys, divider = false) { vm.setHabitsTime(it) })
-                add(timeRow(tr("Reflexão noturna"), prefs.reflectionTime, reminderKeys, divider = false) { vm.setReflectionTime(it) })
-                add(SettingsRow(
-                    label = tr("Testar notificação"),
-                    keywords = "$reminderKeys teste test",
-                    divider = false,
-                ) {
-                    Column(Modifier.fillMaxWidth()) {
-                        Spacer(Modifier.height(6.dp))
-                        Text(
-                            tr("Sem servidor: os avisos só chegam com a app aberta no telemóvel."),
-                            color = colors.ink3,
-                            fontFamily = SerifFamily,
-                            fontStyle = FontStyle.Italic,
-                            fontSize = 12.sp,
-                            lineHeight = 17.sp,
-                            modifier = Modifier.padding(bottom = 8.dp),
-                        )
-                        Text(
-                            tr("Testar notificação"),
-                            color = colors.ink2,
-                            fontFamily = MonoFamily,
-                            fontSize = 10.sp,
-                            letterSpacing = 0.08.sp,
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(PautaRadius.Chip))
-                                .border(1.dp, colors.rule, RoundedCornerShape(PautaRadius.Chip))
-                                .clickableNoRipple {
-                                    testNotifMsg = null
-                                    val ok = sendTestReminder(context)
-                                    testNotifMsg = if (ok)
-                                        tr("Notificação de teste enviada.")
-                                    else
-                                        tr("Não foi possível enviar a notificação de teste.")
-                                }
-                                .padding(horizontal = 12.dp, vertical = 8.dp),
-                        )
-                        if (testNotifMsg != null) {
-                            Spacer(Modifier.height(6.dp))
-                            Text(testNotifMsg!!, color = colors.ink3, fontSize = 12.sp)
-                        }
-                        Spacer(Modifier.height(4.dp))
-                    }
-                })
+                }
             }
-        }))
+        }
+    })
+    // Three sizes, changed roughly once ever: not worth a permanent row
+    // of pills. // PT: três tamanhos, escolhidos uma vez — folha, não
+    // pílulas.
+    aparenciaRows.add(pickerRow(
+        label = tr("Tamanho do texto"),
+        options = listOf("1.0" to tr("Normal"), "1.15" to tr("Grande"), "1.3" to tr("Maior")),
+        selected = when {
+            prefs.textScale >= 1.3f -> "1.3"
+            prefs.textScale >= 1.15f -> "1.15"
+            else -> "1.0"
+        },
+        keywords = "text size texto tamanho letra font",
+    ) { vm.setTextScale(it.toFloat()) })
+    aparenciaRows.add(toggleRow(
+        label = tr("Alto contraste"),
+        checked = prefs.highContrast,
+        subtitle = tr("Reforça o texto e as linhas. Segue o sistema por omissão."),
+        keywords = "contrast contraste acessibilidade accessibility",
+    ) { vm.setHighContrast(it) })
+    aparenciaRows.add(toggleRow(
+        label = tr("Reduzir movimento"),
+        checked = prefs.reducedMotion,
+        subtitle = tr("Desliga animações. Segue o sistema por omissão."),
+        keywords = "motion movimento animação animation acessibilidade accessibility",
+    ) { vm.setReducedMotion(it) })
+    sections += SettingsSection(tr("Aparência"), aparenciaRows)
 
-        // ── COMPANHIA ────────────────────────────────────────────────────
-        // native-only: how the app keeps you company — none of it is appearance,
-        // which is where all three used to sit. // PT: a companhia da app; nada
-        // disto era aparência.
-        add(SettingsSection(tr("Companhia"), buildList {
-            add(toggleRow(
-                label = tr("Vibração"),
-                checked = prefs.haptics,
-                subtitle = tr("Pequeno toque ao concluir."),
-                keywords = "haptics vibration vibração",
-            ) { vm.setHaptics(it) })
-            add(toggleRow(
-                label = tr("Papagaio ajudante"),
-                checked = prefs.parrot,
-                subtitle = tr("O Pip aparece com dicas e piadas. Toca-lhe para mais."),
-                keywords = "parrot papagaio pip",
-            ) { vm.setParrot(it) })
-            add(toggleRow(
-                label = tr("Ecrã inteiro"),
-                checked = prefs.immersive,
-                subtitle = tr("Esconde as barras do sistema. Deslize da margem para as ver."),
-                keywords = "fullscreen immersive ecrã inteiro",
-            ) { vm.setImmersive(it) })
-        }))
-
-        // ── ANÁLISE E OBJETIVOS ──────────────────────────────────────────
-        // Looking back and aiming forward — four full-surface screens, one card.
-        // // PT: olhar para trás e apontar em frente, no mesmo cartão.
-        add(SettingsSection(tr("Análise e objetivos"), buildList {
-            add(actionRow(
-                label = tr("Revisão semanal"),
-                subtitle = tr("Foco, hábitos e padrões dos últimos 7 dias."),
-                keywords = "insights review revisão semana week",
-            ) { showInsights = true })
-            add(actionRow(
-                label = tr("Retrospetiva do ano"),
-                subtitle = tr("Resumo anual de foco, hábitos e intenções."),
-                keywords = "year ano retrospetiva review",
-            ) { onOpenYearReview() })
-            add(actionRow(
-                label = tr("Como funcionam as marés"),
-                subtitle = tr("Streaks, níveis e respiros explicados."),
-                keywords = "marés tides habits hábitos ajuda help",
-            ) { onOpenTierGuide() })
-            add(actionRow(
-                label = tr("Objetivos trimestrais"),
-                keywords = "goals objetivos trimestre quarter",
-            ) { onOpenGoals() })
-        }))
-
-        // ── DADOS E PRIVACIDADE ──────────────────────────────────────────
-        // The lock, the copies and the export are one question — "who can reach
-        // my data, and where does it go" — so they answer it together. // PT: o
-        // bloqueio, as cópias e a exportação respondem à mesma pergunta.
-        add(SettingsSection(tr("Dados e privacidade"), buildList {
-            if (prefs.pinHash == null) {
-                add(actionRow(
-                    label = tr("Bloqueio por PIN"),
-                    subtitle = tr("Protege a app com um código de 4+ dígitos."),
-                    keywords = "pin lock bloqueio código privacidade privacy",
-                ) { showPinSet = true })
-            } else {
-                add(actionRow(
-                    label = tr("Desativar bloqueio por PIN"),
-                    subtitle = tr("Introduz o PIN atual para remover o bloqueio."),
-                    keywords = "pin lock bloqueio privacidade privacy",
-                ) { showPinDisable = true })
-                // C3: biometric unlock — only with a PIN set and usable biometrics
-                // (hardware + something enrolled). No biometrics → this row never
-                // appears, so the lock stays exactly PIN-only. // PT: biometria só
-                // com PIN definido e biometria disponível.
-                if (canBiometric) add(toggleRow(
-                    label = tr("Desbloqueio biométrico"),
-                    subtitle = tr("Desbloqueia com impressão digital ou rosto; o PIN fica como alternativa."),
-                    checked = prefs.biometricEnabled,
-                    keywords = "pin biometric biometria impressão digital fingerprint",
-                ) { vm.setBiometricEnabled(it) })
+    // ── FOCO E LEMBRETES ─────────────────────────────────────────────
+    // A block and the notification that nudges you into one are the same
+    // errand. // PT: o bloco e o aviso que o lembra são o mesmo assunto.
+    val focoRows = mutableListOf<SettingsRow>()
+    focoRows.add(toggleRow(
+        label = tr("Manter ecrã ligado"),
+        checked = prefs.keepAwake,
+        subtitle = tr("Não deixa o telemóvel adormecer durante um bloco."),
+        keywords = "screen awake ecrã",
+    ) { vm.setKeepAwake(it) })
+    focoRows.add(toggleRow(
+        label = tr("Som ao concluir"),
+        checked = prefs.sound,
+        subtitle = tr("Um sino suave ao terminar um bloco ou atingir a meta."),
+        keywords = "sound som sino bell",
+    ) { vm.setSound(it) })
+    // U2: which durations every timer offers. Unset reads as Pomodoro here
+    // — that's the app-wide default — while a reading session quietly uses
+    // the simpler set until this is chosen. Both sets always end in
+    // "Outro…", so a custom time is one tap away either way. // PT: os
+    // tempos oferecidos pelo temporizador; por escolher = Pomodoro.
+    focoRows.add(segmentedRow(
+        label = tr("Tempos do temporizador"),
+        options = listOf(
+            TimerPresets.Pomodoro to tr("Pomodoro"),
+            TimerPresets.Simples to tr("Simples"),
+        ),
+        selected = prefs.timerPresets ?: TimerPresets.Pomodoro,
+        keywords = "timer temporizador minutos minutes pomodoro foco focus",
+    ) { vm.setTimerPresets(it) })
+    focoRows.add(toggleRow(
+        label = tr("Notificações"),
+        checked = prefs.remindersEnabled,
+        subtitle = tr("Avisos locais enquanto a app está aberta."),
+        keywords = "notifications notificações lembretes reminders avisos",
+        onChange = { enabled ->
+            vm.setRemindersEnabled(enabled)
+            if (enabled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+            ) {
+                notifLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
             }
-            add(toggleRow(
-                label = tr("Cópia automática"),
-                checked = prefs.autoBackup != "off",
-                subtitle = tr("Guarda em segundo plano, mesmo com a app fechada."),
-                keywords = "backup cópia copia automática",
-            ) { enabled -> vm.setAutoBackupCadence(if (enabled) "daily" else "off") })
-            if (prefs.autoBackup != "off") {
-                add(pickerRow(
-                    label = tr("Frequência"),
-                    options = listOf(
-                        "daily" to tr("Diária"),
-                        "weekly" to tr("Semanal"),
-                        "hourly" to tr("Por hora"),
-                    ),
-                    selected = prefs.autoBackup,
-                    keywords = "backup cópia copia frequency frequência",
-                ) { vm.setAutoBackupCadence(it) })
-                // B1: pick a real folder (Drive, device storage…) so the copy
-                // survives an uninstall — the filesDir copy is only a fallback.
-                // // PT: pasta real para a cópia sobreviver à desinstalação.
-                add(actionRow(
-                    label = if (backupFolder == null) tr("Escolher pasta…") else tr("Pasta de cópia"),
-                    subtitle = if (backupFolder == null)
-                        tr("Guarda também numa pasta tua (Drive, dispositivo…).")
-                    else null,
-                    // U4: the chosen folder is the row's *value* — the one thing
-                    // in a settings row worth the accent. // PT: a pasta escolhida
-                    // é o valor da linha, e é o que leva o destaque.
-                    value = backupFolder?.let { folderLabel(it) },
-                    keywords = "backup cópia copia pasta folder drive",
-                ) { folderLauncher.launch(null) })
-                if (backupFolder != null) add(actionRow(
-                    label = tr("Remover pasta"),
-                    subtitle = tr("Volta a guardar só dentro da app."),
-                    keywords = "backup cópia copia pasta folder",
-                    chevron = null,
-                ) { vm.setBackupFolder(null) })
-            }
-            add(actionRow(
-                label = tr("Exportar dados"),
-                subtitle = tr("Transfere um ficheiro .json com tudo."),
-                keywords = "backup export exportar cópia copia json",
-            ) { vm.exportBackup { json -> shareBackup(context, json) } })
-            add(actionRow(
-                label = tr("Enviar para a nuvem"),
-                subtitle = tr("Partilha a cópia para o Drive, Dropbox, Ficheiros…"),
-                keywords = "backup cloud nuvem cópia copia drive dropbox",
-            ) { vm.exportBackup { json -> shareBackup(context, json) } })
-            add(actionRow(
-                label = tr("Importar dados"),
-                subtitle = tr("Restaura a partir de um ficheiro .json."),
-                keywords = "backup import importar restore restaurar json",
-            ) { importLauncher.launch("application/json") })
-            // Only surfaced once there's something archived — keeps the section
-            // quiet for everyone else. // PT: só aparece quando há marés arquivadas.
-            if (archivedHabits.isNotEmpty()) add(actionRow(
-                label = tr("Marés arquivadas"),
-                subtitle = if (archivedHabits.size == 1) tr("1 maré escondida da grelha.")
-                    else trf("{n} marés escondidas da grelha.", "n" to archivedHabits.size),
-                keywords = "archived arquivadas marés tides hábitos habits",
-            ) { showArchived = true })
-        }))
-
-        // ── SOBRE ────────────────────────────────────────────────────────
-        // What build this is, whether there's a newer one, and where the code
-        // lives — the three things you come here to read. The update state below
-        // is still the inline seven-branch `when`; U6 moves it into a sheet.
-        // // PT: a versão, a atualização e o código-fonte, juntos.
-        add(SettingsSection(tr("Sobre"), buildList {
-            add(SettingsRow(versionLabel, keywords = "${tr("Versão")} version build") {
+        },
+    ))
+    if (prefs.remindersEnabled) {
+        val reminderKeys = "notificações notifications lembretes reminders hora time"
+        focoRows.add(timeRow(tr("Plano do dia"), prefs.plannerTime, reminderKeys) { vm.setPlannerTime(it) })
+        focoRows.add(timeRow(tr("Hábitos pendentes"), prefs.habitsTime, reminderKeys, divider = false) { vm.setHabitsTime(it) })
+        focoRows.add(timeRow(tr("Reflexão noturna"), prefs.reflectionTime, reminderKeys, divider = false) { vm.setReflectionTime(it) })
+        focoRows.add(SettingsRow(
+            label = tr("Testar notificação"),
+            keywords = "$reminderKeys teste test",
+            divider = false,
+        ) {
+            Column(Modifier.fillMaxWidth()) {
+                Spacer(Modifier.height(6.dp))
                 Text(
-                    versionLabel,
-                    color = colors.ink4,
-                    fontSize = 13.sp,
-                    modifier = Modifier.padding(vertical = 8.dp),
+                    tr("Sem servidor: os avisos só chegam com a app aberta no telemóvel."),
+                    color = colors.ink3,
+                    fontFamily = SerifFamily,
+                    fontStyle = FontStyle.Italic,
+                    fontSize = 12.sp,
+                    lineHeight = 17.sp,
+                    modifier = Modifier.padding(bottom = 8.dp),
                 )
-            })
-            // The update block has no visible label of its own until U6 gives it
-            // one, so its search key is the word people actually type.
-            // // PT: o bloco das atualizações ainda não tem rótulo visível; a
-            // chave de procura é a palavra que se escreve.
-            add(SettingsRow(
-                label = tr("Atualizações"),
-                keywords = "update updates atualizar versão version nova",
-                divider = false,
-            ) {
-                when {
-                    updDownloading -> {
-                        val label = if (updDownloadProgress != null)
-                            trf("A transferir atualização… {n}%", "n" to updDownloadProgress!!)
-                        else tr("A transferir atualização…")
-                        Text(label, color = colors.ink3, fontSize = 16.sp, modifier = Modifier.padding(vertical = 10.dp))
-                    }
-                    updDownloadError -> {
-                        Text(
-                            tr("Não foi possível transferir a atualização."),
-                            color = colors.accent,
-                            fontSize = 14.sp,
-                            modifier = Modifier.padding(vertical = 4.dp),
-                        )
-                        Spacer(Modifier.height(4.dp))
-                        ActionRow(tr("Tentar outra vez"), onClick = { vm.installUpdate(context) })
-                    }
-                    updChecking -> Text(
-                        tr("A verificar…"),
-                        color = colors.ink3,
-                        fontSize = 16.sp,
-                        modifier = Modifier.padding(vertical = 10.dp),
-                    )
-                    // Offline / transient failure after backoff — say so, don't lie
-                    // "up to date" (B2). // PT: falha de rede, não "atualizado".
-                    updCheckFailed -> {
-                        Text(
-                            tr("Não foi possível verificar. Confirma a ligação à internet."),
-                            color = colors.accent,
-                            fontSize = 14.sp,
-                            lineHeight = 19.sp,
-                            modifier = Modifier.padding(vertical = 4.dp),
-                        )
-                        Spacer(Modifier.height(4.dp))
-                        ActionRow(tr("Tentar outra vez"), onClick = { vm.checkForUpdate() })
-                    }
-                    updAvailable != null -> Column {
-                        ActionRow(tr("Transferir nova versão"), onClick = { vm.installUpdate(context) })
-                        if (updNeedsPerm) {
-                            Text(
-                                text = tr("Permite instalar apps desta origem e toca outra vez."),
-                                color = colors.accent,
-                                fontSize = 13.sp,
-                                lineHeight = 18.sp,
-                                modifier = Modifier.padding(bottom = 6.dp),
-                            )
+                Text(
+                    tr("Testar notificação"),
+                    color = colors.ink2,
+                    fontFamily = MonoFamily,
+                    fontSize = 10.sp,
+                    letterSpacing = 0.08.sp,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(PautaRadius.Chip))
+                        .border(1.dp, colors.rule, RoundedCornerShape(PautaRadius.Chip))
+                        .clickableNoRipple {
+                            testNotifMsg = null
+                            val ok = sendTestReminder(context)
+                            testNotifMsg = if (ok)
+                                tr("Notificação de teste enviada.")
+                            else
+                                tr("Não foi possível enviar a notificação de teste.")
                         }
-                        // Release notes (the GitHub release body), shown plainly — the
-                        // JSON always carried them but nothing ever displayed them (B2).
-                        // PT: notas da versão, mostradas como texto simples.
-                        val notes = updAvailable!!.notes
-                        if (notes.isNotBlank()) {
-                            SectionEyebrow(
-                                tr("Novidades"),
-                                color = colors.ink4,
-                                modifier = Modifier.padding(bottom = 4.dp),
-                            )
-                            Text(
-                                text = notes,
-                                color = colors.ink3,
-                                fontSize = 13.sp,
-                                lineHeight = 19.sp,
-                                modifier = Modifier.padding(bottom = 10.dp),
-                            )
-                        }
-                        Text(
-                            text = tr("Se a instalação falhar com «conflito com um pacote existente»: exporta uma cópia de segurança, desinstala a app e instala de novo. Só é preciso uma vez — daí em diante as atualizações mantêm os teus dados."),
-                            color = colors.ink3,
-                            fontFamily = SerifFamily,
-                            fontStyle = FontStyle.Italic,
-                            fontSize = 12.sp,
-                            lineHeight = 17.sp,
-                        )
-                    }
-                    updChecked -> Text(
-                        tr("Está atualizado."),
-                        color = colors.ink3,
-                        fontSize = 16.sp,
-                        modifier = Modifier.padding(vertical = 10.dp),
-                    )
-                    else -> ActionRow(tr("Verificar atualizações"), onClick = { vm.checkForUpdate() })
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                )
+                if (testNotifMsg != null) {
+                    Spacer(Modifier.height(6.dp))
+                    Text(testNotifMsg!!, color = colors.ink3, fontSize = 12.sp)
                 }
-            })
-            // U4: the source link leaves the centred footer for a row of Sobre,
-            // where it belongs — and finally points at *this* repository. It read
-            // `Iouzy/psychic-guide`, a different repo entirely. // PT: o link do
-            // código-fonte passa a linha da secção Sobre — e aponta para o
-            // repositório certo.
-            add(actionRow(
-                label = tr("Código-fonte"),
-                subtitle = SOURCE_REPO.removePrefix("https://"),
-                keywords = "source code github repositório",
-                chevron = "↗",
-            ) {
-                runCatching {
-                    context.startActivity(
-                        Intent(Intent.ACTION_VIEW, Uri.parse(SOURCE_REPO))
-                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    )
-                }
-            })
-        }))
-
-        // ── ZONA PERIGOSA ────────────────────────────────────────────────
-        // The one section you should never reach by accident: an extra gap and a
-        // full-width rule cut it off from the list above, and its header carries
-        // the danger red the rows use. It is searchable like any other section,
-        // but being last in this list it can never float to the top of a result
-        // — the two destructive rows keep their moat. // PT: a zona perigosa fica
-        // separada e, por ser a última, nunca sobe ao topo dos resultados.
-        add(SettingsSection(tr("Zona perigosa"), buildList {
-            add(actionRow(
-                label = tr("Recarregar exemplo"),
-                subtitle = tr("Repõe os dados de exemplo para explorar a app."),
-                keywords = "reset sample exemplo reseed",
-            ) { showReseedConfirm = true })
-            add(actionRow(
-                label = tr("Apagar tudo"),
-                subtitle = tr("Remove permanentemente todos os dados."),
-                keywords = "delete reset apagar wipe",
-                danger = true,
-            ) { showResetConfirm = true })
-        }, danger = true))
+                Spacer(Modifier.height(4.dp))
+            }
+        })
     }
+    sections += SettingsSection(tr("Foco e lembretes"), focoRows)
 
-    val visible = if (!searching) sections else sections
+    // ── COMPANHIA ────────────────────────────────────────────────────
+    // native-only: how the app keeps you company — none of it is appearance,
+    // which is where all three used to sit. // PT: a companhia da app; nada
+    // disto era aparência.
+    val companhiaRows = mutableListOf<SettingsRow>()
+    companhiaRows.add(toggleRow(
+        label = tr("Vibração"),
+        checked = prefs.haptics,
+        subtitle = tr("Pequeno toque ao concluir."),
+        keywords = "haptics vibration vibração",
+    ) { vm.setHaptics(it) })
+    companhiaRows.add(toggleRow(
+        label = tr("Papagaio ajudante"),
+        checked = prefs.parrot,
+        subtitle = tr("O Pip aparece com dicas e piadas. Toca-lhe para mais."),
+        keywords = "parrot papagaio pip",
+    ) { vm.setParrot(it) })
+    companhiaRows.add(toggleRow(
+        label = tr("Ecrã inteiro"),
+        checked = prefs.immersive,
+        subtitle = tr("Esconde as barras do sistema. Deslize da margem para as ver."),
+        keywords = "fullscreen immersive ecrã inteiro",
+    ) { vm.setImmersive(it) })
+    sections += SettingsSection(tr("Companhia"), companhiaRows)
+
+    // ── ANÁLISE E OBJETIVOS ──────────────────────────────────────────
+    // Looking back and aiming forward — four full-surface screens, one card.
+    // // PT: olhar para trás e apontar em frente, no mesmo cartão.
+    val analiseRows = mutableListOf<SettingsRow>()
+    analiseRows.add(actionRow(
+        label = tr("Revisão semanal"),
+        subtitle = tr("Foco, hábitos e padrões dos últimos 7 dias."),
+        keywords = "insights review revisão semana week",
+    ) { showInsights = true })
+    analiseRows.add(actionRow(
+        label = tr("Retrospetiva do ano"),
+        subtitle = tr("Resumo anual de foco, hábitos e intenções."),
+        keywords = "year ano retrospetiva review",
+    ) { onOpenYearReview() })
+    analiseRows.add(actionRow(
+        label = tr("Como funcionam as marés"),
+        subtitle = tr("Streaks, níveis e respiros explicados."),
+        keywords = "marés tides habits hábitos ajuda help",
+    ) { onOpenTierGuide() })
+    analiseRows.add(actionRow(
+        label = tr("Objetivos trimestrais"),
+        keywords = "goals objetivos trimestre quarter",
+    ) { onOpenGoals() })
+    sections += SettingsSection(tr("Análise e objetivos"), analiseRows)
+
+    // ── DADOS E PRIVACIDADE ──────────────────────────────────────────
+    // The lock, the copies and the export are one question — "who can reach
+    // my data, and where does it go" — so they answer it together. // PT: o
+    // bloqueio, as cópias e a exportação respondem à mesma pergunta.
+    val dadosRows = mutableListOf<SettingsRow>()
+    if (prefs.pinHash == null) {
+        dadosRows.add(actionRow(
+            label = tr("Bloqueio por PIN"),
+            subtitle = tr("Protege a app com um código de 4+ dígitos."),
+            keywords = "pin lock bloqueio código privacidade privacy",
+        ) { showPinSet = true })
+    } else {
+        dadosRows.add(actionRow(
+            label = tr("Desativar bloqueio por PIN"),
+            subtitle = tr("Introduz o PIN atual para remover o bloqueio."),
+            keywords = "pin lock bloqueio privacidade privacy",
+        ) { showPinDisable = true })
+        // C3: biometric unlock — only with a PIN set and usable biometrics
+        // (hardware + something enrolled). No biometrics → this row never
+        // appears, so the lock stays exactly PIN-only. // PT: biometria só
+        // com PIN definido e biometria disponível.
+        if (canBiometric) dadosRows.add(toggleRow(
+            label = tr("Desbloqueio biométrico"),
+            subtitle = tr("Desbloqueia com impressão digital ou rosto; o PIN fica como alternativa."),
+            checked = prefs.biometricEnabled,
+            keywords = "pin biometric biometria impressão digital fingerprint",
+        ) { vm.setBiometricEnabled(it) })
+    }
+    dadosRows.add(toggleRow(
+        label = tr("Cópia automática"),
+        checked = prefs.autoBackup != "off",
+        subtitle = tr("Guarda em segundo plano, mesmo com a app fechada."),
+        keywords = "backup cópia copia automática",
+    ) { enabled -> vm.setAutoBackupCadence(if (enabled) "daily" else "off") })
+    if (prefs.autoBackup != "off") {
+        dadosRows.add(pickerRow(
+            label = tr("Frequência"),
+            options = listOf(
+                "daily" to tr("Diária"),
+                "weekly" to tr("Semanal"),
+                "hourly" to tr("Por hora"),
+            ),
+            selected = prefs.autoBackup,
+            keywords = "backup cópia copia frequency frequência",
+        ) { vm.setAutoBackupCadence(it) })
+        // B1: pick a real folder (Drive, device storage…) so the copy
+        // survives an uninstall — the filesDir copy is only a fallback.
+        // // PT: pasta real para a cópia sobreviver à desinstalação.
+        dadosRows.add(actionRow(
+            label = if (backupFolder == null) tr("Escolher pasta…") else tr("Pasta de cópia"),
+            subtitle = if (backupFolder == null)
+                tr("Guarda também numa pasta tua (Drive, dispositivo…).")
+            else null,
+            // U4: the chosen folder is the row's *value* — the one thing
+            // in a settings row worth the accent. // PT: a pasta escolhida
+            // é o valor da linha, e é o que leva o destaque.
+            value = backupFolder?.let { folderLabel(it) },
+            keywords = "backup cópia copia pasta folder drive",
+        ) { folderLauncher.launch(null) })
+        if (backupFolder != null) dadosRows.add(actionRow(
+            label = tr("Remover pasta"),
+            subtitle = tr("Volta a guardar só dentro da app."),
+            keywords = "backup cópia copia pasta folder",
+            chevron = null,
+        ) { vm.setBackupFolder(null) })
+    }
+    dadosRows.add(actionRow(
+        label = tr("Exportar dados"),
+        subtitle = tr("Transfere um ficheiro .json com tudo."),
+        keywords = "backup export exportar cópia copia json",
+    ) { vm.exportBackup { json -> shareBackup(context, json) } })
+    dadosRows.add(actionRow(
+        label = tr("Enviar para a nuvem"),
+        subtitle = tr("Partilha a cópia para o Drive, Dropbox, Ficheiros…"),
+        keywords = "backup cloud nuvem cópia copia drive dropbox",
+    ) { vm.exportBackup { json -> shareBackup(context, json) } })
+    dadosRows.add(actionRow(
+        label = tr("Importar dados"),
+        subtitle = tr("Restaura a partir de um ficheiro .json."),
+        keywords = "backup import importar restore restaurar json",
+    ) { importLauncher.launch("application/json") })
+    // Only surfaced once there's something archived — keeps the section
+    // quiet for everyone else. // PT: só aparece quando há marés arquivadas.
+    if (archivedHabits.isNotEmpty()) dadosRows.add(actionRow(
+        label = tr("Marés arquivadas"),
+        subtitle = if (archivedHabits.size == 1) tr("1 maré escondida da grelha.")
+            else trf("{n} marés escondidas da grelha.", "n" to archivedHabits.size),
+        keywords = "archived arquivadas marés tides hábitos habits",
+    ) { showArchived = true })
+    sections += SettingsSection(tr("Dados e privacidade"), dadosRows)
+
+    // ── SOBRE ────────────────────────────────────────────────────────
+    // What build this is, whether there's a newer one, and where the code
+    // lives — the three things you come here to read. The update state below
+    // is still the inline seven-branch `when`; U6 moves it into a sheet.
+    // // PT: a versão, a atualização e o código-fonte, juntos.
+    val sobreRows = mutableListOf<SettingsRow>()
+    sobreRows.add(SettingsRow(versionLabel, keywords = "${tr("Versão")} version build") {
+        Text(
+            versionLabel,
+            color = colors.ink4,
+            fontSize = 13.sp,
+            modifier = Modifier.padding(vertical = 8.dp),
+        )
+    })
+    // The update block has no visible label of its own until U6 gives it
+    // one, so its search key is the word people actually type.
+    // // PT: o bloco das atualizações ainda não tem rótulo visível; a
+    // chave de procura é a palavra que se escreve.
+    sobreRows.add(SettingsRow(
+        label = tr("Atualizações"),
+        keywords = "update updates atualizar versão version nova",
+        divider = false,
+    ) {
+        when {
+            updDownloading -> {
+                val label = if (updDownloadProgress != null)
+                    trf("A transferir atualização… {n}%", "n" to updDownloadProgress!!)
+                else tr("A transferir atualização…")
+                Text(label, color = colors.ink3, fontSize = 16.sp, modifier = Modifier.padding(vertical = 10.dp))
+            }
+            updDownloadError -> {
+                Text(
+                    tr("Não foi possível transferir a atualização."),
+                    color = colors.accent,
+                    fontSize = 14.sp,
+                    modifier = Modifier.padding(vertical = 4.dp),
+                )
+                Spacer(Modifier.height(4.dp))
+                ActionRow(tr("Tentar outra vez"), onClick = { vm.installUpdate(context) })
+            }
+            updChecking -> Text(
+                tr("A verificar…"),
+                color = colors.ink3,
+                fontSize = 16.sp,
+                modifier = Modifier.padding(vertical = 10.dp),
+            )
+            // Offline / transient failure after backoff — say so, don't lie
+            // "up to date" (B2). // PT: falha de rede, não "atualizado".
+            updCheckFailed -> {
+                Text(
+                    tr("Não foi possível verificar. Confirma a ligação à internet."),
+                    color = colors.accent,
+                    fontSize = 14.sp,
+                    lineHeight = 19.sp,
+                    modifier = Modifier.padding(vertical = 4.dp),
+                )
+                Spacer(Modifier.height(4.dp))
+                ActionRow(tr("Tentar outra vez"), onClick = { vm.checkForUpdate() })
+            }
+            updAvailable != null -> Column {
+                ActionRow(tr("Transferir nova versão"), onClick = { vm.installUpdate(context) })
+                if (updNeedsPerm) {
+                    Text(
+                        text = tr("Permite instalar apps desta origem e toca outra vez."),
+                        color = colors.accent,
+                        fontSize = 13.sp,
+                        lineHeight = 18.sp,
+                        modifier = Modifier.padding(bottom = 6.dp),
+                    )
+                }
+                // Release notes (the GitHub release body), shown plainly — the
+                // JSON always carried them but nothing ever displayed them (B2).
+                // PT: notas da versão, mostradas como texto simples.
+                val notes = updAvailable!!.notes
+                if (notes.isNotBlank()) {
+                    SectionEyebrow(
+                        tr("Novidades"),
+                        color = colors.ink4,
+                        modifier = Modifier.padding(bottom = 4.dp),
+                    )
+                    Text(
+                        text = notes,
+                        color = colors.ink3,
+                        fontSize = 13.sp,
+                        lineHeight = 19.sp,
+                        modifier = Modifier.padding(bottom = 10.dp),
+                    )
+                }
+                Text(
+                    text = tr("Se a instalação falhar com «conflito com um pacote existente»: exporta uma cópia de segurança, desinstala a app e instala de novo. Só é preciso uma vez — daí em diante as atualizações mantêm os teus dados."),
+                    color = colors.ink3,
+                    fontFamily = SerifFamily,
+                    fontStyle = FontStyle.Italic,
+                    fontSize = 12.sp,
+                    lineHeight = 17.sp,
+                )
+            }
+            updChecked -> Text(
+                tr("Está atualizado."),
+                color = colors.ink3,
+                fontSize = 16.sp,
+                modifier = Modifier.padding(vertical = 10.dp),
+            )
+            else -> ActionRow(tr("Verificar atualizações"), onClick = { vm.checkForUpdate() })
+        }
+    })
+    // U4: the source link leaves the centred footer for a row of Sobre,
+    // where it belongs — and finally points at *this* repository. It read
+    // `Iouzy/psychic-guide`, a different repo entirely. // PT: o link do
+    // código-fonte passa a linha da secção Sobre — e aponta para o
+    // repositório certo.
+    sobreRows.add(actionRow(
+        label = tr("Código-fonte"),
+        subtitle = SOURCE_REPO.removePrefix("https://"),
+        keywords = "source code github repositório",
+        chevron = "↗",
+    ) {
+        runCatching {
+            context.startActivity(
+                Intent(Intent.ACTION_VIEW, Uri.parse(SOURCE_REPO))
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            )
+        }
+    })
+    sections += SettingsSection(tr("Sobre"), sobreRows)
+
+    // ── ZONA PERIGOSA ────────────────────────────────────────────────
+    // The one section you should never reach by accident: an extra gap and a
+    // full-width rule cut it off from the list above, and its header carries
+    // the danger red the rows use. It is searchable like any other section,
+    // but being last in this list it can never float to the top of a result
+    // — the two destructive rows keep their moat. // PT: a zona perigosa fica
+    // separada e, por ser a última, nunca sobe ao topo dos resultados.
+    val perigosaRows = mutableListOf<SettingsRow>()
+    perigosaRows.add(actionRow(
+        label = tr("Recarregar exemplo"),
+        subtitle = tr("Repõe os dados de exemplo para explorar a app."),
+        keywords = "reset sample exemplo reseed",
+    ) { showReseedConfirm = true })
+    perigosaRows.add(actionRow(
+        label = tr("Apagar tudo"),
+        subtitle = tr("Remove permanentemente todos os dados."),
+        keywords = "delete reset apagar wipe",
+        danger = true,
+    ) { showResetConfirm = true })
+    sections += SettingsSection(tr("Zona perigosa"), perigosaRows, danger = true)
+
+    val visible: List<SettingsSection> = if (!searching) sections else sections
         .map { SettingsSection(it.title, it.rows.filter { row -> row.matches(folded) }, it.danger) }
         .filter { it.rows.isNotEmpty() }
 
