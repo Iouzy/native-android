@@ -69,7 +69,15 @@ import kotlin.math.roundToInt
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun BookDetailSheet(bookId: String, onDismiss: () -> Unit) {
+fun BookDetailSheet(
+    bookId: String,
+    onDismiss: () -> Unit,
+    // R3: how this sheet opens the reader — null when the caller has nowhere to
+    // send it (the reader's own ⋯ opens this sheet, and offering "Ler" there
+    // would be offering what you are already doing). // PT: null quando não há
+    // para onde abrir o leitor.
+    onOpenReader: (() -> Unit)? = null,
+) {
     val vm: AppViewModel = viewModel()
     val colors = LocalPautaColors.current
     // P10 · the haptic map's last entry: arming a two-step delete ticks, so the
@@ -94,6 +102,7 @@ fun BookDetailSheet(bookId: String, onDismiss: () -> Unit) {
     if (book == null) return
 
     val isAudiobook = book.format == "audiobook"
+    val canRead = rememberCanRead(book)
     var editingProgress by remember { mutableStateOf(false) }
     var showEdit by remember { mutableStateOf(false) }
     var showFinish by remember { mutableStateOf(false) }
@@ -147,8 +156,8 @@ fun BookDetailSheet(bookId: String, onDismiss: () -> Unit) {
         )
 
         // ── R2 · the attached file ──
-        // Just the name for now: reading it is R3/R4's job. // PT: por agora só o
-        // nome — abrir o ficheiro é tarefa do leitor.
+        // The name; R3's "Ler" is further down, with the status actions. // PT: o
+        // nome do ficheiro; o botão "Ler" está com as acções de estado.
         if (book.filePath != null) {
             Spacer(Modifier.height(8.dp))
             Text(
@@ -233,6 +242,15 @@ fun BookDetailSheet(bookId: String, onDismiss: () -> Unit) {
 
         // ── Status actions ──
         Spacer(Modifier.height(SheetFieldGap))
+        // R3: with a readable file attached, reading it is the thing to do here —
+        // above marking it read. The file has to still be there: a restored backup
+        // brings back the book and not the document, and then this reverts to the
+        // manual progress line above. // PT: com ficheiro (ainda) presente, "Ler" é
+        // a acção principal; sem ele, fica o progresso manual.
+        if (canRead && onOpenReader != null) {
+            PautaButton(tr("Ler"), Modifier.fillMaxWidth(), PautaButtonVariant.Primary) { onOpenReader() }
+            Spacer(Modifier.height(10.dp))
+        }
         if (book.status == "reading") {
             PautaButton(tr("Marcar como lido"), Modifier.fillMaxWidth(), PautaButtonVariant.Primary) {
                 showFinish = true
