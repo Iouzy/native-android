@@ -798,6 +798,17 @@ object I18n {
         "Troque no cabeçalho, ou mantenha premido o ícone das definições." to
             "Switch it in the header, or long-press the settings icon.", // native-only
 
+        // ── U5 · settings search ──
+        // "Limpar" (the clear affordance) already carries "Clear" above, from the
+        // History view's search field. // PT: "Limpar" já existe, vindo da procura
+        // do histórico.
+        "Procurar definições…" to "Search settings…", // native-only
+        "Nada encontrado." to "Nothing found.", // native-only
+        // Search-key only: the version row shows the build string, not a label,
+        // but "versão"/"version" is what people type. // PT: só para procurar — a
+        // linha mostra a versão, não a palavra.
+        "Versão" to "Version", // native-only
+
         // ── K-extra · pace stats + ETA ──
         "Ritmo: ~{n} págs/hora" to "Pace: ~{n} pages/hour", // native-only
         "Ritmo: ~{n} min/hora" to "Pace: ~{n} min/hour", // native-only
