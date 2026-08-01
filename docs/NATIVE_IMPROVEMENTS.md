@@ -61,7 +61,7 @@ cost. Running a task on a stronger model than suggested is always fine.
 
 ## Phase A — feel (highest payoff; order matters: A1, A2 unblock A3)
 
-### A1 · Wire up haptics (the pref exists but is dead) — Status: pending
+### A1 · Wire up haptics (the pref exists but is dead) — Status: done (PR #152, via P10)
 - **Why:** `PrefsEntity.haptics` defaults `true` and Settings shows the toggle,
   but no code in the app fires a single haptic (verified: zero
   `HapticFeedback`/`Vibrator` usages).
@@ -76,7 +76,7 @@ cost. Running a task on a stronger model than suggested is always fine.
 - **Accept:** every listed interaction ticks with the pref on; silent when off.
 - Note: `prefs.sound` is equally dead — out of scope here (see F-extra note).
 
-### A2 · LazyColumn migration — Status: in-progress (PR #104)
+### A2 · LazyColumn migration — Status: done (PR #104)
 - **Why:** Hoje intentions, Marés habits and the Pauta timeline render in plain
   `Column`s inside `verticalScroll` — no item animations possible, janky at
   scale.
@@ -294,7 +294,7 @@ cost. Running a task on a stronger model than suggested is always fine.
 
 ## Phase T — hygiene (any time, can ride along with another task)
 
-### T1 · Midnight ticker — Status: in-progress (PR #128)
+### T1 · Midnight ticker — Status: done (PR #128)
 - **Why:** `AppViewModel` runs a 30-second `while(true)` ticker for the
   process lifetime just to catch midnight.
 - **How:** `delay(ms until next local midnight)` + re-check on `ON_RESUME`
@@ -334,3 +334,4 @@ cost. Running a task on a stronger model than suggested is always fine.
 2026-06-15 · E1 · #122 · Search — `search_index` FTS4 table (unicode61 + remove_diacritics → accent-insensitive PT) over intention text / day reflections / block title+reflection, kept in sync by SQL triggers on the 3 source tables (covers single edits, import, reseed, reset); deliberately NOT a Room @Entity (so Room won't create/validate it — we own the tokenizer), created in MIGRATION_5_6 (+backfill) and a fresh-install RoomDatabase.Callback, DB v5→v6. SearchDao @RawQuery→SearchHit; repo.search() prefixes each word + neutralises punctuation so it can't be read as an FTS operator. HistoryView gains a live search field (blank=day list, typing=hits grouped by day with a source tag); tapping any day (row or hit) opens a read-only day detail (intentions/blocks/reflection — handles block-only days), nested BackHandler peels it back first. VM searchQuery+searchResults (flatMapLatest, cleared on close). Block day derived from createdAt in local time. Index is derived state → not in the v4 export, WebBackup tests unaffected
 2026-06-19 · T1 · #128 · midnight ticker: replaced 30s while(true) poll with delay(until next local midnight + 1s); ON_RESUME in MainScaffold already covers doze/clock changes; runRollover semantics unchanged
 2026-06-25 · T2 · #131 · versionName = "1.$buildRun" in build.gradle.kts (1.0 locally, 1.{run} in CI); Settings Atualizações card shows "v{VERSION_NAME} · YYYY-MM-DD" (run + date together); prefs.sound implemented: soft notification chime via RingtoneManager on block conclude and focus target reached; default remains false (off)
+2026-08-01 · A1 · #152 · haptics arrived via P10's haptic map, not a dedicated A1 PR: LocalHapticFeedback gated on prefs.haptics across MainScaffold (tab change), HojeScreen (intention toggle + tide), MaresScreen (day fill + respiro long-press), PautaScreen (start/pause/conclude), plus the book-mode sheets. The earlier A1 draft (PR #103, a PautaHaptics wrapper in ui/Haptics.kt) was superseded before review and closed unmerged — ui/Haptics.kt does not exist and should not be reintroduced
