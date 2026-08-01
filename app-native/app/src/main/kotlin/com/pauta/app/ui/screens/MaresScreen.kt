@@ -33,6 +33,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -118,13 +119,34 @@ import java.time.YearMonth
  * detail sheet (where edit / archive / remove live — A7 dropped the
  * undiscoverable long-press-to-delete). // PT: tab Marés segundo a grelha da web.
  *
- * @param bookMode when true (K7) the annual-goal card + "Hábitos de leitura"
- *   eyebrow lead the list and the tides below become the reading habits — the
- *   same engine, embedded unchanged as items of this LazyColumn (a nested
- *   scrollable would clash). Off = the planner Marés, untouched.
+ * @param bookMode when true (R7) the tab is [BookHabitsScreen] — the reading
+ *   rhythm, with these tides embedded at its foot as the user's ordinary habits.
+ *   Off = the planner Marés, untouched. The branch is an early return, like
+ *   Hoje→Estante and Pauta→Sessão. // PT: no modo livro, a tab é o ritmo de
+ *   leitura, com estas marés lá dentro.
  */
 @Composable
 fun MaresScreen(bookMode: Boolean = false) {
+    // R7: the third tab finally transforms like the other two. K7's injection of
+    // a goal card at the top of this list is gone; the reading screen owns the
+    // list now and hands the tides back as its own trailing content.
+    // // PT: a terceira tab também se transforma — o ecrã de leitura passa a dono
+    // da lista e as marés entram lá dentro.
+    if (bookMode) {
+        BookHabitsScreen()
+        return
+    }
+    MaresContent()
+}
+
+/**
+ * The Marés list itself. [leading] is emitted between the top spacer and the
+ * month navigation — the seam book mode's reading rhythm hangs off, and nothing
+ * at all with the lens off, which is what keeps the planner's tab byte-identical
+ * to before R7. // PT: a lista das marés; [leading] é a costura do modo livro.
+ */
+@Composable
+internal fun MaresContent(leading: (LazyListScope.() -> Unit)? = null) {
     val colors = LocalPautaColors.current
     val vm: AppViewModel = viewModel()
     val habits by vm.habits.collectAsStateWithLifecycle()
@@ -201,18 +223,7 @@ fun MaresScreen(bookMode: Boolean = false) {
         ) {
             item(key = "top") { Spacer(Modifier.height(8.dp)) }
 
-            // K7 (book mode): the annual reading goal leads, then the reading-
-            // habits eyebrow; everything below is the normal Marés, unchanged.
-            // // PT: objetivo anual + eyebrow de hábitos de leitura à cabeça.
-            if (bookMode) {
-                item(key = "book-goal") {
-                    Spacer(Modifier.height(6.dp))
-                    BookAnnualGoalCard()
-                    Spacer(Modifier.height(26.dp))
-                    SectionEyebrow(tr("Hábitos de leitura"))
-                    Spacer(Modifier.height(14.dp))
-                }
-            }
+            leading?.invoke(this)
 
             // Month navigation (stands in for the web's MonthStrip).
             item(key = "month-nav") {
@@ -507,7 +518,16 @@ fun MaresScreen(bookMode: Boolean = false) {
     }
 }
 
-private data class CellDay(val d: Int, val key: String, val state: CellState, val isToday: Boolean, val count: Int)
+/** One day of a month strip. Internal since R7: the reading-days grid draws the
+ *  tides' own cells rather than a second renderer. // PT: um dia da tira; o R7
+ *  reutiliza estas células. */
+internal data class CellDay(
+    val d: Int,
+    val key: String,
+    val state: CellState,
+    val isToday: Boolean,
+    val count: Int = 0,
+)
 
 /** The habit's static fields plus its marked days — everything the pure
  *  [HabitCalculator] math needs. // PT: o modelo puro de uma maré. */
@@ -757,21 +777,31 @@ private fun MaresHabitRow(
     }
 }
 
+/**
+ * One 28dp day cell, with all nine states. [interactive] is false for R7's
+ * reading-days grid: those cells are filled by sessions, not by tapping, so the
+ * same renderer draws them without offering a gesture that would mean nothing.
+ * // PT: a célula de um dia; [interactive] = false na grelha de leituras, que se
+ * preenche sozinha.
+ */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun MaresDayCell(
+internal fun MaresDayCell(
     day: CellDay,
     accent: Color,
     target: Int?,
     animate: Boolean,
-    onTap: () -> Unit,
-    onLongPress: () -> Unit,
+    interactive: Boolean = true,
+    onTap: () -> Unit = {},
+    onLongPress: () -> Unit = {},
 ) {
     val colors = LocalPautaColors.current
     val state = day.state
     val filled = state == CellState.DONE
-    val clickable = state == CellState.EMPTY || state == CellState.DONE ||
-        state == CellState.RESPIRO || state == CellState.PARTIAL
+    val clickable = interactive && (
+        state == CellState.EMPTY || state == CellState.DONE ||
+            state == CellState.RESPIRO || state == CellState.PARTIAL
+        )
     val partialFrac = if (state == CellState.PARTIAL && target != null && target > 0) {
         (day.count.toFloat() / target).coerceAtMost(1f)
     } else 0f

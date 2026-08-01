@@ -804,7 +804,7 @@ speed.
 calculation; audiobooks never show WPM; estimates always carry `≈`; unit tests
 green; CI green.
 
-### R7 · Hábitos tab rebuild: the reading rhythm — Status: pending
+### R7 · Hábitos tab rebuild: the reading rhythm — Status: done (PR #170)
 
 **Depends on:** R5 (the day data comes from sessions), R6 (the speed chart)
 
@@ -964,6 +964,8 @@ and read it in the app; everything after makes it smarter.
 ## Log (append one line per shipped task: date · task · PR · note)
 
 <!-- e.g. 2026-08-02 · R1 · #n · capture chip moved to the shelf header; reading presets 15/30/45/60 + custom -->
+
+2026-08-01 · R7 · #170 · the header stopped lying. The tides under it were never reading habits, so the eyebrow is now just `HÁBITOS` and its old key left the dictionary with it. The tab is a real screen: book mode early-returns to `BookHabitsScreen` like Hoje and Pauta already did, and the tides come back *inside* it — `MaresScreen`'s list moved into `MaresContent(leading)` and the reading sections are its leading items, because one LazyColumn is the only way two scrollables don't fight. Nothing new is stored: `domain/ReadingStats.kt` derives all of it from sessions the app already has. The flattening is where the thinking went — a session's day, its minutes and its words live in three different tables, so the screen reduces one to a `Session(dayKey, minutes, pages?, words?)` and the math stays pure. Both are nullable because *nobody counted* is not zero: a hand-concluded session has no page delta, an audiobook counts minutes, and a counted EPUB counts percentage points, so each stays out of a page total rather than dragging it down. The day grid draws the tides' own cells (a new `interactive = false`, not a second renderer) and is read-only on purpose — reading is proven by a session. The one place this parts company with the tides is the streak: a tide breaks on an unmarked today because a self-report can be made at any hour, but a day that hasn't ended is not yet a day without reading, so the current streak counts back from yesterday and midnight is what takes it.
 
 2026-08-01 · R6 · #169 · the "Ritmo" line stopped talking in pages. WPM is derived from `pagesPerHour` rather than summed independently — the two describe the same sessions, so a second summation could only ever produce a second answer — which also means null under identical conditions and no new validity rules to keep in step. The unit a book counts turned out to be the whole question: a page for physical/ebook/PDF, but one *percent* for an EPUB the reader has counted, because R4 shows percent everywhere and never pages. That branch is unreachable until R4 lands (nothing sets `wordCount` yet), and an attached-but-uncounted EPUB falls back to the page estimate, which is exactly what it is still tracked in. An audiobook returns null rather than 280-words-a-minute: its progress is already time, and time over time is a ratio that would look like a reading speed without being one. The `≈` lives behind one predicate (`hasCountedWords`) so the sheet and the math can't drift on which figures are estimates. The spans changed too — R5's measured `pagesDelta` is now preferred, and *exclusively*: mixing a measured span with the book's total apportioned by duration counts the same pages twice, so a book with any measured session uses only those, and one with none keeps K-extra's apportioning untouched.
 
