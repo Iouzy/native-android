@@ -306,6 +306,10 @@ fun PautaButton(
     variant: PautaButtonVariant = PautaButtonVariant.Primary,
     enabled: Boolean = true,
     accent: Color? = null,
+    // U3: the same pill at chip height, for a button that commits a form sitting
+    // in a list rather than a sheet's action row. // PT: a mesma pílula, à altura
+    // de uma chip, para formulários dentro de uma lista.
+    compact: Boolean = false,
     onClick: () -> Unit,
 ) {
     val colors = LocalPautaColors.current
@@ -318,8 +322,12 @@ fun PautaButton(
         PautaButtonVariant.Primary, PautaButtonVariant.InkPrimary -> colors.onDark
         PautaButtonVariant.Ghost -> colors.ink2
     }
-    val vPad = if (variant == PautaButtonVariant.Ghost) 11.dp else 13.dp
-    val hPad = if (variant == PautaButtonVariant.Ghost) 14.dp else 20.dp
+    val vPad = when {
+        compact -> 8.dp
+        variant == PautaButtonVariant.Ghost -> 11.dp
+        else -> 13.dp
+    }
+    val hPad = if (compact || variant == PautaButtonVariant.Ghost) 14.dp else 20.dp
     // P10: the press dip — only while the button can actually be pressed.
     // // PT: o afundar ao toque, só quando o botão está ativo.
     val press = if (enabled) rememberMotionEnabled() else false
