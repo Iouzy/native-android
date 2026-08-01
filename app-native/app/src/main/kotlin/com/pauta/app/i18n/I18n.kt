@@ -575,6 +575,7 @@ object I18n {
         "Recarregar" to "Reload", // native-only
 
         "Atualizações" to "Updates", // native-only
+        "Nova versão" to "New version", // native-only
         "A verificar…" to "Checking…",
         "Transferir nova versão" to "Download new version",
         "Está atualizado." to "Up to date.",

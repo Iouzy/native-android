@@ -84,11 +84,15 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.pauta.app.i18n.tr
 import com.pauta.app.i18n.trf
 import com.pauta.app.ui.EmptyState
+import com.pauta.app.ui.PautaButton
+import com.pauta.app.ui.PautaButtonVariant
 import com.pauta.app.ui.PautaCard
 import com.pauta.app.ui.PautaRadius
 import com.pauta.app.ui.PautaSheet
 import com.pauta.app.ui.SectionEyebrow
+import com.pauta.app.ui.SheetActionGap
 import com.pauta.app.ui.SheetFieldGap
+import com.pauta.app.ui.SheetLabelGap
 import com.pauta.app.ui.canUseBiometric
 import com.pauta.app.ui.clickableNoRipple
 import com.pauta.app.ui.theme.LocalPautaColors
@@ -140,7 +144,6 @@ fun SettingsScreen(
     val updDownloading by vm.updateDownloading.collectAsStateWithLifecycle()
     val updDownloadProgress by vm.updateDownloadProgress.collectAsStateWithLifecycle()
     val updDownloadError by vm.updateDownloadError.collectAsStateWithLifecycle()
-    val updNeedsPerm by vm.updateNeedsPerm.collectAsStateWithLifecycle()
     val updCheckFailed by vm.updateCheckFailed.collectAsStateWithLifecycle()
     val context = LocalContext.current
     // C3: whether the device has usable biometrics — gates the unlock toggle below
@@ -178,6 +181,7 @@ fun SettingsScreen(
     var showReseedConfirm by remember { mutableStateOf(false) }
     var showArchived by remember { mutableStateOf(false) }
     var showGoalSheet by remember { mutableStateOf(false) }
+    var showUpdateSheet by remember { mutableStateOf(false) }
     var testNotifMsg by remember { mutableStateOf<String?>(null) }
 
     // A7: archived tides — surfaced in Settings → Dados for restore (or a guarded
@@ -273,6 +277,12 @@ fun SettingsScreen(
         AnnualGoalSheet(current = prefs.bookAnnualGoal, onClose = { showGoalSheet = false })
     }
 
+    // U6: the update state machine, in the sheet the Sobre row opens.
+    // // PT: a folha das atualizações.
+    if (showUpdateSheet) {
+        UpdateSheet(onClose = { showUpdateSheet = false })
+    }
+
     // ── U5 · the searchable index ────────────────────────────────────────
     // Thirty rows across seven sections is past the point where scanning works.
     // So every row is *declared* once below — label, subtitle, its search-only
@@ -312,6 +322,25 @@ fun SettingsScreen(
         }
     }
     val backupFolder = prefs.backupFolderUri
+
+    // U6 · The updater's seven states, folded into the one line the Sobre list
+    // shows. Short on purpose: this is a row *value*, and the sentence-long
+    // failure messages live in the sheet the row opens — so a failure reports
+    // as the thing it offers ("Tentar outra vez") rather than wrapping four
+    // lines of apology into a settings row. Null = never checked this session,
+    // which is a row with nothing to say yet, not a state.
+    // // PT: os sete estados do atualizador numa linha curta; as frases longas
+    // ficam na folha. Nulo = ainda não se verificou.
+    val updateStatus: String? = when {
+        updDownloading -> updDownloadProgress?.let { "$it%" } ?: tr("A transferir atualização…")
+        updDownloadError || updCheckFailed -> tr("Tentar outra vez")
+        updChecking -> tr("A verificar…")
+        updAvailable != null -> tr("Nova versão")
+        updChecked -> tr("Está atualizado.")
+        else -> null
+    }
+    // Does that status want something from the user? // PT: pede atenção?
+    val updateWants = updAvailable != null || updDownloading || updDownloadError || updCheckFailed
 
     // U4 · The information architecture: seven sections ordered by what you
     // reach for, not by the order the app grew. "Aparência" used to be a junk
@@ -652,110 +681,32 @@ fun SettingsScreen(
 
     // ── SOBRE ────────────────────────────────────────────────────────
     // What build this is, whether there's a newer one, and where the code
-    // lives — the three things you come here to read. The update state below
-    // is still the inline seven-branch `when`; U6 moves it into a sheet.
+    // lives — the three things you come here to read, three rows deep.
     // // PT: a versão, a atualização e o código-fonte, juntos.
     val sobreRows = mutableListOf<SettingsRow>()
-    sobreRows.add(SettingsRow(versionLabel, keywords = "${tr("Versão")} version build") {
-        Text(
-            versionLabel,
-            color = colors.ink4,
-            fontSize = 13.sp,
-            modifier = Modifier.padding(vertical = 8.dp),
-        )
-    })
-    // The update block has no visible label of its own until U6 gives it
-    // one, so its search key is the word people actually type.
-    // // PT: o bloco das atualizações ainda não tem rótulo visível; a
-    // chave de procura é a palavra que se escreve.
-    sobreRows.add(SettingsRow(
+    sobreRows.add(infoRow(
+        label = tr("Versão"),
+        value = versionLabel,
+        keywords = "version build",
+    ))
+    // U6 · The update block used to be a seven-branch `when` rendered inline
+    // here — the check button, the progress, two failure messages, the release
+    // notes, the permission hint and a paragraph of conflict advice, ~80 lines
+    // of the main scroll for something you read once a month. All of it moved
+    // into [UpdateSheet]; what stays is the single line that has to be visible
+    // without opening anything: whether there is a new version.
+    // // PT: a máquina de estados foi para uma folha; fica só a linha que diz
+    // se há versão nova.
+    sobreRows.add(actionRow(
         label = tr("Atualizações"),
+        value = updateStatus,
+        // Accent means "there is something here for you" — a new version, a
+        // download running, a failure to retry. A build that is simply up to
+        // date reports in ink3 and asks for nothing. // PT: o destaque é para
+        // o que pede atenção; "atualizado" fica em tinta calma.
+        valueColor = if (updateWants) colors.accent else colors.ink3,
         keywords = "update updates atualizar versão version nova",
-        divider = false,
-    ) {
-        when {
-            updDownloading -> {
-                val label = if (updDownloadProgress != null)
-                    trf("A transferir atualização… {n}%", "n" to updDownloadProgress!!)
-                else tr("A transferir atualização…")
-                Text(label, color = colors.ink3, fontSize = 16.sp, modifier = Modifier.padding(vertical = 10.dp))
-            }
-            updDownloadError -> {
-                Text(
-                    tr("Não foi possível transferir a atualização."),
-                    color = colors.accent,
-                    fontSize = 14.sp,
-                    modifier = Modifier.padding(vertical = 4.dp),
-                )
-                Spacer(Modifier.height(4.dp))
-                ActionRow(tr("Tentar outra vez"), onClick = { vm.installUpdate(context) })
-            }
-            updChecking -> Text(
-                tr("A verificar…"),
-                color = colors.ink3,
-                fontSize = 16.sp,
-                modifier = Modifier.padding(vertical = 10.dp),
-            )
-            // Offline / transient failure after backoff — say so, don't lie
-            // "up to date" (B2). // PT: falha de rede, não "atualizado".
-            updCheckFailed -> {
-                Text(
-                    tr("Não foi possível verificar. Confirma a ligação à internet."),
-                    color = colors.accent,
-                    fontSize = 14.sp,
-                    lineHeight = 19.sp,
-                    modifier = Modifier.padding(vertical = 4.dp),
-                )
-                Spacer(Modifier.height(4.dp))
-                ActionRow(tr("Tentar outra vez"), onClick = { vm.checkForUpdate() })
-            }
-            updAvailable != null -> Column {
-                ActionRow(tr("Transferir nova versão"), onClick = { vm.installUpdate(context) })
-                if (updNeedsPerm) {
-                    Text(
-                        text = tr("Permite instalar apps desta origem e toca outra vez."),
-                        color = colors.accent,
-                        fontSize = 13.sp,
-                        lineHeight = 18.sp,
-                        modifier = Modifier.padding(bottom = 6.dp),
-                    )
-                }
-                // Release notes (the GitHub release body), shown plainly — the
-                // JSON always carried them but nothing ever displayed them (B2).
-                // PT: notas da versão, mostradas como texto simples.
-                val notes = updAvailable!!.notes
-                if (notes.isNotBlank()) {
-                    SectionEyebrow(
-                        tr("Novidades"),
-                        color = colors.ink4,
-                        modifier = Modifier.padding(bottom = 4.dp),
-                    )
-                    Text(
-                        text = notes,
-                        color = colors.ink3,
-                        fontSize = 13.sp,
-                        lineHeight = 19.sp,
-                        modifier = Modifier.padding(bottom = 10.dp),
-                    )
-                }
-                Text(
-                    text = tr("Se a instalação falhar com «conflito com um pacote existente»: exporta uma cópia de segurança, desinstala a app e instala de novo. Só é preciso uma vez — daí em diante as atualizações mantêm os teus dados."),
-                    color = colors.ink3,
-                    fontFamily = SerifFamily,
-                    fontStyle = FontStyle.Italic,
-                    fontSize = 12.sp,
-                    lineHeight = 17.sp,
-                )
-            }
-            updChecked -> Text(
-                tr("Está atualizado."),
-                color = colors.ink3,
-                fontSize = 16.sp,
-                modifier = Modifier.padding(vertical = 10.dp),
-            )
-            else -> ActionRow(tr("Verificar atualizações"), onClick = { vm.checkForUpdate() })
-        }
-    })
+    ) { showUpdateSheet = true })
     // U4: the source link leaves the centred footer for a row of Sobre,
     // where it belongs — and finally points at *this* repository. It read
     // `Iouzy/psychic-guide`, a different repo entirely. // PT: o link do
@@ -1070,10 +1021,11 @@ private fun actionRow(
     keywords: String? = null,
     danger: Boolean = false,
     chevron: String? = "›",
+    valueColor: Color? = null,
     divider: Boolean = true,
     onClick: () -> Unit,
 ) = SettingsRow(label, subtitle, keywords, divider) {
-    ActionRow(label, subtitle, value, danger, chevron, onClick)
+    ActionRow(label, subtitle, value, danger, chevron, valueColor, onClick)
 }
 
 /** An [actionRow] that only reports — the same anatomy, no tap target and no
@@ -1255,7 +1207,9 @@ private fun CardDivider() {
  * inferred from colour ("›" for anything that opens in-app, "↗" for a link that
  * leaves it, null for a row that just *does* something). A null [onClick] is a
  * read-only row — same anatomy, no tap target — which is how Modo states the
- * current lens without pretending the row switches it. // PT: o rótulo em
+ * current lens without pretending the row switches it. [valueColor] is the one
+ * exception to the accent rule (U6): a status that reports rather than offers —
+ * "Está atualizado." — asks for nothing and shouldn't shout. // PT: o rótulo em
  * tinta, o destaque só no valor, um chevron a dizer que a linha se toca, e
  * [onClick] nulo para uma linha que só informa.
  */
@@ -1266,6 +1220,7 @@ private fun ActionRow(
     value: String? = null,
     danger: Boolean = false,
     chevron: String? = "›",
+    valueColor: Color? = null,
     onClick: (() -> Unit)?,
 ) {
     val colors = LocalPautaColors.current
@@ -1300,7 +1255,7 @@ private fun ActionRow(
             Spacer(Modifier.width(12.dp))
             Text(
                 text = value,
-                color = colors.accent,
+                color = valueColor ?: colors.accent,
                 fontSize = 13.sp,
                 lineHeight = 17.sp,
                 textAlign = TextAlign.End,
@@ -1395,6 +1350,111 @@ private fun ChoiceSheet(
             }
         }
     }
+}
+
+/**
+ * U6 · Everything the updater can be, in one sheet. It used to be a seven-branch
+ * `when` sitting in the middle of the settings scroll at three different font
+ * sizes — the check and download actions, the progress line, both failure
+ * messages, the release notes, the install-permission hint and the paragraph of
+ * conflict advice, all permanently taking up space for a state you look at once a
+ * month. Same states, same order, same calls into [AppViewModel]: this is a
+ * relocation, not a rewrite of the updater. The one addition is a re-check from
+ * the up-to-date state, which the inline block left as a dead end — you could
+ * only check once per app launch. // PT: toda a máquina de estados numa folha; as
+ * mesmas chamadas, agora com forma de folha (e a verificação deixa de ser um
+ * beco sem saída).
+ */
+@Composable
+private fun UpdateSheet(onClose: () -> Unit) {
+    val colors = LocalPautaColors.current
+    val context = LocalContext.current
+    val vm: AppViewModel = viewModel()
+    val checking by vm.updateChecking.collectAsStateWithLifecycle()
+    val checked by vm.updateChecked.collectAsStateWithLifecycle()
+    val available by vm.updateAvailable.collectAsStateWithLifecycle()
+    val downloading by vm.updateDownloading.collectAsStateWithLifecycle()
+    val progress by vm.updateDownloadProgress.collectAsStateWithLifecycle()
+    val downloadError by vm.updateDownloadError.collectAsStateWithLifecycle()
+    val needsPerm by vm.updateNeedsPerm.collectAsStateWithLifecycle()
+    val checkFailed by vm.updateCheckFailed.collectAsStateWithLifecycle()
+
+    PautaSheet(title = tr("Atualizações"), onClose = onClose) {
+        val update = available
+        when {
+            // A download in flight owns the sheet: a percentage, nothing to tap.
+            // // PT: enquanto transfere, só há a percentagem.
+            downloading -> UpdateLine(
+                if (progress != null) trf("A transferir atualização… {n}%", "n" to progress!!)
+                else tr("A transferir atualização…"),
+            )
+            downloadError -> {
+                UpdateLine(tr("Não foi possível transferir a atualização."), colors.accent)
+                Spacer(Modifier.height(SheetActionGap))
+                PautaButton(tr("Tentar outra vez"), Modifier.fillMaxWidth()) { vm.installUpdate(context) }
+            }
+            checking -> UpdateLine(tr("A verificar…"))
+            // Offline / transient failure after backoff — say so, don't lie
+            // "up to date" (B2). // PT: falha de rede, não "atualizado".
+            checkFailed -> {
+                UpdateLine(tr("Não foi possível verificar. Confirma a ligação à internet."), colors.accent)
+                Spacer(Modifier.height(SheetActionGap))
+                PautaButton(tr("Tentar outra vez"), Modifier.fillMaxWidth()) { vm.checkForUpdate() }
+            }
+            update != null -> {
+                // Release notes (the GitHub release body), shown plainly — the
+                // JSON always carried them but nothing displayed them before B2.
+                // PT: notas da versão, como texto simples.
+                if (update.notes.isNotBlank()) {
+                    SectionEyebrow(tr("Novidades"), color = colors.ink4)
+                    Spacer(Modifier.height(SheetLabelGap))
+                    Text(
+                        text = update.notes,
+                        color = colors.ink3,
+                        fontSize = 13.sp,
+                        lineHeight = 19.sp,
+                    )
+                    Spacer(Modifier.height(SheetFieldGap))
+                }
+                if (needsPerm) {
+                    Text(
+                        text = tr("Permite instalar apps desta origem e toca outra vez."),
+                        color = colors.accent,
+                        fontSize = 13.sp,
+                        lineHeight = 18.sp,
+                    )
+                    Spacer(Modifier.height(SheetLabelGap))
+                }
+                PautaButton(tr("Transferir nova versão"), Modifier.fillMaxWidth()) { vm.installUpdate(context) }
+                Spacer(Modifier.height(SheetFieldGap))
+                Text(
+                    text = tr("Se a instalação falhar com «conflito com um pacote existente»: exporta uma cópia de segurança, desinstala a app e instala de novo. Só é preciso uma vez — daí em diante as atualizações mantêm os teus dados."),
+                    color = colors.ink3,
+                    fontFamily = SerifFamily,
+                    fontStyle = FontStyle.Italic,
+                    fontSize = 12.sp,
+                    lineHeight = 17.sp,
+                )
+            }
+            checked -> {
+                UpdateLine(tr("Está atualizado."))
+                Spacer(Modifier.height(SheetActionGap))
+                PautaButton(
+                    tr("Verificar atualizações"),
+                    Modifier.fillMaxWidth(),
+                    PautaButtonVariant.Ghost,
+                ) { vm.checkForUpdate() }
+            }
+            else -> PautaButton(tr("Verificar atualizações"), Modifier.fillMaxWidth()) { vm.checkForUpdate() }
+        }
+    }
+}
+
+/** The one voice [UpdateSheet] reports in — the inline block it replaces used
+ *  13/14/16sp for the same job. // PT: uma só voz para todos os estados. */
+@Composable
+private fun UpdateLine(text: String, color: Color = LocalPautaColors.current.ink2) {
+    Text(text, color = color, fontSize = 15.sp, lineHeight = 21.sp)
 }
 
 /**
