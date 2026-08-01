@@ -57,6 +57,14 @@ data class FocusBlockEntity(
     val status: String,                 // "active" | "paused" | "done"
     val reflection: String = "",
     val createdAt: Long,
+    // native-only (R5): pages (or minutes) gained during a reading session the
+    // reader measured for itself — the honest span BookMath needs, instead of
+    // apportioning a book's total progress across its sessions by duration. Null
+    // on every planner block and on any reading session concluded by hand: null
+    // means "nobody counted", which is not the same as 0. Not part of the
+    // pauta.v4 shape, so it isn't exported. // PT: as páginas de uma sessão de
+    // leitura medidas pelo leitor; null = ninguém contou.
+    val pagesDelta: Int? = null,
 )
 
 /** blocks[].sessions[] — one start/stop span; pause/resume creates a new row. */

@@ -82,7 +82,9 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.pauta.app.domain.ReaderMath
 import com.pauta.app.i18n.tr
+import com.pauta.app.i18n.trf
 import com.pauta.app.ui.screens.GoalsScreen
 import com.pauta.app.ui.screens.HistoryView
 import com.pauta.app.ui.screens.HojeScreen
@@ -475,12 +477,26 @@ private fun HomeShell(
     // data; tapping Anular puts it back. Each event waits its turn, so two quick
     // deletes stay independently undoable. // PT: snackbar único com "Anular"
     // depois de apagar uma intenção/bloco; cada remoção fica anulável.
+    //
+    // R5: the same one line reports a reading session the reader saved on its way
+    // out — the receipt that replaces the "até que página chegaste?" sheet for a
+    // book with a file. It lands here, not in the reader, because by the time it
+    // is shown the reader is already gone. // PT: a mesma linha dá o recibo da
+    // sessão de leitura — o leitor já fechou quando ela aparece.
     val snackbarHostState = remember { SnackbarHostState() }
     LaunchedEffect(Unit) {
         vm.undoRequests.collect { pending ->
             val message = when (pending) {
                 is PendingUndo.Intention -> tr("Intenção removida")
                 is PendingUndo.Block -> tr("Bloco removido")
+                is PendingUndo.ReadingSession -> {
+                    val r = pending.record
+                    tr("Sessão guardada") + " · " + trf(
+                        "{n} págs em {min} min",
+                        "n" to r.pagesDelta.coerceAtLeast(0),
+                        "min" to ReaderMath.sessionMinutes(r.durationMs),
+                    )
+                }
             }
             val result = snackbarHostState.showSnackbar(
                 message = message,
@@ -556,7 +572,10 @@ private fun HomeShell(
                         bookMode = prefs.bookMode,
                         onOpenReader = onOpenReader,
                     )
-                    Tab.PAUTA -> PautaScreen(bookMode = prefs.bookMode)
+                    // R5: the session tab's "Continuar a ler" is the shortest way
+                    // back into a book with a file. // PT: a tab Sessão também
+                    // abre o leitor.
+                    Tab.PAUTA -> PautaScreen(bookMode = prefs.bookMode, onOpenReader = onOpenReader)
                     Tab.MARES -> MaresScreen(bookMode = prefs.bookMode)
                 }
             }

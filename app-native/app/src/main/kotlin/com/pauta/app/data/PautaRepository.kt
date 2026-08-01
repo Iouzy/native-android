@@ -23,15 +23,19 @@ import com.pauta.app.data.entity.RoutineItemEntity
 import com.pauta.app.data.dao.SearchHit
 import com.pauta.app.domain.CarrySource
 import com.pauta.app.domain.DateUtils
+import com.pauta.app.domain.FocusMath
 import com.pauta.app.domain.HabitCalculator
 import com.pauta.app.domain.HabitModel
 import com.pauta.app.domain.HistoryBuilder
 import com.pauta.app.domain.HistoryDay
 import com.pauta.app.domain.HojeLogic
 import com.pauta.app.domain.MarkKind
+import com.pauta.app.domain.ReaderMath
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import androidx.sqlite.db.SimpleSQLiteQuery
 import kotlin.random.Random
 import java.io.File
@@ -39,6 +43,21 @@ import java.security.MessageDigest
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+
+/**
+ * native-only (R5): what a reading session left behind when the reader closed —
+ * the line the snackbar shows, and everything "Anular" needs to take it back.
+ * // PT: o recibo de uma sessão de leitura guardada, com o que anular precisa.
+ */
+data class ReaderSessionRecord(
+    val blockId: String,
+    val bookId: String,
+    /** Pages gained; signed, so a session spent scrolling backwards says so. */
+    val pagesDelta: Int,
+    val durationMs: Long,
+    /** The book's progress before this session wrote to it. */
+    val previousPage: Int,
+)
 
 /**
  * The single gateway between the UI/ViewModel and the Room database — the native
@@ -881,10 +900,107 @@ class PautaRepository(private val db: AppDatabase) {
         }
     }
 
-    /** The reader's bookmark — page index (pdf) or "spine:percent" (epub). */
-    suspend fun setReadPosition(bookId: String, position: String) {
-        val b = bookDao.getById(bookId) ?: return
-        bookDao.upsert(b.copy(readPosition = position))
+    /** The reader's bookmark — page index (pdf) or "spine:percent" (epub). R5 puts
+     *  it under the reader's lock: this and [endReaderSession] both read-modify-write
+     *  the same book row, and the debounced bookmark landing after the close would
+     *  undo the progress the close just wrote. // PT: sob a mesma tranca do fecho,
+     *  senão o marcador atrasado apagava o progresso. */
+    suspend fun setReadPosition(bookId: String, position: String) = readerSessionLock.withLock {
+        val b = bookDao.getById(bookId)
+        if (b != null) bookDao.upsert(b.copy(readPosition = position))
+    }
+
+    // ── O leitor e a sessão (R5) ──────────────────────────────
+    // Opening the reader *is* starting to read, so the reader drives the same
+    // FocusBlockEntity the Sessão tab does (project "book:<id>") — the timer, the
+    // notification and the history all keep working, and nobody types a page
+    // number. Both ends run under one lock: they are launched independently by the
+    // UI, and a close that overtook its own open would leave a reading session
+    // running with nothing on screen. // PT: abrir o leitor é começar a ler; as
+    // duas pontas correm sob a mesma tranca para não se ultrapassarem.
+    private val readerSessionLock = Mutex()
+
+    /**
+     * Starts the reading session for [bookId], or joins the one already running for
+     * that book rather than opening a second. Returns the block id, or null when
+     * there is nothing to start (a book with no title, which cannot happen from the
+     * shelf). // PT: começa — ou entra n' — a sessão de leitura deste livro.
+     */
+    suspend fun beginReaderSession(bookId: String, title: String): String? =
+        readerSessionLock.withLock {
+            val project = "book:$bookId"
+            val running = focusBlockDao.getAll().firstOrNull { it.status == "active" && it.project == project }
+            running?.id ?: startBlock(title = title, project = project)
+        }
+
+    /**
+     * Closes the reader's session: the bookmark always moves, and a session worth
+     * keeping ([ReaderMath.sessionOutcome]) is concluded with its own page span
+     * while the book's progress follows the reader — never asked for.
+     *
+     * A peek leaves nothing behind: the block is deleted and the progress is left
+     * exactly as it was, which matters because a hand-typed page can be far ahead
+     * of a bookmark someone opened to check a quote.
+     *
+     * Returns what to tell the user (and what it would take to undo), or null when
+     * there was no session to conclude. // PT: fecha a sessão do leitor — marcador
+     * sempre, sessão e progresso só se valer a pena.
+     */
+    suspend fun endReaderSession(
+        bookId: String,
+        startPage: Int,
+        endPage: Int,
+        position: String,
+    ): ReaderSessionRecord? = readerSessionLock.withLock {
+        val now = System.currentTimeMillis()
+        val project = "book:$bookId"
+        val block = focusBlockDao.getAll().firstOrNull { it.status == "active" && it.project == project }
+        val durationMs = if (block == null) 0L else {
+            endOpenSession(block.id, now)
+            FocusMath.blockElapsedMs(
+                focusSessionDao.getForBlock(block.id).map { FocusMath.FocusSeg(it.startedAt, it.endedAt) },
+                now,
+            )
+        }
+        val outcome = ReaderMath.sessionOutcome(durationMs, startPage, endPage)
+
+        val book = bookDao.getById(bookId)
+        if (book != null) {
+            bookDao.upsert(
+                book.copy(
+                    readPosition = position,
+                    currentPage = if (outcome.save) outcome.page.coerceAtLeast(0) else book.currentPage,
+                ),
+            )
+        }
+
+        if (block == null) return@withLock null
+        if (!outcome.save) {
+            deleteBlock(block.id)
+            return@withLock null
+        }
+        focusBlockDao.upsert(block.copy(status = "done", pagesDelta = outcome.pagesDelta))
+        ReaderSessionRecord(
+            blockId = block.id,
+            bookId = bookId,
+            pagesDelta = outcome.pagesDelta,
+            durationMs = durationMs,
+            previousPage = book?.currentPage ?: startPage,
+        )
+    }
+
+    /**
+     * Takes back a session the reader just saved: the block goes, and the book's
+     * progress returns to where it was. The bookmark deliberately stays — "don't
+     * record this" is not "I was never there", and the next open should still land
+     * on the page they reached. // PT: anula a sessão guardada; o marcador fica.
+     */
+    suspend fun undoReaderSession(record: ReaderSessionRecord) {
+        readerSessionLock.withLock {
+            deleteBlock(record.blockId)
+            val book = bookDao.getById(record.bookId)
+            if (book != null) bookDao.upsert(book.copy(currentPage = record.previousPage))
+        }
     }
 
     /** Total words in the attached book (real for EPUB, estimated elsewhere). */
