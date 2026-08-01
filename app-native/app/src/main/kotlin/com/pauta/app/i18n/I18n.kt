@@ -835,6 +835,14 @@ object I18n {
         // TalkBack only: the reader's "⋯" opens the book's detail sheet.
         "Detalhes do livro" to "Book details", // native-only
 
+        // ── R5 · the reader is the session ──
+        // The receipt that replaced the "até que página chegaste?" sheet for a book
+        // with a file: one snackbar line, and an "Anular" that already exists.
+        // // PT: o recibo da sessão guardada pelo leitor.
+        "Continuar a ler" to "Continue reading", // native-only
+        "Sessão guardada" to "Session saved", // native-only
+        "{n} págs em {min} min" to "{n} pages in {min} min", // native-only
+
         // ── K-extra · pace stats + ETA ──
         "Ritmo: ~{n} págs/hora" to "Pace: ~{n} pages/hour", // native-only
         "Ritmo: ~{n} min/hora" to "Pace: ~{n} min/hour", // native-only

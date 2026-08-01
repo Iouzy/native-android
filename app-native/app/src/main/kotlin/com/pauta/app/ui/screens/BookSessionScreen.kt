@@ -40,6 +40,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -53,7 +57,9 @@ import com.pauta.app.data.entity.BookEntity
 import com.pauta.app.data.entity.FocusBlockEntity
 import com.pauta.app.domain.DateUtils
 import com.pauta.app.domain.FocusMath
+import com.pauta.app.domain.ReaderMath
 import com.pauta.app.i18n.tr
+import com.pauta.app.i18n.trf
 import com.pauta.app.ui.EmptyState
 import com.pauta.app.ui.PautaButton
 import com.pauta.app.ui.PautaButtonVariant
@@ -81,9 +87,19 @@ import kotlinx.coroutines.delay
  * page/minute and persist the session note in the block's reflection. The normal
  * Pauta tab is untouched when book mode is off. // PT: o cronómetro vira sessão
  * de leitura ligada a um livro; concluir pede a página/minuto e guarda a nota.
+ *
+ * R5: a book with a file no longer goes through any of that by hand. "Continuar a
+ * ler" opens the reader at the page it was left on — and since opening the reader
+ * *is* starting the session, that card is the primary action here; the manual
+ * start card below it belongs to books the app cannot open. The conclude sheet
+ * still exists for those, and stops asking the page for the ones it can.
+ * // PT: com ficheiro, "Continuar a ler" abre o leitor (que já começa a sessão);
+ * o cartão manual fica para os livros sem ficheiro.
+ *
+ * @param onOpenReader opens the reader for a book with a readable file.
  */
 @Composable
-fun BookSessionScreen() {
+fun BookSessionScreen(onOpenReader: (String) -> Unit = {}) {
     val vm: AppViewModel = viewModel()
     val colors = LocalPautaColors.current
     val reading by vm.booksReading.collectAsStateWithLifecycle()
@@ -140,6 +156,19 @@ fun BookSessionScreen() {
     var showPicker by remember { mutableStateOf(false) }
     var concludeFor by remember { mutableStateOf<BookEntity?>(null) }
 
+    // R5: the book the reader would open — the one being read, or the one picked
+    // for the next session. It only earns the card if the file is really there.
+    // // PT: o livro que o leitor abriria, e só se o ficheiro lá estiver mesmo.
+    val continueBook = activeBookEntity ?: selectedBook
+    val canContinue = rememberCanRead(continueBook)
+
+    // R5: concluding by hand stops asking the page for a book the reader can open —
+    // the bookmark already knows it. Without a readable file the prompt is exactly
+    // as it was. // PT: com ficheiro legível, concluir deixa de perguntar a página.
+    val concludeCanRead = rememberCanRead(concludeFor)
+    val concludeDerived = concludeFor?.takeIf { concludeCanRead }
+        ?.let { ReaderMath.bookmarkPage(it.readPosition, it.fileKind) }
+
     LazyColumn(
         Modifier.fillMaxSize(),
         contentPadding = PaddingValues(horizontal = 24.dp),
@@ -154,6 +183,18 @@ fun BookSessionScreen() {
                 style = PautaType.ScreenTitle,
             )
             Spacer(Modifier.height(20.dp))
+        }
+
+        // ── R5 · back into the book, at the page it was left on ──
+        // Above the timer card on purpose: with a document attached, opening the
+        // reader is how a session starts, so the manual card underneath is the
+        // fallback and not the headline. // PT: acima do cartão do cronómetro —
+        // com ficheiro, é assim que uma sessão começa.
+        if (continueBook != null && canContinue) {
+            item(key = "continue-${continueBook.id}") {
+                ContinueReadingCard(continueBook) { onOpenReader(continueBook.id) }
+                Spacer(Modifier.height(16.dp))
+            }
         }
 
         // ── Active session OR the start card ──
@@ -295,6 +336,7 @@ fun BookSessionScreen() {
     concludeFor?.let { book ->
         BookConcludeSheet(
             book = book,
+            derivedPage = concludeDerived,
             onConfirm = { newPage, note ->
                 vm.updateProgress(book.id, newPage)
                 vm.concludeActive(note)
@@ -303,6 +345,60 @@ fun BookSessionScreen() {
             },
             onClose = { concludeFor = null },
         )
+    }
+}
+
+/**
+ * R5: the way back into a book the app can open — the reader, at the page the
+ * bookmark points to. The whole card is the target; TalkBack hears the action and
+ * the title, since the eyebrow and the chevron say nothing on their own.
+ * // PT: o cartão que volta ao livro na página onde ficou.
+ */
+@Composable
+private fun ContinueReadingCard(book: BookEntity, onOpen: () -> Unit) {
+    val colors = LocalPautaColors.current
+    // Where the reader will actually land, which is the bookmark — not the
+    // progress, which a hand-typed page can have moved elsewhere. // PT: a página
+    // do marcador, que é onde o leitor abre.
+    val page = ReaderMath.bookmarkPage(book.readPosition, book.fileKind) ?: book.currentPage
+    PautaCard(
+        Modifier
+            .fillMaxWidth()
+            .semantics { contentDescription = tr("Continuar a ler") + ": " + book.title; role = Role.Button },
+        padding = PaddingValues(20.dp),
+        onClick = onOpen,
+    ) {
+        SectionEyebrow(tr("Continuar a ler"), color = colors.accent)
+        Spacer(Modifier.height(12.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(
+                    text = book.title,
+                    color = colors.ink,
+                    fontFamily = SerifFamily,
+                    fontSize = 20.sp,
+                    lineHeight = 25.sp,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = if (book.totalPages > 0) {
+                        trf("Página {x} de {y}", "x" to page, "y" to book.totalPages)
+                    } else {
+                        "p. $page"
+                    },
+                    color = colors.ink3,
+                    style = PautaType.Meta,
+                )
+            }
+            Spacer(Modifier.width(12.dp))
+            Text("›", color = colors.accent, fontSize = 20.sp)
+        }
+        if (book.totalPages > 0) {
+            Spacer(Modifier.height(14.dp))
+            ProgressBar(page.toFloat() / book.totalPages.coerceAtLeast(1))
+        }
     }
 }
 
@@ -527,36 +623,58 @@ private fun BookPickerSheet(
 }
 
 /** On conclude: ask the page reached (minutes for audiobooks) and an optional
- *  session note. Confirm persists progress + the note (in the block reflection). */
+ *  session note. Confirm persists progress + the note (in the block reflection).
+ *
+ *  R5: [derivedPage] is the page the reader's bookmark points at, non-null only for
+ *  a book the reader can open. When it is there the sheet states the page instead
+ *  of asking for it — the app knows, and asking anyway is the habit this whole
+ *  phase is undoing. // PT: com marcador, a folha diz a página em vez de a
+ *  perguntar. */
 @Composable
 private fun BookConcludeSheet(
     book: BookEntity,
+    derivedPage: Int? = null,
     onConfirm: (newPage: Int, note: String) -> Unit,
     onClose: () -> Unit,
 ) {
+    val colors = LocalPautaColors.current
     val isAudiobook = book.format == "audiobook"
     var page by remember { mutableStateOf(book.currentPage.takeIf { it > 0 }?.toString() ?: "") }
     var note by remember { mutableStateOf("") }
 
-    fun submit() = onConfirm(page.toIntOrNull() ?: book.currentPage, note.trim())
+    fun submit() = onConfirm(derivedPage ?: page.toIntOrNull() ?: book.currentPage, note.trim())
 
     PautaSheet(title = tr("Concluir bloco"), onClose = onClose) {
-        // U1: inside the body, so the page field waits for the sheet to settle.
-        // // PT: espera que a folha assente antes de focar.
-        val pageFocus = rememberAutoFocusRequester()
-        SheetEyebrow(if (isAudiobook) tr("Quantos minutos ouviste?") else tr("Até que página chegaste?"))
-        Spacer(Modifier.height(8.dp))
-        Box(Modifier.width(120.dp)) {
-            BoxedField(
-                value = page,
-                onChange = { raw -> page = raw.filter { it.isDigit() }.take(6) },
-                placeholder = book.currentPage.toString(),
-                modifier = Modifier.focusRequester(pageFocus),
-                singleLine = true,
-                fontFamily = MonoFamily,
-                keyboardType = KeyboardType.Number,
-                imeAction = ImeAction.Next,
+        if (derivedPage != null) {
+            // The same unlabelled progress line the detail sheet uses — a
+            // statement, not a question. // PT: a linha de progresso, sem pergunta.
+            Text(
+                text = if (book.totalPages > 0) {
+                    trf("Página {x} de {y}", "x" to derivedPage, "y" to book.totalPages)
+                } else {
+                    "p. $derivedPage"
+                },
+                color = colors.ink2,
+                style = PautaType.Meta,
             )
+        } else {
+            // U1: inside the body, so the page field waits for the sheet to settle.
+            // // PT: espera que a folha assente antes de focar.
+            val pageFocus = rememberAutoFocusRequester()
+            SheetEyebrow(if (isAudiobook) tr("Quantos minutos ouviste?") else tr("Até que página chegaste?"))
+            Spacer(Modifier.height(8.dp))
+            Box(Modifier.width(120.dp)) {
+                BoxedField(
+                    value = page,
+                    onChange = { raw -> page = raw.filter { it.isDigit() }.take(6) },
+                    placeholder = book.currentPage.toString(),
+                    modifier = Modifier.focusRequester(pageFocus),
+                    singleLine = true,
+                    fontFamily = MonoFamily,
+                    keyboardType = KeyboardType.Number,
+                    imeAction = ImeAction.Next,
+                )
+            }
         }
 
         Spacer(Modifier.height(18.dp))

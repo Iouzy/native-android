@@ -73,8 +73,10 @@ private const val PositionDebounceMs = 1_000L
 /**
  * native-only (R3): the reader — a full-surface destination, not a sheet, shared
  * by both formats (R4 adds the EPUB branch). It owns everything around the page:
- * the chrome that gets out of the way, the window while you read, and the
- * bookmark.
+ * the chrome that gets out of the way, the window while you read, the bookmark —
+ * and, since R5, the reading session itself. Opening it starts one and closing it
+ * concludes it, so the book's progress is something the app observes rather than
+ * something the user reports.
  *
  * The reading surface itself is quiet on purpose. Chrome hides two seconds after
  * it appears and returns on a tap in the middle of the page; the system bars go
@@ -146,6 +148,11 @@ fun ReaderScreen(bookId: String, onClose: () -> Unit) {
 
     val listState = rememberLazyListState()
     var restored by remember(path) { mutableStateOf(false) }
+    // R5: where this sitting began — the page the bookmark opened on, 1-based like
+    // every page the app shows. It is the session's starting line, and the reason a
+    // ten-second peek can tell itself apart from reading. // PT: a página onde esta
+    // sessão começou.
+    var startPage by remember(path) { mutableIntStateOf(0) }
     // Restore before anything can scroll: the bookmark is a page index, and a
     // book with no bookmark starts at the beginning. // PT: repõe a página
     // guardada antes de qualquer scroll.
@@ -153,6 +160,7 @@ fun ReaderScreen(bookId: String, onClose: () -> Unit) {
         val pages = info?.pageCount ?: return@LaunchedEffect
         val start = (book.readPosition.toIntOrNull() ?: 0).coerceIn(0, (pages - 1).coerceAtLeast(0))
         listState.scrollToItem(start)
+        startPage = start + 1
         restored = true
     }
     // A page that stays put for a second is where the reader is. // PT: a página
@@ -166,10 +174,19 @@ fun ReaderScreen(bookId: String, onClose: () -> Unit) {
                 vm.setReadPosition(bookId, page.toString())
             }
     }
-    // …and leaving is a settle too, however abrupt. // PT: sair também guarda.
+    // …and leaving is a settle too, however abrupt.
+    //
+    // R5: it is also the end of a reading session — the bookmark, the progress and
+    // the block are one write, because they all describe the same act and two
+    // read-modify-writes racing over the book's row would lose one of them. Nothing
+    // is asked: the reader knows what page it was left on. // PT: sair guarda o
+    // marcador, o progresso e a sessão de uma só vez — sem perguntar a página.
     DisposableEffect(bookId, path) {
         onDispose {
-            if (restored) vm.setReadPosition(bookId, listState.firstVisibleItemIndex.toString())
+            if (restored) {
+                val page = listState.firstVisibleItemIndex
+                vm.endReading(bookId, startPage, page + 1, page.toString())
+            }
         }
     }
 
@@ -177,6 +194,18 @@ fun ReaderScreen(bookId: String, onClose: () -> Unit) {
     // the way. With nothing to read it stays. // PT: a cromagem aparece, esconde-se
     // sozinha, e fica se não houver nada para ler.
     val showingPages = present && readable && !failed && info != null
+
+    // R5: opening the reader is starting to read. A document that actually renders
+    // starts the very session the Sessão tab starts — the same block, the same
+    // project ("book:<id>"), so the timer, the focus notification and the history
+    // need to know nothing about the reader. A session already running for this
+    // book is joined, never doubled; a file that won't open starts nothing.
+    // // PT: abrir o livro começa (ou entra n') a sessão de leitura — a mesma que
+    // a tab Sessão cria. Um ficheiro que não abre não começa nada.
+    LaunchedEffect(showingPages) {
+        if (showingPages) vm.beginReading(bookId, book.title)
+    }
+
     var chrome by remember { mutableStateOf(true) }
     LaunchedEffect(chrome, showingPages) {
         if (chrome && showingPages) {
@@ -247,15 +276,16 @@ fun ReaderScreen(bookId: String, onClose: () -> Unit) {
  * R3: whether a book can be opened in the reader right now — it has an attached
  * document of a kind this build renders, that file is one of ours, and it is
  * still on disk. The shelf and the detail sheet both ask before offering to read.
- * // PT: se o livro pode mesmo ser aberto — formato suportado e ficheiro nosso,
- * ainda presente.
+ * R5 asks it of the session tab's "Continuar a ler" too, where there may be no
+ * book selected at all — hence the nullable argument. // PT: se o livro pode mesmo
+ * ser aberto — formato suportado e ficheiro nosso, ainda presente.
  */
 @Composable
-internal fun rememberCanRead(book: BookEntity): Boolean {
+internal fun rememberCanRead(book: BookEntity?): Boolean {
     val context = LocalContext.current
-    return remember(book.filePath, book.fileKind) {
-        val path = book.filePath
-        book.fileKind == "pdf" && path != null &&
+    return remember(book?.filePath, book?.fileKind) {
+        val path = book?.filePath
+        book?.fileKind == "pdf" && path != null &&
             BookFiles.isOurs(context, path) && File(path).isFile
     }
 }

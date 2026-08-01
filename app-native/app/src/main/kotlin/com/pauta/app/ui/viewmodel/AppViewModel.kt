@@ -25,6 +25,7 @@ import com.pauta.app.data.dao.SearchHit
 import com.pauta.app.data.AttachResult
 import com.pauta.app.data.BookFiles
 import com.pauta.app.data.ImportedFile
+import com.pauta.app.data.ReaderSessionRecord
 import com.pauta.app.data.SafBackup
 import com.pauta.app.domain.CarrySource
 import com.pauta.app.domain.DateUtils
@@ -59,14 +60,18 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 /**
- * A reversible delete that a snackbar's "Anular" can put back — it carries
- * everything needed to reinsert. An intention restores as-is; a block restores
- * together with its sessions (the delete cascaded them). // PT: uma remoção que o
- * snackbar pode anular — guarda os dados para repor.
+ * A change a snackbar's "Anular" can take back — it carries everything needed to
+ * reverse itself. Two of the three are deletes: an intention restores as-is, a
+ * block restores together with its sessions (the delete cascaded them). R5's
+ * reading session is the mirror image — a *save* the user may not have meant, so
+ * taking it back deletes the session and puts the book's progress where it was.
+ * // PT: uma alteração que o snackbar pode anular — apagar repõe, e a sessão de
+ * leitura (que foi guardada) desfaz-se.
  */
 sealed interface PendingUndo {
     data class Intention(val entity: IntentionEntity) : PendingUndo
     data class Block(val block: FocusBlockEntity, val sessions: List<FocusSessionEntity>) : PendingUndo
+    data class ReadingSession(val record: ReaderSessionRecord) : PendingUndo
 }
 
 /**
@@ -103,6 +108,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         when (pending) {
             is PendingUndo.Intention -> repo.restoreIntention(pending.entity)
             is PendingUndo.Block -> repo.restoreBlock(pending.block, pending.sessions)
+            is PendingUndo.ReadingSession -> repo.undoReaderSession(pending.record)
         }
     }
 
@@ -363,6 +369,24 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun setWordCount(bookId: String, words: Int) =
         viewModelScope.launch { repo.setWordCount(bookId, words) }
+
+    // ── O leitor e a sessão (R5) ──────────────────────────────
+    /** Opening the reader starts (or rejoins) this book's reading session. */
+    fun beginReading(bookId: String, title: String) =
+        viewModelScope.launch { repo.beginReaderSession(bookId, title) }
+
+    /**
+     * Closing the reader closes the session with it: the bookmark moves, a session
+     * worth keeping is concluded at the page the reader was left on, and the
+     * snackbar gets its one line. Both ends run on the ViewModel's scope, not the
+     * composition's — the reader is gone by the time this lands. // PT: fechar o
+     * leitor fecha a sessão; corre fora da composição, que já não existe.
+     */
+    fun endReading(bookId: String, startPage: Int, endPage: Int, position: String) =
+        viewModelScope.launch {
+            val record = repo.endReaderSession(bookId, startPage, endPage, position) ?: return@launch
+            _undoRequests.send(PendingUndo.ReadingSession(record))
+        }
 
     fun addNote(bookId: String, kind: String, text: String, page: Int?) =
         viewModelScope.launch { repo.addNote(bookId, kind, text, page) }
