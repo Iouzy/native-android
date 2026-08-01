@@ -114,9 +114,11 @@ fun BookAnnualGoalCard() {
     }
 }
 
-/** Single number input for the annual book goal; IME Done submits. 0 clears. */
+/** Single number input for the annual book goal; IME Done submits. 0 clears.
+ *  U4: also opened from Settings → Modo, so it's internal — one sheet, two ways
+ *  in. // PT: também aberto pelas Definições; um só sheet. */
 @Composable
-private fun AnnualGoalSheet(current: Int, onClose: () -> Unit) {
+internal fun AnnualGoalSheet(current: Int, onClose: () -> Unit) {
     val vm: AppViewModel = viewModel()
     var value by remember { mutableStateOf(current.takeIf { it > 0 }?.toString() ?: "") }
 

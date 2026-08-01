@@ -30,6 +30,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -51,6 +52,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -77,6 +79,11 @@ import com.pauta.app.ui.theme.LocalPautaColors
 import com.pauta.app.ui.theme.MonoFamily
 import com.pauta.app.ui.theme.SerifFamily
 import com.pauta.app.ui.viewmodel.AppViewModel
+
+/** Where this app's code actually lives. The footer used to point at
+ *  `Iouzy/psychic-guide`, which is a different repository. // PT: o repositório
+ *  certo — o rodapé apontava para outro. */
+private const val SOURCE_REPO = "https://github.com/Iouzy/native-android"
 
 /** Accent palette matching the web app (first entry = build-default terracota). */
 private val ACCENT_PRESETS = listOf(
@@ -149,6 +156,7 @@ fun SettingsScreen(
     var showResetConfirm by remember { mutableStateOf(false) }
     var showReseedConfirm by remember { mutableStateOf(false) }
     var showArchived by remember { mutableStateOf(false) }
+    var showGoalSheet by remember { mutableStateOf(false) }
     var testNotifMsg by remember { mutableStateOf<String?>(null) }
 
     // A7: archived tides — surfaced in Settings → Dados for restore (or a guarded
@@ -237,6 +245,13 @@ fun SettingsScreen(
         )
     }
 
+    // U4: the annual reading goal is reachable from the Modo section too — the
+    // very sheet the Hábitos tab opens, not a second copy of it. // PT: o mesmo
+    // sheet do objetivo anual que a tab Hábitos abre.
+    if (showGoalSheet) {
+        AnnualGoalSheet(current = prefs.bookAnnualGoal, onClose = { showGoalSheet = false })
+    }
+
     Column(
         Modifier
             .fillMaxSize()
@@ -284,8 +299,12 @@ fun SettingsScreen(
             Spacer(Modifier.width(14.dp))
             Column {
                 Text("Pauta", color = colors.ink, fontFamily = SerifFamily, fontSize = 24.sp)
+                // U4: the subtitle names the three tabs you actually have — the
+                // planner's, or the reading companion's under book mode. It used
+                // to say "Hoje · Pauta · Marés" in both. // PT: o subtítulo segue
+                // o modo; antes mentia no modo livro.
                 Text(
-                    tr("Hoje · Pauta · Marés"),
+                    if (prefs.bookMode) tr("Estante · Sessão · Hábitos") else tr("Hoje · Pauta · Marés"),
                     color = colors.ink3,
                     fontFamily = SerifFamily,
                     fontStyle = FontStyle.Italic,
@@ -295,51 +314,33 @@ fun SettingsScreen(
         }
         HorizontalDivider(color = colors.rule)
 
-        // ── ANÁLISE ──────────────────────────────────────────────────────
-        Section(tr("Análise"))
-        SectionCard {
-            ActionRow(
-                label = tr("Revisão semanal"),
-                subtitle = tr("Foco, hábitos e padrões dos últimos 7 dias."),
-            ) { showInsights = true }
-            CardDivider()
-            ActionRow(
-                label = tr("Retrospetiva do ano"),
-                subtitle = tr("Resumo anual de foco, hábitos e intenções."),
-            ) { onOpenYearReview() }
-            CardDivider()
-            ActionRow(
-                label = tr("Como funcionam as marés"),
-                subtitle = tr("Streaks, níveis e respiros explicados."),
-            ) { onOpenTierGuide() }
-        }
+        // U4 · The information architecture: seven sections ordered by what you
+        // reach for, not by the order the app grew. "Aparência" used to be a junk
+        // drawer (língua and tema next to vibração, papagaio and o modo livro);
+        // its companions moved out to [Companhia], the lens to [Modo], and
+        // Acessibilidade folded in — to a user, text size *is* appearance.
+        // // PT: sete secções por uso; a Aparência deixa de ser gaveta de tudo.
 
-        // ── PRIVACIDADE ──────────────────────────────────────────────────
-        Section(tr("Privacidade"))
+        // ── MODO ─────────────────────────────────────────────────────────
+        // The app's biggest state change, first — not buried six rows into
+        // Aparência. (U7 turns this into a header control; the toggle is the
+        // placeholder until then.) // PT: a lente, à cabeça.
+        Section(tr("Modo"))
         SectionCard {
-            if (prefs.pinHash == null) {
+            ToggleRow(
+                label = tr("Modo livro"),
+                checked = prefs.bookMode,
+                subtitle = tr("Transforma as três tabs numa companheira de leitura"),
+            ) { vm.setBookMode(it) }
+            // Only reading has an annual goal, so the row only exists in the lens
+            // that uses it. // PT: só o modo livro tem objetivo anual.
+            if (prefs.bookMode) {
+                CardDivider()
                 ActionRow(
-                    label = tr("Bloqueio por PIN"),
-                    subtitle = tr("Protege a app com um código de 4+ dígitos."),
-                ) { showPinSet = true }
-            } else {
-                ActionRow(
-                    label = tr("Desativar bloqueio por PIN"),
-                    subtitle = tr("Introduz o PIN atual para remover o bloqueio."),
-                ) { showPinDisable = true }
-                // C3: biometric unlock — only with a PIN set and usable biometrics
-                // (hardware + something enrolled). No biometrics → this row never
-                // appears, so the lock stays exactly PIN-only. // PT: biometria só
-                // com PIN definido e biometria disponível.
-                if (canBiometric) {
-                    CardDivider()
-                    ToggleRow(
-                        label = tr("Desbloqueio biométrico"),
-                        subtitle = tr("Desbloqueia com impressão digital ou rosto; o PIN fica como alternativa."),
-                        checked = prefs.biometricEnabled,
-                        onChange = { vm.setBiometricEnabled(it) },
-                    )
-                }
+                    label = tr("Objetivo anual"),
+                    subtitle = tr("Livros a ler este ano."),
+                    value = if (prefs.bookAnnualGoal > 0) "${prefs.bookAnnualGoal}" else tr("Definir objetivo"),
+                ) { showGoalSheet = true }
             }
         }
 
@@ -383,35 +384,10 @@ fun SettingsScreen(
                 }
             }
             CardDivider()
-            ToggleRow(
-                label = tr("Vibração"),
-                checked = prefs.haptics,
-                subtitle = tr("Pequeno toque ao concluir."),
-            ) { vm.setHaptics(it) }
-            CardDivider()
-            ToggleRow(
-                label = tr("Papagaio ajudante"),
-                checked = prefs.parrot,
-                subtitle = tr("O Pip aparece com dicas e piadas. Toca-lhe para mais."),
-            ) { vm.setParrot(it) }
-            CardDivider()
-            ToggleRow(
-                label = tr("Ecrã inteiro"),
-                checked = prefs.immersive,
-                subtitle = tr("Esconde as barras do sistema. Deslize da margem para as ver."),
-            ) { vm.setImmersive(it) }
-            CardDivider()
-            ToggleRow(
-                label = tr("Modo livro"),
-                checked = prefs.bookMode,
-                subtitle = tr("Transforma as três tabs numa companheira de leitura"),
-            ) { vm.setBookMode(it) }
-        }
-
-        // ── ACESSIBILIDADE ───────────────────────────────────────────────
-        Section(tr("Acessibilidade"))
-        SectionCard {
-            SegmentedRow(
+            // Three sizes, changed roughly once ever: not worth a permanent row
+            // of pills. // PT: três tamanhos, escolhidos uma vez — folha, não
+            // pílulas.
+            PickerRow(
                 label = tr("Tamanho do texto"),
                 options = listOf("1.0" to tr("Normal"), "1.15" to tr("Grande"), "1.3" to tr("Maior")),
                 selected = when {
@@ -435,8 +411,10 @@ fun SettingsScreen(
             ) { vm.setReducedMotion(it) }
         }
 
-        // ── FOCO ─────────────────────────────────────────────────────────
-        Section(tr("Foco"))
+        // ── FOCO E LEMBRETES ─────────────────────────────────────────────
+        // A block and the notification that nudges you into one are the same
+        // errand. // PT: o bloco e o aviso que o lembra são o mesmo assunto.
+        Section(tr("Foco e lembretes"))
         SectionCard {
             ToggleRow(
                 label = tr("Manter ecrã ligado"),
@@ -464,11 +442,7 @@ fun SettingsScreen(
                 selected = prefs.timerPresets ?: TimerPresets.Pomodoro,
                 onSelect = { vm.setTimerPresets(it) },
             )
-        }
-
-        // ── LEMBRETES ────────────────────────────────────────────────────
-        Section(tr("Lembretes"))
-        SectionCard {
+            CardDivider()
             ToggleRow(
                 label = tr("Notificações"),
                 checked = prefs.remindersEnabled,
@@ -524,15 +498,85 @@ fun SettingsScreen(
             }
         }
 
-        // ── OBJETIVOS (native-only) ───────────────────────────────────────
-        Section(tr("Objetivos"))
+        // ── COMPANHIA ────────────────────────────────────────────────────
+        // native-only: how the app keeps you company — none of it is appearance,
+        // which is where all three used to sit. // PT: a companhia da app; nada
+        // disto era aparência.
+        Section(tr("Companhia"))
         SectionCard {
+            ToggleRow(
+                label = tr("Vibração"),
+                checked = prefs.haptics,
+                subtitle = tr("Pequeno toque ao concluir."),
+            ) { vm.setHaptics(it) }
+            CardDivider()
+            ToggleRow(
+                label = tr("Papagaio ajudante"),
+                checked = prefs.parrot,
+                subtitle = tr("O Pip aparece com dicas e piadas. Toca-lhe para mais."),
+            ) { vm.setParrot(it) }
+            CardDivider()
+            ToggleRow(
+                label = tr("Ecrã inteiro"),
+                checked = prefs.immersive,
+                subtitle = tr("Esconde as barras do sistema. Deslize da margem para as ver."),
+            ) { vm.setImmersive(it) }
+        }
+
+        // ── ANÁLISE E OBJETIVOS ──────────────────────────────────────────
+        // Looking back and aiming forward — four full-surface screens, one card.
+        // // PT: olhar para trás e apontar em frente, no mesmo cartão.
+        Section(tr("Análise e objetivos"))
+        SectionCard {
+            ActionRow(
+                label = tr("Revisão semanal"),
+                subtitle = tr("Foco, hábitos e padrões dos últimos 7 dias."),
+            ) { showInsights = true }
+            CardDivider()
+            ActionRow(
+                label = tr("Retrospetiva do ano"),
+                subtitle = tr("Resumo anual de foco, hábitos e intenções."),
+            ) { onOpenYearReview() }
+            CardDivider()
+            ActionRow(
+                label = tr("Como funcionam as marés"),
+                subtitle = tr("Streaks, níveis e respiros explicados."),
+            ) { onOpenTierGuide() }
+            CardDivider()
             ActionRow(tr("Objetivos trimestrais")) { onOpenGoals() }
         }
 
-        // ── DADOS ────────────────────────────────────────────────────────
-        Section(tr("Dados"))
+        // ── DADOS E PRIVACIDADE ──────────────────────────────────────────
+        // The lock, the copies and the export are one question — "who can reach
+        // my data, and where does it go" — so they answer it together. // PT: o
+        // bloqueio, as cópias e a exportação respondem à mesma pergunta.
+        Section(tr("Dados e privacidade"))
         SectionCard {
+            if (prefs.pinHash == null) {
+                ActionRow(
+                    label = tr("Bloqueio por PIN"),
+                    subtitle = tr("Protege a app com um código de 4+ dígitos."),
+                ) { showPinSet = true }
+            } else {
+                ActionRow(
+                    label = tr("Desativar bloqueio por PIN"),
+                    subtitle = tr("Introduz o PIN atual para remover o bloqueio."),
+                ) { showPinDisable = true }
+                // C3: biometric unlock — only with a PIN set and usable biometrics
+                // (hardware + something enrolled). No biometrics → this row never
+                // appears, so the lock stays exactly PIN-only. // PT: biometria só
+                // com PIN definido e biometria disponível.
+                if (canBiometric) {
+                    CardDivider()
+                    ToggleRow(
+                        label = tr("Desbloqueio biométrico"),
+                        subtitle = tr("Desbloqueia com impressão digital ou rosto; o PIN fica como alternativa."),
+                        checked = prefs.biometricEnabled,
+                        onChange = { vm.setBiometricEnabled(it) },
+                    )
+                }
+            }
+            CardDivider()
             ToggleRow(
                 label = tr("Cópia automática"),
                 checked = prefs.autoBackup != "off",
@@ -540,7 +584,7 @@ fun SettingsScreen(
             ) { enabled -> vm.setAutoBackupCadence(if (enabled) "daily" else "off") }
             if (prefs.autoBackup != "off") {
                 CardDivider()
-                SegmentedRow(
+                PickerRow(
                     label = tr("Frequência"),
                     options = listOf(
                         "daily" to tr("Diária"),
@@ -559,14 +603,18 @@ fun SettingsScreen(
                     label = if (folder == null) tr("Escolher pasta…") else tr("Pasta de cópia"),
                     subtitle = if (folder == null)
                         tr("Guarda também numa pasta tua (Drive, dispositivo…).")
-                    else
-                        folderLabel(folder),
+                    else null,
+                    // U4: the chosen folder is the row's *value* — the one thing
+                    // in a settings row worth the accent. // PT: a pasta escolhida
+                    // é o valor da linha, e é o que leva o destaque.
+                    value = folder?.let { folderLabel(it) },
                 ) { folderLauncher.launch(null) }
                 if (folder != null) {
                     CardDivider()
                     ActionRow(
                         label = tr("Remover pasta"),
                         subtitle = tr("Volta a guardar só dentro da app."),
+                        chevron = null,
                     ) { vm.setBackupFolder(null) }
                 }
             }
@@ -597,8 +645,12 @@ fun SettingsScreen(
             }
         }
 
-        // ── ATUALIZAÇÕES ─────────────────────────────────────────────────
-        Section(tr("Atualizações"))
+        // ── SOBRE ────────────────────────────────────────────────────────
+        // What build this is, whether there's a newer one, and where the code
+        // lives — the three things you come here to read. The update state below
+        // is still the inline seven-branch `when`; U6 moves it into a sheet.
+        // // PT: a versão, a atualização e o código-fonte, juntos.
+        Section(tr("Sobre"))
         SectionCard {
             // Show "v1.<run> · YYYY-MM-DD" when built in CI; just "v1.0" locally.
             // PT: versão + data juntos — run e timestamp ao mesmo tempo.
@@ -698,6 +750,24 @@ fun SettingsScreen(
                 )
                 else -> ActionRow(tr("Verificar atualizações")) { vm.checkForUpdate() }
             }
+            CardDivider()
+            // U4: the source link leaves the centred footer for a row of Sobre,
+            // where it belongs — and finally points at *this* repository. It read
+            // `Iouzy/psychic-guide`, a different repo entirely. // PT: o link do
+            // código-fonte passa a linha da secção Sobre — e aponta para o
+            // repositório certo.
+            ActionRow(
+                label = tr("Código-fonte"),
+                subtitle = SOURCE_REPO.removePrefix("https://"),
+                chevron = "↗",
+            ) {
+                runCatching {
+                    context.startActivity(
+                        Intent(Intent.ACTION_VIEW, Uri.parse(SOURCE_REPO))
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    )
+                }
+            }
         }
 
         // ── ZONA PERIGOSA ────────────────────────────────────────────────
@@ -720,38 +790,6 @@ fun SettingsScreen(
                 danger = true,
             ) { showResetConfirm = true }
         }
-
-        // Footer — source code link, matches web DataSheet footer
-        Spacer(Modifier.height(24.dp))
-        HorizontalDivider(color = colors.rule)
-        Spacer(Modifier.height(16.dp))
-        Text(
-            tr("Código-fonte e instruções:"),
-            color = colors.ink3,
-            fontFamily = SerifFamily,
-            fontStyle = FontStyle.Italic,
-            fontSize = 12.sp,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth(),
-        )
-        Spacer(Modifier.height(4.dp))
-        Text(
-            "github.com/Iouzy/psychic-guide ↗",
-            color = colors.accent,
-            fontFamily = MonoFamily,
-            fontSize = 11.sp,
-            textAlign = TextAlign.Center,
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickableNoRipple {
-                    runCatching {
-                        context.startActivity(
-                            Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/Iouzy/psychic-guide"))
-                                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                        )
-                    }
-                },
-        )
 
         Spacer(Modifier.height(48.dp))
     }
@@ -858,41 +896,156 @@ private fun CardDivider() {
     HorizontalDivider(color = colors.rule.copy(alpha = 0.6f))
 }
 
+/**
+ * U4 · Row hierarchy. This used to paint every label in the accent, so Revisão
+ * semanal, Exportar dados, Escolher pasta and Tentar outra vez all shouted in
+ * the same terracota — accent everywhere is accent nowhere. Now the label is
+ * plain ink (matching [ToggleRow]) and the accent is spent on the one
+ * thing worth reading fast: the row's [value] — the chosen folder, the version,
+ * "Nova versão". [chevron] shows the row is tappable instead of leaving it to be
+ * inferred from colour ("›" for anything that opens in-app, "↗" for a link that
+ * leaves it, null for a row that just *does* something). // PT: o rótulo em
+ * tinta, o destaque só no valor, e um chevron a dizer que a linha se toca.
+ */
 @Composable
 private fun ActionRow(
     label: String,
     subtitle: String? = null,
+    value: String? = null,
     danger: Boolean = false,
+    chevron: String? = "›",
     onClick: () -> Unit,
 ) {
     val colors = LocalPautaColors.current
-    Column(
+    Row(
         Modifier
             .fillMaxWidth()
             .clickableNoRipple(onClick)
             .heightIn(min = RowMinHeight)
             .padding(vertical = RowVPadding),
-        verticalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(
-            text = label,
-            color = if (danger) Color(0xFFE53935) else colors.accent,
-            fontSize = 16.sp,
-        )
-        if (subtitle != null) {
-            Spacer(Modifier.height(2.dp))
+        Column(Modifier.weight(1f)) {
             Text(
-                text = subtitle,
-                color = colors.ink3,
-                fontSize = 12.sp,
-                lineHeight = 16.sp,
+                text = label,
+                // The danger red is the app's own [DangerRed], not the stray
+                // Material 0xFFE53935 this row used to hard-code. // PT: o
+                // vermelho da casa, não um vermelho Material solto.
+                color = if (danger) DangerRed else colors.ink,
+                fontSize = 16.sp,
+            )
+            if (subtitle != null) {
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    text = subtitle,
+                    color = colors.ink3,
+                    fontSize = 12.sp,
+                    lineHeight = 16.sp,
+                )
+            }
+        }
+        if (value != null) {
+            Spacer(Modifier.width(12.dp))
+            Text(
+                text = value,
+                color = colors.accent,
+                fontSize = 13.sp,
+                lineHeight = 17.sp,
+                textAlign = TextAlign.End,
+                modifier = Modifier.widthIn(max = 150.dp),
+            )
+        }
+        if (chevron != null) {
+            Spacer(Modifier.width(8.dp))
+            // Decorative: the row's own label carries the semantics, and TalkBack
+            // reading "greater-than sign" after every setting helps nobody.
+            // // PT: decorativo — o TalkBack já lê o rótulo da linha.
+            Text(
+                text = chevron,
+                color = colors.ink4,
+                fontSize = 15.sp,
+                modifier = Modifier.clearAndSetSemantics {},
             )
         }
     }
 }
 
 /**
- * A7: the archived-tides manager (Settings → Dados). Lists every archived tide
+ * U4 · A one-of-N choice collapsed to `label — value ›`, opening a small sheet.
+ * For the settings picked once and then forgotten (text size, backup cadence) a
+ * permanent row of pills costs more space than the choice is worth; Língua and
+ * Tema keep their [SegmentedRow], being two or three options changed often.
+ * // PT: escolha rara — linha com o valor e folha pequena, em vez de pílulas
+ * sempre visíveis.
+ */
+@Composable
+private fun PickerRow(
+    label: String,
+    options: List<Pair<String, String>>,
+    selected: String,
+    onSelect: (String) -> Unit,
+) {
+    var open by remember { mutableStateOf(false) }
+    ActionRow(
+        label = label,
+        value = options.firstOrNull { it.first == selected }?.second ?: selected,
+    ) { open = true }
+    if (open) {
+        ChoiceSheet(
+            title = label,
+            options = options,
+            selected = selected,
+            onSelect = { open = false; onSelect(it) },
+            onClose = { open = false },
+        )
+    }
+}
+
+/** The picker sheet behind [PickerRow] — the same bordered option rows the
+ *  "Trocar foco" sheet uses, with the current one in accent. // PT: as opções,
+ *  na folha; a atual em destaque. */
+@Composable
+private fun ChoiceSheet(
+    title: String,
+    options: List<Pair<String, String>>,
+    selected: String,
+    onSelect: (String) -> Unit,
+    onClose: () -> Unit,
+) {
+    val colors = LocalPautaColors.current
+    PautaSheet(title = title, onClose = onClose) {
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            options.forEach { (value, text) ->
+                val isSel = value == selected
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(PautaRadius.Field))
+                        .background(if (isSel) colors.accent.copy(alpha = 0.07f) else colors.paper)
+                        .border(
+                            1.dp,
+                            if (isSel) colors.accent else colors.rule,
+                            RoundedCornerShape(PautaRadius.Field),
+                        )
+                        .clickableNoRipple { onSelect(value) }
+                        .padding(horizontal = 14.dp, vertical = 13.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = text,
+                        color = if (isSel) colors.accent else colors.ink,
+                        fontSize = 15.sp,
+                        modifier = Modifier.weight(1f),
+                    )
+                    if (isSel) Text("✓", color = colors.accent, fontSize = 14.sp)
+                }
+            }
+        }
+    }
+}
+
+/**
+ * A7: the archived-tides manager (Settings → Dados e privacidade). Lists every archived tide
  * with a one-tap "restaurar" (un-archive) and a two-step "remover" — the only way
  * to permanently delete an archived tide, guarded so it's never a single tap.
  * Closes itself once the list empties. // PT: gestor de marés arquivadas —
