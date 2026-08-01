@@ -198,25 +198,48 @@ fun BookDetailSheet(
             ProgressBar(book.currentPage.toFloat() / book.totalPages.coerceAtLeast(1))
         }
 
-        // ── K-extra: pace + ETA ──
-        // Per-session page history isn't stored, so the spans take the last 5
-        // concluded sessions' durations with the book's total progress
-        // apportioned by duration — the overall rate, needing ≥ 2 sessions.
-        // // PT: ritmo global das últimas sessões; estimativa só com 2+ sessões.
-        val pace = remember(bookBlocks, segsByBlock, book.currentPage) {
+        // ── K-extra: pace + ETA · R6: reading speed ──
+        // A session the reader concluded knows exactly how many pages it turned
+        // (R5's `pagesDelta`); one concluded by hand doesn't. So take the measured
+        // spans when there are any and use *only* those — mixing them with the
+        // book's total progress apportioned by duration would count the same pages
+        // twice. With nothing measured, K-extra's apportioning still stands: the
+        // last 5 sessions' durations carrying the total between them.
+        // // PT: preferir os deltas medidos pelo leitor; sem eles, repartir o total
+        // pela duração. Precisa sempre de 2+ sessões.
+        val spans = remember(bookBlocks, segsByBlock, book.currentPage) {
+            val measured = bookBlocks.mapNotNull { b ->
+                val d = blockMs(b.id)
+                if (b.pagesDelta != null && d > 0) BookMath.SessionSpan(b.pagesDelta, d) else null
+            }
+            if (measured.isNotEmpty()) return@remember measured.take(5)
             val durs = bookBlocks.take(5).map { blockMs(it.id) }.filter { it > 0 }
             val total = durs.sum()
-            if (total <= 0) null else BookMath.pagesPerHour(
-                durs.map { d -> BookMath.SessionSpan(((book.currentPage.toLong() * d) / total).toInt(), d) },
-            )
+            if (total <= 0) emptyList() else durs.map { d ->
+                BookMath.SessionSpan(((book.currentPage.toLong() * d) / total).toInt(), d)
+            }
+        }
+        val pace = remember(spans) { BookMath.pagesPerHour(spans) }
+        // R6: anything with words says its pace in words per minute. An audiobook
+        // keeps min/hora — its progress is already time, and there is no honest
+        // word figure to fudge out of it. // PT: WPM para tudo o que tem palavras;
+        // o audiolivro fica-se pelos min/hora.
+        val wpm = remember(spans, book) {
+            BookMath.wordsPerUnit(book)?.let { BookMath.wordsPerMinute(spans, it) }
         }
         if (pace != null) {
             Spacer(Modifier.height(8.dp))
             Text(
-                text = trf(
-                    if (isAudiobook) "Ritmo: ~{n} min/hora" else "Ritmo: ~{n} págs/hora",
-                    "n" to pace.roundToInt(),
-                ),
+                text = when {
+                    wpm == null -> trf(
+                        if (isAudiobook) "Ritmo: ~{n} min/hora" else "Ritmo: ~{n} págs/hora",
+                        "n" to pace.roundToInt(),
+                    )
+                    // Only an EPUB the reader counted gets to drop the "≈".
+                    BookMath.hasCountedWords(book) ->
+                        trf("Ritmo: {n} palavras/min", "n" to wpm.roundToInt())
+                    else -> trf("Ritmo: ≈ {n} palavras/min", "n" to wpm.roundToInt())
+                },
                 color = colors.ink3,
                 style = PautaType.MetaSmall,
             )
