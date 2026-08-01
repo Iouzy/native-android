@@ -27,6 +27,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameNanos
@@ -37,6 +38,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -88,6 +90,9 @@ fun StartSheet(
     recentBlocks: List<FocusBlockEntity>,
     hasActive: Boolean,
     activeTitle: String,
+    // U2: which duration pills to offer — the user's chosen set (Settings → Foco).
+    // // PT: o conjunto de tempos escolhido nas Definições.
+    presets: List<Int>,
     onStart: (title: String, linkedToId: String?, project: String?, targetMin: Int?) -> Unit,
     onClose: () -> Unit,
 ) {
@@ -97,8 +102,12 @@ fun StartSheet(
     var project by remember { mutableStateOf("") }
     var targetMin by remember { mutableStateOf(0) } // 0 = no target
     var triedSubmit by remember { mutableStateOf(false) }
+    // U2: an out-of-range custom duration can't be started — the picker says why.
+    // // PT: duração à medida fora do intervalo não inicia.
+    val durationOk = targetMin != DurationInvalid
 
     fun submit() {
+        if (!durationOk) return
         if (title.isBlank()) { triedSubmit = true; return }
         onStart(title.trim(), selectedIntention, project.trim().ifEmpty { null }, targetMin.takeIf { it > 0 })
     }
@@ -242,16 +251,17 @@ fun StartSheet(
         Spacer(Modifier.height(SheetFieldGap))
         SheetEyebrow(tr("duração (opcional)"))
         Spacer(Modifier.height(SheetLabelGap))
-        ChipFlow {
-            listOf(0 to tr("Sem limite"), 25 to "25 min", 50 to "50 min", 90 to "90 min").forEach { (m, label) ->
-                SelectPill(label = label, selected = targetMin == m, accent = colors.accent, large = true) { targetMin = m }
-            }
-        }
+        DurationPicker(minutes = targetMin, presets = presets) { targetMin = it }
 
         Spacer(Modifier.height(SheetActionGap))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             PautaButton(tr("Cancelar"), Modifier.weight(1f), PautaButtonVariant.Ghost) { onClose() }
-            PautaButton(tr("Iniciar agora"), Modifier.weight(2f), PautaButtonVariant.Primary) { submit() }
+            PautaButton(
+                tr("Iniciar agora"),
+                Modifier.weight(2f),
+                PautaButtonVariant.Primary,
+                enabled = durationOk,
+            ) { submit() }
         }
     }
 }
@@ -622,6 +632,164 @@ internal fun SelectPill(label: String, selected: Boolean, accent: Color, large: 
         )
     }
 }
+
+// ─── U2 · DURATION PICKER ─────────────────────────────────
+// The one duration control in the app: the preset pills every timer used to
+// hard-code, plus the "Outro…" escape hatch that finally makes "40 minutes"
+// expressible. Both call sites (Novo bloco, sessão de leitura) render this — do
+// not grow a second copy. // PT: o único selector de duração — pílulas de
+// presets + "Outro…" para um tempo à medida.
+
+/** The two preset sets, and which one a surface gets. A null preference means
+ *  the user never chose in Settings: the planner then falls back to Pomodoro (the
+ *  documented default) and a reading session to Simples — reading isn't Pomodoro
+ *  work. // PT: os dois conjuntos; sem escolha, o planeador usa Pomodoro e a
+ *  leitura Simples. */
+internal object TimerPresets {
+    const val Pomodoro = "pomodoro"
+    const val Simples = "simples"
+
+    private val POMODORO = listOf(25, 50, 90)
+    private val SIMPLES = listOf(15, 30, 45, 60)
+
+    /** [pref] is `prefs.timerPresets` (null = never chosen); [reading] marks a
+     *  book-mode session, which defaults the other way. */
+    fun of(pref: String?, reading: Boolean = false): List<Int> =
+        when (pref ?: if (reading) Simples else Pomodoro) {
+            Simples -> SIMPLES
+            else -> POMODORO
+        }
+}
+
+/** The minutes value [DurationPicker] reports while the custom field holds a
+ *  number outside 1–600 — the caller shows the picker's error and keeps its
+ *  confirm button disabled until it clears. // PT: valor sentinela de duração
+ *  inválida; o botão de confirmar fica desligado enquanto durar. */
+internal const val DurationInvalid = -1
+
+/** Valid custom minutes: a working day's worth at most. // PT: intervalo válido. */
+private val DurationRange = 1..600
+
+/**
+ * `Sem limite` · one pill per preset · `Outro…`. Tapping `Outro…` reveals an
+ * inline mono numeric field pre-filled with the current value; typing there
+ * deselects the presets, and a typed value that happens to equal a preset simply
+ * selects that pill again. [minutes] is 0 for "no limit" and [DurationInvalid]
+ * while the typed value is out of range. // PT: pílulas + campo à medida; 0 = sem
+ * limite, [DurationInvalid] = fora do intervalo.
+ */
+@Composable
+internal fun DurationPicker(
+    minutes: Int,
+    presets: List<Int>,
+    onChange: (Int) -> Unit,
+) {
+    val colors = LocalPautaColors.current
+    val keyboard = LocalSoftwareKeyboardController.current
+    // rememberSaveable so the typed minutes survive a configuration change while
+    // the sheet is open. // PT: o valor escrito sobrevive à rotação.
+    var custom by rememberSaveable { mutableStateOf(customTextFor(minutes, presets)) }
+    var open by rememberSaveable { mutableStateOf(custom.isNotEmpty()) }
+    // Only a tap on "Outro…" pulls the keyboard up; a field opened *for* the user
+    // (a resumed block whose target isn't a preset) stays quiet. // PT: só o toque
+    // em "Outro…" chama o teclado.
+    var focusCustom by remember { mutableStateOf(false) }
+
+    // The value can also change from outside — picking an intention or a recent
+    // block carries its target in. Show it where the user can see and edit it.
+    // // PT: o valor também chega de fora; abre o campo para ficar visível.
+    LaunchedEffect(minutes, presets) {
+        if (minutes > 0 && minutes !in presets && custom.toIntOrNull() != minutes) {
+            custom = minutes.toString()
+            open = true
+        }
+    }
+
+    fun pick(m: Int) {
+        // Picking a preset clears the custom field. // PT: escolher um preset limpa
+        // o campo à medida.
+        custom = ""
+        open = false
+        focusCustom = false
+        onChange(m)
+    }
+
+    // Its own Column, so the pills and the revealed field stack the same way
+    // wherever the picker is dropped in. // PT: coluna própria — empilha igual em
+    // qualquer sítio.
+    Column(Modifier.fillMaxWidth()) {
+        ChipFlow {
+            SelectPill(
+                label = tr("Sem limite"),
+                selected = minutes == 0 && !open,
+                accent = colors.accent,
+                large = true,
+            ) { pick(0) }
+            presets.forEach { m ->
+                SelectPill(
+                    label = "$m min",
+                    selected = minutes == m,
+                    accent = colors.accent,
+                    large = true,
+                ) { pick(m) }
+            }
+            SelectPill(
+                label = tr("Outro…"),
+                selected = open && minutes !in presets,
+                accent = colors.accent,
+                large = true,
+            ) {
+                custom = minutes.takeIf { it > 0 }?.toString().orEmpty()
+                open = true
+                focusCustom = true
+            }
+        }
+
+        if (open) {
+            // Inside a sheet this waits for the sheet to have settled (U1); the
+            // reading card isn't a sheet, and there the shared requester falls back
+            // to its short beat. // PT: espera pela folha quando há folha.
+            val customFocus = rememberAutoFocusRequester(enabled = focusCustom)
+            Spacer(Modifier.height(SheetLabelGap))
+            Box(Modifier.width(120.dp)) {
+                BoxedField(
+                    value = custom,
+                    onChange = { raw ->
+                        val digits = raw.filter { it.isDigit() }.take(3)
+                        custom = digits
+                        val typed = digits.toIntOrNull()
+                        onChange(
+                            when {
+                                typed == null -> 0 // cleared → back to "sem limite"
+                                typed in DurationRange -> typed
+                                else -> DurationInvalid
+                            },
+                        )
+                    },
+                    placeholder = "40",
+                    modifier = Modifier.focusRequester(customFocus),
+                    singleLine = true,
+                    fontFamily = MonoFamily,
+                    fontSize = 15.sp,
+                    isError = minutes == DurationInvalid,
+                    keyboardType = KeyboardType.Number,
+                    imeAction = ImeAction.Done,
+                    keyboardActions = KeyboardActions(onDone = { keyboard?.hide() }),
+                )
+            }
+            if (minutes == DurationInvalid) {
+                Spacer(Modifier.height(6.dp))
+                FieldError(tr("Entre 1 e 600 min."))
+            }
+        }
+    }
+}
+
+/** Opens the custom field pre-filled when the picker starts on a value no pill
+ *  can show (an edited target, a resumed block). // PT: pré-preenche quando o
+ *  valor inicial não é um preset. */
+private fun customTextFor(minutes: Int, presets: List<Int>): String =
+    if (minutes > 0 && minutes !in presets) minutes.toString() else ""
 
 // ─── SWITCH SHEET ──────────────────────────────────────────
 /** "Trocar foco": pause the running block and jump to an open intention or to

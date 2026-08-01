@@ -427,6 +427,7 @@ fun PautaScreen(bookMode: Boolean = false) {
             recentBlocks = recentBlocks,
             hasActive = active != null,
             activeTitle = active?.title.orEmpty(),
+            presets = TimerPresets.of(prefs.timerPresets),
             onStart = { title, linkedToId, project, targetMin ->
                 startBlock(title, linkedToId, project, targetMin)
                 showStart = false

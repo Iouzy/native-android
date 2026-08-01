@@ -449,6 +449,21 @@ fun SettingsScreen(
                 checked = prefs.sound,
                 subtitle = tr("Um sino suave ao terminar um bloco ou atingir a meta."),
             ) { vm.setSound(it) }
+            CardDivider()
+            // U2: which durations every timer offers. Unset reads as Pomodoro here
+            // — that's the app-wide default — while a reading session quietly uses
+            // the simpler set until this is chosen. Both sets always end in
+            // "Outro…", so a custom time is one tap away either way. // PT: os
+            // tempos oferecidos pelo temporizador; por escolher = Pomodoro.
+            SegmentedRow(
+                label = tr("Tempos do temporizador"),
+                options = listOf(
+                    TimerPresets.Pomodoro to tr("Pomodoro"),
+                    TimerPresets.Simples to tr("Simples"),
+                ),
+                selected = prefs.timerPresets ?: TimerPresets.Pomodoro,
+                onSelect = { vm.setTimerPresets(it) },
+            )
         }
 
         // ── LEMBRETES ────────────────────────────────────────────────────

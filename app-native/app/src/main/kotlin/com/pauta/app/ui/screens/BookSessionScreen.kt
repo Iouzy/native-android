@@ -191,6 +191,11 @@ fun BookSessionScreen() {
                         book = selectedBook,
                         canPick = reading.size > 1,
                         targetMin = targetMin,
+                        // U2: a reading session leans on the simpler set unless the
+                        // user actually asked for Pomodoro in Settings — reading
+                        // isn't Pomodoro work. // PT: a leitura usa o conjunto
+                        // simples, salvo escolha explícita de Pomodoro.
+                        presets = TimerPresets.of(prefs.timerPresets, reading = true),
                         onChangeTarget = { targetMin = it },
                         onPick = { showPicker = true },
                         onStart = {
@@ -340,7 +345,7 @@ private fun ActiveReadingCard(
                     style = PautaType.Timer,
                 )
                 // A reading session can carry a duration too (the start card's
-                // 25/50/90 pills), so it gets the planner's target hairline.
+                // duration picker), so it gets the planner's target hairline.
                 // // PT: a sessão também tem meta — logo, o mesmo fio.
                 if (targetMs > 0) {
                     TargetUnderline(
@@ -367,6 +372,7 @@ private fun StartReadingCard(
     book: BookEntity?,
     canPick: Boolean,
     targetMin: Int,
+    presets: List<Int>,
     onChangeTarget: (Int) -> Unit,
     onPick: () -> Unit,
     onStart: () -> Unit,
@@ -431,14 +437,17 @@ private fun StartReadingCard(
         Spacer(Modifier.height(18.dp))
         SheetEyebrow(tr("duração (opcional)"))
         Spacer(Modifier.height(10.dp))
-        ChipFlow {
-            listOf(0 to tr("Sem limite"), 25 to "25 min", 50 to "50 min", 90 to "90 min").forEach { (m, label) ->
-                SelectPill(label = label, selected = targetMin == m, accent = colors.accent, large = true) { onChangeTarget(m) }
-            }
-        }
+        DurationPicker(minutes = targetMin, presets = presets, onChange = onChangeTarget)
 
         Spacer(Modifier.height(20.dp))
-        PautaButton(tr("Começar"), Modifier.fillMaxWidth(), PautaButtonVariant.Primary) { onStart() }
+        PautaButton(
+            tr("Começar"),
+            Modifier.fillMaxWidth(),
+            PautaButtonVariant.Primary,
+            // U2: an out-of-range custom duration can't start a session either.
+            // // PT: duração inválida também não inicia a sessão.
+            enabled = targetMin != DurationInvalid,
+        ) { onStart() }
     }
 }
 

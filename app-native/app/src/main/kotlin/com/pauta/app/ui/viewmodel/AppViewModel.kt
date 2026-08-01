@@ -595,6 +595,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun setReducedMotion(value: Boolean) = update { it.copy(reducedMotion = value) }
     fun setHaptics(value: Boolean) = update { it.copy(haptics = value) }
     fun setSound(value: Boolean) = update { it.copy(sound = value) }
+    // U2: writing the choice is also what marks it *chosen* — a reading session
+    // only keeps Pomodoro once this is set explicitly. // PT: guardar a escolha é
+    // o que a torna explícita (a leitura só segue Pomodoro depois disso).
+    fun setTimerPresets(value: String) = update { it.copy(timerPresets = value) }
     fun setParrot(value: Boolean) = update { it.copy(parrot = value) }
     fun setOnboardingSeen() = update { it.copy(onboardingSeen = true) }
 

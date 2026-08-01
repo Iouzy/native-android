@@ -760,6 +760,13 @@ object I18n {
         "Livro" to "Book", // native-only
         "Fechar" to "Close", // native-only
 
+        // ── U2 · timer preset sets + custom minutes ──
+        "Outro…" to "Custom…", // native-only
+        "Entre 1 e 600 min." to "Between 1 and 600 min.", // native-only
+        "Tempos do temporizador" to "Timer presets", // native-only
+        "Pomodoro" to "Pomodoro", // native-only
+        "Simples" to "Simple", // native-only
+
         // ── K-extra · pace stats + ETA ──
         "Ritmo: ~{n} págs/hora" to "Pace: ~{n} pages/hour", // native-only
         "Ritmo: ~{n} min/hora" to "Pace: ~{n} min/hour", // native-only
