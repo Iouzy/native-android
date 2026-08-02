@@ -29,7 +29,7 @@ suggested model. When asked to "do task X" or "do the next pending task": read
 that file, do ONLY that task following its spec + Global guardrails, ship via
 the workflow below, and update the task's Status + Log in the same PR.
 
-Four more task files follow the exact same protocol:
+Five more task files follow the exact same protocol:
 
 - `docs/BOOK_MODE.md` — book-mode feature, K1–K9 + K-extra (**complete**).
 - `docs/POLISH.md` — UI polish/modernisation, P1…P10 (**complete**): tab-switch
@@ -42,6 +42,12 @@ Four more task files follow the exact same protocol:
   sheet/keyboard race, timer presets + custom minutes, the Hoje composer, and
   the Settings information architecture (regroup, search, update sheet, mode
   switcher).
+- `docs/BOOK_LIBRARY.md` — book mode round three, L1…L12, written from a full
+  review of K + R: first the promises already made (the wipe that doesn't wipe
+  the library, the library that's in no backup while reading sessions leak into
+  `pauta.v4`, the two statuses no UI can reach), then the reader controls a
+  reader expects (contents/go-to-page, type and theme, capture from inside the
+  book), then the shelf at a hundred books.
 
 ## Architecture (`app-native/`)
 
