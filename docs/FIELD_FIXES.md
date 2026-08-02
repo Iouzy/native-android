@@ -1,0 +1,636 @@
+# Field fixes — task file
+
+> **Concept.** Every other task file in this repo was written from a spec. This
+> one was written from **use**: the owner installed the build, read a book on the
+> bus and in bed, and found in twenty minutes what nobody found by reading code.
+>
+> That is the theme, and it is worth stating once. The test suite covers
+> `domain/` — pure arithmetic and the backup converter — and it is green. Every
+> defect below lives in the layer that has no tests: composables, intents, the
+> WebView, the state machine of a settings row. **The gate was green and the app
+> was wrong in a dozen places.** Nothing here is a redesign; it is the bill for
+> that gap.
+>
+> Ships as 13 self-contained tasks (F1…F13). Each task is one PR.
+
+---
+
+## How to use
+
+**The prompt is always the same, and it carries no number:**
+
+> Faz o próximo em `docs/FIELD_FIXES.md`.
+
+**What that means, exactly** (Claude — this is binding):
+
+1. Read this file. The task to do is the **first one whose Status is `pending`**,
+   top to bottom. Never skip ahead, never batch two.
+2. **Open the reply with the progress bullet**, before any tool call, in this
+   shape and no longer:
+
+   ```
+   **Feito:** F1 ✓ · F2 ✓
+   **Agora:** F3 — as barras do leitor, a pausa, o recibo
+   **Falta:** F4…F13 (10)
+   ```
+
+   Short, factual, no preamble. It exists so the owner knows where the work is
+   without opening the file.
+3. Do **only** that task, following its spec and the Global guardrails.
+4. Ship it via the CLAUDE.md workflow: branch → commit → PR → CI green →
+   squash-merge.
+5. Update that task's **Status** and append its **Log** line **in the same PR**.
+6. Report what shipped, and say plainly what could not be verified here.
+
+If the first pending task is blocked on a decision, say so and stop — do not
+silently pick the next one.
+
+Source paths below are relative to
+`app-native/app/src/main/kotlin/com/pauta/app/`.
+
+---
+
+## Global guardrails (every task)
+
+All guardrails from `docs/NATIVE_IMPROVEMENTS.md`, `docs/BOOK_MODE.md`,
+`docs/POLISH.md` and `docs/BOOK_READER.md` apply unchanged — including the
+reader's **Security model**, which is binding on anything that touches the
+parser, the `:reader` process or the WebView. The ones that bite hardest here:
+
+- **No new dependencies**, in the app or in the reader.
+- **Both lenses survive every task.** With `bookMode` off, the planner is
+  untouched. Acceptance always includes "book mode on and off both look right".
+- **`javaScriptEnabled` is never true**; `addJavascriptInterface` appears nowhere
+  in the tree. No task below has a good enough reason, and none ever will.
+- **Prefs are law:** `reducedMotion`, `haptics`, `textScale`, `highContrast`,
+  TalkBack descriptions.
+- **The `pauta.v4` export stays lossless and unchanged.** Everything book-mode
+  is native-only.
+- **Anything the app records without being asked must be removable.** This is
+  the lesson of F1/F2 and it now applies to every future feature: automatic
+  capture is only defensible when it is reversible.
+
+---
+
+## Status legend
+
+`pending` · `in-progress (PR #n)` · `done (PR #n)` · `skipped (reason)`
+
+---
+
+## What the phone showed — the evidence behind these tasks
+
+Recorded so a fresh session needs neither this list's history nor the
+conversation that produced it.
+
+- **A book concluded by hand jumped to 100%.** The book (`Attached`, 228 pages
+  from when it was tracked by hand) had a file attached. Concluding a manual
+  session and typing "100" left the detail sheet reading **100%**. R4 changed
+  what `currentPage` *means* for an attached EPUB — a percentage point, not a
+  page — and followed that into every place that **displays** the number and
+  none of the places that **ask** for it.
+- **Twelve reading sessions in one evening**, most of them 0–4 minutes, from
+  testing. The peek guard requires *under 60 s* **and** *no position change*; in
+  an EPUB one tap changes chapter, so it never fires.
+- **"Ritmo: 9191 palavras/min".** Arithmetically correct on dishonest data:
+  jumping 17% → 55% in three minutes is ~34 000 words. The reader cannot tell
+  reading from navigating, and in an EPUB navigating moves several percentage
+  points per tap (R3's PDF needed a page turn per page).
+- **Those twelve sessions cannot be reached at all.** Not tappable in the detail
+  sheet (`ui/screens/BookDetailSheet.kt:380`) or the Sessão tab
+  (`ui/screens/BookSessionScreen.kt:302`); deliberately filtered out of the
+  planner's Pauta tab (`ui/viewmodel/AppViewModel.kt:190`); and `deleteBook`
+  (`data/PautaRepository.kt:823`) removes the file, the notes and the book row
+  but **not** the blocks — deleting the book orphans them and they keep counting
+  in the Hábitos statistics.
+- **The reader's bars are drawn over the text.** The top bar covered a chapter
+  heading; the bottom bar covered the last line; on the imprint page it cut the
+  publisher's logo in half. The CSS allows 8px at the top and 64px at the bottom,
+  which is not enough at any real text size.
+- **An external link is painted as a link and is inert.**
+  `www.panmacmillan.com` has no scheme, so it survived the sanitiser as a
+  "relative" href, is styled with the accent, and does nothing when tapped
+  (correctly — nothing navigates).
+- **The launcher alias only fires on a true cold start.** Confirmed on device:
+  killing the app and tapping the book icon opens book mode; switching from
+  another app leaves whatever mode was already showing. `MainActivity.onNewIntent`
+  passes `coldStart = false` and drops the door on purpose.
+- **The updater's re-check shows nothing at all** — no flash of "A verificar…".
+  Either the tap is not reaching `checkForUpdate()` or the check resolves faster
+  than the eye; the button, the state order and `AppUpdater.check()` were all
+  read and are correct, so this needs instrumenting before it needs fixing.
+- **The Hoje composer wraps between a label and its own pills**, so `QUANDO`
+  ends the priority row and `MIN` ends the time-of-day row
+  (`ui/screens/HojeScreen.kt:1095` — one FlowRow with labels and pills as flat
+  siblings, which is what U3 intended for text-scale safety).
+- **Pip floats over content** — over a card in Hoje, over the month navigation in
+  Hábitos. R1 already removed one floating thing from that strip for the same
+  reason.
+- **The Hábitos tab contradicts itself:** "Sequência atual: 1 dia" three lines
+  above "Ainda sem leituras registadas." Two different emptiness tests
+  (`ui/screens/BookHabitsScreen.kt:133` counts sessions,
+  `BookHabitsScreen.kt:344` counts *plottable* sessions) share one sentence.
+- **The shelf looks wrong with several books:** the "A ler agora" carousel clips
+  its cards at both edges and leaves most of the screen empty.
+
+---
+
+## Decisions already taken — do not re-open these
+
+- **No pagination in the EPUB reader.** Offered and declined after use: the
+  owner prefers continuous scroll by chapter. It is *technically* possible
+  without JavaScript (CSS `column-width` plus native horizontal scrolling from
+  Kotlin), and that is recorded here only so nobody re-derives it as new. F6
+  gives the orientation that pagination would have given, honestly.
+- **The reading session still starts on its own.** An explicit "start reading"
+  button was proposed and declined: the failure mode of forgetting to press it
+  (an hour of reading lost, unrecoverable) is worse than the failure mode of
+  junk (removable, once F2 lands). The fix is a guard with teeth plus the
+  ability to delete — not a button.
+- **An attached EPUB counts in percent.** It has no pages; its text reflows with
+  the type size. This is also the unit `BookMath.wordsPerUnit` already uses
+  (`wordCount / 100`), which is why the pace and the WPM needed no special case.
+- **No cover art.** Settled in `docs/BOOK_READER.md`, August 2026. Still settled.
+- **One habit list.** `docs/BOOK_READER.md` R7 dropped a `bookHabit` column
+  deliberately; F13 removes the tides from the book-mode tab rather than
+  splitting them in two. Twice decided.
+
+---
+
+## F1 · The unit of progress, and what counts as reading — Status: pending
+
+**Depends on:** nothing. **Do this first — it is writing wrong numbers now.**
+
+**Why:** three faults, one fault line: what a unit of progress *is*, and which
+sessions are allowed to speak about it. Shipping them apart would leave the
+database half-corrected between two PRs, which is worse than one slightly larger
+task.
+
+**Files to touch:**
+- `ui/screens/BookSessionScreen.kt` — `BookConcludeSheet`
+- `ui/screens/BookDetailSheet.kt` — `ProgressEditor`
+- `ui/screens/QuoteCaptureSheet.kt` — the page field
+- `ui/screens/BookFormSheet.kt` — current/total page fields
+- `ui/screens/BookProgress.kt` — extend (it already holds the display side)
+- `domain/BookMath.kt` · `domain/ReaderMath.kt` — pure, both tested
+- `src/test/…/BookMathTest.kt` · `src/test/…/ReaderMathTest.kt`
+- `i18n/I18n.kt`
+
+**(a) Every input asks in the unit the book counts in.** `BookProgress.kt`
+already decides how progress is *shown*; it must now also decide how it is
+*asked for*. An attached EPUB asks for a **percentage** (0–100, labelled, clamped);
+an audiobook asks for a minute; everything else asks for a page. No field may
+accept a number whose meaning differs from the line above it — that is exactly
+what put the book at 100%.
+
+The eyebrow text follows: `"Até que página chegaste?"` is wrong for a book with
+no pages. Add `"Em que percentagem ficaste?"`.
+
+**(b) A human ceiling on the pace.** A span implying an impossible reading speed
+is not a measurement of reading; it is navigation. `BookMath` gains a ceiling
+(`MAX_HUMAN_WPM`, 1000 — comfortably above any real reader and far below a
+chapter jump) and drops such spans from `pagesPerHour`/`wordsPerMinute` rather
+than averaging them in. The session keeps its **time** in the history; it loses
+its **words**. Pure, and unit-tested.
+
+**(c) The peek guard gets teeth.** `ReaderMath.sessionOutcome` currently
+discards a session only when it is *both* under a minute *and* unmoved. Under a
+minute is a peek, full stop — whatever the position did. Keep the existing
+"moved but long" case saving, as today.
+
+**New i18n strings (`// native-only`):**
+
+| PT | EN |
+|---|---|
+| `Em que percentagem ficaste?` | `What percentage are you at?` |
+| `Percentagem` | `Percentage` |
+
+**Out of scope:** editing or deleting the sessions that already exist (F2), the
+reader's own controls (F3).
+
+**Accept:** concluding a session by hand on an attached EPUB asks for a
+percentage and stores one; typing 100 means "finished", not "100 pages"; a book
+whose progress was corrupted can be corrected by hand to a sane value; a session
+implying >1000 wpm no longer moves the Ritmo line; a 20-second session that
+jumped three chapters saves nothing; the planner is untouched; unit tests green;
+CI green.
+
+---
+
+## F2 · Sessions you can edit and remove — Status: pending
+
+**Depends on:** F1 (so a corrected session is corrected in the right unit)
+
+**Why:** twelve junk sessions with no way to reach them. This is the task that
+makes automatic recording defensible at all — and until it lands, every
+imperfect session is permanent.
+
+**Files to touch:**
+- `ui/screens/BookDetailSheet.kt` — the `Sessões` rows become tappable
+- `ui/screens/BookSessionScreen.kt` — same, in `Sessões de leitura`
+- `ui/screens/PautaExtras.kt` — `EditBlockSheet`: editable times, delete
+- `data/PautaRepository.kt` — `deleteBook` cascade; session-time updates
+- `ui/viewmodel/AppViewModel.kt` — thin delegates
+- `i18n/I18n.kt`
+
+**(a) An entry point.** A reading session is text today in both places. Make the
+row tappable and open the same `EditBlockSheet` a planner block opens. Without
+this, nothing else in this task is reachable in book mode.
+
+**(b) Editable times.** In `EditBlockSheet` the session spans are read-only text
+(`PautaExtras.kt:320`) and even the block's target is resent unchanged
+(`PautaExtras.kt:385`). Each span gains an editable **start** and **end** (or a
+duration — pick one and be consistent), validated so the end never precedes the
+start. Add **Apagar sessão** per span, and keep the existing "Apagar bloco".
+
+**(c) Reading sessions can fix their own delta.** R5 stores `pagesDelta` on a
+reading block. For a book-mode session the sheet also offers that number, in the
+book's unit (F1's rule) — it is what `BookMath` reads, and correcting the time
+without the delta leaves the pace as wrong as it was.
+
+**(d) `deleteBook` takes its sessions with it.** Today it deletes the file, the
+notes and the row, and orphans every `project = "book:<id>"` block — invisible
+and still counted in the Hábitos statistics. Delete them, in the same
+transaction.
+
+**Guard:** the planner's Pauta tab keeps filtering reading blocks out
+(`AppViewModel.kt:190`). Book sessions are reachable from book mode; that
+separation is intentional and stays.
+
+**New i18n strings (`// native-only`):**
+
+| PT | EN |
+|---|---|
+| `Editar sessão` | `Edit session` |
+| `Apagar sessão` | `Delete session` |
+| `Início` | `Start` |
+| `Fim` | `End` |
+
+**Out of scope:** a bulk "clear all sessions" (a per-session delete is enough and
+safer), merging two sessions.
+
+**Accept:** a reading session opens from both the detail sheet and the Sessão
+tab; its start and end can be corrected and the duration follows; it can be
+deleted and the Ritmo/streak/charts all reflect that immediately; deleting a book
+leaves no orphan blocks behind (assert in a repository test); the planner's block
+list is unchanged; CI green.
+
+---
+
+## F3 · The reader's own controls — Status: pending
+
+**Depends on:** F1 (the receipt's unit)
+
+**Why:** four small things the reader gets wrong every session, all in the same
+two files.
+
+**Files to touch:**
+- `ui/screens/ReaderScreen.kt` · `ui/screens/EpubReader.kt`
+- `ui/MainScaffold.kt` — the receipt line
+- `domain/Epub.kt` — the link styling rule
+- `i18n/I18n.kt`
+
+**(a) Pause without closing the book.** Today the only way to stop the clock is
+to leave. Add pause/resume to the reader's `⋯`; a paused session keeps its place
+and its block, and the paused time is not read. This is also half of what an
+explicit start button was asked for — see **Decisions already taken**.
+
+**(b) The bars stop covering the page.** The chapter must be inset by the height
+of the top and bottom bars, not painted under them — measured, not guessed at
+64px. A chapter heading, a last line and a publisher's logo were each hidden.
+
+**(c) The receipt speaks the book's unit.** `MainScaffold.kt:507` says
+`"{n} págs em {min} min"`; for an EPUB `n` is percentage points. Say **words**
+for a counted EPUB (the honest figure, and the one the reader actually knows),
+percent where words are unknown, pages for a PDF or a physical book.
+
+**(d) A dead link is not painted as a link.** A schemeless URL survives the
+sanitiser as a relative href and is styled with the accent, but nothing
+navigates. Only a link that resolves to a chapter of *this* book keeps the accent;
+everything else is ink. The rule belongs next to the sanitiser, with a test.
+
+**New i18n strings (`// native-only`):**
+
+| PT | EN |
+|---|---|
+| `Pausar` | `Pause` |
+| `Retomar` | `Resume` |
+| `{n} palavras em {min} min` | `{n} words in {min} min` |
+| `{n}% em {min} min` | `{n}% in {min} min` |
+
+**Out of scope:** pagination (declined), the chapter index (F4).
+
+**Accept:** no text or image is ever hidden behind a bar at any text scale; a
+paused session's minutes do not count; the receipt after reading an EPUB says
+words; a link to panmacmillan.com is ink-coloured and inert; CI green.
+
+---
+
+## F4 · The launcher door, properly — Status: pending
+
+**Depends on:** nothing
+
+**Why:** a regression from R8 (PR #171), confirmed on device: the book icon
+opens book mode only when the app is fully closed. Tapping it while the app is
+alive in recents leaves the mode as it was.
+
+**Files to touch:** `MainActivity.kt` · `AndroidManifest.xml` (only if the
+fallback is needed)
+
+**The certain half:** `onNewIntent` calls `parseEntry(intent)` with
+`coldStart = false` and therefore **drops the door on purpose**. Honour a
+`MAIN` + `LAUNCHER` intent there, and on an `onCreate` that restores saved
+state — while ignoring `FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY`, so returning
+through recents never changes the mode. Mark the intent consumed so a
+configuration change cannot re-apply it.
+
+**The uncertain half, and the fallback:** with an existing task and
+`launchMode="singleTop"`, Android may bring the task forward **without
+delivering an intent at all** — in which case no amount of intent reading helps.
+If the device still fails after the above, the alias stops pointing at
+`MainActivity` and points at a tiny no-UI trampoline activity that writes the
+pref and starts the app; a distinct component always runs `onCreate`. It must
+not appear in recents and must not flash.
+
+**Accept:** switching from another app and tapping the book icon opens book mode;
+returning through recents does not change the mode; returning from the document
+picker does not change the mode; one entry in recents; both icons survive an
+update; CI green. **Verify on the device — this is the failure a unit test cannot
+see.**
+
+---
+
+## F5 · The chapter index — Status: pending
+
+**Depends on:** nothing (R4's spine is already parsed)
+
+**Why:** two problems, one list. There is no way to jump to a chapter, and no way
+to see what the parser actually found — and the parser **skips spine items in
+silence** (an unrecognised media type, an href that will not resolve, an entry
+that is not in the archive), which quietly removes those words from the total and
+skews every percentage after it.
+
+**Files to touch:** `ui/screens/ReaderScreen.kt` · `service/DocumentParse.kt`
+(the spine already crosses the binder) · `i18n/I18n.kt`
+
+The `⋯` gains **Índice**: the spine in order, the current one marked, each with
+its word count, tap to jump. An item with zero words is visible on sight, which
+is the diagnostic. `docs/BOOK_READER.md` put this out of R4's scope "for a later
+extra" — this is the later.
+
+**New i18n strings (`// native-only`):**
+
+| PT | EN |
+|---|---|
+| `Índice` | `Contents` |
+| `{n} palavras` | `{n} words` |
+
+**Accept:** the index lists every spine item the reader knows about; tapping one
+opens it at its start; the current chapter is marked; a book whose parse skipped
+an item shows it as 0 words rather than hiding it; CI green.
+
+---
+
+## F6 · The pages of the print edition — Status: pending
+
+**Depends on:** F5 (same parsing pass, same sheet)
+
+**Why:** the owner's actual request, and the best idea in the round: *"mesmo no
+nosso epub temos as páginas algures lá"* — and they are right. EPUB3 carries the
+print edition's page numbers as `epub:type="pagebreak"` markers with a
+`page-list` in the nav document, precisely so a reader can cross-reference a
+paper copy. A Pan Macmillan edition with the print ISBN is a good candidate.
+
+This is what makes reading in the app compatible with reading anywhere else, and
+it uses **the publisher's own numbers** — nothing is invented.
+
+**Files to touch:** `domain/Epub.kt` (+ its tests) · `ui/screens/EpubReader.kt` ·
+`ui/screens/BookProgress.kt`
+
+- **Preserve the markers.** The sanitiser currently keeps `span` and drops its
+  attributes, so the page number is lost. Carry it through as a marker element
+  the stylesheet can draw.
+- **Draw the separator.** A hairline across the measure with the page number
+  small in the margin — the visual orientation asked for, and the thing that
+  makes a continuous scroll navigable without pagination.
+- **Say the page where one is known.** With markers present, the reader's chrome
+  and the detail sheet can say `"página 123 de 228"` for an EPUB. Without them,
+  percent stays, and a page derived from a hand-recorded `totalPages` may be
+  offered **only** with an `≈`.
+
+**Out of scope:** generating page numbers for a book that has none (an invented
+page is the estimate this whole file exists to remove).
+
+**Accept:** an EPUB carrying page-break markers shows the publisher's page
+numbers and a separator at each; one without them is unchanged; the parser's
+tests cover a book with markers, one without, and one with malformed markers;
+CI green.
+
+---
+
+## F7 · The shelf with several books — Status: pending
+
+**Depends on:** nothing
+
+**Why:** with more than one book the "A ler agora" carousel clips its cards at
+both edges and leaves most of the screen empty. It reads as broken.
+
+**Files to touch:** `ui/screens/BookShelfScreen.kt`
+
+Decide the layout deliberately: a full-width list, a grid, or a carousel that
+actually snaps and shows its edges honestly. Whatever is chosen must look right
+with one book, with three, and with thirty, and at `textScale = 1.3`.
+
+**Accept:** one / three / thirty books all look intentional; nothing is clipped
+mid-card; the empty state is still quiet; CI green.
+
+---
+
+## F8 · Notes anchored to the position — Status: pending
+
+**Depends on:** F1 (the unit), F5 (jumping to a place)
+
+**Why:** K9's capture asks for a **page**, which an attached EPUB does not have —
+the owner's existing note reads `p. 79` on a book that counts percent. And the
+idea it was traded against (long-pressing a word to mark a spot) is worth having
+in the form the app can actually keep: a note that remembers where it was taken
+and can take you back.
+
+**Files to touch:** `ui/screens/QuoteCaptureSheet.kt` ·
+`ui/screens/BookDetailSheet.kt` · `data/entity/Entities.kt` (one native-only
+column on the note) · `data/AppDatabase.kt` (migration) · `data/PautaRepository.kt`
+
+A note captured while reading stores the reader position alongside the page; the
+detail sheet's note becomes tappable and opens the reader there. Existing notes
+keep working with no position — nothing is migrated, nothing is lost.
+
+**Out of scope:** selecting a word to anchor to. Getting the selected text out of
+the WebView needs JavaScript (never) or a clipboard round-trip (visible to the
+user on modern Android). The scroll position is precise enough and costs nothing.
+
+**Accept:** a note taken in the reader returns to where it was taken; an old note
+still shows and still opens the book; a note on a PDF still works; CI green.
+
+---
+
+## F9 · The Hoje composer — Status: pending
+
+**Depends on:** nothing
+
+**Why:** the labels land on the wrong line. `PRIORIDADE [1][2][3] QUANDO` /
+`[manhã][tarde][noite] MIN` / `[40]` — each label reads as a suffix of the group
+above it.
+
+**Files to touch:** `ui/screens/HojeScreen.kt`
+
+The cause is deliberate and documented at `HojeScreen.kt:1095`: U3 made labels
+and pills flat siblings of one `FlowRow` so a large `textScale` wraps instead of
+clipping. Keep that property — but make each `label + pills` group wrap as a
+**unit**, never between a label and the pills it names. Nested flows, not a row
+that can clip.
+
+Includes the header chips (`DIAS ANTERIORES` / `A SEMANA` / `ROTINAS` /
+`REVISÃO`), which stack into three ragged right-aligned lines.
+
+**Accept:** at textScale 1.0 and 1.3, every label sits with its own pills;
+nothing clips; the header chips read as a deliberate arrangement; CI green.
+
+---
+
+## F10 · The duration toggle, next to the durations — Status: pending
+
+**Depends on:** nothing
+
+**Why:** the preset set (`pomodoro` 25/50/90 vs `simples` 15/30/45/60) is chosen
+in Settings, far from any timer, and the owner could not find it. Worse, the
+defaults are implicit and differ by surface: the planner assumes Pomodoro,
+reading assumes Simples, and nothing says so.
+
+**Files to touch:** `ui/screens/PautaSheets.kt` (`DurationPicker`, `TimerPresets`)
+· `ui/screens/SettingsScreen.kt` · every call site that offers a duration
+
+The toggle moves **into the duration picker** — a quiet mono `pomodoro · simples`
+beside the pills — writing the same preference the Settings row writes. One
+boolean, two places to set it, the same discipline as R8's launcher door. It
+governs **both modes**: the owner asked for exactly that.
+
+Every place a duration is chosen gets the picker: "Novo bloco", the reading
+session, "Registar tempo", and an intention's target minutes.
+
+**Accept:** the preset set can be changed without leaving the timer; the Settings
+row still works and agrees; reading and planner both follow it; a custom value
+still works; CI green.
+
+---
+
+## F11 · The updater that answers — Status: pending
+
+**Depends on:** nothing
+
+**Why:** tapping "Verificar atualizações" a second time shows nothing at all, so
+the row appears stuck at "Está atualizado.". The button, the state order and
+`AppUpdater.check()` were all read and are correct — which means the cause is
+one of two, and they need different fixes.
+
+**Files to touch:** `ui/screens/SettingsScreen.kt` · `service/AppUpdater.kt` ·
+`ui/viewmodel/AppViewModel.kt`
+
+**Diagnose first:** does the tap reach `checkForUpdate()`? If it does, the check
+resolves faster than the eye and the state is indistinguishable from before.
+
+**Fix either way:** the result gets a **time** (`"verificado às 23:56"`), and the
+checking state a minimum visible duration. A state that resolves faster than a
+frame is indistinguishable from a dead button, and that is a UI defect whatever
+the plumbing says. Add `Cache-Control: no-cache` to the request while there.
+
+**New i18n strings (`// native-only`):**
+
+| PT | EN |
+|---|---|
+| `Verificado às {h}` | `Checked at {h}` |
+
+**Accept:** tapping the button always visibly acknowledges the tap and always
+leaves a timestamp; an offline check still reports the failure it already
+reports; CI green.
+
+---
+
+## F12 · The floating layer — Status: pending
+
+**Depends on:** nothing
+
+**Why:** Pip floats over content — over a card in Hoje, over the month navigation
+in Hábitos. R1 already removed one floating thing from that strip for exactly
+this reason; there is still no rule about who may float and where.
+
+**Files to touch:** `ui/MainScaffold.kt` · the screens whose content reaches the
+bottom strip
+
+Write the rule down and apply it: the bottom strip belongs to Pip and the
+snackbar, and every scrolling screen reserves that height at the end of its
+content. Nothing that carries information may sit under a floating thing.
+
+**Accept:** in both modes, on all six screens, scrolling to the bottom leaves
+nothing hidden behind Pip; the snackbar still clears the tab bar; CI green.
+
+---
+
+## F13 · The reading tab, honestly — Status: pending
+
+**Depends on:** F2 (the day data must be correctable first)
+
+**Why:** two things. The tab contradicts itself — *"Sequência atual: 1 dia"*
+three lines above *"Ainda sem leituras registadas."* — and it still ends in the
+planner's tides, which is what started this whole round: water and running under
+a reading screen.
+
+**Files to touch:** `ui/screens/BookHabitsScreen.kt` · `domain/ReadingStats.kt`
+(+ tests) · `ui/screens/MaresScreen.kt` · `i18n/I18n.kt`
+
+**(a) One definition of a reading day.** `BookHabitsScreen.kt:133` asks "are
+there sessions?"; `BookHabitsScreen.kt:344` asks "are there *plottable*
+sessions?"; both print the same sentence, and a 0-minute session satisfies one
+and not the other. Pick one rule for what counts as a day read, apply it to the
+grid, the streak and the charts, and give the charts their own sentence when
+they alone have nothing to draw.
+
+**(b) The tides leave the book-mode tab.** The sections become: Objetivo anual ·
+Dias de leitura · Gráficos · Livros terminados · **Ritmo da estante** (how long
+the current book has left at the measured pace, what is next, what has been
+untouched for weeks — all derived, no new state) · **Do teu caderno** (the
+recent notes and quotes, which today have no home outside a single book).
+
+A quiet `"as tuas marés →"` at the foot switches to planner mode, so living in
+book mode never means losing the tides.
+
+**Open, and the owner decides when this task is reached:** *Metas de leitura*
+(self-set targets the sessions fill in — 30 min/day, 5 days/week) were proposed,
+then argued against by the author of this file on the grounds that a target on
+an empty shelf is a form of nagging, which the reader's guardrails forbid. Ask
+before building it.
+
+**Accept:** the tab never contradicts itself; no self-reported list appears in
+book mode; the tides are one tap away; `bookMode` off leaves Marés pixel-identical;
+`ReadingStats` tests green; CI green.
+
+---
+
+## Order
+
+Strictly top to bottom. F1 and F2 are first because they are the only ones
+actively writing wrong data; F4 is small but waits because nothing depends on it.
+
+```
+F1 → F2 → F3 → F4 → F5 → F6 → F7 → F8 → F9 → F10 → F11 → F12 → F13
+```
+
+---
+
+## Log (append one line per shipped task: date · task · PR · note · verified)
+
+Every entry ends with **Verificado:** — what was actually exercised, and by
+whom. This file exists because a green test suite and a working app turned out
+to be different things; an entry that cannot say what was verified should say
+that instead.
+
+<!-- e.g. 2026-08-03 · F1 · #n · … · Verificado: JVM tests; não testado no telemóvel -->
