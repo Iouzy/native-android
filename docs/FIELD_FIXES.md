@@ -11,7 +11,7 @@
 > was wrong in a dozen places.** Nothing here is a redesign; it is the bill for
 > that gap.
 >
-> Ships as 13 self-contained tasks (F1…F13). Each task is one PR.
+> Ships as 16 self-contained tasks (F1…F16). Each task is one PR.
 
 ---
 
@@ -30,8 +30,8 @@
 
    ```
    **Feito:** F1 ✓ · F2 ✓
-   **Agora:** F3 — as barras do leitor, a pausa, o recibo
-   **Falta:** F4…F13 (10)
+   **Agora:** F3 — o teclado que engole o que escreveste
+   **Falta:** F4…F16 (13)
    ```
 
    Short, factual, no preamble. It exists so the owner knows where the work is
@@ -140,7 +140,7 @@ conversation that produced it.
 - **No pagination in the EPUB reader.** Offered and declined after use: the
   owner prefers continuous scroll by chapter. It is *technically* possible
   without JavaScript (CSS `column-width` plus native horizontal scrolling from
-  Kotlin), and that is recorded here only so nobody re-derives it as new. F6
+  Kotlin), and that is recorded here only so nobody re-derives it as new. F8
   gives the orientation that pagination would have given, honestly.
 - **The reading session still starts on its own.** An explicit "start reading"
   button was proposed and declined: the failure mode of forgetting to press it
@@ -152,7 +152,7 @@ conversation that produced it.
   (`wordCount / 100`), which is why the pace and the WPM needed no special case.
 - **No cover art.** Settled in `docs/BOOK_READER.md`, August 2026. Still settled.
 - **One habit list.** `docs/BOOK_READER.md` R7 dropped a `bookHabit` column
-  deliberately; F13 removes the tides from the book-mode tab rather than
+  deliberately; F16 removes the tides from the book-mode tab rather than
   splitting them in two. Twice decided.
 
 ---
@@ -206,7 +206,7 @@ minute is a peek, full stop — whatever the position did. Keep the existing
 | `Percentagem` | `Percentage` |
 
 **Out of scope:** editing or deleting the sessions that already exist (F2), the
-reader's own controls (F3).
+reader's own controls (F5).
 
 **Accept:** concluding a session by hand on an attached EPUB asks for a
 percentage and stores one; typing 100 means "finished", not "100 pages"; a book
@@ -277,7 +277,88 @@ list is unchanged; CI green.
 
 ---
 
-## F3 · The reader's own controls — Status: pending
+## F3 · The keyboard that swallows what you wrote — Status: pending
+
+**Depends on:** nothing. **Data loss on an ordinary action — this is why it is third.**
+
+**Why:** adding a tide, the keyboard covers the lower half of the sheet and there
+is no way to put it away. Back dismisses **the whole sheet**, and everything
+typed is gone. There is no gesture that closes the keyboard and keeps the form:
+the only two outcomes are "keyboard in the way" and "lose your work".
+
+`docs/UX_FIXES.md` U1 fixed the keyboard *arriving* mid-animation. Nobody fixed
+it leaving.
+
+**Files to touch:**
+- `ui/PautaSheet.kt` — the sheet's back handling and ime behaviour
+- `ui/screens/PautaSheets.kt` — `BoxedField` / `UnderlineField` ime actions
+- every sheet with a text field (the tide form is the worst case; the same trap
+  exists wherever a sheet has a field)
+
+**The rule:** back is a **two-stage** gesture whenever the keyboard is up —
+first press dismisses the keyboard, second dismisses the sheet. That is the
+platform convention everywhere else on Android, and the app currently breaks it.
+
+Alongside it, and cheaper: tapping the sheet's own background dismisses the
+keyboard; and a field whose next control is not another field uses
+`ImeAction.Done` rather than leaving the keyboard up with nothing to do.
+
+**The thing to get right:** a `BackHandler` that is enabled only while the ime is
+actually visible, so it never eats a back press that should close the sheet. Read
+the ime visibility from `WindowInsets.isImeVisible` rather than from focus —
+focus and keyboard are not the same state, and a field can hold focus with the
+keyboard down.
+
+**Out of scope:** saving a half-filled form as a draft. The fix is not losing it
+in the first place.
+
+**Accept:** with the keyboard up in "Nova maré", back closes the keyboard and
+the form keeps every character; a second back closes the sheet; the weekday chips
+hidden behind the keyboard are reachable after the first back; the same holds for
+every sheet with a field, in both modes; the predictive-back gesture still peels
+the sheet correctly; CI green.
+
+---
+
+## F4 · Counts that stop where they should — Status: pending
+
+**Depends on:** nothing. Corrupts data on an ordinary tap.
+
+**Why:** a countable tide with a target of 2 reads **`39/2 Treinos`**. Each tap
+adds one, forever: `setHabitCount` clamps at zero and nothing else
+(`data/PautaRepository.kt:594`, `count = maxOf(0, n)`), and all four call sites
+increment blind — `ui/screens/HojeScreen.kt:429`, `ui/screens/MaresScreen.kt:407`,
+`service/ReminderActionReceiver.kt:75`, `service/MaresWidget.kt:132`. There is no
+way down, so a mis-tap is permanent and the tide reads 100% forever.
+
+**Files to touch:**
+- `data/PautaRepository.kt` — `setHabitCount`, the one place the rule belongs
+- `domain/HabitCalculator.kt` — if the cycle rule wants to be pure and tested
+- `ui/screens/MaresScreen.kt` · `ui/screens/HojeScreen.kt` — the affordance down
+- `src/test/…/HabitCalculatorTest.kt`
+
+**The rule:** a tap increments to the target and no further; the next tap
+**clears to zero**. That is exactly how a binary tide already behaves — tap to
+mark, tap again to unmark — so a countable one becomes the same gesture with
+more steps, and no count can ever exceed its target.
+
+**And the repair path:** an existing 39 has to be fixable. The cycle alone does
+that (tap once more from 39 → 0), but only if the clamp is applied to values
+already stored; make sure a count read back above its target is treated as "at
+the target" rather than displayed raw.
+
+**Out of scope:** logging *more* than the target as a deliberate act
+("drank 10 of 8"). If that turns out to be wanted, it is a separate decision
+about what a target means, not a clamp.
+
+**Accept:** a tide with target 2 never shows a count above 2; the tap after the
+target clears it; an existing over-target count can be brought back with one
+tap; the widget, the notification action and both screens all go through the same
+rule; `HabitCalculator` tests green; CI green.
+
+---
+
+## F5 · The reader's own controls — Status: pending
 
 **Depends on:** F1 (the receipt's unit)
 
@@ -318,7 +399,7 @@ everything else is ink. The rule belongs next to the sanitiser, with a test.
 | `{n} palavras em {min} min` | `{n} words in {min} min` |
 | `{n}% em {min} min` | `{n}% in {min} min` |
 
-**Out of scope:** pagination (declined), the chapter index (F4).
+**Out of scope:** pagination (declined), the chapter index (F7).
 
 **Accept:** no text or image is ever hidden behind a bar at any text scale; a
 paused session's minutes do not count; the receipt after reading an EPUB says
@@ -326,7 +407,7 @@ words; a link to panmacmillan.com is ink-coloured and inert; CI green.
 
 ---
 
-## F4 · The launcher door, properly — Status: pending
+## F6 · The launcher door, properly — Status: pending
 
 **Depends on:** nothing
 
@@ -360,7 +441,7 @@ see.**
 
 ---
 
-## F5 · The chapter index — Status: pending
+## F7 · The chapter index — Status: pending
 
 **Depends on:** nothing (R4's spine is already parsed)
 
@@ -391,9 +472,9 @@ an item shows it as 0 words rather than hiding it; CI green.
 
 ---
 
-## F6 · The pages of the print edition — Status: pending
+## F8 · The pages of the print edition — Status: pending
 
-**Depends on:** F5 (same parsing pass, same sheet)
+**Depends on:** F7 (same parsing pass, same sheet)
 
 **Why:** the owner's actual request, and the best idea in the round: *"mesmo no
 nosso epub temos as páginas algures lá"* — and they are right. EPUB3 carries the
@@ -428,7 +509,7 @@ CI green.
 
 ---
 
-## F7 · The shelf with several books — Status: pending
+## F9 · The shelf with several books — Status: pending
 
 **Depends on:** nothing
 
@@ -446,9 +527,9 @@ mid-card; the empty state is still quiet; CI green.
 
 ---
 
-## F8 · Notes anchored to the position — Status: pending
+## F10 · Notes anchored to the position — Status: pending
 
-**Depends on:** F1 (the unit), F5 (jumping to a place)
+**Depends on:** F1 (the unit), F7 (jumping to a place)
 
 **Why:** K9's capture asks for a **page**, which an attached EPUB does not have —
 the owner's existing note reads `p. 79` on a book that counts percent. And the
@@ -473,7 +554,7 @@ still shows and still opens the book; a note on a PDF still works; CI green.
 
 ---
 
-## F9 · The Hoje composer — Status: pending
+## F11 · The Hoje composer — Status: pending
 
 **Depends on:** nothing
 
@@ -497,7 +578,7 @@ nothing clips; the header chips read as a deliberate arrangement; CI green.
 
 ---
 
-## F10 · The duration toggle, next to the durations — Status: pending
+## F12 · The duration toggle, next to the durations — Status: pending
 
 **Depends on:** nothing
 
@@ -523,7 +604,7 @@ still works; CI green.
 
 ---
 
-## F11 · The updater that answers — Status: pending
+## F13 · The updater that answers — Status: pending
 
 **Depends on:** nothing
 
@@ -555,7 +636,7 @@ reports; CI green.
 
 ---
 
-## F12 · The floating layer — Status: pending
+## F14 · The floating layer — Status: pending
 
 **Depends on:** nothing
 
@@ -575,7 +656,41 @@ nothing hidden behind Pip; the snackbar still clears the tab bar; CI green.
 
 ---
 
-## F13 · The reading tab, honestly — Status: pending
+## F15 · "Quando", without typing it — Status: pending
+
+**Depends on:** nothing
+
+**Why:** a tide's *when* is a free-text field (`Quando? (opcional, ex.: manhã)`)
+that most answers fill with one of three words. Typing "manhã" costs a keyboard
+— which, until F3, was also a trap — and two answers ("manhã e tarde", as one
+tide already reads) can only be expressed as prose the app cannot use.
+
+**Files to touch:**
+- `ui/screens/MaresSheets.kt` (or wherever the tide form lives) — the field
+- `data/entity/Entities.kt` — `HabitEntity.time` is already a free-text string;
+  the chips write into it, so **no migration and no schema change**
+- `i18n/I18n.kt`
+
+**The shape:** three chips — `manhã` · `tarde` · `noite` — **multi-select**, above
+the existing field. Picking chips writes their words into `time`; typing
+something the chips don't cover still works and simply selects no chip. The field
+stays: this adds a fast path, it does not take away the free one.
+
+Keeping `time` a string is the whole point — it is `pauta.v4` data, the web app
+wrote prose into it, and a round-trip must stay lossless. The chips are a way of
+writing that string, not a new model.
+
+**Out of scope:** scheduling anything from the choice (a tide already has
+`clock` for a real reminder time); a fourth period.
+
+**Accept:** one, two or three periods can be chosen and re-chosen; the stored
+string reads naturally in both languages; a tide imported from the web with
+arbitrary text still shows that text and loses nothing; the field still accepts
+free text; a `pauta.v4` round-trip is byte-identical; CI green.
+
+---
+
+## F16 · The reading tab, honestly — Status: pending
 
 **Depends on:** F2 (the day data must be correctable first)
 
@@ -617,11 +732,14 @@ book mode; the tides are one tap away; `bookMode` off leaves Marés pixel-identi
 
 ## Order
 
-Strictly top to bottom. F1 and F2 are first because they are the only ones
-actively writing wrong data; F4 is small but waits because nothing depends on it.
+Strictly top to bottom, and the order is by **what a defect costs the person
+using the app**, not by what it costs to fix. F1…F4 all destroy or corrupt
+something the user typed or did; everything after them is an annoyance, however
+visible. F6 is fifteen minutes' work and still waits, because nothing is lost
+while it is broken.
 
 ```
-F1 → F2 → F3 → F4 → F5 → F6 → F7 → F8 → F9 → F10 → F11 → F12 → F13
+F1 → F2 → F3 → F4 → F5 → F6 → F7 → F8 → F9 → F10 → F11 → F12 → F13 → F14 → F15 → F16
 ```
 
 ---
