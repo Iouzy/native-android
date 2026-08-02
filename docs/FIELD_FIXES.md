@@ -11,7 +11,7 @@
 > was wrong in a dozen places.** Nothing here is a redesign; it is the bill for
 > that gap.
 >
-> Ships as 16 self-contained tasks (F1…F16). Each task is one PR.
+> Ships as 13 self-contained tasks (F1…F13). Each task is one PR.
 
 ---
 
@@ -31,7 +31,7 @@
    ```
    **Feito:** F1 ✓ · F2 ✓
    **Agora:** F3 — o teclado que engole o que escreveste
-   **Falta:** F4…F16 (13)
+   **Falta:** F4…F13 (10)
    ```
 
    Short, factual, no preamble. It exists so the owner knows where the work is
@@ -140,7 +140,7 @@ conversation that produced it.
 - **No pagination in the EPUB reader.** Offered and declined after use: the
   owner prefers continuous scroll by chapter. It is *technically* possible
   without JavaScript (CSS `column-width` plus native horizontal scrolling from
-  Kotlin), and that is recorded here only so nobody re-derives it as new. F8
+  Kotlin), and that is recorded here only so nobody re-derives it as new. F7
   gives the orientation that pagination would have given, honestly.
 - **The reading session still starts on its own.** An explicit "start reading"
   button was proposed and declined: the failure mode of forgetting to press it
@@ -152,7 +152,7 @@ conversation that produced it.
   (`wordCount / 100`), which is why the pace and the WPM needed no special case.
 - **No cover art.** Settled in `docs/BOOK_READER.md`, August 2026. Still settled.
 - **One habit list.** `docs/BOOK_READER.md` R7 dropped a `bookHabit` column
-  deliberately; F16 removes the tides from the book-mode tab rather than
+  deliberately; F13 removes the tides from the book-mode tab rather than
   splitting them in two. Twice decided.
 
 ---
@@ -399,7 +399,7 @@ everything else is ink. The rule belongs next to the sanitiser, with a test.
 | `{n} palavras em {min} min` | `{n} words in {min} min` |
 | `{n}% em {min} min` | `{n}% in {min} min` |
 
-**Out of scope:** pagination (declined), the chapter index (F7).
+**Out of scope:** pagination (declined), the chapter index (`BOOK_LIBRARY.md` L4).
 
 **Accept:** no text or image is ever hidden behind a bar at any text scale; a
 paused session's minutes do not count; the receipt after reading an EPUB says
@@ -441,40 +441,9 @@ see.**
 
 ---
 
-## F7 · The chapter index — Status: pending
+## F7 · The pages of the print edition — Status: pending
 
-**Depends on:** nothing (R4's spine is already parsed)
-
-**Why:** two problems, one list. There is no way to jump to a chapter, and no way
-to see what the parser actually found — and the parser **skips spine items in
-silence** (an unrecognised media type, an href that will not resolve, an entry
-that is not in the archive), which quietly removes those words from the total and
-skews every percentage after it.
-
-**Files to touch:** `ui/screens/ReaderScreen.kt` · `service/DocumentParse.kt`
-(the spine already crosses the binder) · `i18n/I18n.kt`
-
-The `⋯` gains **Índice**: the spine in order, the current one marked, each with
-its word count, tap to jump. An item with zero words is visible on sight, which
-is the diagnostic. `docs/BOOK_READER.md` put this out of R4's scope "for a later
-extra" — this is the later.
-
-**New i18n strings (`// native-only`):**
-
-| PT | EN |
-|---|---|
-| `Índice` | `Contents` |
-| `{n} palavras` | `{n} words` |
-
-**Accept:** the index lists every spine item the reader knows about; tapping one
-opens it at its start; the current chapter is marked; a book whose parse skipped
-an item shows it as 0 words rather than hiding it; CI green.
-
----
-
-## F8 · The pages of the print edition — Status: pending
-
-**Depends on:** F7 (same parsing pass, same sheet)
+**Depends on:** `BOOK_LIBRARY.md` L4 (same parsing pass, same sheet)
 
 **Why:** the owner's actual request, and the best idea in the round: *"mesmo no
 nosso epub temos as páginas algures lá"* — and they are right. EPUB3 carries the
@@ -509,52 +478,7 @@ CI green.
 
 ---
 
-## F9 · The shelf with several books — Status: pending
-
-**Depends on:** nothing
-
-**Why:** with more than one book the "A ler agora" carousel clips its cards at
-both edges and leaves most of the screen empty. It reads as broken.
-
-**Files to touch:** `ui/screens/BookShelfScreen.kt`
-
-Decide the layout deliberately: a full-width list, a grid, or a carousel that
-actually snaps and shows its edges honestly. Whatever is chosen must look right
-with one book, with three, and with thirty, and at `textScale = 1.3`.
-
-**Accept:** one / three / thirty books all look intentional; nothing is clipped
-mid-card; the empty state is still quiet; CI green.
-
----
-
-## F10 · Notes anchored to the position — Status: pending
-
-**Depends on:** F1 (the unit), F7 (jumping to a place)
-
-**Why:** K9's capture asks for a **page**, which an attached EPUB does not have —
-the owner's existing note reads `p. 79` on a book that counts percent. And the
-idea it was traded against (long-pressing a word to mark a spot) is worth having
-in the form the app can actually keep: a note that remembers where it was taken
-and can take you back.
-
-**Files to touch:** `ui/screens/QuoteCaptureSheet.kt` ·
-`ui/screens/BookDetailSheet.kt` · `data/entity/Entities.kt` (one native-only
-column on the note) · `data/AppDatabase.kt` (migration) · `data/PautaRepository.kt`
-
-A note captured while reading stores the reader position alongside the page; the
-detail sheet's note becomes tappable and opens the reader there. Existing notes
-keep working with no position — nothing is migrated, nothing is lost.
-
-**Out of scope:** selecting a word to anchor to. Getting the selected text out of
-the WebView needs JavaScript (never) or a clipboard round-trip (visible to the
-user on modern Android). The scroll position is precise enough and costs nothing.
-
-**Accept:** a note taken in the reader returns to where it was taken; an old note
-still shows and still opens the book; a note on a PDF still works; CI green.
-
----
-
-## F11 · The Hoje composer — Status: pending
+## F8 · The Hoje composer — Status: pending
 
 **Depends on:** nothing
 
@@ -578,7 +502,7 @@ nothing clips; the header chips read as a deliberate arrangement; CI green.
 
 ---
 
-## F12 · The duration toggle, next to the durations — Status: pending
+## F9 · The duration toggle, next to the durations — Status: pending
 
 **Depends on:** nothing
 
@@ -604,7 +528,7 @@ still works; CI green.
 
 ---
 
-## F13 · The updater that answers — Status: pending
+## F10 · The updater that answers — Status: pending
 
 **Depends on:** nothing
 
@@ -636,7 +560,7 @@ reports; CI green.
 
 ---
 
-## F14 · The floating layer — Status: pending
+## F11 · The floating layer — Status: pending
 
 **Depends on:** nothing
 
@@ -656,7 +580,7 @@ nothing hidden behind Pip; the snackbar still clears the tab bar; CI green.
 
 ---
 
-## F15 · "Quando", without typing it — Status: pending
+## F12 · "Quando", without typing it — Status: pending
 
 **Depends on:** nothing
 
@@ -690,7 +614,7 @@ free text; a `pauta.v4` round-trip is byte-identical; CI green.
 
 ---
 
-## F16 · The reading tab, honestly — Status: pending
+## F13 · The reading tab, honestly — Status: pending
 
 **Depends on:** F2 (the day data must be correctable first)
 
@@ -739,8 +663,15 @@ visible. F6 is fifteen minutes' work and still waits, because nothing is lost
 while it is broken.
 
 ```
-F1 → F2 → F3 → F4 → F5 → F6 → F7 → F8 → F9 → F10 → F11 → F12 → F13 → F14 → F15 → F16
+F1 → F2 → F3 → F4 → F5 → F6 → F7 → F8 → F9 → F10 → F11 → F12 → F13
 ```
+
+**And this file is not the first one.** `docs/BOOK_LIBRARY.md` Phase L-0 — L1,
+L2, L3 — runs before F1. A wipe that leaves your library on disk and a backup
+that carries your reading list into a file you might share outrank a percentage
+that displays wrong. Three tasks that were in this file (the chapter index, the
+shelf at scale, notes anchored to a position) were dropped in favour of that
+file's L4, L8 and L6, which cover the same ground with more of it.
 
 ---
 
