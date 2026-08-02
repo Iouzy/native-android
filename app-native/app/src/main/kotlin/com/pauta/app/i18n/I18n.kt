@@ -158,8 +158,6 @@ object I18n {
         "A semana" to "The week",
         "Deixe preparado o que importa nos próximos dias. Cada plano vira as intenções desse dia quando ele chegar." to "Set up what matters over the next days. Each plan becomes that day's intentions when it arrives.",
         "planear intenção…" to "plan an intention…",
-        "Marca um dia qualquer do período. Depois disso, os restantes ficam bloqueados." to "Mark any day of the period. After that, the rest are locked.",
-        "Repete sempre no mesmo dia. Os outros dias do período ficam bloqueados." to "Always repeats on the same day. The other days of the period are locked.",
 
         // ── Rotinas (D1: intention templates) ──
         // Ported from the web app (original EN values kept verbatim).
@@ -177,20 +175,15 @@ object I18n {
         "descer" to "move down", // native-only
 
         // ── Pauta ──
-        "{n} blocos · {t} de foco hoje" to "{n} blocks · {t} of focus today", // native-only
         "Em pausa" to "Paused",
         "Retomar" to "Resume",
         "Concluir" to "Finish",
-        "Concluídos" to "Finished", // native-only
-        "Sem blocos de foco ainda. Toca em + para começar." to "No focus blocks yet. Tap + to start.", // native-only
-        "Começar bloco" to "Start a block", // native-only
         "Novo bloco" to "New block",
         "Em que vais focar?" to "What will you focus on?",
         "Iniciar agora" to "Start now",
         "Cancelar" to "Cancel",
         "Concluir bloco" to "Finish block",
         "O que aconteceu?" to "What happened?",
-        "alvo {t}" to "target {t}", // native-only
         "Pausar" to "Pause",
         "Foco" to "Focus",
 
@@ -228,7 +221,6 @@ object I18n {
         "O quê" to "What",
         "Data" to "Date",
         "Início" to "Start",
-        "Escolher hora" to "Pick time", // native-only
         "Duração (min)" to "Duration (min)",
         "ex.: leitura" to "e.g. reading",
         "registar" to "log",
@@ -303,11 +295,7 @@ object I18n {
         "Respiros" to "Breaths",
         "→ {name} em {n}d" to "→ {name} in {n}d",
         "→ {name} em {n} {u}" to "→ {name} in {n} {u}",
-        "Toque num dia para marcar como feito." to "Tap a day to mark it as done.",
-        "Pressão longa num dia falhado para marcar respiro." to "Long press a missed day to mark a breath.",
         "Vista de sempre — para marcar ou corrigir um dia, usa a grelha do mês no separador Marés." to "All-time view — to mark or fix a day, use the month grid in the Marés tab.", // native-only
-        "{p}% de constância" to "{p}% consistency", // native-only
-        "Sem marés ainda. Toca em + para criar a primeira." to "No tides yet. Tap + to create the first one.", // native-only
         "Nova maré" to "New tide", // native-only
         "Sem marés para hoje" to "No tides today", // native-only (Glance widget empty state)
 
@@ -444,7 +432,6 @@ object I18n {
         "{focus} em foco · {days} {label}" to "{focus} in focus · {days} {label}",
 
         // ── Definições ──
-        "Análise" to "Analysis",
         "Revisão semanal" to "Weekly review",
         "Foco, hábitos e padrões dos últimos 7 dias." to "Focus, habits and patterns from the last 7 days.",
         "Hoje · Pauta · Marés" to "Today · Pauta · Tides",
@@ -454,12 +441,10 @@ object I18n {
         "Claro" to "Light",
         "Escuro" to "Dark",
         "Cor de destaque" to "Accent colour",
-        "Idioma" to "Language",
         "Língua" to "Language", // native-only
         "Pequeno toque ao concluir." to "A small tap when done.",
         "O Pip aparece com dicas e piadas. Toca-lhe para mais." to "Pip shows tips and jokes. Tap it for more.",
         "Esconde as barras do sistema. Deslize da margem para as ver." to "Hides system bars. Swipe from the edge to see them.",
-        "Acessibilidade" to "Accessibility",
         "Alto contraste" to "High contrast",
         "Reforça o texto e as linhas. Segue o sistema por omissão." to "Strengthens text and lines. Follows the system by default.",
         "Reduzir movimento" to "Reduce motion",
@@ -483,7 +468,6 @@ object I18n {
         "Testar notificação" to "Test notification",
         "Notificação de teste enviada." to "Test notification sent.",
         "Não foi possível enviar a notificação de teste." to "Couldn't send the test notification.",
-        "Lembretes diários" to "Daily reminders", // native-only
         "Plano do dia" to "Today's plan",
         "Hábitos pendentes" to "Pending habits",
         "Reflexão noturna" to "Nightly reflection",
@@ -499,7 +483,6 @@ object I18n {
         // D2 · per-habit reminders
         "Está na hora desta maré." to "Time for this tide.", // native-only
         "Feito" to "Done", // native-only
-        "Dados" to "Data",
         "Exportar dados" to "Export data",
         "Transfere um ficheiro .json com tudo." to "Downloads a .json file with everything.",
         "Enviar para a nuvem" to "Send to cloud",
@@ -510,7 +493,6 @@ object I18n {
         "Apagar tudo" to "Delete everything", // native-only
         "Remove permanentemente todos os dados." to "Permanently removes all data.",
         "Apagar tudo e recomeçar? Isto não pode ser desfeito." to "Delete everything and start over? This can't be undone.",
-        "Código-fonte e instruções:" to "Source code and instructions:",
 
         // ── Análise extra rows ──
         "Retrospetiva do ano" to "Year in review", // native-only
@@ -519,7 +501,6 @@ object I18n {
         "Streaks, níveis e respiros explicados." to "Streaks, levels and breaths explained.", // native-only
 
         // ── Privacidade / PIN ──
-        "Privacidade" to "Privacy", // native-only
         "Bloqueio por PIN" to "PIN lock", // native-only
         "Protege a app com um código de 4+ dígitos." to "Protects the app with a 4+ digit code.", // native-only
         "Desativar bloqueio por PIN" to "Disable PIN lock", // native-only
@@ -593,7 +574,6 @@ object I18n {
         "Se a instalação falhar com «conflito com um pacote existente»: exporta uma cópia de segurança, desinstala a app e instala de novo. Só é preciso uma vez — daí em diante as atualizações mantêm os teus dados." to "If the install fails with “conflicts with an existing package”: export a backup, uninstall the app, and install again. You only need to do this once — after that, updates keep your data.",
 
         // ── Widget ──
-        "Foco {m}m" to "Focus {m}m",
 
         // ── Pauta tab parity (web values copied from src/i18n.jsx) ──
         "(sem projecto)" to "(no project)",
@@ -628,7 +608,6 @@ object I18n {
         "Nada por aqui ainda." to "Nothing here yet.",
         "Nas Marés, marque hábitos dia a dia. A constância faz a maré subir — e os dias de descanso são honestos." to "On Marés, mark habits day by day. Consistency makes the tide rise — and rest days are honest.",
         "O ritmo dos seus dias." to "The rhythm of your days.",
-        "Pauta · {d}" to "Pauta · {d}",
         "Pautas anteriores" to "Previous Pautas",
         "Pressão longa num dia não feito para marcar respiro." to "Long press an undone day to mark a breath.",
         "Projecto" to "Project",
@@ -697,7 +676,6 @@ object I18n {
 
         // ── K3 · settings toggle + tab label remapping ──
         "Modo livro" to "Book mode", // native-only
-        "Transforma as três tabs numa companheira de leitura" to "Turns the three tabs into a reading companion", // native-only
         "Estante" to "Shelf", // native-only
         "Sessão" to "Session", // native-only
         "Hábitos" to "Habits", // native-only
