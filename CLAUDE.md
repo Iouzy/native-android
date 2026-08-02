@@ -131,6 +131,25 @@ checks aren't green, and never merge one that isn't your own task's PR.
 **Never** strand a commit on a branch with no PR. **Never** push to `main`
 directly — always go through a PR so CI runs first.
 
+## Talking to the owner
+
+**Short and precise. He asks when he wants more** — and he does ask, so an
+answer that leaves something out is cheap to repair while one that buries the
+point is not. Prefer three sentences to three paragraphs; prefer a list to
+prose; drop the preamble and the recap of what he just said.
+
+Two things stay longer, and only these:
+
+- **What shipped** — what changed, and what could *not* be verified here (the
+  SDK is usually unavailable, so "CI compiled it, no device saw it" is the
+  honest and necessary sentence). Bullets, not essay.
+- **A decision that changes what gets built** — state the trade-off and give a
+  recommendation, so one reply is enough to decide on.
+
+He writes in Portuguese; reply in Portuguese. Code, comments and `docs/*.md`
+stay as they are (English, with the bilingual comment convention) — that is a
+deliberate split, not an inconsistency.
+
 ## Pointers (`app-native/app/src/main/kotlin/com/pauta/app/`)
 
 - `MainActivity.kt` / `PautaApplication.kt` — entry point + app/DI wiring.
