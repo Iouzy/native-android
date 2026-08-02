@@ -146,9 +146,11 @@ Two things stay longer, and only these:
 - **A decision that changes what gets built** — state the trade-off and give a
   recommendation, so one reply is enough to decide on.
 
-He writes in Portuguese; reply in Portuguese. Code, comments and `docs/*.md`
-stay as they are (English, with the bilingual comment convention) — that is a
-deliberate split, not an inconsistency.
+**Reply in English.** He often writes in Portuguese and reads English just as
+easily, so replies are English (2 Aug 2026, his call — it is also marginally
+cheaper in tokens). Don't mirror the language of his message. The app's UI stays
+pt-PT source, and code, comments and `docs/*.md` are unchanged — that split is
+deliberate, not an inconsistency.
 
 ## Pointers (`app-native/app/src/main/kotlin/com/pauta/app/`)
 
