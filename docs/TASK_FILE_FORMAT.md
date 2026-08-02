@@ -127,13 +127,23 @@ Each task, in execution order, with this shape:
 
 **Out of scope:** what belongs to a later task, named.
 
-**Accept:** the observable outcomes, semicolon-separated, ending in "CI green".
+**Accept:** the observable outcomes, semicolon-separated; the README line if
+anything visible changed; ending in "CI green".
 ```
 
 Rules that matter:
 
 - **One task is one PR.** If a task can't be, split it — except where splitting
   would leave the app in a half-corrected state, and then say so in the Why.
+- **A task that changes what a user can see updates the repo-root `README.md`
+  in the same PR** — the tab table, a feature section, the install steps,
+  whatever it touched. Put it in that task's `Accept`. This is not paperwork:
+  the READMEs went ~40 tasks without mentioning that the app had become a
+  reader, and a README that describes half the app is worse than none, because
+  it is believed. If a task genuinely changes nothing visible, say so in the
+  `Accept` rather than leaving it ambiguous.
+- **A new task *file* is added to `docs/README.md`** in the PR that creates it,
+  and moved from Active to Complete in the PR that finishes its last task.
 - **Name the files.** A session that has to go looking will go looking somewhere
   else.
 - **`Out of scope` is as important as the spec.** It is what stops scope creep
@@ -241,7 +251,7 @@ Source paths below are relative to
 
 **Out of scope:**
 
-**Accept:**
+**Accept:** … ; README updated (or: nothing user-visible changed) ; CI green.
 
 ---
 

@@ -1,20 +1,44 @@
 # Pauta
 
-**Intentions, focus blocks and habits — your daily pauta.**
+**Intentions, focus blocks, habits — and the book you're reading.**
 
-A free, private, offline-first daily planner for Android. Write what matters
-today, run focus blocks with a real timer, and keep habits ("marés") with a
-maritime, no-guilt streak system. No account, no server, no tracking — your
-data lives on your device and exports to a single JSON file.
+A free, private, offline-first daily planner and reading companion for Android.
+Write what matters today, run focus blocks with a real timer, keep habits
+("marés") with a maritime, no-guilt streak system — and, in book mode, read a
+PDF or EPUB inside the app with a progress that keeps itself. No account, no
+server, no tracking; your data lives on your device and exports to a single JSON
+file.
 
-| Tab     | What it does                                              |
-|---------|-----------------------------------------------------------|
-| Hoje    | Today's intentions + nightly reflection                   |
-| Pauta   | Focus blocks with a start/pause/resume/conclude timer     |
-| Marés   | Habits with daily/weekly/monthly cadence and tide levels  |
+## Two modes, one app
 
-Native Kotlin + Jetpack Compose app — sources in [`app-native/`](app-native/)
-(see its README for the build guide and module non-negotiables).
+Pauta is a planner and a reading companion wearing the same three tabs. A switch
+in Settings (or a long press on the header) changes which one you get, and a
+second launcher icon opens straight into book mode.
+
+| | Planner | Book mode |
+|---|---|---|
+| **1** | **Hoje** — today's intentions + nightly reflection | **Estante** — the shelf: reading, up next, finished |
+| **2** | **Pauta** — focus blocks with a start/pause/resume/conclude timer | **Sessão** — reading sessions on the same timer |
+| **3** | **Marés** — habits with daily/weekly/monthly cadence and tide levels | **Hábitos** — the reading rhythm: days read, charts, annual goal |
+
+## Reading
+
+Attach a **PDF** or **EPUB** to a book and read it in the app.
+
+- **PDF** — pages rendered by the Android framework, pinch to zoom, position
+  remembered.
+- **EPUB** — reflowable text in Pauta's own paper and ink, one chapter at a
+  time, progress weighted by words rather than by chapters.
+- **The session is the reading.** Opening a book starts the timer; closing it
+  records where you got to. Nothing asks what page you reached.
+- **Reading speed** in real words per minute for a counted EPUB — estimated,
+  and marked as such, for anything else.
+
+Attached files live in the app's private storage, are never uploaded, and are
+never written into the backup. A book is untrusted input: it is parsed in a
+separate process, and an EPUB is rendered with scripting off, the network
+blocked and every navigation refused — see the Security model in
+[`docs/BOOK_READER.md`](docs/BOOK_READER.md).
 
 ## Install
 
@@ -31,12 +55,28 @@ cd app-native
 ./gradlew :app:testDebugUnitTest  # domain + backup unit tests
 ```
 
+Native Kotlin + Jetpack Compose — sources in [`app-native/`](app-native/) (see
+its README for the module's non-negotiables).
+
+## How work happens here
+
+Every change ships as one task from one of the files in [`docs/`](docs/): a
+spec, one PR, and a log entry explaining why it was built that way.
+[`docs/README.md`](docs/README.md) is the index.
+
+**Keeping this file true is part of the job.** Any task that adds, removes or
+changes something a user can see updates this README in the same PR — the tab
+table, the reading section, the install steps, whatever it touched. A README
+that describes half the app is worse than none, because it is believed. The rule
+is written into [`docs/TASK_FILE_FORMAT.md`](docs/TASK_FILE_FORMAT.md) so it
+outlives whoever remembered it.
+
 ## History
 
 Pauta started as a no-build React web app wrapped with Capacitor. The native
 rewrite reached full parity and replaced it in June 2026 — the entire web-era
 tree is preserved on the [`web-legacy-final`](../../tree/web-legacy-final)
-branch.
+branch. Book mode and the reader came after, on the native tree only.
 
 ## Licence
 
