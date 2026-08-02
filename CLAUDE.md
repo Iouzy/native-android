@@ -29,7 +29,12 @@ suggested model. When asked to "do task X" or "do the next pending task": read
 that file, do ONLY that task following its spec + Global guardrails, ship via
 the workflow below, and update the task's Status + Log in the same PR.
 
-Four more task files follow the exact same protocol:
+**`docs/README.md` indexes every task file** — read it to find which one owns a
+given area. **`docs/TASK_FILE_FORMAT.md` is the shape they all follow: read it
+before writing a new task file**, and follow it for anything new (the files
+below predate it and are deliberately not retrofitted).
+
+Five more task files follow the exact same protocol:
 
 - `docs/BOOK_MODE.md` — book-mode feature, K1–K9 + K-extra (**complete**).
 - `docs/POLISH.md` — UI polish/modernisation, P1…P10 (**complete**): tab-switch
@@ -42,6 +47,11 @@ Four more task files follow the exact same protocol:
   sheet/keyboard race, timer presets + custom minutes, the Hoje composer, and
   the Settings information architecture (regroup, search, update sheet, mode
   switcher).
+- `docs/FIELD_FIXES.md` — **the active one**, F1…F16: defects found by *using*
+  the app rather than by reading a spec. Ordered by what each costs the person
+  using it, so the prompt carries no number — "faz o próximo em
+  `docs/FIELD_FIXES.md`" always means the first task still `pending`, and the
+  reply opens with the progress bullet the file specifies.
 
 ## Architecture (`app-native/`)
 
