@@ -23,6 +23,7 @@ import com.pauta.app.data.entity.RoutineEntity
 import com.pauta.app.data.entity.RoutineItemEntity
 import com.pauta.app.data.dao.SearchHit
 import com.pauta.app.data.AttachResult
+import com.pauta.app.data.BookBackup
 import com.pauta.app.data.BookFiles
 import com.pauta.app.data.ImportedFile
 import com.pauta.app.data.ReaderSessionRecord
@@ -183,17 +184,20 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     // The normal Pauta tab excludes reading-session blocks (project "book:<id>"),
     // which live behind book mode's Sessão tab via [bookSessionBlocks]. A reading
     // session is just a FocusBlockEntity, so it gets the timer + history for free
-    // without polluting the planner's block list. // PT: a Pauta normal não mostra
-    // blocos de leitura — esses vivem em bookSessionBlocks (modo livro).
+    // without polluting the planner's block list. L2: the test for "is this a
+    // reading session" is [BookBackup.isBookBlock] — it used to be written out
+    // here and nowhere else, which is how the v4 export came to miss it.
+    // // PT: a Pauta normal não mostra blocos de leitura — esses vivem em
+    // bookSessionBlocks (modo livro); a regra é uma só, em BookBackup.
     val blocks: StateFlow<List<FocusBlockEntity>> =
         repo.blocks()
-            .map { list -> list.filter { it.project?.startsWith("book:") != true } }
+            .map { list -> list.filterNot { BookBackup.isBookBlock(it) } }
             .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     /** Reading-session blocks only (project "book:<id>") — the Sessão tab's history. */
     val bookSessionBlocks: StateFlow<List<FocusBlockEntity>> =
         repo.blocks()
-            .map { list -> list.filter { it.project?.startsWith("book:") == true } }
+            .map { list -> list.filter { BookBackup.isBookBlock(it) } }
             .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     val activeBlock: StateFlow<FocusBlockEntity?> =
@@ -637,6 +641,24 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /** Replace all data from a pauta.v4 backup; reports success to [onDone]. */
     fun importBackup(text: String, onDone: (Boolean) -> Unit) = viewModelScope.launch {
         onDone(runCatching { repo.importJson(text) }.isSuccess)
+    }
+
+    // ── The library's own backup (L2) ─────────────────────────
+    // Book data is device-local and stays out of pauta.v4, but it still needs a
+    // way back after a reinstall. Its own file, its own format.
+    // // PT: ficheiro próprio para a biblioteca — o v4 não a leva.
+
+    /** Produce the `pauta.books.v1` JSON, then hand it to [onReady] (for sharing). */
+    fun exportLibrary(onReady: (String) -> Unit) =
+        viewModelScope.launch { onReady(repo.exportBooksJson()) }
+
+    /**
+     * Merge a library file into the shelf. Reports the number of books imported,
+     * or null when the file was refused — which is a message the user has to see,
+     * not a silent no-op. // PT: junta à estante; null = ficheiro recusado.
+     */
+    fun importLibrary(text: String, onDone: (Int?) -> Unit) = viewModelScope.launch {
+        onDone(runCatching { repo.importBooksJson(text) }.getOrNull())
     }
 
     fun setTheme(value: String) = update { it.copy(theme = value) }

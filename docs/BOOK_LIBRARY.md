@@ -160,7 +160,7 @@ survive, `filesDir/books/` is empty, and planner mode is exactly as before;
 
 ---
 
-### L2 · The library in a backup — and out of `pauta.v4` — Status: pending
+### L2 · The library in a backup — and out of `pauta.v4` — Status: in-progress
 
 **Depends on:** nothing (do it after L1 — they touch adjacent code)
 

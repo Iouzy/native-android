@@ -866,6 +866,16 @@ object I18n {
         "últimas {n} semanas" to "last {n} weeks", // native-only
         "máx {n} min" to "max {n} min", // native-only
         "{n} dias de leitura este mês" to "{n} reading days this month", // native-only
+        // L2 · the library's own backup — a separate file in a separate format,
+        // because book data never enters the pauta.v4 export.
+        "Exportar biblioteca" to "Export library", // native-only
+        "Importar biblioteca" to "Import library", // native-only
+        "Livros, notas e sessões de leitura." to "Books, notes and reading sessions.", // native-only
+        "Junta à biblioteca atual; nada é apagado." to
+            "Merges into the current library; nothing is deleted.", // native-only
+        "Biblioteca exportada" to "Library exported", // native-only
+        "{n} livros importados" to "{n} books imported", // native-only
+        "Este ficheiro não é uma biblioteca Pauta." to "This file is not a Pauta library.", // native-only
     )
 }
 
