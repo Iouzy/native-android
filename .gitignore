@@ -1,8 +1,18 @@
-node_modules/
-www/
-/android/
-resources/
-# Mas o ícone-fonte para o Android APK é gerado por gen-icons.mjs e deve
-# ser versionado para que `npx @capacitor/assets generate` funcione após clone.
-!resources/icon.png
+# Gradle / Android build output
+.gradle/
+build/
+local.properties
 *.apk
+*.aab
+
+# Kotlin / KSP
+.kotlin/
+
+# IDE
+.idea/
+*.iml
+.DS_Store
+
+# NOTE: the repo-root `debug.keystore` is committed on purpose. Every build is
+# signed with it so OTA updates install in place with the data preserved — never
+# regenerate it, and never add it here.

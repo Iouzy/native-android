@@ -29,6 +29,12 @@ suggested model. When asked to "do task X" or "do the next pending task": read
 that file, do ONLY that task following its spec + Global guardrails, ship via
 the workflow below, and update the task's Status + Log in the same PR.
 
+**`docs/README.md` indexes every task file** — read it to find which one owns a
+given area. **`docs/TASK_FILE_FORMAT.md` is the shape they all follow: read it
+before writing a new task file**, and follow it for anything new (the files
+below predate it and are deliberately not retrofitted).
+
+>>>>>>> origin/main
 Five more task files follow the exact same protocol:
 
 - `docs/BOOK_MODE.md` — book-mode feature, K1–K9 + K-extra (**complete**).
@@ -42,12 +48,18 @@ Five more task files follow the exact same protocol:
   sheet/keyboard race, timer presets + custom minutes, the Hoje composer, and
   the Settings information architecture (regroup, search, update sheet, mode
   switcher).
-- `docs/BOOK_LIBRARY.md` — book mode round three, L1…L12, written from a full
-  review of K + R: first the promises already made (the wipe that doesn't wipe
-  the library, the library that's in no backup while reading sessions leak into
-  `pauta.v4`, the two statuses no UI can reach), then the reader controls a
-  reader expects (contents/go-to-page, type and theme, capture from inside the
-  book), then the shelf at a hundred books.
+- `docs/BOOK_LIBRARY.md` — **active, and first**: book mode round three,
+  L1…L12, written from a full review of K + R. Phase L-0 is three promises the
+  app makes and does not keep — the wipe that doesn't wipe the library, the
+  library that's in no backup while reading sessions leak into `pauta.v4`, the
+  statuses no UI can reach — and they outrank everything in FIELD_FIXES. Then
+  the reader controls a reader expects, then the shelf at a hundred books.
+- `docs/FIELD_FIXES.md` — **the active one**, F1…F16: defects found by *using*
+  the app rather than by reading a spec. Ordered by what each costs the person
+  using it, so the prompt carries no number — "faz o próximo em
+  `docs/FIELD_FIXES.md`" always means the first task still `pending`, and the
+  reply opens with the progress bullet the file specifies. Run it after
+  `BOOK_LIBRARY.md`'s Phase L-0.
 
 ## Architecture (`app-native/`)
 
@@ -126,6 +138,27 @@ checks aren't green, and never merge one that isn't your own task's PR.
 
 **Never** strand a commit on a branch with no PR. **Never** push to `main`
 directly — always go through a PR so CI runs first.
+
+## Talking to the owner
+
+**Short and precise. He asks when he wants more** — and he does ask, so an
+answer that leaves something out is cheap to repair while one that buries the
+point is not. Prefer three sentences to three paragraphs; prefer a list to
+prose; drop the preamble and the recap of what he just said.
+
+Two things stay longer, and only these:
+
+- **What shipped** — what changed, and what could *not* be verified here (the
+  SDK is usually unavailable, so "CI compiled it, no device saw it" is the
+  honest and necessary sentence). Bullets, not essay.
+- **A decision that changes what gets built** — state the trade-off and give a
+  recommendation, so one reply is enough to decide on.
+
+**Reply in English.** He often writes in Portuguese and reads English just as
+easily, so replies are English (2 Aug 2026, his call — it is also marginally
+cheaper in tokens). Don't mirror the language of his message. The app's UI stays
+pt-PT source, and code, comments and `docs/*.md` are unchanged — that split is
+deliberate, not an inconsistency.
 
 ## Pointers (`app-native/app/src/main/kotlin/com/pauta/app/`)
 
