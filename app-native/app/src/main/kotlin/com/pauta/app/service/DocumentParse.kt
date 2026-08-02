@@ -19,6 +19,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import java.io.ByteArrayOutputStream
 import java.io.DataInputStream
 import java.nio.ByteBuffer
 import kotlin.coroutines.resume
@@ -105,27 +106,26 @@ data class PdfInfo(val pageCount: Int, val pageWidth: Int, val pageHeight: Int)
  */
 class PdfSession(context: Context) {
 
-    private val app = context.applicationContext
+    private val link = ReaderBinding(context)
     private val mutex = Mutex()
 
-    private var conn: ServiceConnection? = null
-    private var pending: CompletableDeferred<Messenger?>? = null
-    private var messenger: Messenger? = null
-
     /** True once `:reader` has died or refused to bind — see the class comment. */
-    @Volatile
-    var died: Boolean = false
-        private set
-
-    private var closed = false
+    val died: Boolean get() = link.died
 
     /** Opens [path] in `:reader`, or null when it would not open. */
     suspend fun open(path: String): PdfInfo? = mutex.withLock {
-        val m = bind() ?: return null
-        val reply = request(m, DocumentParseService.MSG_PDF_OPEN) {
+        val reply = link.request(DocumentParseService.MSG_PDF_OPEN) {
             putString(DocumentParseService.KEY_PATH, path)
         } ?: return null
-        if (reply.value <= 0) null else PdfInfo(reply.value, reply.width, reply.height)
+        if (reply.value <= 0) {
+            null
+        } else {
+            PdfInfo(
+                pageCount = reply.value,
+                pageWidth = reply.data?.getInt(DocumentParseService.KEY_WIDTH, 0) ?: 0,
+                pageHeight = reply.data?.getInt(DocumentParseService.KEY_HEIGHT, 0) ?: 0,
+            )
+        }
     }
 
     /**
@@ -137,16 +137,197 @@ class PdfSession(context: Context) {
      */
     suspend fun render(page: Int, widthPx: Int): Bitmap? = mutex.withLock {
         if (widthPx <= 0) return null
+        link.pipe(
+            what = DocumentParseService.MSG_PDF_RENDER,
+            fill = {
+                putInt(DocumentParseService.KEY_PAGE, page)
+                putInt(DocumentParseService.KEY_WIDTH, widthPx)
+            },
+            read = ::readPixels,
+        )
+    }
+
+    /** Lets the document go and unbinds. Safe to call twice. */
+    fun close() = link.close(DocumentParseService.MSG_PDF_CLOSE)
+
+    /** Reads `[int w][int h][ARGB_8888 pixels]` and rebuilds the page, or null on a
+     *  short/empty stream — which is how `:reader` says no. // PT: lê a página do
+     *  stream; um stream vazio é uma recusa. */
+    private fun readPixels(read: ParcelFileDescriptor): Bitmap? = runCatching {
+        ParcelFileDescriptor.AutoCloseInputStream(read).use { stream ->
+            val input = DataInputStream(stream)
+            val w = input.readInt()
+            val h = input.readInt()
+            // The far side is our own process, but the sizes still bound the
+            // allocation — a garbled header must not become a 2 GB array. // PT: o
+            // cabeçalho é limitado, para nunca alocar o que não faz sentido.
+            if (w !in 1..DocumentParseService.MAX_EDGE || h !in 1..DocumentParseService.MAX_EDGE) {
+                return@use null
+            }
+            val bytes = ByteArray(w * h * 4)
+            input.readFully(bytes)
+            Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888).apply {
+                copyPixelsFromBuffer(ByteBuffer.wrap(bytes))
+            }
+        }
+    }.getOrNull()
+}
+
+/** What an EPUB turned out to be: each chapter of the spine, in reading order,
+ *  with the words that weight the progress line and the entry name that lets an
+ *  internal link be resolved without the engine ever navigating. // PT: os
+ *  capítulos por ordem — palavras e nome da entrada. */
+data class EpubInfo(val chapterWords: List<Int>, val chapterHrefs: List<String>) {
+    val chapterCount: Int get() = chapterWords.size
+
+    /**
+     * The spine index a link points at, or null when it points outside the book.
+     * Matched on the file name alone: the URL the engine reports for a relative
+     * href is resolved against an opaque base and is not a path we can compare
+     * with, but the last segment survives. // PT: o capítulo a que um link aponta,
+     * comparado pelo nome do ficheiro.
+     */
+    fun chapterFor(url: String): Int? {
+        val target = url.substringBefore('#').substringBefore('?')
+            .substringAfterLast('/')
+            .takeIf { it.isNotBlank() } ?: return null
+        val index = chapterHrefs.indexOfFirst { it.substringAfterLast('/').equals(target, ignoreCase = true) }
+        return index.takeIf { it >= 0 }
+    }
+}
+
+/**
+ * native-only (R4): one reader's worth of `:reader`, for an EPUB. The same
+ * arrangement as [PdfSession] and for a related reason — a zip cannot abort the
+ * process the way a malformed PDF can, but §2 of the Security model puts the
+ * *parsing* of an attached book on the far side of the binder, and a
+ * decompression bomb that gets past the import gate should exhaust `:reader`'s
+ * heap rather than the app's.
+ *
+ * What crosses back is HTML that has already been through the allow-list
+ * sanitiser. The main process never sees a book's original markup.
+ * // PT: sessão de EPUB sobre o processo :reader; o que volta já vem limpo.
+ */
+class EpubSession(context: Context) {
+
+    private val link = ReaderBinding(context)
+    private val mutex = Mutex()
+
+    /** True once `:reader` has died or refused to bind. */
+    val died: Boolean get() = link.died
+
+    /** Opens [path] and parses its spine, or null when it is not a book we can read. */
+    suspend fun open(path: String): EpubInfo? = mutex.withLock {
+        val reply = link.request(DocumentParseService.MSG_EPUB_OPEN) {
+            putString(DocumentParseService.KEY_PATH, path)
+        } ?: return null
+        if (reply.value <= 0) return null
+        val words = reply.data?.getIntArray(DocumentParseService.KEY_WORDS) ?: return null
+        val hrefs = reply.data?.getStringArray(DocumentParseService.KEY_HREFS) ?: return null
+        EpubInfo(words.toList(), hrefs.map { it.orEmpty() })
+    }
+
+    /** One chapter's sanitised HTML, or null when it could not be read. */
+    suspend fun chapter(index: Int): String? = mutex.withLock {
+        link.pipe(
+            what = DocumentParseService.MSG_EPUB_CHAPTER,
+            fill = { putInt(DocumentParseService.KEY_PAGE, index) },
+            read = ::readText,
+        )
+    }
+
+    /** Lets the archive go and unbinds. Safe to call twice. */
+    fun close() = link.close(DocumentParseService.MSG_EPUB_CLOSE)
+
+    /** Reads the chapter as UTF-8, or null on an empty stream — which is how
+     *  `:reader` refuses. // PT: um stream vazio é uma recusa. */
+    private fun readText(read: ParcelFileDescriptor): String? = runCatching {
+        ParcelFileDescriptor.AutoCloseInputStream(read).use { stream ->
+            val out = ByteArrayOutputStream(1 shl 16)
+            val buf = ByteArray(1 shl 16)
+            var total = 0
+            while (true) {
+                val n = stream.read(buf)
+                if (n < 0) break
+                total += n
+                // The far side is ours, but the reader still refuses to hold a
+                // chapter that could only be a mistake. // PT: limite de sanidade.
+                if (total > MAX_CHAPTER_BYTES) return@use null
+                out.write(buf, 0, n)
+            }
+            if (total == 0) null else String(out.toByteArray(), Charsets.UTF_8)
+        }
+    }.getOrNull()
+
+    private companion object {
+        /** A chapter with its images inlined, with room to spare. */
+        const val MAX_CHAPTER_BYTES = 24 * 1024 * 1024
+    }
+}
+
+/**
+ * The binding itself, shared by both sessions: bind once, keep the connection,
+ * and treat the death of `:reader` as a final answer rather than something to
+ * retry. Rebinding after a death is what a crash loop looks like, so this never
+ * does it. // PT: a ligação ao processo :reader — a morte é definitiva.
+ */
+private class ReaderBinding(context: Context) {
+
+    private val app = context.applicationContext
+
+    private var conn: ServiceConnection? = null
+    private var pending: CompletableDeferred<Messenger?>? = null
+    private var messenger: Messenger? = null
+    private var closed = false
+
+    @Volatile
+    var died: Boolean = false
+        private set
+
+    /** A reply: the `arg1` value, plus whatever the service put in the bundle. */
+    class Reply(val value: Int, val data: Bundle?)
+
+    /** Sends [what] and waits for the service's reply, or null if either end
+     *  gave up. // PT: envia e espera a resposta. */
+    suspend fun request(what: Int, fill: Bundle.() -> Unit): Reply? {
         val m = bind() ?: return null
-        withContext(Dispatchers.IO) {
+        return withTimeoutOrNull(TIMEOUT_MS) {
+            suspendCancellableCoroutine { cont ->
+                val replyTo = Messenger(
+                    Handler(Looper.getMainLooper()) { msg ->
+                        if (cont.isActive) cont.resume(Reply(msg.arg1, msg.data))
+                        true
+                    },
+                )
+                val msg = Message.obtain(null, what).apply {
+                    data = Bundle().apply(fill)
+                    this.replyTo = replyTo
+                }
+                runCatching { m.send(msg) }.onFailure { if (cont.isActive) cont.resume(null) }
+            }
+        }
+    }
+
+    /**
+     * Sends [what] with the write end of a fresh pipe and hands the read end to
+     * [read]. Anything larger than a binder transaction travels this way, and the
+     * end of the stream is the answer: a refusal, a bad index and a process that
+     * died mid-write are all EOF. // PT: envia com um "pipe"; o fim do stream é a
+     * resposta.
+     */
+    suspend fun <T : Any> pipe(
+        what: Int,
+        fill: Bundle.() -> Unit,
+        read: (ParcelFileDescriptor) -> T?,
+    ): T? {
+        val m = bind() ?: return null
+        return withContext(Dispatchers.IO) {
             val pipe = runCatching { ParcelFileDescriptor.createPipe() }.getOrNull()
                 ?: return@withContext null
-            val (read, write) = pipe[0] to pipe[1]
-            val msg = Message.obtain(null, DocumentParseService.MSG_PDF_RENDER).apply {
-                data = Bundle().apply {
-                    putInt(DocumentParseService.KEY_PAGE, page)
-                    putInt(DocumentParseService.KEY_WIDTH, widthPx)
-                    putParcelable(DocumentParseService.KEY_PIPE, write)
+            val (readEnd, writeEnd) = pipe[0] to pipe[1]
+            val msg = Message.obtain(null, what).apply {
+                data = Bundle().apply(fill).apply {
+                    putParcelable(DocumentParseService.KEY_PIPE, writeEnd)
                 }
             }
             val sent = runCatching { m.send(msg) }.isSuccess
@@ -154,28 +335,24 @@ class PdfSession(context: Context) {
             // duplicated it during the send, and while we hold one the read below
             // would never see EOF. // PT: fechar já a ponta de escrita — senão o
             // fim do stream nunca chega.
-            runCatching { write.close() }
+            runCatching { writeEnd.close() }
             if (!sent) {
-                runCatching { read.close() }
+                runCatching { readEnd.close() }
                 return@withContext null
             }
-            readPixels(read)
+            read(readEnd)
         }
     }
 
-    /** Lets the document go and unbinds. Safe to call twice. */
-    fun close() {
+    /** Tells the service to let go (if it can still hear us) and unbinds. */
+    fun close(closeWhat: Int) {
         closed = true
-        messenger?.let {
-            runCatching { it.send(Message.obtain(null, DocumentParseService.MSG_PDF_CLOSE)) }
-        }
+        messenger?.let { runCatching { it.send(Message.obtain(null, closeWhat)) } }
         // Release anyone waiting on the binding rather than leaving them to time
         // out on a session that is over. // PT: liberta quem esperava a ligação.
         pending?.complete(null)
         unbind()
     }
-
-    // ── binding ───────────────────────────────────────────────
 
     private suspend fun bind(): Messenger? {
         if (died || closed) return null
@@ -218,60 +395,6 @@ class PdfSession(context: Context) {
         pending = null
         messenger = null
     }
-
-    // ── the wire ──────────────────────────────────────────────
-
-    private data class Reply(val value: Int, val width: Int, val height: Int)
-
-    private suspend fun request(
-        m: Messenger,
-        what: Int,
-        fill: Bundle.() -> Unit,
-    ): Reply? = withTimeoutOrNull(TIMEOUT_MS) {
-        suspendCancellableCoroutine<Reply?> { cont ->
-            val replyTo = Messenger(
-                Handler(Looper.getMainLooper()) { msg ->
-                    if (cont.isActive) {
-                        cont.resume(
-                            Reply(
-                                value = msg.arg1,
-                                width = msg.data?.getInt(DocumentParseService.KEY_WIDTH, 0) ?: 0,
-                                height = msg.data?.getInt(DocumentParseService.KEY_HEIGHT, 0) ?: 0,
-                            ),
-                        )
-                    }
-                    true
-                },
-            )
-            val msg = Message.obtain(null, what).apply {
-                data = Bundle().apply(fill)
-                this.replyTo = replyTo
-            }
-            runCatching { m.send(msg) }.onFailure { if (cont.isActive) cont.resume(null) }
-        }
-    }
-
-    /** Reads `[int w][int h][ARGB_8888 pixels]` and rebuilds the page, or null on a
-     *  short/empty stream — which is how `:reader` says no. // PT: lê a página do
-     *  stream; um stream vazio é uma recusa. */
-    private fun readPixels(read: ParcelFileDescriptor): Bitmap? = runCatching {
-        ParcelFileDescriptor.AutoCloseInputStream(read).use { stream ->
-            val input = DataInputStream(stream)
-            val w = input.readInt()
-            val h = input.readInt()
-            // The far side is our own process, but the sizes still bound the
-            // allocation — a garbled header must not become a 2 GB array. // PT: o
-            // cabeçalho é limitado, para nunca alocar o que não faz sentido.
-            if (w !in 1..DocumentParseService.MAX_EDGE || h !in 1..DocumentParseService.MAX_EDGE) {
-                return@use null
-            }
-            val bytes = ByteArray(w * h * 4)
-            input.readFully(bytes)
-            Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888).apply {
-                copyPixelsFromBuffer(ByteBuffer.wrap(bytes))
-            }
-        }
-    }.getOrNull()
 
     private companion object {
         const val TIMEOUT_MS = 20_000L
