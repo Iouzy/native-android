@@ -1056,14 +1056,18 @@ class PautaRepository(private val db: AppDatabase) {
     suspend fun exportJson(todayKey: String): String = WebBackup.export(snapshot(todayKey))
 
     /** Wipe all user data — equivalent to the web's resetAll(). Preferences are
-     *  left intact (the user's theme/language/accent are not their data). */
-    suspend fun resetAll() {
+     *  left intact (the user's theme/language/accent are not their data). Book
+     *  mode's library and its attached files are data too (L1): a row-only wipe
+     *  would leave the documents, which is the part a user would most mind. */
+    suspend fun resetAll(context: Context) {
         intentionDao.clear(); dayDao.clear()
         focusSessionDao.clear(); focusBlockDao.clear()
         habitMarkDao.clearLogs(); habitMarkDao.clearRespiros(); habitMarkDao.clearCounts(); habitDao.clear()
         goalDao.clearMilestones(); goalDao.clearGoals()
         routineDao.clearItems(); routineDao.clearRoutines()
         plannedDao.clear()
+        bookNoteDao.clear(); bookDao.clear()
+        BookFiles.clearAll(context)
     }
 
     /** Replace all data with the contents of a pauta.v4 backup (web or native). */
@@ -1090,8 +1094,8 @@ class PautaRepository(private val db: AppDatabase) {
     }
 
     /** Load demo data (mirrors the web store's seed()). Prefs are preserved. */
-    suspend fun reseed(todayKey: String) {
-        resetAll()
+    suspend fun reseed(context: Context, todayKey: String) {
+        resetAll(context)
         val now = System.currentTimeMillis()
         val day = 86_400_000L
         fun daysAgo(n: Int) = now - n * day

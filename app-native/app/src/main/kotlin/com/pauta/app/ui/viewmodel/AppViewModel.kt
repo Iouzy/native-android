@@ -588,8 +588,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun addPlan(dayKey: String, text: String) = viewModelScope.launch { repo.addPlan(dayKey, text) }
     fun removePlan(id: String) = viewModelScope.launch { repo.removePlan(id) }
 
-    /** Wipe all user data (intentions, blocks, habits, goals…); prefs are kept. */
-    fun resetAll() = viewModelScope.launch { repo.resetAll() }
+    /** Wipe all user data (intentions, blocks, habits, goals, the book library…);
+     *  prefs are kept. */
+    fun resetAll() = viewModelScope.launch { repo.resetAll(getApplication()) }
 
     // ── PIN lock ──────────────────────────────────────────────
     /** True from cold-start until the user verifies PIN; false = no lock or unlocked. */
@@ -611,7 +612,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     // ── Demo data ─────────────────────────────────────────────
-    fun reseed() = viewModelScope.launch { repo.reseed(todayKey.value) }
+    fun reseed() = viewModelScope.launch { repo.reseed(getApplication(), todayKey.value) }
 
     // ── Auto-backup ───────────────────────────────────────────
     fun setAutoBackupCadence(value: String) = update { it.copy(autoBackup = value) }
