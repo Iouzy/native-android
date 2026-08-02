@@ -78,6 +78,22 @@ object BookFiles {
     }
 
     /**
+     * L1: empties `filesDir/books/` entirely — the counterpart to "Apagar
+     * tudo" clearing the book rows. A no-op when the directory doesn't exist.
+     * Only ever deletes files whose canonical path resolves inside the
+     * directory, the same guard [isOurs] makes, so a symlink can't walk this
+     * out to somewhere else. // PT: esvazia a pasta dos livros; nunca sai dela.
+     */
+    fun clearAll(context: Context) {
+        val root = dir(context)
+        val rootCanonical = root.canonicalPath
+        root.listFiles()?.forEach { f ->
+            val insideRoot = runCatching { f.canonicalPath.startsWith(rootCanonical + File.separator) }.getOrDefault(false)
+            if (insideRoot) f.deleteRecursively()
+        }
+    }
+
+    /**
      * "pdf" / "epub" / null — the magic bytes decide, and a display-name
      * extension, when there is one, has to agree with them. A zip signature only
      * makes a file an EPUB candidate; the `mimetype` entry settles it during the

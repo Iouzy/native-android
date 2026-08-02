@@ -108,7 +108,7 @@ for this round:
 These three are not features. They are the app failing to do what it says it
 does, and they outrank everything in the later phases.
 
-### L1 · "Apagar tudo" apaga tudo — Status: pending
+### L1 · "Apagar tudo" apaga tudo — Status: done (PR #181)
 
 **Depends on:** nothing
 
@@ -931,3 +931,4 @@ its data is already parsed and thrown away.
 ## Log (append one line per shipped task: date · task · PR · note)
 
 <!-- e.g. 2026-08-03 · L1 · #n · resetAll now clears books, notes and filesDir/books -->
+2026-08-02 · L1 · #181 · resetAll now clears book_notes, books and filesDir/books/ via BookFiles.clearAll; reseed inherits the fix
