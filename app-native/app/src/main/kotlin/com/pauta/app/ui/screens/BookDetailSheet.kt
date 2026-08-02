@@ -178,14 +178,9 @@ fun BookDetailSheet(
             )
         } else {
             Text(
-                text = when {
-                    book.totalPages > 0 && isAudiobook ->
-                        trf("Min {x} de {y}", "x" to book.currentPage, "y" to book.totalPages)
-                    book.totalPages > 0 ->
-                        trf("Página {x} de {y}", "x" to book.currentPage, "y" to book.totalPages)
-                    isAudiobook -> "min. ${book.currentPage}"
-                    else -> "p. ${book.currentPage}"
-                } + " ✎",
+                // R4: an attached EPUB says 43%, because it has no pages to count.
+                // // PT: um EPUB anexado diz percentagem — não tem páginas.
+                text = bookProgressLabel(book) + " ✎",
                 color = colors.ink2,
                 style = PautaType.Meta,
                 modifier = Modifier
@@ -193,9 +188,9 @@ fun BookDetailSheet(
                     .padding(vertical = 4.dp),
             )
         }
-        if (book.totalPages > 0) {
+        bookProgressFraction(book)?.let { fraction ->
             Spacer(Modifier.height(6.dp))
-            ProgressBar(book.currentPage.toFloat() / book.totalPages.coerceAtLeast(1))
+            ProgressBar(fraction)
         }
 
         // ── K-extra: pace + ETA · R6: reading speed ──
@@ -243,9 +238,16 @@ fun BookDetailSheet(
                 color = colors.ink3,
                 style = PautaType.MetaSmall,
             )
-            val eta = if (book.totalPages > 0) {
-                BookMath.etaDays(book.totalPages - book.currentPage, pace)
-            } else null
+            // R4: an EPUB has no total pages, but it does have a total — a hundred
+            // per cent of itself — and the pace is already measured in the same
+            // unit. // PT: um EPUB não tem páginas, mas tem 100%, e o ritmo já vem
+            // nessa unidade.
+            val remaining = when {
+                countsPercent(book) -> 100 - book.currentPage.coerceIn(0, 100)
+                book.totalPages > 0 -> book.totalPages - book.currentPage
+                else -> null
+            }
+            val eta = remaining?.let { BookMath.etaDays(it, pace) }
             if (eta != null && eta > 0) {
                 Spacer(Modifier.height(2.dp))
                 Text(
@@ -422,12 +424,15 @@ fun BookDetailSheet(
     }
 }
 
-/** Inline number input for the progress line: pages, or minutes for audiobooks. */
+/** Inline number input for the progress line: pages, minutes for audiobooks, or
+ *  (R4) a percentage for an attached EPUB. // PT: páginas, minutos ou percentagem. */
 @Composable
 private fun ProgressEditor(book: BookEntity, onConfirm: (Int) -> Unit, onCancel: () -> Unit) {
     var value by remember { mutableStateOf(book.currentPage.takeIf { it > 0 }?.toString() ?: "") }
     val focus = rememberAutoFocusRequester()
-    fun submit() = onConfirm(value.toIntOrNull() ?: book.currentPage)
+    val max = bookProgressMax(book)
+    fun clamp(n: Int) = if (max != null) n.coerceIn(0, max) else n
+    fun submit() = onConfirm(clamp(value.toIntOrNull() ?: book.currentPage))
 
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         Box(Modifier.width(110.dp)) {

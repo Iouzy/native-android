@@ -256,17 +256,15 @@ private fun BookProgressCard(book: BookEntity, onOpenReader: () -> Unit, onOpenD
             )
         }
         Spacer(Modifier.height(12.dp))
-        if (book.totalPages > 0) {
-            ProgressBar(book.currentPage.toFloat() / book.totalPages.coerceAtLeast(1))
+        bookProgressFraction(book)?.let { fraction ->
+            ProgressBar(fraction)
             Spacer(Modifier.height(6.dp))
         }
         Text(
-            text = if (book.totalPages > 0) {
-                "${book.currentPage} / ${book.totalPages} $unit"
-            } else {
-                // Unknown length: no bar, just the position reached.
-                "$unit ${book.currentPage}"
-            },
+            // Unknown length: no bar, just the position reached. R4: an attached
+            // EPUB is a percentage either way. // PT: sem tamanho não há barra; um
+            // EPUB é sempre percentagem.
+            text = bookProgressShort(book, unit),
             color = colors.ink3,
             style = PautaType.MetaSmall,
             modifier = if (canRead) Modifier.clickableNoRipple(onOpenDetail) else Modifier,

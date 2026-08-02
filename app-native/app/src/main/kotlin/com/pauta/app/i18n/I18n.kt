@@ -837,6 +837,19 @@ object I18n {
         // TalkBack only: the reader's "⋯" opens the book's detail sheet.
         "Detalhes do livro" to "Book details", // native-only
 
+        // ── R4 · the EPUB reader ──
+        // An EPUB that won't parse says so in its own words: the PDF sentence
+        // above is about a process refusing a file, this one is about a book that
+        // isn't one. // PT: um EPUB que não abre tem frase própria.
+        "Não foi possível abrir este EPUB." to "Could not open this EPUB.", // native-only
+        // Where you are in a book that has no pages to count.
+        "Capítulo {n} de {total}" to "Chapter {n} of {total}", // native-only
+        // §6: the engine updates outside our release cycle, so it can be absent or
+        // years old — and untrusted HTML doesn't go into an engine we don't know.
+        // // PT: sem um WebView atual, o livro não é aberto.
+        "Atualiza o Android System WebView para ler EPUBs." to
+            "Update Android System WebView to read EPUBs.", // native-only
+
         // ── R5 · the reader is the session ──
         // The receipt that replaced the "até que página chegaste?" sheet for a book
         // with a file: one snackbar line, and an "Anular" that already exists.

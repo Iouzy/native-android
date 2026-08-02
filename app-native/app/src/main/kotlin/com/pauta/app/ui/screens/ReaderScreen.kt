@@ -25,6 +25,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -46,7 +47,11 @@ import com.pauta.app.data.AttachResult
 import com.pauta.app.data.BookFiles
 import com.pauta.app.data.entity.BookEntity
 import com.pauta.app.domain.BookImport
+import com.pauta.app.domain.Epub
 import com.pauta.app.i18n.tr
+import com.pauta.app.i18n.trf
+import com.pauta.app.service.EpubInfo
+import com.pauta.app.service.EpubSession
 import com.pauta.app.service.PdfInfo
 import com.pauta.app.service.PdfSession
 import com.pauta.app.ui.PautaButton
@@ -120,10 +125,10 @@ fun ReaderScreen(bookId: String, onClose: () -> Unit) {
     }
 
     val path = book.filePath
-    // Re-attaching the same book lands on the same path (`books/<id>.pdf`), so the
-    // path alone can't tell "there is a file now" from "there wasn't one a moment
-    // ago". This counter can. // PT: reanexar dá o mesmo caminho — é este contador
-    // que diz que o ficheiro mudou.
+    // Re-attaching the same book lands on the same path (`books/<id>.<ext>`), so
+    // the path alone can't tell "there is a file now" from "there wasn't one a
+    // moment ago". This counter can. // PT: reanexar dá o mesmo caminho — é este
+    // contador que diz que o ficheiro mudou.
     var attachEpoch by remember { mutableIntStateOf(0) }
     // §5 of the Security model: the reader opens exactly one path — the one on the
     // book's row, and only if it really is inside `filesDir/books/`. A tampered
@@ -132,68 +137,15 @@ fun ReaderScreen(bookId: String, onClose: () -> Unit) {
     val present = remember(path, attachEpoch) {
         path != null && BookFiles.isOurs(context, path) && File(path).isFile
     }
-    // R3 reads PDFs. An attached EPUB keeps its manual progress editor until R4
-    // teaches this shell the other branch. // PT: por agora o leitor é de PDFs.
-    val readable = present && book.fileKind == "pdf"
+    val kind = if (present) book.fileKind else null
 
-    val session = remember(path, readable) { if (readable) PdfSession(context) else null }
-    var info by remember(path, readable) { mutableStateOf<PdfInfo?>(null) }
-    var failed by remember(path, readable) { mutableStateOf(false) }
-    LaunchedEffect(session) {
-        val s = session ?: return@LaunchedEffect
-        val opened = s.open(path!!)
-        if (opened == null) failed = true else info = opened
-    }
-    DisposableEffect(session) { onDispose { session?.close() } }
-
-    val listState = rememberLazyListState()
-    var restored by remember(path) { mutableStateOf(false) }
-    // R5: where this sitting began — the page the bookmark opened on, 1-based like
-    // every page the app shows. It is the session's starting line, and the reason a
-    // ten-second peek can tell itself apart from reading. // PT: a página onde esta
-    // sessão começou.
-    var startPage by remember(path) { mutableIntStateOf(0) }
-    // Restore before anything can scroll: the bookmark is a page index, and a
-    // book with no bookmark starts at the beginning. // PT: repõe a página
-    // guardada antes de qualquer scroll.
-    LaunchedEffect(info) {
-        val pages = info?.pageCount ?: return@LaunchedEffect
-        val start = (book.readPosition.toIntOrNull() ?: 0).coerceIn(0, (pages - 1).coerceAtLeast(0))
-        listState.scrollToItem(start)
-        startPage = start + 1
-        restored = true
-    }
-    // A page that stays put for a second is where the reader is. // PT: a página
-    // que fica parada um segundo é a posição a guardar.
-    LaunchedEffect(restored) {
-        if (!restored) return@LaunchedEffect
-        snapshotFlow { listState.firstVisibleItemIndex }
-            .distinctUntilChanged()
-            .collectLatest { page ->
-                delay(PositionDebounceMs)
-                vm.setReadPosition(bookId, page.toString())
-            }
-    }
-    // …and leaving is a settle too, however abrupt.
-    //
-    // R5: it is also the end of a reading session — the bookmark, the progress and
-    // the block are one write, because they all describe the same act and two
-    // read-modify-writes racing over the book's row would lose one of them. Nothing
-    // is asked: the reader knows what page it was left on. // PT: sair guarda o
-    // marcador, o progresso e a sessão de uma só vez — sem perguntar a página.
-    DisposableEffect(bookId, path) {
-        onDispose {
-            if (restored) {
-                val page = listState.firstVisibleItemIndex
-                vm.endReading(bookId, startPage, page + 1, page.toString())
-            }
-        }
-    }
-
-    // Chrome starts visible (so the way back is never a secret), then gets out of
-    // the way. With nothing to read it stays. // PT: a cromagem aparece, esconde-se
-    // sozinha, e fica se não houver nada para ler.
-    val showingPages = present && readable && !failed && info != null
+    // R4: both formats keep the same shell, and the shell knows about neither.
+    // Each half writes where the reader is into this one place — a page for a
+    // PDF, a percentage for an EPUB — and the chrome, the bookmark and the
+    // session read it without asking which kind of book they are looking at.
+    // // PT: os dois formatos escrevem a posição no mesmo sítio; a casca não
+    // precisa de saber qual é qual.
+    val state = remember(path, kind) { ReaderState() }
 
     // R5: opening the reader is starting to read. A document that actually renders
     // starts the very session the Sessão tab starts — the same block, the same
@@ -202,22 +154,48 @@ fun ReaderScreen(bookId: String, onClose: () -> Unit) {
     // book is joined, never doubled; a file that won't open starts nothing.
     // // PT: abrir o livro começa (ou entra n') a sessão de leitura — a mesma que
     // a tab Sessão cria. Um ficheiro que não abre não começa nada.
-    LaunchedEffect(showingPages) {
-        if (showingPages) vm.beginReading(bookId, book.title)
+    LaunchedEffect(state.ready) {
+        if (state.ready) vm.beginReading(bookId, book.title)
     }
 
+    // A position that stays put for a second is where the reader is. // PT: a
+    // posição que fica parada um segundo é a que se guarda.
+    LaunchedEffect(state.ready) {
+        if (!state.ready) return@LaunchedEffect
+        snapshotFlow { state.position }
+            .distinctUntilChanged()
+            .collectLatest { position ->
+                delay(PositionDebounceMs)
+                if (position.isNotEmpty()) vm.setReadPosition(bookId, position)
+            }
+    }
+
+    // …and leaving is a settle too, however abrupt.
+    //
+    // R5: it is also the end of a reading session — the bookmark, the progress and
+    // the block are one write, because they all describe the same act and two
+    // read-modify-writes racing over the book's row would lose one of them. Nothing
+    // is asked: the reader knows where it was left. // PT: sair guarda o marcador,
+    // o progresso e a sessão de uma só vez — sem perguntar nada.
+    DisposableEffect(bookId, path, kind) {
+        onDispose {
+            if (state.ready) vm.endReading(bookId, state.startUnit, state.unit, state.position)
+        }
+    }
+
+    // Chrome starts visible (so the way back is never a secret), then gets out of
+    // the way. With nothing to read it stays. // PT: a cromagem aparece, esconde-se
+    // sozinha, e fica se não houver nada para ler.
     var chrome by remember { mutableStateOf(true) }
-    LaunchedEffect(chrome, showingPages) {
-        if (chrome && showingPages) {
+    LaunchedEffect(chrome, state.ready) {
+        if (chrome && state.ready) {
             delay(ChromeLingerMs)
             chrome = false
         }
     }
-    val chromeVisible = chrome || !showingPages
+    val chromeVisible = chrome || !state.ready
 
     var showDetail by remember { mutableStateOf(false) }
-    val page = listState.firstVisibleItemIndex + 1
-    val pages = info?.pageCount ?: 0
 
     Box(
         Modifier
@@ -230,16 +208,24 @@ fun ReaderScreen(bookId: String, onClose: () -> Unit) {
             !present -> MissingFileNotice(bookId = bookId, onAttached = { attachEpoch++ })
             // It wouldn't open, or `:reader` died trying — said once, and not
             // retried. // PT: não abriu (ou o processo morreu) — dito uma vez.
-            failed || !readable -> ReaderNotice(tr("Não foi possível abrir este ficheiro."))
-            info != null -> PdfPages(
-                session = session!!,
-                info = info!!,
-                listState = listState,
-                onTapMiddle = { chrome = !chrome },
-                onReaderDied = { failed = true },
-                modifier = Modifier.fillMaxSize(),
+            state.failed -> ReaderNotice(
+                if (kind == "epub") tr("Não foi possível abrir este EPUB.")
+                else tr("Não foi possível abrir este ficheiro."),
             )
-            else -> ReaderNotice(tr("A abrir…"))
+            kind == "pdf" -> PdfReaderHost(
+                path = path!!,
+                book = book,
+                state = state,
+                onTapMiddle = { chrome = !chrome },
+            )
+            kind == "epub" -> EpubReaderHost(
+                path = path!!,
+                book = book,
+                state = state,
+                onTapMiddle = { chrome = !chrome },
+                onWordCount = { words -> vm.setWordCount(bookId, words) },
+            )
+            else -> ReaderNotice(tr("Não foi possível abrir este ficheiro."))
         }
 
         AnimatedVisibility(
@@ -256,12 +242,12 @@ fun ReaderScreen(bookId: String, onClose: () -> Unit) {
         }
 
         AnimatedVisibility(
-            visible = chromeVisible && showingPages && pages > 0,
+            visible = chromeVisible && state.ready && state.label.isNotEmpty(),
             enter = if (animate) fadeIn(PautaMotion.tween()) else EnterTransition.None,
             exit = if (animate) fadeOut(PautaMotion.tween()) else ExitTransition.None,
             modifier = Modifier.align(Alignment.BottomCenter),
         ) {
-            ReaderBottomBar(page = page, pages = pages)
+            ReaderBottomBar(label = state.label, fraction = state.fraction)
         }
     }
 
@@ -273,9 +259,228 @@ fun ReaderScreen(bookId: String, onClose: () -> Unit) {
 }
 
 /**
- * R3: whether a book can be opened in the reader right now — it has an attached
- * document of a kind this build renders, that file is one of ours, and it is
- * still on disk. The shelf and the detail sheet both ask before offering to read.
+ * Where the reader is, in the one shape the shell understands. [unit] is what a
+ * reading session is measured in — a page for a PDF, a percentage point for an
+ * EPUB — which is exactly what `BookMath` already means by a unit of progress,
+ * so the session, the pace and the speed all keep working across both formats
+ * without knowing which they are looking at. // PT: a posição em unidades: página
+ * num PDF, ponto percentual num EPUB.
+ */
+private class ReaderState {
+    /** True once the document is open, restored and showing. */
+    var ready by mutableStateOf(false)
+    /** True once it will never open — said once, never retried. */
+    var failed by mutableStateOf(false)
+    /** Where this sitting started, so a peek can tell itself apart from reading. */
+    var startUnit by mutableIntStateOf(0)
+    /** Where the reader is now. */
+    var unit by mutableIntStateOf(0)
+    /** The bookmark, in the format its own half of the reader parses back. */
+    var position by mutableStateOf("")
+    /** What the chrome shows: "80 / 228" or "43%". */
+    var label by mutableStateOf("")
+    /** How full the hairline is, 0–1. */
+    var fraction by mutableFloatStateOf(0f)
+}
+
+/** The one line the EPUB chrome shows: how far through the book, and which
+ *  chapter of how many — a percentage alone tells you nothing about where to stop.
+ *  // PT: a percentagem e o capítulo; só a percentagem não diz onde parar. */
+private fun chapterLabel(percent: Int, chapter: Int, chapters: Int): String =
+    "$percent% · " + trf("Capítulo {n} de {total}", "n" to chapter + 1, "total" to chapters)
+
+/**
+ * R3: the PDF half — a column of pages drawn in `:reader`, with the bookmark as a
+ * plain zero-based page index. // PT: o PDF — páginas desenhadas no processo
+ * :reader; o marcador é o índice da página.
+ */
+@Composable
+private fun PdfReaderHost(
+    path: String,
+    book: BookEntity,
+    state: ReaderState,
+    onTapMiddle: () -> Unit,
+) {
+    val context = LocalContext.current
+    val session = remember(path) { PdfSession(context) }
+    var info by remember(path) { mutableStateOf<PdfInfo?>(null) }
+    LaunchedEffect(session) {
+        val opened = session.open(path)
+        if (opened == null) state.failed = true else info = opened
+    }
+    DisposableEffect(session) { onDispose { session.close() } }
+
+    val listState = rememberLazyListState()
+    // Restore before anything can scroll: the bookmark is a page index, and a
+    // book with no bookmark starts at the beginning. // PT: repõe a página
+    // guardada antes de qualquer scroll.
+    LaunchedEffect(info) {
+        val pages = info?.pageCount ?: return@LaunchedEffect
+        val start = (book.readPosition.toIntOrNull() ?: 0).coerceIn(0, (pages - 1).coerceAtLeast(0))
+        listState.scrollToItem(start)
+        state.startUnit = start + 1
+        state.unit = start + 1
+        state.position = start.toString()
+        state.ready = true
+    }
+    // The visible page is the position, the label and the hairline at once.
+    LaunchedEffect(listState, info) {
+        val pages = info?.pageCount ?: return@LaunchedEffect
+        snapshotFlow { listState.firstVisibleItemIndex }
+            .distinctUntilChanged()
+            .collect { index ->
+                state.unit = index + 1
+                state.position = index.toString()
+                state.label = "${index + 1} / $pages"
+                state.fraction = ((index + 1).toFloat() / pages.coerceAtLeast(1)).coerceIn(0f, 1f)
+            }
+    }
+
+    val opened = info
+    if (opened != null) {
+        PdfPages(
+            session = session,
+            info = opened,
+            listState = listState,
+            onTapMiddle = onTapMiddle,
+            onReaderDied = { state.failed = true },
+            modifier = Modifier.fillMaxSize(),
+        )
+    } else {
+        ReaderNotice(tr("A abrir…"))
+    }
+}
+
+/**
+ * R4: the EPUB half — one chapter at a time in one WebView, with the bookmark as
+ * `chapter:scroll` and progress weighted by words rather than by chapters, so a
+ * forty-page chapter moves the line further than a two-page one.
+ *
+ * An EPUB has no pages: text reflows with the type size, and a "page" would mean
+ * something different at every text scale. So this half counts in **percent**, and
+ * that is what the chrome shows, what the bookmark restores and what the session
+ * records. // PT: o EPUB conta em percentagem — não tem páginas, o texto reflui.
+ */
+@Composable
+private fun EpubReaderHost(
+    path: String,
+    book: BookEntity,
+    state: ReaderState,
+    onTapMiddle: () -> Unit,
+    onWordCount: (Int) -> Unit,
+) {
+    val context = LocalContext.current
+    // §6: an engine we don't know is an engine we don't render untrusted HTML in.
+    // // PT: sem um WebView atual, não se abre o livro.
+    val engineOk = remember { webViewUsable() }
+    if (!engineOk) {
+        ReaderNotice(tr("Atualiza o Android System WebView para ler EPUBs."))
+        return
+    }
+
+    val session = remember(path) { EpubSession(context) }
+    var info by remember(path) { mutableStateOf<EpubInfo?>(null) }
+    LaunchedEffect(session) {
+        val opened = session.open(path)
+        if (opened == null) state.failed = true else info = opened
+    }
+    DisposableEffect(session) { onDispose { session.close() } }
+
+    var chapter by remember(path) { mutableIntStateOf(0) }
+    var scroll by remember(path) { mutableFloatStateOf(0f) }
+    // The scroll to restore *once*, on the chapter the bookmark named. Cleared as
+    // soon as it has been used, so turning a chapter later starts at its top.
+    // // PT: o scroll a repor uma vez, no capítulo do marcador.
+    var restoreScroll by remember(path) { mutableFloatStateOf(0f) }
+
+    val opened = info
+
+    // Every move — a scroll or a chapter turn — is the same four facts, written
+    // where the shell reads them. Done here rather than in an effect keyed on the
+    // scroll: the engine reports a scroll many times a second, and restarting a
+    // coroutine for each one would be a lot of machinery for four assignments.
+    // // PT: cada movimento escreve os mesmos quatro factos; sem efeito por
+    // evento de scroll.
+    fun mark(atChapter: Int, atScroll: Float) {
+        val book0 = opened ?: return
+        val percent = Epub.percent(book0.chapterWords, atChapter, atScroll)
+        state.unit = percent
+        state.position = Epub.formatPosition(atChapter, atScroll)
+        state.label = chapterLabel(percent, atChapter, book0.chapterCount)
+        state.fraction = percent / 100f
+    }
+
+    LaunchedEffect(opened) {
+        val book0 = opened ?: return@LaunchedEffect
+        // The word count is the book's, not a session's: store it once so the
+        // detail sheet can stop estimating this book's reading speed at 280 words
+        // a page. // PT: guarda a contagem de palavras — o ritmo deixa de ser
+        // estimativa.
+        val words = book0.chapterWords.sum()
+        if (words > 0 && words != book.wordCount) onWordCount(words)
+
+        val mark0 = Epub.parsePosition(book.readPosition)
+        val start = (mark0?.chapter ?: 0).coerceIn(0, (book0.chapterCount - 1).coerceAtLeast(0))
+        chapter = start
+        scroll = mark0?.scroll ?: 0f
+        restoreScroll = mark0?.scroll ?: 0f
+        mark(start, scroll)
+        state.startUnit = state.unit
+        state.ready = true
+    }
+
+    // Nothing is drawn until the bookmark has been read: composing the first
+    // chapter before it would fetch chapter 0 only to throw it away. // PT: só
+    // desenha depois do marcador — senão buscava o capítulo 0 para o deitar fora.
+    if (opened == null || !state.ready) {
+        ReaderNotice(tr("A abrir…"))
+        return
+    }
+
+    fun turn(to: Int) {
+        val next = to.coerceIn(0, opened.chapterCount - 1)
+        if (next == chapter) return
+        chapter = next
+        scroll = 0f
+        restoreScroll = 0f
+        mark(next, 0f)
+    }
+
+    EpubChapterView(
+        session = session,
+        chapter = chapter,
+        restoreScroll = restoreScroll,
+        onScroll = { value ->
+            scroll = value
+            mark(chapter, value)
+            // The bookmark has been honoured; from here the reader is following
+            // the finger. // PT: o marcador já foi reposto.
+            if (restoreScroll != 0f) restoreScroll = 0f
+        },
+        onTap = { tap ->
+            when (tap) {
+                ReaderTap.PREVIOUS -> turn(chapter - 1)
+                ReaderTap.NEXT -> turn(chapter + 1)
+                ReaderTap.MIDDLE -> onTapMiddle()
+            }
+        },
+        // A link inside a book never navigates the engine (that is refused
+        // unconditionally); one that points at another chapter of this book is
+        // resolved here and turned to. Anything else does nothing, which is the
+        // whole point. // PT: um link interno é resolvido aqui; o resto não faz
+        // nada.
+        onLink = { url -> opened.chapterFor(url)?.let { turn(it) } },
+        onFailed = { state.failed = true },
+        modifier = Modifier.fillMaxSize(),
+    )
+}
+
+/**
+ * R3 · R4: whether a book can be opened in the reader right now — it has an
+ * attached document of a kind this build renders (both, since R4), that file is
+ * one of ours, and it is still on disk. An EPUB on a device with no usable
+ * browser engine still says yes: the reader explains why it cannot render it,
+ * which is more use than a "Ler" button that quietly isn't there. The shelf and the detail sheet both ask before offering to read.
  * R5 asks it of the session tab's "Continuar a ler" too, where there may be no
  * book selected at all — hence the nullable argument. // PT: se o livro pode mesmo
  * ser aberto — formato suportado e ficheiro nosso, ainda presente.
@@ -285,7 +490,7 @@ internal fun rememberCanRead(book: BookEntity?): Boolean {
     val context = LocalContext.current
     return remember(book?.filePath, book?.fileKind) {
         val path = book?.filePath
-        book?.fileKind == "pdf" && path != null &&
+        (book?.fileKind == "pdf" || book?.fileKind == "epub") && path != null &&
             BookFiles.isOurs(context, path) && File(path).isFile
     }
 }
@@ -332,10 +537,11 @@ private fun ReaderTopBar(title: String, onBack: () -> Unit, onDetails: () -> Uni
     }
 }
 
-/** Where you are, twice: the count and a hairline of it. // PT: a posição, em
- *  número e em traço. */
+/** Where you are, twice: the count and a hairline of it. The count is a page in a
+ *  PDF and a percentage in an EPUB — the shell is handed the sentence rather than
+ *  the numbers. // PT: a posição, em texto e em traço. */
 @Composable
-private fun ReaderBottomBar(page: Int, pages: Int) {
+private fun ReaderBottomBar(label: String, fraction: Float) {
     val colors = LocalPautaColors.current
     Column(
         Modifier
@@ -350,13 +556,13 @@ private fun ReaderBottomBar(page: Int, pages: Int) {
         ) {
             Box(
                 Modifier
-                    .fillMaxWidth((page.toFloat() / pages.coerceAtLeast(1)).coerceIn(0f, 1f))
+                    .fillMaxWidth(fraction.coerceIn(0f, 1f))
                     .height(2.dp)
                     .background(colors.accent),
             )
         }
         Text(
-            text = "$page / $pages",
+            text = label,
             color = colors.ink3,
             style = PautaType.Meta,
             modifier = Modifier

@@ -383,11 +383,7 @@ private fun ContinueReadingCard(book: BookEntity, onOpen: () -> Unit) {
                 )
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    text = if (book.totalPages > 0) {
-                        trf("Página {x} de {y}", "x" to page, "y" to book.totalPages)
-                    } else {
-                        "p. $page"
-                    },
+                    text = bookProgressLabel(book, page),
                     color = colors.ink3,
                     style = PautaType.Meta,
                 )
@@ -395,9 +391,9 @@ private fun ContinueReadingCard(book: BookEntity, onOpen: () -> Unit) {
             Spacer(Modifier.width(12.dp))
             Text("›", color = colors.accent, fontSize = 20.sp)
         }
-        if (book.totalPages > 0) {
+        bookProgressFraction(book, page)?.let { fraction ->
             Spacer(Modifier.height(14.dp))
-            ProgressBar(page.toFloat() / book.totalPages.coerceAtLeast(1))
+            ProgressBar(fraction)
         }
     }
 }
