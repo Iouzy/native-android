@@ -34,6 +34,7 @@ given area. **`docs/TASK_FILE_FORMAT.md` is the shape they all follow: read it
 before writing a new task file**, and follow it for anything new (the files
 below predate it and are deliberately not retrofitted).
 
+>>>>>>> origin/main
 Five more task files follow the exact same protocol:
 
 - `docs/BOOK_MODE.md` — book-mode feature, K1–K9 + K-extra (**complete**).
@@ -47,11 +48,18 @@ Five more task files follow the exact same protocol:
   sheet/keyboard race, timer presets + custom minutes, the Hoje composer, and
   the Settings information architecture (regroup, search, update sheet, mode
   switcher).
+- `docs/BOOK_LIBRARY.md` — **active, and first**: book mode round three,
+  L1…L12, written from a full review of K + R. Phase L-0 is three promises the
+  app makes and does not keep — the wipe that doesn't wipe the library, the
+  library that's in no backup while reading sessions leak into `pauta.v4`, the
+  statuses no UI can reach — and they outrank everything in FIELD_FIXES. Then
+  the reader controls a reader expects, then the shelf at a hundred books.
 - `docs/FIELD_FIXES.md` — **the active one**, F1…F16: defects found by *using*
   the app rather than by reading a spec. Ordered by what each costs the person
   using it, so the prompt carries no number — "faz o próximo em
   `docs/FIELD_FIXES.md`" always means the first task still `pending`, and the
-  reply opens with the progress bullet the file specifies.
+  reply opens with the progress bullet the file specifies. Run it after
+  `BOOK_LIBRARY.md`'s Phase L-0.
 
 ## Architecture (`app-native/`)
 
