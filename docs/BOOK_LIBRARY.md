@@ -160,7 +160,7 @@ survive, `filesDir/books/` is empty, and planner mode is exactly as before;
 
 ---
 
-### L2 · The library in a backup — and out of `pauta.v4` — Status: pending
+### L2 · The library in a backup — and out of `pauta.v4` — Status: done (PR #182)
 
 **Depends on:** nothing (do it after L1 — they touch adjacent code)
 
@@ -932,3 +932,4 @@ its data is already parsed and thrown away.
 
 <!-- e.g. 2026-08-03 · L1 · #n · resetAll now clears books, notes and filesDir/books -->
 2026-08-02 · L1 · #181 · resetAll now clears book_notes, books and filesDir/books/ via BookFiles.clearAll; reseed inherits the fix
+2026-08-02 · L2 · #182 · snapshot()/importJson() filter book blocks both ways (rule now single-sourced in BookBackup); new pauta.books.v1 export/import merges by id, no filePath/fileKind, two rows in Settings → Dados (book mode only)

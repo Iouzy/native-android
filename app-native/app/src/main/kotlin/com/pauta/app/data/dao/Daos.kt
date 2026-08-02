@@ -78,6 +78,15 @@ interface FocusBlockDao {
     @Query("SELECT * FROM focus_blocks WHERE id = :id") suspend fun getById(id: String): FocusBlockEntity?
     @Query("SELECT * FROM focus_blocks") suspend fun getAll(): List<FocusBlockEntity>
     @Query("DELETE FROM focus_blocks") suspend fun clear()
+
+    // L2: restoring a pauta.v4 backup must not delete the book library with it —
+    // a reading session is a block with project "book:<id>", and clear() took
+    // those too. GLOB rather than LIKE because LIKE is case-insensitive in
+    // SQLite: a planner project someone actually typed as "Book: Dune" is
+    // planner data, and Kotlin's startsWith("book:") agrees. // PT: limpa só os
+    // blocos do planeador; as sessões de leitura ficam.
+    @Query("DELETE FROM focus_blocks WHERE project IS NULL OR project NOT GLOB 'book:*'")
+    suspend fun clearPlanner()
 }
 
 @Dao
@@ -97,6 +106,11 @@ interface FocusSessionDao {
     @Query("SELECT * FROM focus_sessions") suspend fun getAll(): List<FocusSessionEntity>
     @Query("DELETE FROM focus_sessions WHERE blockId = :blockId") suspend fun deleteForBlock(blockId: String)
     @Query("DELETE FROM focus_sessions") suspend fun clear()
+
+    // L2's other half — run this BEFORE [FocusBlockDao.clearPlanner], while the
+    // blocks it selects still exist. // PT: correr antes de apagar os blocos.
+    @Query("DELETE FROM focus_sessions WHERE blockId IN (SELECT id FROM focus_blocks WHERE project IS NULL OR project NOT GLOB 'book:*')")
+    suspend fun clearPlanner()
 }
 
 @Dao
@@ -245,6 +259,11 @@ interface BookDao {
 @Dao
 interface BookNoteDao {
     @Insert suspend fun insert(note: BookNoteEntity): Long
+
+    // L2: the library import merges by id, so a note already on the shelf is
+    // written over rather than colliding. // PT: a importação junta por id.
+    @Upsert suspend fun upsert(note: BookNoteEntity)
+
     @Query("DELETE FROM book_notes WHERE id = :id") suspend fun deleteById(id: String)
 
     @Query("SELECT * FROM book_notes WHERE bookId = :bookId ORDER BY createdAt DESC")

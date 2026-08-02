@@ -1,6 +1,7 @@
 package com.pauta.app.data
 
 import com.pauta.app.data.entity.DayEntity
+import com.pauta.app.data.entity.FocusBlockEntity
 import com.pauta.app.data.entity.HabitEntity
 import com.pauta.app.data.entity.HabitLogEntity
 import com.pauta.app.data.entity.HabitRespiroEntity
@@ -58,5 +59,27 @@ class WebBackupExportTest {
         assertEquals(1, habit["log"]!!.jsonObject["2024-06-09"]!!.jsonPrimitive.int)
         val resp = habit["respiros"]!!.jsonObject["2024-06-07"]!!.jsonObject
         assertEquals("doente", resp["reason"]!!.jsonPrimitive.content)
+    }
+
+    /**
+     * L2: `WebBackup` is the *format*, and the format is unchanged — hand it a
+     * reading-session block and it still round-trips one. Deciding that it never
+     * should be handed one is the repository's job, and lives with the rule
+     * itself in [BookBackup] (see `BookBackupTest.plannerOnly…`).
+     * // PT: o formato não mudou; quem decide o que entra é o repositório.
+     */
+    @Test fun theFormatItselfStillRoundTripsABookBlock() {
+        val snap = sampleSnapshot().copy(
+            blocks = listOf(
+                FocusBlockEntity(
+                    id = "b_r1", title = "A Jangada de Pedra", project = "book:bk_1",
+                    status = "done", createdAt = 5_000L,
+                ),
+            ),
+        )
+        val data = WebBackup.json.parseToJsonElement(WebBackup.export(snap)).jsonObject["data"]!!.jsonObject
+        val block = data["blocks"]!!.jsonArray[0].jsonObject
+        assertEquals("book:bk_1", block["project"]!!.jsonPrimitive.content)
+        assertEquals("b_r1", WebBackup.import(WebBackup.export(snap)).blocks[0].id)
     }
 }

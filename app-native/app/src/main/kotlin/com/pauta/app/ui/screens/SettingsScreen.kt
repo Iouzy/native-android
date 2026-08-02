@@ -77,7 +77,9 @@ import androidx.core.content.ContextCompat
 import com.pauta.app.BuildConfig
 import com.pauta.app.MainActivity
 import com.pauta.app.R
+import com.pauta.app.data.BookBackup
 import com.pauta.app.data.entity.HabitEntity
+import com.pauta.app.domain.DateUtils
 import com.pauta.app.service.ReminderScheduler
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -157,6 +159,28 @@ fun SettingsScreen(
                 context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
             }.getOrNull()
             if (!text.isNullOrBlank()) vm.importBackup(text) {}
+        }
+    }
+    // L2: the library's own import. Book data never enters pauta.v4, so it has a
+    // file and a picker of its own — and it merges rather than replacing, so the
+    // outcome (how many books, or a refusal) has to be reported back.
+    // // PT: importação da biblioteca — ficheiro à parte, e junta em vez de
+    // substituir, por isso o resultado tem de ser dito.
+    var libraryExportMsg by remember { mutableStateOf<String?>(null) }
+    var libraryImportMsg by remember { mutableStateOf<String?>(null) }
+    val libraryImportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri != null) {
+            val text = runCatching {
+                context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
+            }.getOrNull()
+            if (text.isNullOrBlank()) {
+                libraryImportMsg = tr("Este ficheiro não é uma biblioteca Pauta.")
+            } else {
+                vm.importLibrary(text) { n ->
+                    libraryImportMsg = if (n == null) tr("Este ficheiro não é uma biblioteca Pauta.")
+                    else trf("{n} livros importados", "n" to n)
+                }
+            }
         }
     }
     // B1: pick a folder for the auto-backup (SAF). Persist read+write permission
@@ -669,6 +693,30 @@ fun SettingsScreen(
         subtitle = tr("Restaura a partir de um ficheiro .json."),
         keywords = "backup import importar restore restaurar json",
     ) { importLauncher.launch("application/json") })
+    // L2 · The library's two rows, book mode only. The shelf is not in the
+    // pauta.v4 file above — that one is the planner's, and shareable — so it
+    // gets its own, and says so. The row's *value* carries the outcome, the
+    // same way "Atualizações" reports its state. // PT: as duas linhas da
+    // biblioteca; o valor da linha diz o que aconteceu.
+    if (prefs.bookMode) {
+        dadosRows.add(actionRow(
+            label = tr("Exportar biblioteca"),
+            subtitle = tr("Livros, notas e sessões de leitura."),
+            value = libraryExportMsg,
+            keywords = "backup export exportar livros biblioteca library books",
+        ) {
+            vm.exportLibrary { json ->
+                shareBackup(context, json, BookBackup.fileName(DateUtils.todayKey()))
+                libraryExportMsg = tr("Biblioteca exportada")
+            }
+        })
+        dadosRows.add(actionRow(
+            label = tr("Importar biblioteca"),
+            subtitle = tr("Junta à biblioteca atual; nada é apagado."),
+            value = libraryImportMsg,
+            keywords = "backup import importar livros biblioteca library books",
+        ) { libraryImportLauncher.launch("application/json") })
+    }
     // Only surfaced once there's something archived — keeps the section
     // quiet for everyone else. // PT: só aparece quando há marés arquivadas.
     if (archivedHabits.isNotEmpty()) dadosRows.add(actionRow(
@@ -913,10 +961,17 @@ private fun sendTestReminder(context: android.content.Context): Boolean {
     return runCatching { NotificationManagerCompat.from(context).notify(998, notif) }.isSuccess
 }
 
-/** Write the backup JSON to a cache file and fire a share sheet via FileProvider. */
-private fun shareBackup(context: android.content.Context, json: String) {
+/** Write the backup JSON to a cache file and fire a share sheet via FileProvider.
+ *  L2 names the file, because there are two kinds now and "pauta-backup.json" for
+ *  both would be a trap on the way back in. // PT: o nome vem de fora — há dois
+ *  tipos de ficheiro. */
+private fun shareBackup(
+    context: android.content.Context,
+    json: String,
+    fileName: String = "pauta-backup.json",
+) {
     val dir = File(context.cacheDir, "backups").apply { mkdirs() }
-    val file = File(dir, "pauta-backup.json")
+    val file = File(dir, fileName)
     file.writeText(json)
     val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
     val send = Intent(Intent.ACTION_SEND).apply {
