@@ -53,6 +53,36 @@ Requires JDK 17+ and the Android SDK (compileSdk 35). CI
 validation artifact on every push that touches `app-native/`; on `main` it also
 publishes the rolling `latest-native` release the in-app updater polls.
 
+## Run it on an emulator (local dev)
+CI can compile and test the app but never *sees* it. To look at a change, run it
+on an emulator from a local checkout. // PT: o CI compila mas não vê o ecrã.
+
+One-time setup: install Android Studio, open this folder with it once (it writes
+`local.properties` with the SDK path), then Device Manager → **+** → any Pixel →
+API 35. Or from the command line, with `ANDROID_HOME` set:
+
+```bash
+sdkmanager "platforms;android-35" "build-tools;35.0.0" "platform-tools" \
+           "emulator" "system-images;android-35;google_apis;x86_64"
+avdmanager create avd -n pauta -k "system-images;android-35;google_apis;x86_64"
+```
+
+Then, every time:
+
+```bash
+emulator -avd pauta &                     # boot it (Linux needs KVM, Windows WHPX)
+adb wait-for-device
+cd app-native && ./gradlew :app:installDebug
+adb shell am start -n com.pauta.app/.MainActivity
+adb exec-out screencap -p > /tmp/pauta.png   # what the screen actually shows
+```
+
+On Windows use `.\gradlew.bat` from PowerShell (`./gradlew` is the Unix wrapper),
+and run the session outside WSL — `adb` and `emulator` are Windows binaries there.
+
+The APK is signed with the repo-root `debug.keystore`, so an emulator install
+upgrades in place and keeps its data — the same property OTA updates rely on.
+
 ## Stack
 Kotlin 2.0 · Compose (BOM 2024.09.03, Material3) · Room + KSP · DataStore ·
 Lifecycle / Navigation / Activity Compose · kotlinx.serialization (backup v4) ·
