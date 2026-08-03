@@ -77,6 +77,9 @@ adb shell am start -n com.pauta.app/.MainActivity
 adb exec-out screencap -p > /tmp/pauta.png   # what the screen actually shows
 ```
 
+On Windows use `.\gradlew.bat` from PowerShell (`./gradlew` is the Unix wrapper),
+and run the session outside WSL — `adb` and `emulator` are Windows binaries there.
+
 The APK is signed with the repo-root `debug.keystore`, so an emulator install
 upgrades in place and keeps its data — the same property OTA updates rely on.
 
