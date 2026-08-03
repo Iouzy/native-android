@@ -75,8 +75,8 @@ jobs:
       # main only: build the user-facing release notes from the commit that landed
       # on main (the squash-merge subject + body), so the in-app "Novidades" screen
       # — which renders the GitHub release body verbatim — shows what actually
-      # changed instead of boilerplate. We drop the Claude Code session footer and
-      # lightly tidy the first line (task-code prefix + "(#NN)" PR suffix). The
+      # changed instead of boilerplate. We drop any trailing tooling footer URL
+      # and lightly tidy the first line (task-code prefix + "(#NN)" PR suffix). The
       # message is passed through an env var and never interpolated into the
       # script, so a commit message can't inject shell. // PT: notas da versão a
       # partir da mensagem do commit, para o ecrã de novidades mostrar o que mudou.

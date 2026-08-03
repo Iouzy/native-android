@@ -19,7 +19,7 @@
 
 **The prompt is always the same, and it carries no number:**
 
-> Faz o próximo em `docs/FIELD_FIXES.md`.
+> Do the next one in `docs/FIELD_FIXES.md`.
 
 **What that means, exactly** (Claude — this is binding):
 
@@ -29,17 +29,18 @@
    shape and no longer:
 
    ```
-   **Feito:** F1 ✓ · F2 ✓
-   **Agora:** F3 — o teclado que engole o que escreveste
-   **Falta:** F4…F13 (10)
+   **Done:** F1 ✓ · F2 ✓
+   **Now:** F3 — the keyboard that swallows what you wrote
+   **Left:** F4…F13 (10)
    ```
 
    Short, factual, no preamble. It exists so the owner knows where the work is
    without opening the file.
-3. Do **only** that task, following its spec and the Global guardrails.
+3. Do **only** that task, following its spec and `docs/GUARDRAILS.md`.
 4. Ship it via the CLAUDE.md workflow: branch → commit → PR → CI green →
    squash-merge.
-5. Update that task's **Status** and append its **Log** line **in the same PR**.
+5. Update that task's **Status**, append its **Log** line, and update
+   `docs/CONTEXT.md` — **all in the same PR**.
 6. Report what shipped, and say plainly what could not be verified here.
 
 If the first pending task is blocked on a decision, say so and stop — do not
@@ -50,25 +51,31 @@ Source paths below are relative to
 
 ---
 
-## Global guardrails (every task)
+## Guardrails
 
-All guardrails from `docs/NATIVE_IMPROVEMENTS.md`, `docs/BOOK_MODE.md`,
-`docs/POLISH.md` and `docs/BOOK_READER.md` apply unchanged — including the
-reader's **Security model**, which is binding on anything that touches the
-parser, the `:reader` process or the WebView. The ones that bite hardest here:
+**`docs/GUARDRAILS.md` applies in full.** It is binding and it is not restated
+here — including §G, the reader's **Security model**, which governs anything
+touching the parser, the `:reader` process or the WebView. The ones that bite
+hardest in this file:
 
-- **No new dependencies**, in the app or in the reader.
-- **Both lenses survive every task.** With `bookMode` off, the planner is
+- **§D — no new dependencies**, in the app or in the reader.
+- **§B — both lenses survive every task.** With `bookMode` off, the planner is
   untouched. Acceptance always includes "book mode on and off both look right".
-- **`javaScriptEnabled` is never true**; `addJavascriptInterface` appears nowhere
-  in the tree. No task below has a good enough reason, and none ever will.
-- **Prefs are law:** `reducedMotion`, `haptics`, `textScale`, `highContrast`,
-  TalkBack descriptions.
-- **The `pauta.v4` export stays lossless and unchanged.** Everything book-mode
-  is native-only.
-- **Anything the app records without being asked must be removable.** This is
-  the lesson of F1/F2 and it now applies to every future feature: automatic
-  capture is only defensible when it is reversible.
+- **§K.1–K.2 — `javaScriptEnabled` is never true**; `addJavascriptInterface`
+  appears nowhere in the tree. No task below has a good enough reason, and none
+  ever will.
+- **§E — prefs are law:** `reducedMotion`, `haptics`, `textScale`,
+  `highContrast`, TalkBack descriptions. Several defects below are only visible
+  at textScale 1.5 or in landscape; say which you tested.
+- **§C — the `pauta.v4` export stays lossless and unchanged.** Everything
+  book-mode is native-only.
+- **§H — anything the app records without being asked must be removable.** This
+  is the lesson of F1/F2, and it is a guardrail now rather than a note in this
+  file: automatic capture is only defensible when it is reversible.
+
+**Extra, specific to this file:** every defect below passed CI. A fix that is
+verified only by CI has not been verified — say in the Log what you actually
+exercised, and on what.
 
 ---
 
@@ -150,8 +157,8 @@ conversation that produced it.
 - **An attached EPUB counts in percent.** It has no pages; its text reflows with
   the type size. This is also the unit `BookMath.wordsPerUnit` already uses
   (`wordCount / 100`), which is why the pace and the WPM needed no special case.
-- **No cover art.** Settled in `docs/BOOK_READER.md`, August 2026. Still settled.
-- **One habit list.** `docs/BOOK_READER.md` R7 dropped a `bookHabit` column
+- **No cover art.** Settled August 2026; now in `docs/GUARDRAILS.md` §J.
+- **One habit list.** `docs/archive/BOOK_READER.md` R7 dropped a `bookHabit` column
   deliberately; F13 removes the tides from the book-mode tab rather than
   splitting them in two. Twice decided.
 
@@ -286,7 +293,7 @@ is no way to put it away. Back dismisses **the whole sheet**, and everything
 typed is gone. There is no gesture that closes the keyboard and keeps the form:
 the only two outcomes are "keyboard in the way" and "lose your work".
 
-`docs/UX_FIXES.md` U1 fixed the keyboard *arriving* mid-animation. Nobody fixed
+`docs/archive/UX_FIXES.md` U1 fixed the keyboard *arriving* mid-animation. Nobody fixed
 it leaving.
 
 **Files to touch:**
@@ -495,10 +502,22 @@ clipping. Keep that property — but make each `label + pills` group wrap as a
 that can clip.
 
 Includes the header chips (`DIAS ANTERIORES` / `A SEMANA` / `ROTINAS` /
-`REVISÃO`), which stack into three ragged right-aligned lines.
+`REVISÃO`), which stack into three ragged right-aligned lines at textScale 1.0
+and **four at 1.5**, consuming about a quarter of the viewport before any
+content.
 
-**Accept:** at textScale 1.0 and 1.3, every label sits with its own pills;
-nothing clips; the header chips read as a deliberate arrangement; CI green.
+**And the same fault in book mode**, added after the emulator run of 2026-08-03:
+the Estante header (`ui/screens/BookShelfScreen.kt`) wraps `✎ Nota + ·` onto one
+line and `Adicionar livro +` onto the next, leaving the separator `·` orphaned
+at the end of the first. Same cause, same fix, one PR.
+
+**Never:** solve the wrapping by clipping, by shrinking the text below the
+app's meta size, or by removing a chip. U3 made these flat siblings for a
+reason — a large `textScale` must wrap, not truncate.
+
+**Accept:** at textScale 1.0, 1.3 and 1.5, every label sits with its own pills
+and no separator is left orphaned; nothing clips; the header chips read as a
+deliberate arrangement in both Hoje and the Estante; CI green.
 
 ---
 
@@ -575,8 +594,21 @@ Write the rule down and apply it: the bottom strip belongs to Pip and the
 snackbar, and every scrolling screen reserves that height at the end of its
 content. Nothing that carries information may sit under a floating thing.
 
-**Accept:** in both modes, on all six screens, scrolling to the bottom leaves
-nothing hidden behind Pip; the snackbar still clears the tab bar; CI green.
+**And the rule is not about scrolling.** The wording above was written with a
+portrait scroll in mind, and the emulator run of 2026-08-03 found the worse
+case: **in landscape, Pip sits on top of the Pauta tab's play button** — the
+screen's primary action, not merely content, and reachable without scrolling at
+all. A short viewport puts the floating layer over the fold rather than under
+it. The rule is "nothing that carries information *or accepts a tap*", in every
+orientation.
+
+**Never:** fix this by moving Pip per screen. One rule, applied once, in the
+scaffold — a per-screen offset is how this returns.
+
+**Accept:** in both modes, on all six screens, in **portrait and landscape**,
+nothing that carries information or accepts a tap sits under Pip; scrolling to
+the bottom leaves nothing hidden; the snackbar still clears the tab bar; CI
+green.
 
 ---
 
@@ -666,20 +698,28 @@ while it is broken.
 F1 → F2 → F3 → F4 → F5 → F6 → F7 → F8 → F9 → F10 → F11 → F12 → F13
 ```
 
-**And this file is not the first one.** `docs/BOOK_LIBRARY.md` Phase L-0 — L1,
-L2, L3 — runs before F1. A wipe that leaves your library on disk and a backup
-that carries your reading list into a file you might share outrank a percentage
-that displays wrong. Three tasks that were in this file (the chapter index, the
-shelf at scale, notes anchored to a position) were dropped in favour of that
-file's L4, L8 and L6, which cover the same ground with more of it.
+**And this file is not the first one.** Two things run before F1:
+
+- **`docs/FIRST_RUN.md` N1**, alone and ahead of everything. On a clean Android
+  13+ install the app never requests `POST_NOTIFICATIONS`, so the focus
+  notification and all three daily reminders are dropped by the OS in silence.
+  A feature that does nothing outranks a feature that does the wrong thing.
+- **`docs/BOOK_LIBRARY.md` Phase L-0** — L1 and L2 are done; **L3** remains. A
+  wipe that leaves your library on disk and a backup that carries your reading
+  list into a file you might share outrank a percentage that displays wrong.
+
+Three tasks that were in this file (the chapter index, the shelf at scale, notes
+anchored to a position) were dropped in favour of `BOOK_LIBRARY.md`'s L4, L8 and
+L6, which cover the same ground with more of it. `docs/CONTEXT.md` §3 holds the
+combined order across all three active files.
 
 ---
 
-## Log (append one line per shipped task: date · task · PR · note · verified)
+## Log (append one line per shipped task: date · task · PR · note · Verified:)
 
-Every entry ends with **Verificado:** — what was actually exercised, and by
+Every entry ends with **Verified:** — what was actually exercised, and by
 whom. This file exists because a green test suite and a working app turned out
 to be different things; an entry that cannot say what was verified should say
 that instead.
 
-<!-- e.g. 2026-08-03 · F1 · #n · … · Verificado: JVM tests; não testado no telemóvel -->
+<!-- e.g. 2026-08-03 · F1 · #n · … · Verified: JVM tests; not tested on a phone -->

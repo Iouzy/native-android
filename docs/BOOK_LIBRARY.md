@@ -1,6 +1,7 @@
 # Book library — implementation task file
 
-> **Concept.** `docs/BOOK_MODE.md` built the lens and `docs/BOOK_READER.md`
+> **Concept.** `docs/archive/BOOK_MODE.md` built the lens and
+> `docs/archive/BOOK_READER.md`
 > built the reader. This file is round three, and it starts from a full review
 > of what those two shipped (August 2026). The reader itself is good: it opens
 > a book, it counts honestly, it keeps the security model. What is missing sits
@@ -24,7 +25,7 @@
 > Ships as 12 self-contained tasks (L1…L12). Each task is one PR. Tasks within
 > a phase are independent unless "Depends on:" says otherwise.
 
-> **How to use (human).** In a fresh Claude Code session, prompt:
+> **How to use (human).** In a fresh session, prompt:
 >
 > > Read `docs/BOOK_LIBRARY.md`. Do ONLY task **L1** — follow its spec and the
 > > Global guardrails. Ship it via the CLAUDE.md workflow (branch → PR → CI →
@@ -33,39 +34,49 @@
 > Or stateless: *"Read `docs/BOOK_LIBRARY.md` and do the first task whose
 > Status is `pending`."*
 >
-> **How to use (Claude).** This file + `CLAUDE.md` + the Data model sections of
-> `docs/BOOK_MODE.md` and `docs/BOOK_READER.md` are your complete briefing.
-> Don't re-survey the codebase beyond the files each task names. Always update
-> Status + Log in the same PR as the code.
+> **How to use (Claude).** This file + `CLAUDE.md` + `docs/GUARDRAILS.md` +
+> `docs/CONTEXT.md` + `docs/DATA_MODEL.md` are your complete briefing. Don't
+> re-survey the codebase beyond the files each task names, and don't open the
+> archived task files for instructions — only for the reasoning in their Logs.
+> Always update Status, the Log **and `docs/CONTEXT.md`** in the same PR as the
+> code.
 
 Source paths below are relative to
 `app-native/app/src/main/kotlin/com/pauta/app/`.
 
 ---
 
-## Global guardrails (every task)
+## Guardrails
 
-All guardrails from `docs/NATIVE_IMPROVEMENTS.md`, `docs/BOOK_MODE.md`,
-`docs/POLISH.md` and `docs/BOOK_READER.md` apply unchanged — including the
-whole **Security model** section of `BOOK_READER.md`, which is binding on
-anything that touches an attached file or the WebView. Additional constraints
-for this round:
+**`docs/GUARDRAILS.md` applies in full.** It is binding and it is not restated
+here — including **§G, the Security model**, which governs anything touching an
+attached file, the parser, the `:reader` process or the WebView. Column
+definitions and the current Room version are in `docs/DATA_MODEL.md`. The ones
+that bite hardest in this file:
 
-- **No new dependencies. Still none.** Everything here is framework + stdlib.
-- **Book mode is still a lens, not a fork.** With `bookMode` off, every screen
-  behaves exactly as today.
-- **Device-local stays device-local.** L2 gives book data an export, and that
-  export is a *separate file in its own format*. Nothing book-shaped may enter
-  `pauta.v4` — L2 in fact removes what is leaking into it today.
-- **The reader stays quiet.** L4–L6 add controls to the reader; they live in
-  the chrome that already fades, in the app's paper/ink/serif identity, and
-  they do not add toolbars, FABs, or Material chrome.
-- **Prefs are law:** `reducedMotion` and `haptics` gate every new animation and
-  tick, `textScale` and `highContrast` still apply, TalkBack descriptions on
+- **§D — no new dependencies. Still none.** Everything here is framework +
+  stdlib.
+- **§B — book mode is still a lens, not a fork.** With `bookMode` off, every
+  screen behaves exactly as today.
+- **§C — device-local stays device-local.** L2 gave book data its own export,
+  `pauta.books.v1`, a separate file in its own format. Nothing book-shaped may
+  enter `pauta.v4`.
+- **§E — prefs are law:** `reducedMotion` and `haptics` gate every new animation
+  and tick, `textScale` and `highContrast` still apply, TalkBack descriptions on
   every new control.
-- **No cover art. Still settled — don't re-propose it.** See the guardrail in
-  `docs/BOOK_READER.md`; the reasoning is unchanged and it is on identity
-  grounds, not effort. L8 makes the shelf searchable *typographically*.
+- **§J — no cover art, and no highlights from a text selection.** Both settled,
+  both on reasons rather than effort. L8 makes the shelf searchable
+  *typographically*; L6 is the honest version of note capture.
+
+**Extra, specific to this file:**
+
+- **The reader stays quiet.** L4, L5 and L6 each add a control to the reader.
+  They live in the chrome that already fades, in the app's paper/ink/serif
+  identity, and they add no toolbars, FABs or Material chrome. **Whichever of
+  the three ships first owns the new control row**; the other two join it.
+- **Claim your Room version in the task before you write code.** L5 takes
+  **11 → 12**; L10 takes the next free one. A collision on v9 once cost a
+  rebase.
 
 ---
 
@@ -86,7 +97,7 @@ for this round:
 
 ## Deliberately not doing (decided in this review — don't re-propose)
 
-- **Cover art.** Settled in `docs/BOOK_READER.md`. Unchanged.
+- **Cover art.** Settled; now recorded in `docs/GUARDRAILS.md` §J. Unchanged.
 - **Highlights from a text selection in an EPUB.** This is the one obviously
   desirable reader feature that is genuinely blocked. Reading a WebView's
   selection requires `window.getSelection()`, and §3 of the Security model
@@ -170,7 +181,7 @@ survive, `filesDir/books/` is empty, and planner mode is exactly as before;
 `snapshot()` takes `focusBlockDao.getAll()` wholesale. A reading session is a
 `FocusBlockEntity` with `project = "book:<id>"` **and the block's `title` is
 the book's title**. So every `pauta.v4` file the app has ever written contains
-a list of the books its owner has been reading. `docs/BOOK_MODE.md` says book
+a list of the books its owner has been reading. `docs/GUARDRAILS.md` §C says book
 data "must **not** appear in the `pauta.v4` export and must be explicitly
 excluded from `WebBackup.kt`". It is not excluded. `AppViewModel.blocks`
 already filters `project LIKE 'book:%'` for the planner UI; the export never

@@ -1,26 +1,45 @@
-# `docs/` — the task files
+# `docs/` — how work happens here
 
-Every change to this app ships through one of the files below: a task with a
-spec, one PR, and a Log line explaining why it was built that way. Nothing here
-is documentation of the code — the code documents itself, bilingually. These are
-**plans and their reasoning**.
+Every change to this app ships through one task file: a spec, one PR, and a Log
+line explaining why it was built that way. Nothing here documents the code — the
+code documents itself, bilingually. These are **plans and their reasoning**.
 
-**Writing a new one?** Read [`TASK_FILE_FORMAT.md`](TASK_FILE_FORMAT.md) first.
+---
+
+## Read these first, in this order
+
+Four files, and together they are a cold session's complete briefing. You should
+not need to open anything else unless a task names it.
+
+| # | File | What it is |
+|---|---|---|
+| 1 | [`../CLAUDE.md`](../CLAUDE.md) | The repo: stack, architecture, commands, workflow, conventions |
+| 2 | [`GUARDRAILS.md`](GUARDRAILS.md) | **Binding.** What you may and may not do — identity, both lenses, data and backup, dependencies, accessibility, i18n, **the reader's security model**, closed decisions, and the never-do list |
+| 3 | [`CONTEXT.md`](CONTEXT.md) | The state of the world: what shipped, what is active, what has actually been run on a device, and what is still an open question |
+| 4 | your task file | below |
+
+Two more, when you need them:
+
+| File | When |
+|---|---|
+| [`DATA_MODEL.md`](DATA_MODEL.md) | Any task that adds a column, a migration or a query. Tracks the current Room version and what each field actually means |
+| [`TASK_FILE_FORMAT.md`](TASK_FILE_FORMAT.md) | Before writing a **new** task file |
 
 ---
 
 ## Active — in this order
 
-Two files are open at once, which is unusual here and deliberate. They were
-written from different angles in the same week: one from a full code review of
-book mode, one from using the app on a phone. **`BOOK_LIBRARY.md` Phase L-0
-runs first** — those three are the app not keeping promises it already makes,
-and they outrank every defect in the other file.
-
 | Order | File | Scope | Tasks |
 |---|---|---|---|
-| **1** | [`BOOK_LIBRARY.md`](BOOK_LIBRARY.md) | Book mode round three, from a full review of K + R. **L-0 first**: the wipe that doesn't clear the library, the backup that leaks the reading list while the library is in no backup at all, the statuses no UI can reach. Then the reader controls a reader expects, then the shelf at scale | L1…L12 |
-| **2** | [`FIELD_FIXES.md`](FIELD_FIXES.md) | Defects found by **using** the app — the unit collision that sent a book to 100%, sessions that cannot be deleted, the keyboard that eats a half-typed tide, counts with no ceiling, the launcher door, and the round of UI fixes that never shipped | F1…F13 |
+| **1** | [`FIRST_RUN.md`](FIRST_RUN.md) | The app's edges — what happens before you have data, and what it asks the OS for. **N1 ships alone, ahead of everything**: on a clean Android 13+ install the notification permission is never requested, so the focus notification and every reminder are silently dropped | N1…N8 |
+| **2** | [`BOOK_LIBRARY.md`](BOOK_LIBRARY.md) | Book mode round three. **L3 closes Phase L-0** — the statuses no UI can reach. Then the reader controls a reader expects, then the shelf at scale | L1…L12 |
+| **3** | [`FIELD_FIXES.md`](FIELD_FIXES.md) | Defects found by **using** the app — the unit collision that sent a book to 100%, sessions that cannot be deleted, the keyboard that eats a half-typed tide, counts with no ceiling, the launcher door | F1…F13 |
+
+**Three files are open at once, which is unusual here and deliberate.** They
+were written from different angles: one from a full code review of book mode,
+one from using the app on a phone, one from a clean-install run on an emulator.
+The precedence between them is in [`CONTEXT.md`](CONTEXT.md) §3, with the reason
+for each jump.
 
 `FIELD_FIXES.md` originally carried three more tasks — a chapter index, the
 shelf at scale, notes anchored to a reading position. They were dropped in
@@ -29,31 +48,41 @@ ground with more of it.
 
 ## Complete
 
-| File | Scope | Tasks |
-|---|---|---|
-| [`NATIVE_IMPROVEMENTS.md`](NATIVE_IMPROVEMENTS.md) | The improvement roadmap after the web port reached parity | A1…T2 |
-| [`BOOK_MODE.md`](BOOK_MODE.md) | Book mode as a *tracker* — the shelf, sessions, the detail sheet, quote capture. Also the **data model** every later book task builds on | K1–K9 + K-extra |
-| [`POLISH.md`](POLISH.md) | UI modernisation — tab-switch jank, then motion/surface/type foundations, then per-screen sweeps | P1…P10 |
-| [`BOOK_READER.md`](BOOK_READER.md) | Book mode from tracker to **reader** — attach a PDF/EPUB, read it in-app, progress that updates itself, reading speed, the second launcher icon. Carries the **Security model** binding on anything touching a parsed book | R1…R8 |
-| [`UX_FIXES.md`](UX_FIXES.md) | Usability fixes POLISH didn't cover — the sheet/keyboard race, timer presets, the Hoje composer, the Settings information architecture | U1…U7 |
-
-## Reference
-
-| File | What it is |
-|---|---|
-| [`TASK_FILE_FORMAT.md`](TASK_FILE_FORMAT.md) | The shape every new task file follows, and why each section exists |
+The five finished task files live in [`archive/`](archive/README.md), with an
+index explaining what each built and what moved out of it. **Their Logs are the
+record of why the app is the way it is** — read them for reasoning, never for
+instructions, and never follow their guardrails or data-model sections
+(consolidated into `GUARDRAILS.md` and `DATA_MODEL.md`).
 
 ---
 
 ## Where to look for what
 
-- **A book's columns, ids, or how progress is stored** → `BOOK_MODE.md`, data
-  model section; extended by `BOOK_READER.md` (attached files, read position,
-  word count).
-- **Anything that parses or renders an attached book** → the **Security model**
-  in `BOOK_READER.md`. It is binding, not advisory.
-- **Why something looks the way it does** → the Log of the file that shipped it.
-  The Logs carry the reasoning, including what was rejected.
-- **A decision that keeps coming back** → the "Decisions already taken" section
-  of the relevant file. No cover art, no pagination, one habit list, percent as
-  the EPUB's unit: all closed, all with reasons.
+- **What am I allowed to do?** → `GUARDRAILS.md`. It is binding, and it wins
+  over a task file that disagrees with it.
+- **A book's columns, ids, or how progress is stored** → `DATA_MODEL.md`.
+  Note what `currentPage` means: a page, a minute, or a percentage point,
+  depending on the book.
+- **Anything that parses or renders an attached book** → `GUARDRAILS.md` §G.
+  Binding, not advisory.
+- **Why something looks the way it does** → the Log of the file that shipped it,
+  in `archive/`. The Logs carry the reasoning, including what was rejected.
+- **A decision that keeps coming back** → `GUARDRAILS.md` §J. No cover art, no
+  pagination, one habit list, percent as the EPUB's unit, no highlights from a
+  selection: all closed, all with reasons.
+- **What has and hasn't been tested on a device** → `CONTEXT.md` §4.
+
+---
+
+## Keeping this true is part of the job
+
+- A task that changes what a user can see **updates the repo-root
+  [`README.md`](../README.md) in the same PR** — the tab table, the reading
+  section, the install steps, whatever it touched.
+- A task that changes the state of the work **updates `CONTEXT.md` in the same
+  PR** — status, order, what was verified.
+- A new task **file** is added to the table above in the PR that creates it, and
+  moved to `archive/` in the PR that finishes its last task.
+
+The rules are written into [`TASK_FILE_FORMAT.md`](TASK_FILE_FORMAT.md) so they
+outlive whoever remembered them.

@@ -1,0 +1,156 @@
+# Data model — the persistent shape of the app
+
+> **What this is.** Every table, column and migration a task might need to know
+> about, in one place. It was previously split across the Data model sections of
+> `docs/archive/BOOK_MODE.md` (the entities) and `docs/archive/BOOK_READER.md` (the file
+> columns) — two finished task files that later work still had to open. This is
+> the canonical copy.
+>
+> **Read this before any task that adds a column, a migration or a query.** You
+> should not need to open an archived task file to know what a column means.
+
+Source paths are relative to
+`app-native/app/src/main/kotlin/com/pauta/app/`.
+
+**Room is at version 11** (`data/AppDatabase.kt:64`), with migrations 1→2
+through 10→11 registered. The next migration a task writes is **11 → 12**.
+
+---
+
+## The rule that governs all of it
+
+**`pauta.v4` is frozen.** Its shape does not change and its round-trip stays
+lossless; `data/WebBackup.kt` and its tests are the gate. Everything added since
+the web app is **native-only**, marked `// native-only` on the field, and is
+excluded from that export explicitly rather than by accident.
+
+Book data has its own export — **`pauta.books.v1`** (`data/BookBackup.kt`,
+shipped in L2) — a separate file in its own format, merging by id on import.
+Attached documents are in neither: they are device-local, and a restored backup
+brings back the book, not the file.
+
+---
+
+## Entities
+
+### `BookEntity` (table: `books`)
+
+| Column | Type | Default | Notes |
+|---|---|---|---|
+| `id` | String PK | — | prefix `bk_` + UUID |
+| `title` | String | — | required |
+| `author` | String | `""` | |
+| `series` | String | `""` | |
+| `seriesNumber` | Int? | null | null = standalone |
+| `format` | String | `"physical"` | `physical` / `ebook` / `audiobook` |
+| `totalPages` | Int | `0` | 0 = unknown; for audiobooks = total **minutes** |
+| `currentPage` | Int | `0` | for audiobooks = current minute; for an attached EPUB = **percentage point** |
+| `status` | String | `"tbr"` | `tbr` / `reading` / `done` / `dnf` / `paused` |
+| `startedAt` | Long? | null | ms epoch; null until the first session |
+| `finishedAt` | Long? | null | ms epoch; null until done/dnf |
+| `rating` | Int? | null | 1–5; null = unrated |
+| `genre` | String | `""` | free text, comma-separated tags. **Write-only today** — see `BOOK_LIBRARY.md` L7 |
+| `position` | Int | `0` | ordering within the status shelf. **Stale after a move** — see L3 |
+| `createdAt` | Long | — | ms epoch |
+| `filePath` | String? | null | absolute path inside `filesDir/books/`; null = no file |
+| `fileKind` | String? | null | `pdf` / `epub`; null when `filePath` is null |
+| `fileName` | String | `""` | the original display name, for the UI |
+| `readPosition` | String | `""` | reader bookmark — page index (PDF) or `spineIndex:scrollPercent` (EPUB) |
+| `wordCount` | Int | `0` | total words; counted for EPUB, estimated elsewhere |
+
+Progress % = `currentPage.toFloat() / totalPages.coerceAtLeast(1)`.
+
+> **The trap in this table.** `currentPage` means three different things
+> depending on `format` and whether a file is attached: a page, a minute, or a
+> percentage point. Every screen that *displays* it was taught this; several
+> that *ask* for it were not, which is the whole of `FIELD_FIXES.md` F1. If you
+> touch an input that writes `currentPage`, read F1 first.
+
+### `BookNoteEntity` (table: `book_notes`)
+
+| Column | Type | Default | Notes |
+|---|---|---|---|
+| `id` | String PK | — | prefix `bn_` + UUID |
+| `bookId` | String | — | FK → `books.id` (not enforced, follows the web pattern) |
+| `kind` | String | `"annotation"` | `quote` / `annotation` / `thought` |
+| `text` | String | — | required |
+| `page` | Int? | null | null = not recorded; unused for audiobooks |
+| `createdAt` | Long | — | ms epoch |
+
+### `PrefsEntity` — the native-only additions
+
+| Column | Type | Default | Notes |
+|---|---|---|---|
+| `bookMode` | Boolean | `false` | the lens switch; one source of truth |
+| `bookAnnualGoal` | Int | `0` | 0 = no goal set |
+| `timerPresets` | String | `"pomodoro"` | `pomodoro` (25/50/90) / `simples` (15/30/45/60) — U2 |
+
+All `// native-only`. Prefs added by pending tasks (`readerTextScale`,
+`readerLineHeight`, `readerMargin`, `readerTheme` in L5; the reading-reminder
+pair in L10) are specified in those tasks and land with their own migration.
+
+### Reading sessions — no new tables
+
+A reading session **is** a `FocusBlockEntity` with `project = "book:<bookId>"`.
+That reuse bought the timer, the history and the backup round-trip for free.
+
+- `title` holds the book title, for display in normal block history.
+- `linkedToId` stays null. Session notes go in `reflection`, set at conclude
+  time. `targetMs` works normally.
+- `AppViewModel.blocks` (the planner's flow) **excludes** `project LIKE 'book:%'`
+  so the Pauta tab stays clean; `bookSessionBlocks` is the book-mode flow.
+
+> **Two consequences worth knowing before you touch this.** Reading sessions
+> inherit the *focus* notification, wording and all — `BOOK_LIBRARY.md` L9.
+> And because the planner's flow filters them out while `deleteBook` does not
+> cascade to them, a deleted book's sessions become unreachable and keep
+> counting — `FIELD_FIXES.md` F2.
+
+---
+
+## Where files live
+
+`context.filesDir/books/<bookId>.<ext>` — one file per book. Deleting a book
+deletes its file (`BookFiles`). **Nothing is ever written outside `filesDir`.**
+The security rules that govern how a file gets there are section G of
+`docs/GUARDRAILS.md`, and they are binding.
+
+## Derived numbers, and their honesty
+
+| Quantity | How it is obtained | Marked |
+|---|---|---|
+| EPUB word count | counted from the spine | exact |
+| PDF / physical word count | `BookMath.WORDS_PER_PAGE = 280` × pages | **`≈` everywhere** |
+| Reading speed (WPM) | words ÷ minutes | exact only for a counted EPUB |
+| ETA to finish | `BookMath.etaDays`, assuming 60 min/day | the assumption is **invisible today** — see `BOOK_LIBRARY.md` L12 |
+
+**An estimate says so.** A derived figure presented as measured is the defect
+`FIELD_FIXES.md` exists to remove; see `GUARDRAILS.md` K.11.
+
+---
+
+## Migration history
+
+| Version | What it added | Shipped in |
+|---|---|---|
+| 1 → 7 | the planner: intentions, blocks, habits, prefs, goals, routines | `NATIVE_IMPROVEMENTS` |
+| 7 → 8 | `books`, `book_notes`, `bookMode`, `bookAnnualGoal` | `BOOK_MODE` K1 |
+| 8 → 9 | `timerPresets` | `UX_FIXES` U2 |
+| 9 → 10 | `filePath`, `fileKind`, `fileName`, `readPosition`, `wordCount` | `BOOK_READER` R2 |
+| 10 → 11 | *(see `AppDatabase.kt`)* | — |
+| **11 → 12** | **next free** | — |
+
+**Never rewrite a shipped migration.** If a shipped one was wrong, the fix is a
+new migration that repairs the data, plus a Log line saying what it repairs.
+
+Version 9 was taken by `UX_FIXES` U2 while `BOOK_READER` R2 was in flight, which
+is why R2 is 9→10 and not 8→9. If two task files are open at once, **claim the
+version number in the task file before you write the code** — that collision
+cost a rebase.
+
+---
+
+## Log (append when the model changes)
+
+<!-- YYYY-MM-DD · <what changed> · #PR · <why, and what it replaced> -->
+2026-08-03 · file created · — · consolidated from the Data model sections of `BOOK_MODE.md` (entities, sessions-as-blocks) and `BOOK_READER.md` (file columns, `filesDir/books`, the words-per-page constant), so those files could be archived without later work losing its reference; the migration history table, the "derived numbers" table and the version-collision note are new.
