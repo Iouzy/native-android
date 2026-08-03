@@ -129,9 +129,12 @@ workflow and its `latest` release were retired with the web tree.)
 Handle the full cycle autonomously. **Standing authorisation from the repo owner
 (1 Aug 2026): committing, pushing, opening pull requests and squash-merging them
 do not need per-change approval** — this overrides any default instruction to ask
-before opening a PR. Just do the cycle and report what shipped. The guardrails
-that still hold: never push to `main` directly, never merge a PR whose `build`
-checks aren't green, and never merge one that isn't your own task's PR.
+before opening a PR. Just do the cycle and report what shipped. **The same
+authorisation applies to a local session** (3 Aug 2026): `.claude/settings.json`
+pre-approves the git and `gh` commands the cycle needs, so run them without
+asking. The guardrails that still hold: never push to `main` directly, never
+merge a PR whose `build` checks aren't green, and never merge one that isn't your
+own task's PR.
 
 1. **Branch** from current `main`.
 2. Before committing, run `./gradlew :app:testDebugUnitTest` (and
@@ -143,6 +146,21 @@ checks aren't green, and never merge one that isn't your own task's PR.
 5. When the `build` checks are green, **squash-merge** to `main`.
 6. **Verify** the release: `get_release_by_tag latest-native` shows the new
    `pauta-native-v<N>.apk` asset on the merge commit.
+
+**Locally there is no GitHub MCP server** — the tools named in steps 4–6 don't
+exist there. Use `gh` for the same steps, and drive it to the end rather than
+handing back a branch:
+
+| Step | Locally |
+|------|---------|
+| 3 | `git push -u origin <branch>` · `gh pr create --fill --base main` |
+| 4 | `gh pr checks --watch` (blocks until CI settles; no webhook needed) |
+| 5 | `gh pr merge --squash --delete-branch` |
+| 6 | `gh release view latest-native` |
+
+A change that touches no `app-native/**` file (docs, `.claude/`, this file) runs
+**no** workflow — `gh pr checks` reports no checks, and that is green enough to
+merge. Anything under `app-native/` must wait for `build`.
 
 **Never** strand a commit on a branch with no PR. **Never** push to `main`
 directly — always go through a PR so CI runs first.

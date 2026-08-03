@@ -18,6 +18,15 @@
       "Bash(git ls-files *)",
       "Bash(git rev-parse *)",
       "Bash(git stash *)",
+      "Bash(git merge *)",
+      "Bash(gh pr *)",
+      "Bash(gh run *)",
+      "Bash(gh release view *)",
+      "Bash(gh release list *)",
+      "Bash(gh workflow view *)",
+      "Bash(gh workflow list *)",
+      "Bash(gh repo view *)",
+      "Bash(gh auth status*)",
       "Bash(./gradlew *)",
       "Bash(adb *)",
       "Bash(emulator *)",
@@ -27,10 +36,22 @@
     "deny": [
       "Bash(git push --force*)",
       "Bash(git push -f*)",
+      "Bash(git push origin main*)",
+      "Bash(git push -u origin main*)",
       "Bash(git reset --hard*)",
       "Bash(git clean -f*)",
       "Bash(git filter-branch*)",
-      "Bash(git update-ref -d*)"
+      "Bash(git update-ref -d*)",
+      "Bash(gh api *)",
+      "Bash(gh release delete*)",
+      "Bash(gh repo delete*)",
+      "Bash(gh secret *)",
+      "Bash(gh auth token*)"
     ]
+  },
+  "attribution": {
+    "commit": "",
+    "pr": "",
+    "sessionUrl": false
   }
 }
