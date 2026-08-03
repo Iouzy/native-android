@@ -18,7 +18,11 @@
       "Bash(git ls-files *)",
       "Bash(git rev-parse *)",
       "Bash(git stash *)",
-      "Bash(./gradlew *)"
+      "Bash(./gradlew *)",
+      "Bash(adb *)",
+      "Bash(emulator *)",
+      "Bash(avdmanager *)",
+      "Bash(sdkmanager *)"
     ],
     "deny": [
       "Bash(git push --force*)",
