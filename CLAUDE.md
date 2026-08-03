@@ -21,45 +21,53 @@ branch **`web-legacy-final`** (commit `d8de027`) — e.g.
 `git show web-legacy-final:src/App.jsx` if a parity question ever needs it.
 Don't resurrect web files; the Kotlin code is the source of truth.
 
-## Roadmap — `docs/NATIVE_IMPROVEMENTS.md`
+## How work happens — `docs/`
 
-The active task file: ~20 self-contained improvement tasks (A1…T2), each sized
-for one session/PR, with per-task specs, guardrails, status tracking and a
-suggested model. When asked to "do task X" or "do the next pending task": read
-that file, do ONLY that task following its spec + Global guardrails, ship via
-the workflow below, and update the task's Status + Log in the same PR.
+Every change ships as one task from one task file: a spec, one PR, and a Log
+line explaining why it was built that way. When asked to "do task X" or "do the
+next pending task": read that file, do ONLY that task following its spec, ship
+via the workflow below, and update the task's Status + Log **and
+`docs/CONTEXT.md`** in the same PR.
 
-**`docs/README.md` indexes every task file** — read it to find which one owns a
-given area. **`docs/TASK_FILE_FORMAT.md` is the shape they all follow: read it
-before writing a new task file**, and follow it for anything new (the files
-below predate it and are deliberately not retrofitted).
+**Four files are a cold session's complete briefing** — this one, then:
 
->>>>>>> origin/main
-Five more task files follow the exact same protocol:
+- **`docs/GUARDRAILS.md`** — **binding.** What you may and may not do: identity,
+  both lenses, data and backup, no new dependencies, accessibility, i18n, the
+  reader's **Security model** (§G), the closed decisions nobody should
+  re-propose (§J), and the never-do list (§K). Where a task file disagrees with
+  it, it wins.
+- **`docs/CONTEXT.md`** — the state of the work: what shipped, what is active,
+  the order across files, **what has actually been run on a device**, and the
+  questions still open for the owner.
+- **your task file** — below.
 
-- `docs/BOOK_MODE.md` — book-mode feature, K1–K9 + K-extra (**complete**).
-- `docs/POLISH.md` — UI polish/modernisation, P1…P10 (**complete**): tab-switch
-  jank first, then motion/surface/type foundations, then per-screen sweeps.
-- `docs/BOOK_READER.md` — turns book mode from a tracker into a reader, R1…R8:
-  attach a PDF/EPUB to a book, read it in-app (framework `PdfRenderer` /
-  `ZipFile` + WebView — no new deps), progress that updates itself, reading
-  speed, the Hábitos-tab rebuild, and the second launcher icon.
-- `docs/UX_FIXES.md` — usability fixes P1–P10 didn't cover, U1…U7: the
-  sheet/keyboard race, timer presets + custom minutes, the Hoje composer, and
-  the Settings information architecture (regroup, search, update sheet, mode
-  switcher).
-- `docs/BOOK_LIBRARY.md` — **active, and first**: book mode round three,
-  L1…L12, written from a full review of K + R. Phase L-0 is three promises the
-  app makes and does not keep — the wipe that doesn't wipe the library, the
-  library that's in no backup while reading sessions leak into `pauta.v4`, the
-  statuses no UI can reach — and they outrank everything in FIELD_FIXES. Then
-  the reader controls a reader expects, then the shelf at a hundred books.
-- `docs/FIELD_FIXES.md` — **the active one**, F1…F16: defects found by *using*
-  the app rather than by reading a spec. Ordered by what each costs the person
-  using it, so the prompt carries no number — "faz o próximo em
-  `docs/FIELD_FIXES.md`" always means the first task still `pending`, and the
-  reply opens with the progress bullet the file specifies. Run it after
-  `BOOK_LIBRARY.md`'s Phase L-0.
+Two more when a task needs them: **`docs/DATA_MODEL.md`** (every table, column
+and migration; the current Room version) and **`docs/TASK_FILE_FORMAT.md`**
+(read before writing a *new* task file). `docs/README.md` indexes everything.
+
+**Active task files, in order:**
+
+- `docs/FIRST_RUN.md` — **first**, N1…N8: the app's edges, found on a clean
+  emulator install. **N1 ships alone, ahead of everything** — on Android 13+ the
+  app never requests `POST_NOTIFICATIONS`, so the focus notification and all
+  three reminders are dropped by the OS in silence. Then the empty screens and
+  the front doors.
+- `docs/BOOK_LIBRARY.md` — book mode round three, L1…L12, from a full review of
+  K + R. L1 and L2 are done; **L3 closes Phase L-0** (the five statuses, of
+  which the UI can reach three, one-way). Then the reader controls a reader
+  expects, then the shelf at a hundred books.
+- `docs/FIELD_FIXES.md` — F1…F13: defects found by *using* the app rather than
+  by reading a spec. Ordered by what each costs the person using it, so the
+  prompt carries no number — "faz o próximo em `docs/FIELD_FIXES.md`" always
+  means the first task still `pending`, and the reply opens with the progress
+  bullet the file specifies.
+
+**Complete task files live in `docs/archive/`** — `NATIVE_IMPROVEMENTS.md`
+(A1…T2), `BOOK_MODE.md` (K1…K9), `POLISH.md` (P1…P10), `BOOK_READER.md`
+(R1…R8), `UX_FIXES.md` (U1…U7). Their **Logs are the record of why the app is
+the way it is**; read them for reasoning, never for instructions, and never
+follow their guardrails or data-model sections — those were consolidated into
+`GUARDRAILS.md` and `DATA_MODEL.md`.
 
 ## Architecture (`app-native/`)
 
@@ -139,6 +147,11 @@ checks aren't green, and never merge one that isn't your own task's PR.
 **Never** strand a commit on a branch with no PR. **Never** push to `main`
 directly — always go through a PR so CI runs first.
 
+**Authorship.** Commits and PR bodies carry **no tooling attribution**: no
+`Co-Authored-By` trailer, no "generated with" footer, no session URL. The commit
+message is the reasoning and nothing else. The repo owner is the author of every
+commit here.
+
 ## Talking to the owner
 
 **Short and precise. He asks when he wants more** — and he does ask, so an
@@ -181,4 +194,5 @@ deliberate, not an inconsistency.
 - `service/` — `AppUpdater` (in-app update), `FocusService` + focus notification,
   `ReminderScheduler`/`ReminderReceiver` (AlarmManager), widget, QS tile, boot.
 - `app-native/README.md` — the module's own overview and non-negotiables.
-- `docs/NATIVE_IMPROVEMENTS.md` — the active improvement roadmap (see above).
+- `docs/GUARDRAILS.md` — the binding rules; `docs/CONTEXT.md` — the state of
+  the work; `docs/DATA_MODEL.md` — tables, columns and migrations.

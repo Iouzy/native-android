@@ -38,7 +38,7 @@ Attached files live in the app's private storage, are never uploaded, and are
 never written into the backup. A book is untrusted input: it is parsed in a
 separate process, and an EPUB is rendered with scripting off, the network
 blocked and every navigation refused — see the Security model in
-[`docs/BOOK_READER.md`](docs/BOOK_READER.md).
+[`docs/GUARDRAILS.md`](docs/GUARDRAILS.md) §G.
 
 ## Install
 

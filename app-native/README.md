@@ -36,8 +36,8 @@ Three constraints on that half, and they are not negotiable either:
   message, never to vendor a parser.
 - **An attached book is untrusted input.** Parsing runs in the `:reader`
   process; the WebView has scripting off, no file or network access, an opaque
-  origin and refuses every navigation. The full model is the **Security model**
-  section of `docs/BOOK_READER.md`, and it is binding.
+  origin and refuses every navigation. The full model is **§G of
+  `docs/GUARDRAILS.md`**, and it is binding.
 - **Attached files are device-local.** They live in `filesDir/books/`, never
   enter the `pauta.v4` export, and a restored backup brings back the book, not
   the file.
