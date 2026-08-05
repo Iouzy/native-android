@@ -97,10 +97,14 @@ fun BookHabitsScreen() {
     val allSessions by vm.allSessions.collectAsStateWithLifecycle()
     val reading by vm.booksReading.collectAsStateWithLifecycle()
     val tbr by vm.booksTbr.collectAsStateWithLifecycle()
+    val paused by vm.booksPaused.collectAsStateWithLifecycle()
     val done by vm.booksDone.collectAsStateWithLifecycle()
     val animate = rememberMotionEnabled()
 
-    val books = remember(reading, tbr, done) { reading + tbr + done }
+    // L3: paused included, or the sessions of a book you put down would lose the
+    // book they belong to and stop counting pages. // PT: com os livros em pausa,
+    // senão as sessões deles perdem o livro.
+    val books = remember(reading, tbr, paused, done) { reading + tbr + paused + done }
     // Three tables reduced to the flat shape the pure math takes. Keyed on the
     // flows, so a concluded session lands here live. // PT: as três tabelas
     // achatadas na forma que a matemática pura recebe.

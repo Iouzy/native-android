@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -87,6 +88,7 @@ fun BookDetailSheet(
     val haptic = LocalHapticFeedback.current
     val reading by vm.booksReading.collectAsStateWithLifecycle()
     val tbr by vm.booksTbr.collectAsStateWithLifecycle()
+    val paused by vm.booksPaused.collectAsStateWithLifecycle()
     val done by vm.booksDone.collectAsStateWithLifecycle()
     val notes by remember(bookId) { vm.notesForBook(bookId) }
         .collectAsStateWithLifecycle(initialValue = emptyList())
@@ -95,8 +97,11 @@ fun BookDetailSheet(
 
     // The book comes straight from the shelf flows; when it vanishes (deleted
     // here or elsewhere) the sheet closes itself. // PT: fecha se o livro sumir.
-    val book = remember(reading, tbr, done, bookId) {
-        (reading + tbr + done).firstOrNull { it.id == bookId }
+    // L3: four shelves now, and all four are searched — a paused book that no
+    // flow carried would close this sheet the moment it opened. // PT: as quatro
+    // prateleiras, para o livro em pausa não desaparecer daqui.
+    val book = remember(reading, tbr, paused, done, bookId) {
+        (reading + tbr + paused + done).firstOrNull { it.id == bookId }
     }
     LaunchedEffect(book == null) { if (book == null) onDismiss() }
     if (book == null) return
@@ -107,6 +112,7 @@ fun BookDetailSheet(
     var showEdit by remember { mutableStateOf(false) }
     var showFinish by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
+    var confirmAbandon by remember { mutableStateOf(false) }
     var armedNoteId by remember { mutableStateOf<String?>(null) }
 
     // This book's concluded sessions, newest first, with per-block durations
@@ -276,17 +282,57 @@ fun BookDetailSheet(
             PautaButton(tr("Ler"), Modifier.fillMaxWidth(), PautaButtonVariant.Primary) { onOpenReader() }
             Spacer(Modifier.height(10.dp))
         }
-        if (book.status == "reading") {
-            PautaButton(tr("Marcar como lido"), Modifier.fillMaxWidth(), PautaButtonVariant.Primary) {
-                showFinish = true
-            }
-            Spacer(Modifier.height(10.dp))
-        } else if (book.status == "tbr") {
-            PautaButton(tr("Começar a ler"), Modifier.fillMaxWidth(), PautaButtonVariant.Primary) {
-                vm.updateBook(book.copy(status = "reading", startedAt = System.currentTimeMillis()))
-            }
+        // L3: all five states, reachable and reversible. The primary is the move
+        // you'd expect from where the book is; the quiet row under it holds the
+        // rest, including the ways *back* — a book finished by a mis-tap used to
+        // be finished for good. Every move goes through the repository, which
+        // owns startedAt/finishedAt and the shelf position. // PT: o botão
+        // principal é o movimento esperado; a linha discreta tem os restantes,
+        // incluindo os caminhos de volta.
+        val move: (String) -> Unit = { s -> confirmAbandon = false; vm.setBookStatus(book.id, s) }
+        val primary: Pair<String, () -> Unit>? = when (book.status) {
+            "reading" -> Pair(tr("Marcar como lido"), { showFinish = true })
+            "tbr" -> Pair(tr("Começar a ler"), { move("reading") })
+            "paused" -> Pair(tr("Retomar"), { move("reading") })
+            "dnf" -> Pair(tr("Recomeçar"), { move("reading") })
+            else -> null // "done" has no forward move left
+        }
+        primary?.let { (label, action) ->
+            PautaButton(label, Modifier.fillMaxWidth(), PautaButtonVariant.Primary) { action() }
             Spacer(Modifier.height(10.dp))
         }
+        // "Abandonar" is the one move that is a judgement rather than a
+        // correction, so it arms in two steps like the delete below — it loses
+        // nothing (the notes, the sessions and the progress all stay), but it is
+        // not something to do by mis-tap. // PT: abandonar arma em dois passos.
+        val abandonLabel = if (confirmAbandon) tr("Tocar de novo para abandonar") else tr("Abandonar")
+        val onAbandon: () -> Unit = {
+            if (confirmAbandon) move("dnf") else { confirmAbandon = true; haptic.tick(prefs) }
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            when (book.status) {
+                "tbr" -> QuietAction(abandonLabel, onAbandon)
+                "reading" -> {
+                    QuietAction(tr("Pausar leitura")) { move("paused") }
+                    QuietAction(abandonLabel, onAbandon)
+                }
+                "paused" -> {
+                    QuietAction(tr("Marcar como lido")) { showFinish = true }
+                    QuietAction(abandonLabel, onAbandon)
+                }
+                // Two names for one transition, deliberately: coming back to a
+                // book you finished and undoing a mis-tap are the same move, and
+                // neither touches the rating or the notes — a re-read is the same
+                // book. // PT: dois nomes para o mesmo movimento; a intenção é que
+                // difere, não o efeito.
+                "done" -> {
+                    QuietAction(tr("Voltar a ler")) { move("reading") }
+                    QuietAction(tr("Marcar como não lido")) { move("reading") }
+                }
+                "dnf" -> QuietAction(tr("Marcar como lido")) { showFinish = true }
+            }
+        }
+        Spacer(Modifier.height(10.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             PautaButton(tr("Editar"), Modifier.weight(1f), PautaButtonVariant.Ghost) { showEdit = true }
             Box(
@@ -422,6 +468,14 @@ fun BookDetailSheet(
             onClose = { showFinish = false },
         )
     }
+}
+
+/** L3: one of the quiet status moves — a ghost pill sharing the row evenly with
+ *  its siblings, so the secondary line never reads as a row of primaries.
+ *  // PT: uma acção discreta de estado, a dividir a linha em partes iguais. */
+@Composable
+private fun RowScope.QuietAction(label: String, onClick: () -> Unit) {
+    PautaButton(label, Modifier.weight(1f), PautaButtonVariant.Ghost, onClick = onClick)
 }
 
 /** Inline number input for the progress line: pages, minutes for audiobooks, or

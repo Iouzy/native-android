@@ -106,9 +106,13 @@ fun ReaderScreen(bookId: String, onClose: () -> Unit) {
 
     val reading by vm.booksReading.collectAsStateWithLifecycle()
     val tbr by vm.booksTbr.collectAsStateWithLifecycle()
+    val paused by vm.booksPaused.collectAsStateWithLifecycle()
     val done by vm.booksDone.collectAsStateWithLifecycle()
-    val book = remember(reading, tbr, done, bookId) {
-        (reading + tbr + done).firstOrNull { it.id == bookId }
+    // L3: all four shelves — a paused book still opens, and a reader that closed
+    // itself on one would be the worst kind of surprise. // PT: as quatro
+    // prateleiras; um livro em pausa também abre.
+    val book = remember(reading, tbr, paused, done, bookId) {
+        (reading + tbr + paused + done).firstOrNull { it.id == bookId }
     }
     LaunchedEffect(book == null) { if (book == null) onClose() }
     if (book == null) return

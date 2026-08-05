@@ -48,12 +48,12 @@ this file → your task file. Nothing else needs opening unless a task names it.
 
 ## 3 · The work, at a glance
 
-**23 tasks pending across two active files, plus one new file.**
+**22 tasks pending across two active files, plus one new file.**
 
 | File | Scope | Tasks | State |
 |---|---|---|---|
 | `docs/FIRST_RUN.md` | The edges: the permission never asked for, the empty screens, the front doors. Written from a device run, 2026-08-03 | N1…N8 | **N1 first, ahead of everything** |
-| `docs/BOOK_LIBRARY.md` | Book mode round three. Phase L-0 = promises the app already makes and does not keep | L1…L12 | L1, L2 **done**; L3…L12 pending |
+| `docs/BOOK_LIBRARY.md` | Book mode round three. Phase L-0 = promises the app already makes and does not keep | L1…L12 | L1, L2, L3 **done** — Phase L-0 closed; L4…L12 pending |
 | `docs/FIELD_FIXES.md` | Defects found by *using* the app. Ordered by what each costs the person using it | F1…F13 | all pending |
 
 **Archived** (complete, in `docs/archive/`): `NATIVE_IMPROVEMENTS.md` (A1…T2),
@@ -66,8 +66,6 @@ shipped — read them when you need to know *why*, never to know *what to do*.
 ```
 N1  ──────────────────────────  ahead of everything: shipped features that do nothing
  │
-L3  ──────────────────────────  closes Phase L-0
- │
 F1 → F2 ─────────────────────  one story; F2 already depends on F1
  │
 F3 → F4 ─────────────────────  the remaining data-loss tasks
@@ -78,15 +76,17 @@ L4 · L5 · L6  ───────────────  independent of ea
 L7 → L8
 L9 · L10 · L11 · L12
  │
-N2 … N8  ────────────────────  unless N8 is pulled ahead of L3 (see FIRST_RUN)
+N2 … N8  ────────────────────  see FIRST_RUN
 ```
 
 **Why N1 jumps the queue:** it is the only known defect where features that
 already shipped do nothing at all. `L10` (a reading reminder) would add a fourth
 notification onto the same broken floor.
 
-**Why L3 is next after it:** it is the last of Phase L-0 — the app failing to do
-what it says it does — and `FIELD_FIXES.md` explicitly runs behind that phase.
+**Phase L-0 is closed** (L1, L2, L3): the promises the app made and did not keep
+— a reset that spared books, a backup that carried them, a status set the shelf
+only half rendered. `FIELD_FIXES.md` ran behind that phase and is now unblocked,
+so F1 follows N1.
 
 ## 4 · What has actually been run
 
@@ -115,6 +115,11 @@ machine of a settings row, anything needing a device. Every defect in
 **Nothing has been run on:** a physical device with a small screen, a tablet, a
 foldable, API 26–30 (`minSdk` is 26; the emulator was 35), or with TalkBack
 actually enabled. Say so rather than implying otherwise.
+
+**L3 has not been seen on a screen.** CI compiled it and `BookStatusTest` covers
+the status→shelf map, but the EM PAUSA section, the detail sheet's five-state
+table and the two-step "Abandonar" have only ever existed as source. Everything
+in this section that says *shipped* still means *compiled*.
 
 ## 5 · Known and not yet written down
 
@@ -151,6 +156,7 @@ than guess.
 ## Log (append one line per PR that changes the state of the work)
 
 <!-- YYYY-MM-DD · #PR · <what moved, and anything a later session would otherwise re-derive> -->
+2026-08-05 · #186 · L3 done — **Phase L-0 closed**. `domain/BookStatus` is now the single source of the five statuses and the shelf each maps to, asserted total in both directions by `BookStatusTest`; `setBookStatus` is the one door a book changes state through, owning `startedAt`/`finishedAt`/`position`. Two things a later session should not re-derive: shelf `position` is allocated as *max + 1*, never as the shelf's size, because a departure leaves a hole and `ORDER BY position` has no tiebreaker (`addBook` was fixed the same way); and the branch this shipped from was cut before the docs foundation existed, so it carried a wrong PR number and no `CONTEXT.md` edit — check both when a branch predates `dd4b6c9`.
 2026-08-03 · — · file created alongside `GUARDRAILS.md` and `DATA_MODEL.md`; the five complete task files archived; `FIRST_RUN.md` added from a Pixel 7 emulator run of `v1.443`, with N1 placed ahead of the whole queue because it is the only finding where shipped features do nothing at all.
 2026-08-02 · #182 · L2 done — `snapshot()`/`importJson()` filter book blocks both ways, the rule single-sourced in `BookBackup`; new `pauta.books.v1` export/import merges by id, carries no `filePath`/`fileKind`.
 2026-08-02 · #181 · L1 done — `resetAll` now clears `book_notes`, `books` and `filesDir/books/` via `BookFiles.clearAll`; reseed inherits the fix.
