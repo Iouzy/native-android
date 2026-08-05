@@ -103,6 +103,9 @@ fun BookSessionScreen(onOpenReader: (String) -> Unit = {}) {
     val vm: AppViewModel = viewModel()
     val colors = LocalPautaColors.current
     val reading by vm.booksReading.collectAsStateWithLifecycle()
+    val pausedBooks by vm.booksPaused.collectAsStateWithLifecycle()
+    val tbr by vm.booksTbr.collectAsStateWithLifecycle()
+    val done by vm.booksDone.collectAsStateWithLifecycle()
     val active by vm.activeBlock.collectAsStateWithLifecycle()
     val activeSessions by vm.activeSessions.collectAsStateWithLifecycle()
     val sessionBlocks by vm.bookSessionBlocks.collectAsStateWithLifecycle()
@@ -128,7 +131,12 @@ fun BookSessionScreen(onOpenReader: (String) -> Unit = {}) {
     // The running block is a reading session only when its project is "book:<id>".
     val activeBook = active?.takeIf { it.project?.startsWith("book:") == true }
     val activeBookId = activeBook?.project?.removePrefix("book:")
-    val activeBookEntity = reading.firstOrNull { it.id == activeBookId }
+    // L3: the running session's book is looked up on every shelf, not just the
+    // reading one — pausing or finishing a book mid-session used to leave the
+    // card with no entity, and "Concluir" then did nothing at all. The picker
+    // below still offers only what you are reading. // PT: o livro da sessão a
+    // decorrer procura-se em todas as prateleiras.
+    val activeBookEntity = (reading + pausedBooks + tbr + done).firstOrNull { it.id == activeBookId }
 
     // Today's paused reading sessions — resume works exactly as in the planner.
     val pausedBlocks = sessionBlocks.filter {

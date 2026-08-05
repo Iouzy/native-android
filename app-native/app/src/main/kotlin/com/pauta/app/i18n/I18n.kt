@@ -876,6 +876,17 @@ object I18n {
         "Biblioteca exportada" to "Library exported", // native-only
         "{n} livros importados" to "{n} books imported", // native-only
         "Este ficheiro não é uma biblioteca Pauta." to "This file is not a Pauta library.", // native-only
+
+        // L3 · the five states a book can be in. "Em pausa" and "Retomar" already
+        // exist above (the Pauta tab's block states) and are reused verbatim.
+        // // PT: os cinco estados; "Em pausa" e "Retomar" já existem e reaproveitam-se.
+        "Abandonar" to "Abandon", // native-only
+        "Tocar de novo para abandonar" to "Tap again to abandon", // native-only
+        "Pausar leitura" to "Pause reading", // native-only
+        "Voltar a ler" to "Read again", // native-only
+        "Marcar como não lido" to "Mark as unread", // native-only
+        "Recomeçar" to "Start over", // native-only
+        "Abandonado" to "Abandoned", // native-only
     )
 }
 

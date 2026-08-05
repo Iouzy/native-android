@@ -4,6 +4,7 @@ import com.pauta.app.data.entity.BookEntity
 import com.pauta.app.data.entity.BookNoteEntity
 import com.pauta.app.data.entity.FocusBlockEntity
 import com.pauta.app.data.entity.FocusSessionEntity
+import com.pauta.app.domain.BookStatus
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -181,7 +182,9 @@ object BookBackup {
     private fun JsonElement?.obj(): JsonObject? = this as? JsonObject
     private fun JsonElement?.array(): JsonArray? = this as? JsonArray
 
-    private val STATUSES = setOf("tbr", "reading", "done", "dnf", "paused")
+    // L3: the status set is `BookStatus.ALL` — one list, so an import can never
+    // admit a value the shelf has no section for. // PT: os estados vêm de
+    // BookStatus; a importação não pode admitir um estado sem prateleira.
     private val FORMATS = setOf("physical", "ebook", "audiobook")
     private val NOTE_KINDS = setOf("quote", "annotation", "thought")
 
@@ -214,7 +217,7 @@ object BookBackup {
                     // clamping to it would erase the progress. // PT: só se o total
                     // for conhecido; 0 é "não se sabe".
                     currentPage = if (total > 0) current.coerceAtMost(total) else current,
-                    status = b["status"].str()?.takeIf { it in STATUSES } ?: "tbr",
+                    status = BookStatus.sanitize(b["status"].str()),
                     startedAt = b["startedAt"].long(),
                     finishedAt = b["finishedAt"].long(),
                     rating = b["rating"].int()?.takeIf { it in 1..5 },

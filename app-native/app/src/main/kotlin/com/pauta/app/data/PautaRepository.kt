@@ -3,6 +3,7 @@ package com.pauta.app.data
 import android.content.Context
 import android.net.Uri
 import com.pauta.app.domain.BookImport
+import com.pauta.app.domain.BookStatus
 import com.pauta.app.service.DocumentParse
 import com.pauta.app.data.entity.BookEntity
 import com.pauta.app.data.entity.BookNoteEntity
@@ -758,14 +759,19 @@ class PautaRepository(private val db: AppDatabase) {
     // pauta.v4 export. Reading sessions reuse the focus-block tables (a block with
     // project = "book:<id>"); these methods cover only books + their notes.
     // // PT: estante e notas do modo livro — dados locais, fora do v4.
-    fun booksReading(): Flow<List<BookEntity>> = bookDao.observeByStatus("reading")
-    fun booksTbr(): Flow<List<BookEntity>> = bookDao.observeByStatus("tbr")
+    fun booksReading(): Flow<List<BookEntity>> = bookDao.observeByStatus(BookStatus.READING)
+    fun booksTbr(): Flow<List<BookEntity>> = bookDao.observeByStatus(BookStatus.TBR)
+
+    /** L3: the shelf a paused book was missing. Between "a ler agora" and "a
+     *  seguir" — a book you put down is still a book you chose. // PT: a
+     *  prateleira dos livros em pausa. */
+    fun booksPaused(): Flow<List<BookEntity>> = bookDao.observeByStatus(BookStatus.PAUSED)
 
     /** Finished + abandoned shelf, newest finish first. The DAO streams a single
      *  status at a time, so we merge "done" and "dnf" and re-sort by finishedAt
      *  DESC (nulls last). // PT: lidos + abandonados, terminados mais recentes primeiro. */
     fun booksDone(): Flow<List<BookEntity>> =
-        combine(bookDao.observeByStatus("done"), bookDao.observeByStatus("dnf")) { done, dnf ->
+        combine(bookDao.observeByStatus(BookStatus.DONE), bookDao.observeByStatus(BookStatus.DNF)) { done, dnf ->
             (done + dnf).sortedByDescending { it.finishedAt ?: Long.MIN_VALUE }
         }
 
@@ -802,11 +808,18 @@ class PautaRepository(private val db: AppDatabase) {
                 totalPages = totalPages.coerceAtLeast(0),
                 currentPage = 0,
                 status = status,
-                startedAt = if (status == "reading") now else null,
+                startedAt = if (status == BookStatus.READING) now else null,
                 finishedAt = null,
                 rating = null,
                 genre = genre.trim(),
-                position = bookDao.getAll().count { it.status == status },
+                // Append after the shelf's current maximum, not its size — see
+                // [setBookStatus]: a book that left the shelf took its index with
+                // it. // PT: acrescenta depois do máximo, não do tamanho.
+                position = (
+                    bookDao.getAll()
+                        .filter { it.status == status }
+                        .maxOfOrNull { it.position } ?: -1
+                    ) + 1,
                 createdAt = now,
                 filePath = file?.path,
                 fileKind = file?.kind,
@@ -833,11 +846,52 @@ class PautaRepository(private val db: AppDatabase) {
         bookDao.upsert(b.copy(currentPage = currentPage.coerceAtLeast(0)))
     }
 
-    /** Mark a book finished now, optionally recording a rating (kept if null). */
-    suspend fun finishBook(id: String, rating: Int?) {
+    /**
+     * L3: the one place a book changes shelf, so the rules of a move live
+     * together instead of at each call site (which is how "Marcar como lido"
+     * came to be a one-way door and how [position] came to be stale).
+     *
+     * - `startedAt` is stamped on the *first* move into "a ler" and never
+     *   overwritten — a re-read is the same book, and the date you first opened
+     *   it doesn't change.
+     * - `finishedAt` belongs to `done`/`dnf` and to nothing else: moving out of
+     *   them clears it, so the "Lidos" shelf never sorts on a date that no
+     *   longer means anything.
+     * - `position` orders within the destination shelf, so it is recomputed on
+     *   arrival. [addBook] set it once at creation and nothing ever moved it,
+     *   which left every shelf colliding on the same indices under
+     *   `ORDER BY position`. Arrival appends after the current *maximum* rather
+     *   than counting the shelf: a departure leaves a hole, so a count lands on
+     *   an index somebody already holds — pause the middle of three books, then
+     *   resume it, and it ties with the last one. `ORDER BY position` has no
+     *   tiebreaker, so a tie is an arbitrary order.
+     *
+     * Notes, sessions, progress and (unless one is passed) the rating are never
+     * touched: abandoning a book is a judgement about the book, not a delete.
+     * // PT: a única porta por onde um livro muda de estado.
+     */
+    suspend fun setBookStatus(id: String, status: String, rating: Int? = null) {
+        if (status !in BookStatus.ALL) return
         val b = bookDao.getById(id) ?: return
-        bookDao.upsert(b.copy(status = "done", finishedAt = System.currentTimeMillis(), rating = rating ?: b.rating))
+        val now = System.currentTimeMillis()
+        val finished = status == BookStatus.DONE || status == BookStatus.DNF
+        bookDao.upsert(
+            b.copy(
+                status = status,
+                startedAt = if (status == BookStatus.READING) b.startedAt ?: now else b.startedAt,
+                finishedAt = if (finished) b.finishedAt ?: now else null,
+                rating = rating ?: b.rating,
+                position = (
+                    bookDao.getAll()
+                        .filter { it.status == status && it.id != id }
+                        .maxOfOrNull { it.position } ?: -1
+                    ) + 1,
+            ),
+        )
     }
+
+    /** Mark a book finished now, optionally recording a rating (kept if null). */
+    suspend fun finishBook(id: String, rating: Int?) = setBookStatus(id, BookStatus.DONE, rating)
 
     // ── Ficheiros anexados (R2) ───────────────────────────────
     /**

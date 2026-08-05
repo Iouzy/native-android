@@ -332,6 +332,12 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val booksDone: StateFlow<List<BookEntity>> =
         repo.booksDone().stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
+    /** L3: the fourth shelf. Every status the entity admits now surfaces through
+     *  one of these four flows — see `domain/BookStatus`. // PT: a quarta
+     *  prateleira; os quatro fluxos cobrem os cinco estados. */
+    val booksPaused: StateFlow<List<BookEntity>> =
+        repo.booksPaused().stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
     fun addBook(
         title: String,
         author: String,
@@ -351,6 +357,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun deleteBook(id: String) = viewModelScope.launch { repo.deleteBook(getApplication(), id) }
     fun updateProgress(id: String, currentPage: Int) = viewModelScope.launch { repo.updateProgress(id, currentPage) }
     fun finishBook(id: String, rating: Int?) = viewModelScope.launch { repo.finishBook(id, rating) }
+
+    /** L3: every status move goes through here — the repository owns the dates
+     *  and the shelf position. // PT: todas as mudanças de estado passam por aqui. */
+    fun setBookStatus(id: String, status: String) =
+        viewModelScope.launch { repo.setBookStatus(id, status) }
 
     // ── Ficheiros anexados (R2) ───────────────────────────────
     /** An id for a book the form hasn't saved yet, so a file can be attached

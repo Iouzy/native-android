@@ -66,6 +66,7 @@ fun BookShelfScreen(onOpenReader: (String) -> Unit = {}) {
     val vm: AppViewModel = viewModel()
     val colors = LocalPautaColors.current
     val reading by vm.booksReading.collectAsStateWithLifecycle()
+    val paused by vm.booksPaused.collectAsStateWithLifecycle()
     val tbr by vm.booksTbr.collectAsStateWithLifecycle()
     val done by vm.booksDone.collectAsStateWithLifecycle()
     var showAdd by remember { mutableStateOf(false) }
@@ -148,7 +149,24 @@ fun BookShelfScreen(onOpenReader: (String) -> Unit = {}) {
             }
         }
 
-        // ── Section 2 · A seguir (status = "tbr") ──
+        // ── Section 2 · Em pausa (status = "paused") — L3 ──
+        // Between the book you are in and the ones you have not opened, because
+        // that is where a book you put down sits. Rendered as rows, not cards: a
+        // paused book is a title you are choosing between, not one you are in the
+        // middle of. Hidden when empty. // PT: a prateleira dos livros em pausa —
+        // em linhas, entre "a ler agora" e "a seguir"; escondida se vazia.
+        if (paused.isNotEmpty()) {
+            item(key = "paused-header") {
+                Spacer(Modifier.height(36.dp))
+                SectionEyebrow(tr("Em pausa"))
+                Spacer(Modifier.height(6.dp))
+            }
+            items(paused, key = { "ps-${it.id}" }) { book ->
+                BookListRow(book) { onOpenBook(book.id) }
+            }
+        }
+
+        // ── Section 3 · A seguir (status = "tbr") ──
         if (tbr.isNotEmpty()) {
             item(key = "tbr-header") {
                 Spacer(Modifier.height(36.dp))
@@ -162,7 +180,7 @@ fun BookShelfScreen(onOpenReader: (String) -> Unit = {}) {
             }
         }
 
-        // ── Section 3 · Lidos (status = "done"/"dnf", finishedAt DESC) ──
+        // ── Section 4 · Lidos (status = "done"/"dnf", finishedAt DESC) ──
         if (done.isNotEmpty()) {
             item(key = "done-section") {
                 Spacer(Modifier.height(36.dp))
@@ -328,6 +346,13 @@ private fun BookDoneCard(book: BookEntity, onClick: () -> Unit) {
                 fontSize = 12.sp,
                 letterSpacing = 1.sp,
             )
+        }
+        // L3: "Lidos" holds both endings, and now that one of them is reachable
+        // the card has to say which. A quiet word, not a badge. // PT: a
+        // prateleira junta lidos e abandonados; a palavra diz qual.
+        if (book.status == "dnf") {
+            Spacer(Modifier.height(6.dp))
+            Text(text = tr("Abandonado"), color = colors.ink4, style = PautaType.MetaSmall)
         }
         if (book.author.isNotBlank()) {
             Spacer(Modifier.height(6.dp))

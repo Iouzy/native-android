@@ -248,6 +248,9 @@ data class BookEntity(
     val format: String = "physical",    // "physical" | "ebook" | "audiobook"
     val totalPages: Int = 0,            // 0 = unknown; audiobooks = total minutes
     val currentPage: Int = 0,           // audiobooks = listened minutes
+    // L3: the five values live in `domain/BookStatus`, which also says which
+    // shelf section shows each one — add a status there, not here, or it lands
+    // on no shelf. // PT: os estados e a prateleira de cada um estão em BookStatus.
     val status: String = "tbr",         // "tbr" | "reading" | "done" | "dnf" | "paused"
     val startedAt: Long? = null,        // ms epoch; null until first session
     val finishedAt: Long? = null,       // ms epoch; null until done/dnf
