@@ -2,6 +2,7 @@ package com.pauta.app.data
 
 import android.content.Context
 import android.net.Uri
+import com.pauta.app.domain.BookMath
 import com.pauta.app.domain.BookImport
 import com.pauta.app.domain.BookStatus
 import com.pauta.app.service.DocumentParse
@@ -58,6 +59,18 @@ data class ReaderSessionRecord(
     val durationMs: Long,
     /** The book's progress before this session wrote to it. */
     val previousPage: Int,
+    /**
+     * F5(c) · what the receipt should say this session was worth. Words for a
+     * counted EPUB — the honest figure, and the one the reader actually knows —
+     * and null for everything else, where [pagesDelta] is already in the book's
+     * own unit. Computed here because this is where the book is in hand; the
+     * snackbar that shows it lives in the shell, long after the reader is gone.
+     * // PT: as palavras da sessão, quando o livro as tem contadas.
+     */
+    val words: Int? = null,
+    /** F5(c) · true when [pagesDelta] counts percentage points rather than pages,
+     *  so the receipt can say "%" instead of "págs". // PT: a unidade do delta. */
+    val countsPercent: Boolean = false,
 )
 
 /**
@@ -1087,12 +1100,27 @@ class PautaRepository(private val db: AppDatabase) {
             return@withLock null
         }
         focusBlockDao.upsert(block.copy(status = "done", pagesDelta = outcome.pagesDelta))
+        // F5(c): the receipt in the book's own unit. A counted EPUB can say words,
+        // which is the figure a reader actually recognises; F1's ceiling applies
+        // here too, so a session that was really a chapter jump reports its time
+        // and not a word count it did not earn. // PT: o recibo na unidade do
+        // livro, com o mesmo tecto de velocidade da tarefa F1.
+        val perUnit = book?.let { BookMath.wordsPerUnit(it) }
+        val words = if (book != null && BookMath.hasCountedWords(book) && perUnit != null) {
+            val span = BookMath.SessionSpan(outcome.pagesDelta, durationMs)
+            if (BookMath.readingSpans(listOf(span), perUnit).isEmpty()) null
+            else (outcome.pagesDelta.coerceAtLeast(0) * perUnit).toInt()
+        } else {
+            null
+        }
         ReaderSessionRecord(
             blockId = block.id,
             bookId = bookId,
             pagesDelta = outcome.pagesDelta,
             durationMs = durationMs,
             previousPage = book?.currentPage ?: startPage,
+            words = words,
+            countsPercent = book?.fileKind == "epub",
         )
     }
 

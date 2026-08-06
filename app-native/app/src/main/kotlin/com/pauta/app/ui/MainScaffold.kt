@@ -502,12 +502,22 @@ private fun HomeShell(
                 is PendingUndo.Intention -> tr("Intenção removida")
                 is PendingUndo.Block -> tr("Bloco removido")
                 is PendingUndo.ReadingSession -> {
+                    // F5(c): the receipt speaks the book's unit. It said "págs"
+                    // for everything, and for an attached EPUB `pagesDelta` is
+                    // percentage points — so a real session read "33 págs em
+                    // 4 min" about a book with no pages. Words where the EPUB was
+                    // counted (the honest figure, and the one a reader knows),
+                    // percent where they weren't, pages for a PDF or a physical
+                    // book. // PT: o recibo na unidade do livro.
                     val r = pending.record
-                    tr("Sessão guardada") + " · " + trf(
-                        "{n} págs em {min} min",
-                        "n" to r.pagesDelta.coerceAtLeast(0),
-                        "min" to ReaderMath.sessionMinutes(r.durationMs),
-                    )
+                    val minutes = ReaderMath.sessionMinutes(r.durationMs)
+                    val gained = r.pagesDelta.coerceAtLeast(0)
+                    val line = when {
+                        r.words != null -> trf("{n} palavras em {min} min", "n" to r.words, "min" to minutes)
+                        r.countsPercent -> trf("{n}% em {min} min", "n" to gained, "min" to minutes)
+                        else -> trf("{n} págs em {min} min", "n" to gained, "min" to minutes)
+                    }
+                    tr("Sessão guardada") + " · " + line
                 }
             }
             val result = snackbarHostState.showSnackbar(

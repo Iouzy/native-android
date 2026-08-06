@@ -107,12 +107,21 @@ object Epub {
         val raw = readText(zip, href)
         val base = href.substringBeforeLast('/', "")
         var budget = MAX_CHAPTER_IMAGE_BYTES
-        return sanitize(raw) { src ->
-            val path = resolve(base, src) ?: return@sanitize null
-            val data = readImage(zip, path, budget) ?: return@sanitize null
-            budget -= data.second
-            data.first
-        }
+        return sanitize(
+            raw,
+            inlineImage = inline@{ src ->
+                val path = resolve(base, src) ?: return@inline null
+                val data = readImage(zip, path, budget) ?: return@inline null
+                budget -= data.second
+                data.first
+            },
+            // F5(d): the archive is the authority on whether a link goes anywhere.
+            // // PT: é o arquivo que decide se o link leva a algum lado.
+            linkResolves = { link ->
+                val path = resolve(base, link)
+                path != null && zip.getEntry(path) != null
+            },
+        )
     }
 
     /**
@@ -181,7 +190,29 @@ object Epub {
      * that could carry a `<base>` or a stylesheet link.
      * // PT: o capítulo reduzido à lista de permitidos, com as imagens embutidas.
      */
-    fun sanitize(html: String, inlineImage: (String) -> String? = { null }): String {
+    /**
+     * F5(d) · the class a link that goes nowhere is marked with, so the stylesheet
+     * can paint it as ink rather than as a link. The reader refuses every
+     * navigation by design (§G.3) and resolves the internal ones itself, so a link
+     * out of the book is inert — and `www.panmacmillan.com`, which carries no
+     * scheme and therefore survives [safeHref] as a "relative" href, was being
+     * painted in the accent and doing nothing when tapped. Colour is a promise
+     * here; this is what stops it being one the reader cannot keep.
+     * // PT: a classe de um link que não vai a lado nenhum — pinta-se como texto,
+     * porque um link que não navega não deve parecer um link.
+     */
+    const val DEAD_LINK_CLASS = "dead"
+
+    fun sanitize(
+        html: String,
+        inlineImage: (String) -> String? = { null },
+        // True when this href names a document that exists in *this* book. False
+        // for anything else, including a bare fragment: the reader has no
+        // same-document jump, so `#p3` is as inert as an external URL and painting
+        // it differently would be a second lie. // PT: verdade só quando o href
+        // aponta para um documento deste livro.
+        linkResolves: (String) -> Boolean = { false },
+    ): String {
         val out = StringBuilder(html.length.coerceAtMost(1 shl 20))
         // How deep we are inside an element whose contents go with it. // PT:
         // profundidade dentro de um elemento a descartar por inteiro.
@@ -229,6 +260,19 @@ object Epub {
                 out.append('<').append(tag)
                 for ((attr, value) in kept) {
                     out.append(' ').append(attr).append("=\"").append(escape(value)).append('"')
+                }
+                // F5(d): an anchor that resolves to nothing in this book — or that
+                // has no surviving href at all, which is what a bare `<a id=…>`
+                // target becomes — is marked so the stylesheet can leave it ink.
+                // The class is written here rather than kept from the book: a
+                // book's own `class` attributes are dropped, so nothing can
+                // collide with this one. // PT: marca-se aqui; as classes do livro
+                // são descartadas, por isso não há colisão possível.
+                if (tag == "a") {
+                    val href = kept.firstOrNull { it.first == "href" }?.second
+                    if (href == null || !linkResolves(href)) {
+                        out.append(' ').append("class=\"").append(DEAD_LINK_CLASS).append('"')
+                    }
                 }
                 if (tag in VOID || selfClosing) out.append("/>") else out.append('>')
             }

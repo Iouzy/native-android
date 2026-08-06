@@ -921,6 +921,13 @@ object I18n {
             "Delete this session? The block stays, without this time.", // native-only
         "O fim não pode ser antes do início." to "The end cannot precede the start.", // native-only
         "por contar" to "not counted", // native-only
+
+        // F5 · the reader's own controls. "Pausar" and "Retomar" already exist
+        // above (the Pauta tab's block states) and are reused verbatim; what is
+        // new is the receipt saying the book's unit instead of always "págs".
+        // // PT: o recibo na unidade do livro; "Pausar"/"Retomar" já existem.
+        "{n} palavras em {min} min" to "{n} words in {min} min", // native-only
+        "{n}% em {min} min" to "{n}% in {min} min", // native-only
     )
 }
 
