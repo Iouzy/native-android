@@ -1,5 +1,6 @@
 package com.pauta.app.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.snap
 import androidx.compose.foundation.background
@@ -7,10 +8,13 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
@@ -43,7 +47,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
@@ -124,6 +131,52 @@ fun PautaSheet(title: String, onClose: () -> Unit, content: @Composable ColumnSc
 }
 
 /**
+ * F3 · back is a **two-stage** gesture whenever the keyboard is up: the first
+ * press puts the keyboard away and keeps the form, the second dismisses the
+ * sheet. That is the platform convention everywhere else on Android, and the app
+ * broke it — adding a tide, the keyboard covered the lower half of the sheet,
+ * there was no gesture that closed it, and back threw away everything typed. The
+ * only two outcomes were "keyboard in the way" and "lose your work".
+ *
+ * `docs/archive/UX_FIXES.md` U1 fixed the keyboard *arriving* mid-animation.
+ * Nobody fixed it leaving.
+ *
+ * Two details this depends on. The handler is registered **inside** the sheet's
+ * own composition, so it sits above Material's sheet-level back handling on the
+ * dispatcher and wins while enabled — and it is enabled *only* while the IME is
+ * actually visible, so it never eats a back press that should close the sheet.
+ * And the visibility comes from [isImeVisible], not from focus: a field can hold
+ * focus with the keyboard down, and the two states are not the same.
+ *
+ * // PT: com o teclado aberto, "voltar" fecha o teclado e guarda o formulário; a
+ * segunda vez fecha a folha. Só está activo enquanto o teclado está mesmo
+ * visível, para nunca comer um "voltar" que devia fechar a folha.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun SheetImeBackHandler() {
+    val keyboard = LocalSoftwareKeyboardController.current
+    val focus = LocalFocusManager.current
+    BackHandler(enabled = WindowInsets.isImeVisible) {
+        // Clear the focus as well as hiding: a field that keeps focus keeps
+        // asking for the IME, and the keyboard comes straight back.
+        // // PT: tirar o foco também, senão o teclado volta sozinho.
+        focus.clearFocus()
+        keyboard?.hide()
+    }
+}
+
+/**
+ * F3 · the cheap half: a tap on the sheet's own background puts the keyboard
+ * away. Children get the pointer event first, so a tap on a field, a chip or a
+ * button is unaffected; and a tap is only a tap after the finger lifts without
+ * moving, so scrolling the body still scrolls it. // PT: tocar no fundo da folha
+ * fecha o teclado; os filhos recebem o toque primeiro e o scroll não é afectado.
+ */
+private fun Modifier.dismissImeOnBackgroundTap(clearFocus: () -> Unit): Modifier =
+    this.pointerInput(Unit) { detectTapGestures(onTap = { clearFocus() }) }
+
+/**
  * P9: the one sheet entrance, 0 → 1 over [PautaMotion.Slow] on the house easing.
  * Material3 owns the bottom sheet's slide and exposes no spec to retune, so what
  * both faces *share* — and what makes them read as one gesture — is the content
@@ -197,6 +250,7 @@ private fun PautaBottomSheet(
         ) {
             SheetEyebrow(title)
         }
+        val focus = LocalFocusManager.current
         Column(
             Modifier
                 .fillMaxWidth()
@@ -207,8 +261,10 @@ private fun PautaBottomSheet(
                 // scroll para cima do teclado — o campo focado fica visível.
                 .imePadding()
                 .verticalScroll(rememberScrollState())
+                .dismissImeOnBackgroundTap { focus.clearFocus() }
                 .padding(start = SheetGutter, end = SheetGutter, bottom = SheetActionGap),
         ) {
+            SheetImeBackHandler()
             CompositionLocalProvider(LocalSheetSettled provides settled) { content() }
         }
     }
@@ -283,12 +339,15 @@ private fun PautaCenteredSheet(
                     Text(text = "×", color = colors.ink3, fontFamily = MonoFamily, fontSize = 16.sp)
                 }
             }
+            val focus = LocalFocusManager.current
             Column(
                 Modifier
                     .fillMaxWidth()
                     .verticalScroll(rememberScrollState())
+                    .dismissImeOnBackgroundTap { focus.clearFocus() }
                     .padding(start = SheetGutter, end = SheetGutter, bottom = SheetActionGap),
             ) {
+                SheetImeBackHandler()
                 CompositionLocalProvider(LocalSheetSettled provides settled) { content() }
             }
         }

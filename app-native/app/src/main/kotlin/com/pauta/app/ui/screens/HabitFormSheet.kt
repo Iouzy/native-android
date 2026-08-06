@@ -158,7 +158,14 @@ fun AddHabitSheet(onSubmit: (HabitDraft) -> Unit, onClose: () -> Unit) {
             FieldError(tr("Dá um nome à maré."))
         }
         Spacer(Modifier.height(SheetFieldGap))
-        BoxedField(time, { time = it }, tr("Quando? (opcional, ex.: manhã)"), singleLine = true)
+        // F3: what follows this field is chips and a button, not another field, so
+        // the keyboard's own key closes it instead of sitting there with nothing
+        // to do. // PT: o que vem a seguir não é outro campo — a tecla fecha.
+        BoxedField(
+            time, { time = it }, tr("Quando? (opcional, ex.: manhã)"), singleLine = true,
+            imeAction = ImeAction.Done,
+            keyboardActions = KeyboardActions(onDone = { submit() }),
+        )
 
         if (!expanded) {
             Spacer(Modifier.height(SheetFieldGap))
@@ -345,7 +352,12 @@ fun EditHabitSheet(
         Spacer(Modifier.height(SheetFieldGap))
         SheetEyebrow(tr("quando"))
         Spacer(Modifier.height(SheetLabelGap))
-        BoxedField(time, { time = it }, tr("ex.: manhã, antes de dormir"), singleLine = true)
+        // F3: same reason as the add sheet — the next control is a picker.
+        BoxedField(
+            time, { time = it }, tr("ex.: manhã, antes de dormir"), singleLine = true,
+            imeAction = ImeAction.Done,
+            keyboardActions = KeyboardActions(onDone = { save() }),
+        )
 
         Spacer(Modifier.height(SheetFieldGap))
         SheetEyebrow(tr("hora certa") + " · " + tr("opcional"))
