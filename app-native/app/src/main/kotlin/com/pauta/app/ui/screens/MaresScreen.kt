@@ -591,7 +591,12 @@ private fun MaresHabitRow(
 
     val ndays = DateUtils.daysInMonth(year, month)
     val isCount = habit.target != null && habit.cadence == "daily"
-    val todayCount = countsForHabit[today] ?: 0
+    // F4: what a stored count means, not the raw row. A tide written before the
+    // ceiling existed can hold 39 against a target of 2, and printing 39 would be
+    // printing a number the tide can no longer reach — reading it as "at the
+    // target" is what makes the repair one tap. // PT: lê-se a contagem já
+    // limitada; um 39 antigo mostra-se como "na meta".
+    val todayCount = HabitCalculator.shownCount(countsForHabit[today] ?: 0, habit.target)
 
     // P8: keyed on the model, the viewed month and today — a mark on one tide
     // leaves the others' models equal, so only the tide that actually changed

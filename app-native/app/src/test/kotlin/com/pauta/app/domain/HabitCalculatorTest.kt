@@ -122,4 +122,47 @@ class HabitCalculatorTest {
         val b = HabitModel(id = "b", createdAt = ms("2024-01-01"), log = setOf("2024-01-01"))
         assertEquals(3, HabitCalculator.totalDoneDays(listOf(a, b)))
     }
+
+    // ── F4 · a countable tide's ceiling ───────────────────────
+
+    @Test fun aTapCountsUpToTheTargetAndTheNextOneClears() {
+        // The whole rule, walked: 0 → 1 → 2 → 0, with a target of 2. Callers pass
+        // `current + 1`; the cycle is what they get back.
+        // // PT: a regra toda — sobe até à meta, o toque seguinte limpa.
+        val target = 2
+        assertEquals(1, HabitCalculator.cycleCount(0 + 1, target))
+        assertEquals(2, HabitCalculator.cycleCount(1 + 1, target))
+        assertEquals(0, HabitCalculator.cycleCount(2 + 1, target))
+    }
+
+    @Test fun noCountCanEverExceedItsTarget() {
+        for (n in 0..50) {
+            val settled = HabitCalculator.cycleCount(n, 3)
+            assertEquals(true, settled in 0..3)
+        }
+    }
+
+    @Test fun theEvidenceCase39Against2IsOneTapFromRight() {
+        // "39/2 Treinos", found on the owner's phone. The row reads as at-target,
+        // and one more tap settles it at zero. // PT: o caso encontrado no telemóvel.
+        assertEquals(2, HabitCalculator.shownCount(39, 2))
+        assertEquals(0, HabitCalculator.cycleCount(39 + 1, 2))
+        assertEquals(0, HabitCalculator.cycleCount(HabitCalculator.shownCount(39, 2) + 1, 2))
+    }
+
+    @Test fun shownCountLeavesAHealthyRowAlone() {
+        assertEquals(0, HabitCalculator.shownCount(0, 3))
+        assertEquals(2, HabitCalculator.shownCount(2, 3))
+        assertEquals(3, HabitCalculator.shownCount(3, 3))
+    }
+
+    @Test fun withoutATargetThereIsNothingToClamp() {
+        // A binary tide never goes through this path, but the helpers must not
+        // invent a ceiling for one. // PT: sem meta não há tecto a aplicar.
+        assertEquals(7, HabitCalculator.shownCount(7, null))
+        assertEquals(7, HabitCalculator.cycleCount(7, null))
+        assertEquals(7, HabitCalculator.cycleCount(7, 0))
+        assertEquals(0, HabitCalculator.shownCount(-3, null))
+        assertEquals(0, HabitCalculator.cycleCount(-3, 4))
+    }
 }
