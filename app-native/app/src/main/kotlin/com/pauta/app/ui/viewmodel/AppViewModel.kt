@@ -42,6 +42,7 @@ import com.pauta.app.service.ReminderScheduler
 import com.pauta.app.service.WhatsNew
 import com.pauta.app.service.WhatsNewState
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
@@ -445,12 +446,36 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
      *  lying. // PT: a verificação falhou (sem rede), distinto de "atualizado". */
     val updateCheckFailed: MutableStateFlow<Boolean> = MutableStateFlow(false)
 
+    /**
+     * F10 · when the last check finished, as `HH:MM` (empty = not yet this
+     * session).
+     *
+     * Tapping "Verificar atualizações" a second time showed nothing at all, so the
+     * row looked stuck on "Está atualizado.". The button, the state order and
+     * `AppUpdater.check()` were each read and are correct — which leaves the other
+     * possibility: the check resolves faster than the eye, and a state that
+     * resolves faster than a frame is indistinguishable from a dead button. That
+     * is a UI defect whatever the plumbing says, so the fix is on both sides: the
+     * result carries a **time**, which changes visibly even when the answer
+     * doesn't, and the checking state is held for a minimum visible beat.
+     * // PT: a hora da última verificação — muda mesmo quando a resposta não muda,
+     * que é o que faltava para o botão parecer vivo.
+     */
+    val updateCheckedAt: MutableStateFlow<String> = MutableStateFlow("")
+
     fun checkForUpdate() = viewModelScope.launch {
         updateChecking.value = true
         updateCheckFailed.value = false
         updateDownloadError.value = false
         updateNeedsPerm.value = false
-        when (val result = AppUpdater.check()) {
+        val startedAt = System.currentTimeMillis()
+        val result = AppUpdater.check()
+        // F10: the tap has to be *seen* to have been taken. A check that returns
+        // in 40 ms leaves the row exactly as it was, and the user is right to
+        // conclude the button does nothing. // PT: a verificação tem de se ver.
+        val elapsed = System.currentTimeMillis() - startedAt
+        if (elapsed < MIN_CHECK_VISIBLE_MS) delay(MIN_CHECK_VISIBLE_MS - elapsed)
+        when (result) {
             is AppUpdater.CheckResult.Available -> {
                 updateAvailable.value = result.update
                 updateChecked.value = true
@@ -467,6 +492,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 updateCheckFailed.value = true
             }
         }
+        // Stamped on every outcome, including a failure: "we tried, at 23:56" is
+        // still an answer, and it is the one thing that always changes.
+        // // PT: a hora fica mesmo quando a verificação falha.
+        updateCheckedAt.value = DateUtils.fmtClock(System.currentTimeMillis())
         updateChecking.value = false
     }
 
@@ -757,5 +786,12 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 .distinctUntilChangedBy { it.autoBackup }
                 .collect { p -> BackupScheduler.reschedule(getApplication<Application>(), p.autoBackup) }
         }
+    }
+
+    private companion object {
+        /** F10: how long "A verificar…" is held for, so a check that resolves in
+         *  40 ms is still visible. Long enough to read, short enough not to be a
+         *  fake wait. // PT: o tempo mínimo em que "A verificar…" se vê. */
+        const val MIN_CHECK_VISIBLE_MS = 450L
     }
 }

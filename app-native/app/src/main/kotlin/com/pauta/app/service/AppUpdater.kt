@@ -73,6 +73,11 @@ object AppUpdater {
     private fun fetchLatest(): CheckResult {
         val conn = (URL("https://api.github.com/repos/$REPO/releases/tags/latest-native").openConnection() as HttpURLConnection).apply {
             setRequestProperty("Accept", "application/vnd.github+json")
+            // F10: a rolling tag is exactly the thing an intermediary caches, and a
+            // cached answer is how "verificar" comes back instantly with yesterday's
+            // release. // PT: a etiqueta é rolante — sem cache, senão vem a resposta
+            // de ontem.
+            setRequestProperty("Cache-Control", "no-cache")
             connectTimeout = 10_000; readTimeout = 10_000
         }
         val text = conn.inputStream.bufferedReader().use { it.readText() }
