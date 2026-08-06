@@ -1034,6 +1034,11 @@ object I18n {
         "Três prateleiras — a ler, a seguir, lidos — e cada livro pode trazer um PDF ou um EPUB para ler aqui dentro." to
             "Three shelves — reading, up next, finished — and any book can carry a PDF or an EPUB to read right here.", // native-only
         "Adicionar o primeiro livro" to "Add the first book", // native-only
+
+        // N8 · the book form asks three questions, not nine. // PT: o formulário
+        // do livro passa a três perguntas.
+        "+ mais opções (série, formato, páginas, género, estado)" to
+            "+ more options (series, format, pages, genre, status)", // native-only
     )
 }
 
