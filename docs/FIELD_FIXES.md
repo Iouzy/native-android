@@ -164,7 +164,7 @@ conversation that produced it.
 
 ---
 
-## F1 · The unit of progress, and what counts as reading — Status: pending
+## F1 · The unit of progress, and what counts as reading — Status: done (PR #187)
 
 **Depends on:** nothing. **Do this first — it is writing wrong numbers now.**
 
@@ -723,3 +723,4 @@ to be different things; an entry that cannot say what was verified should say
 that instead.
 
 <!-- e.g. 2026-08-03 · F1 · #n · … · Verified: JVM tests; not tested on a phone -->
+2026-08-06 · F1 · #187 · **(a)** `BookProgress.kt` already decided how progress is *shown*; it now also decides how it is *asked for* — `bookProgressQuestion` / `bookProgressUnit` / `bookProgressMark` / `clampBookProgress`, one place, four call sites. The conclude sheet had **no clamp at all**, which is the actual mechanism behind the 100%: it asked "Até que página chegaste?", the owner answered with a page number, and an attached EPUB stored it as percentage points. Every field now carries the unit *beside* it as well as above it, because the label scrolls off and the mark does not. **(b)** `BookMath.MAX_HUMAN_WPM = 1000` with `impliedWpm` + `readingSpans` as the pure pair; `pagesPerHour` takes an optional `wordsPerUnit` (default null = no ceiling, so callers with no book keep the old arithmetic) and `wordsPerMinute` passes it through, so the two figures can still never disagree. Applied at the detail sheet's Ritmo line **and** in `BookHabitsScreen`'s per-session `words`, which F1's file list didn't name but which feeds the same inflated number into the charts. **(c)** `sessionOutcome`'s guard is now duration alone; `aShortSittingThatTurnedAPageIsStillASession` was R5's rule and is deliberately reversed, with the reasoning kept in the test. **One thing in the spec was not done:** F1 lists `BookFormSheet.kt — current/total page fields`, and that sheet has no current-page field — only `totalPages`, which does not write `currentPage` and is a real quantity for an EPUB (the print edition's length, which F7 will use with an `≈`). Left alone deliberately. · **Verified:** nothing was run. No Android SDK in this environment, so the new `BookMathTest` / `ReaderMathTest` cases have not executed locally — CI is the only thing that has compiled or run them, and no device has seen a single one of these fields.

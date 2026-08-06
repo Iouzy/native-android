@@ -81,7 +81,10 @@ fun QuoteCaptureSheet(onClose: () -> Unit) {
     fun submit() {
         val b = book ?: return
         if (text.isBlank()) { triedSubmit = true; return }
-        vm.addNote(b.id, kind, text.trim(), page.toIntOrNull().takeIf { !isAudiobook })
+        // F1: a note's position is clamped like any other progress value — a
+        // percentage cannot be 340. // PT: a posição da nota também se limita.
+        val at = page.toIntOrNull()?.let { clampBookProgress(b, it) }
+        vm.addNote(b.id, kind, text.trim(), at.takeIf { !isAudiobook })
         onClose()
     }
 
@@ -125,10 +128,18 @@ fun QuoteCaptureSheet(onClose: () -> Unit) {
         // ── Página (hidden for audiobooks) ──
         if (!isAudiobook) {
             Spacer(Modifier.height(SheetFieldGap))
-            SheetEyebrow(tr("Página (opcional)"))
+            // F1: the note's position is stored in the same unit `currentPage`
+            // is — a percentage point for an attached EPUB — so the label and the
+            // mark have to say which, or the number means something the reader
+            // didn't. // PT: a posição da nota usa a unidade do livro.
+            // `reading` is non-empty here (the branch above returned), so the
+            // fallback only covers the frame before the pick settles.
+            // // PT: a lista não está vazia aqui; o recurso cobre só o 1.º frame.
+            val unitBook = book ?: reading.first()
+            SheetEyebrow(bookProgressUnit(unitBook) + " · " + tr("opcional"))
             Spacer(Modifier.height(SheetLabelGap))
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("p.", color = colors.ink3, style = PautaType.Meta)
+                Text(bookProgressMark(unitBook), color = colors.ink3, style = PautaType.Meta)
                 Box(Modifier.width(96.dp)) {
                     BoxedField(
                         value = page,

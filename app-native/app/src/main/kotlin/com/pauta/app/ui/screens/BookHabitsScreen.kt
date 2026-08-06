@@ -197,9 +197,17 @@ private fun readingSessionsOf(
                 dayKey = DateUtils.dayKeyOf(endedAt),
                 minutes = (ms / 60_000L).toInt(),
                 pages = b.pagesDelta?.takeIf { countsPages && it >= 0 },
+                // F1: the same ceiling the detail sheet's Ritmo line uses. A
+                // chapter jump is not words read, and letting it through here
+                // would put the inflated figure into the charts instead — the
+                // same lie, one screen over. // PT: o mesmo tecto do Ritmo; um
+                // salto de capítulo não são palavras lidas.
                 words = book?.let { bk ->
                     val perUnit = BookMath.wordsPerUnit(bk) ?: return@let null
-                    b.pagesDelta?.takeIf { it >= 0 }?.let { it * perUnit }
+                    val delta = b.pagesDelta?.takeIf { it >= 0 } ?: return@let null
+                    val span = BookMath.SessionSpan(delta, ms)
+                    if (BookMath.readingSpans(listOf(span), perUnit).isEmpty()) null
+                    else delta * perUnit
                 },
             )
         }

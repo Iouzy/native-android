@@ -57,13 +57,21 @@ class ReaderMathTest {
         assertFalse(out.save)
     }
 
-    @Test fun aShortSittingThatTurnedAPageIsStillASession() {
-        // The guard is short *and* still — checking a quote is not the same as
-        // reading three pages over a coffee. // PT: curta mas com páginas conta.
+    @Test fun aShortSittingIsAPeekEvenWhenThePositionMoved() {
+        // F1 reversed this. R5's guard was short *and* still, on the reasoning
+        // that turning a page proves reading — and in an EPUB it proves nothing,
+        // because one tap changes chapter. Twelve sessions of 0–4 minutes came out
+        // of one evening's testing, every one of them past the guard. Under a
+        // minute is a peek, whatever the position did.
+        // // PT: sob um minuto é espreitadela, mexa-se ou não a posição.
         val out = ReaderMath.sessionOutcome(durationMs = 20_000, startPage = 80, endPage = 83)
-        assertTrue(out.save)
-        assertEquals(83, out.page)
-        assertEquals(3, out.pagesDelta)
+        assertFalse(out.save)
+    }
+
+    @Test fun aShortSittingThatJumpedThreeChaptersSavesNothing() {
+        // The exact shape F1 was written for: 20 seconds, a large position jump.
+        // // PT: o caso concreto: 20 segundos e um salto de três capítulos.
+        assertFalse(ReaderMath.sessionOutcome(20_000, startPage = 17, endPage = 55).save)
     }
 
     @Test fun aLongSittingCountsEvenWithNothingTurned() {
@@ -76,6 +84,9 @@ class ReaderMathTest {
     @Test fun theMinuteBoundaryIsExactlyAMinute() {
         assertFalse(ReaderMath.sessionOutcome(59_999, 5, 5).save)
         assertTrue(ReaderMath.sessionOutcome(60_000, 5, 5).save)
+        // …and it is the only thing the guard looks at now (F1).
+        assertFalse(ReaderMath.sessionOutcome(59_999, 5, 40).save)
+        assertTrue(ReaderMath.sessionOutcome(60_000, 5, 40).save)
     }
 
     @Test fun readingBackwardsKeepsItsSign() {

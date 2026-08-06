@@ -23,9 +23,51 @@ object BookMath {
      */
     const val WORDS_PER_PAGE = 280
 
+    /**
+     * native-only (F1): the fastest anyone reads. A span implying more than this
+     * is not a measurement of reading — it is navigating, and in an EPUB one tap
+     * moves several percentage points, so it takes only a chapter jump to produce
+     * "Ritmo: 9191 palavras/min" from arithmetic that is entirely correct on
+     * dishonest data.
+     *
+     * 1000 is chosen to be comfortably above any real reader (a fast one manages
+     * ~400, a trained skimmer ~700) and far below what a jump produces, so the
+     * ceiling never censors a genuine session. The span keeps its **time** in the
+     * history and loses only its **words** — the sitting happened; what it claims
+     * about pace did not. // PT: o tecto de velocidade humana; acima disto foi
+     * navegação e não leitura, e o tempo fica mas o ritmo não conta.
+     */
+    const val MAX_HUMAN_WPM = 1000f
+
     /** One reading session's contribution: pages (or minutes) gained over its
      *  wall-clock duration. // PT: o delta de páginas de uma sessão e a sua duração. */
     data class SessionSpan(val pagesDelta: Int, val durationMs: Long)
+
+    /**
+     * native-only (F1): the words per minute [span] implies, or null when the
+     * question doesn't apply (no time, no unit). // PT: as palavras por minuto que
+     * um intervalo implica.
+     */
+    fun impliedWpm(span: SessionSpan, wordsPerUnit: Float): Float? {
+        if (span.durationMs <= 0L || wordsPerUnit <= 0f) return null
+        val minutes = span.durationMs / 60_000.0
+        if (minutes <= 0.0) return null
+        return (span.pagesDelta * wordsPerUnit / minutes).toFloat()
+    }
+
+    /**
+     * native-only (F1): [spans] with the impossible ones dropped. A null or
+     * non-positive [wordsPerUnit] means we have no way to judge — an audiobook,
+     * where a listened minute is already time — so nothing is dropped rather than
+     * everything. // PT: os intervalos plausíveis; sem unidade não se julga nada.
+     */
+    fun readingSpans(spans: List<SessionSpan>, wordsPerUnit: Float?): List<SessionSpan> {
+        if (wordsPerUnit == null || wordsPerUnit <= 0f) return spans
+        return spans.filter { span ->
+            val wpm = impliedWpm(span, wordsPerUnit) ?: return@filter true
+            wpm <= MAX_HUMAN_WPM
+        }
+    }
 
     /**
      * Pages (or minutes) read per hour across the given sessions — the overall
@@ -33,9 +75,15 @@ object BookMath {
      * fewer than 2 usable data points (a single session is too noisy to call a
      * pace) or when nothing was actually read. // PT: ritmo global; null com
      * menos de 2 sessões úteis.
+     *
+     * F1: pass [wordsPerUnit] and spans implying more than [MAX_HUMAN_WPM] are
+     * dropped before the rate is taken, rather than averaged in. It defaults to
+     * null — no ceiling — so a caller that has no book in hand still gets the old
+     * arithmetic. // PT: com [wordsPerUnit], descarta os intervalos impossíveis.
      */
-    fun pagesPerHour(sessions: List<SessionSpan>): Float? {
-        val valid = sessions.filter { it.durationMs > 0 && it.pagesDelta >= 0 }
+    fun pagesPerHour(sessions: List<SessionSpan>, wordsPerUnit: Float? = null): Float? {
+        val valid = readingSpans(sessions, wordsPerUnit)
+            .filter { it.durationMs > 0 && it.pagesDelta >= 0 }
         if (valid.size < 2) return null
         val pages = valid.sumOf { it.pagesDelta }
         val hours = valid.sumOf { it.durationMs } / 3_600_000.0
@@ -90,12 +138,13 @@ object BookMath {
      * progress is worth [wordsPerUnit] words. Same data points and same overall
      * rate as [pagesPerHour] — deliberately, so the two figures can never
      * disagree about the same sessions — which also means null under the same
-     * conditions: fewer than 2 usable spans, or nothing actually read.
+     * conditions: fewer than 2 usable spans, or nothing actually read — and, since
+     * F1, after the same [MAX_HUMAN_WPM] ceiling has removed the same spans.
      * // PT: palavras por minuto; mesmas regras de validade que [pagesPerHour].
      */
     fun wordsPerMinute(spans: List<SessionSpan>, wordsPerUnit: Float): Float? {
         if (wordsPerUnit <= 0f) return null
-        val unitsPerHour = pagesPerHour(spans) ?: return null
+        val unitsPerHour = pagesPerHour(spans, wordsPerUnit) ?: return null
         return unitsPerHour * wordsPerUnit / 60f
     }
 }

@@ -16,8 +16,8 @@ import kotlin.math.roundToInt
  */
 object ReaderMath {
 
-    /** Below this, a reading session with no page turned is a peek, not a session.
-     *  // PT: abaixo disto, sem virar página, foi uma espreitadela. */
+    /** Below this, a reading session is a peek, not a session.
+     *  // PT: abaixo disto foi uma espreitadela, não uma sessão. */
     const val MIN_SESSION_MS = 60_000L
 
     /**
@@ -30,16 +30,23 @@ object ReaderMath {
     /**
      * Whether a session that ran [durationMs] and moved the reader from [startPage]
      * to [endPage] is worth recording. Opening a book to check a quote shouldn't
-     * litter the history, so a session under [MIN_SESSION_MS] that turned no page
-     * is discarded; everything else is saved at the page it was left on.
+     * litter the history, so a session under [MIN_SESSION_MS] is discarded;
+     * everything else is saved at the page it was left on.
+     *
+     * **F1 gave this guard teeth.** It used to require *both* under a minute **and**
+     * unmoved, which in an EPUB never fires: one tap changes chapter, so the
+     * position always moves, and twelve 0–4 minute sessions from one evening's
+     * testing all counted. Under a minute is a peek, full stop — whatever the
+     * position did. A long session that moved nothing still saves, as before: that
+     * one is someone reading a difficult page, not someone glancing.
      *
      * The delta is signed on purpose: reading backwards is not reading, and
      * `BookMath.pagesPerHour` already drops negative spans rather than having them
-     * silently counted as progress. // PT: uma sessão curta sem virar página é
-     * descartada; as outras guardam a página onde ficaram.
+     * silently counted as progress. // PT: sob um minuto é espreitadela, mexa-se ou
+     * não a posição; as sessões longas guardam sempre.
      */
     fun sessionOutcome(durationMs: Long, startPage: Int, endPage: Int): SessionOutcome {
-        val peek = durationMs < MIN_SESSION_MS && endPage == startPage
+        val peek = durationMs < MIN_SESSION_MS
         return SessionOutcome(save = !peek, page = endPage, pagesDelta = endPage - startPage)
     }
 

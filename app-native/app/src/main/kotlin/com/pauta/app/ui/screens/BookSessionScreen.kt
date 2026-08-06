@@ -59,7 +59,6 @@ import com.pauta.app.domain.DateUtils
 import com.pauta.app.domain.FocusMath
 import com.pauta.app.domain.ReaderMath
 import com.pauta.app.i18n.tr
-import com.pauta.app.i18n.trf
 import com.pauta.app.ui.EmptyState
 import com.pauta.app.ui.PautaButton
 import com.pauta.app.ui.PautaButtonVariant
@@ -649,22 +648,26 @@ private fun BookConcludeSheet(
     onClose: () -> Unit,
 ) {
     val colors = LocalPautaColors.current
-    val isAudiobook = book.format == "audiobook"
     var page by remember { mutableStateOf(book.currentPage.takeIf { it > 0 }?.toString() ?: "") }
     var note by remember { mutableStateOf("") }
 
-    fun submit() = onConfirm(derivedPage ?: page.toIntOrNull() ?: book.currentPage, note.trim())
+    // F1: clamp what was typed into what this book can mean. Without this a "100"
+    // typed into a field that *said* pages and *stored* percentage points sent an
+    // attached EPUB straight to finished — which is exactly what happened.
+    // // PT: limita o valor tecleado ao que o livro pode significar.
+    fun submit() = onConfirm(
+        derivedPage ?: clampBookProgress(book, page.toIntOrNull() ?: book.currentPage),
+        note.trim(),
+    )
 
     PautaSheet(title = tr("Concluir bloco"), onClose = onClose) {
         if (derivedPage != null) {
             // The same unlabelled progress line the detail sheet uses — a
             // statement, not a question. // PT: a linha de progresso, sem pergunta.
+            // F1: the reader's own figure, said in the book's unit rather than
+            // always in pages. // PT: a linha de progresso na unidade certa.
             Text(
-                text = if (book.totalPages > 0) {
-                    trf("Página {x} de {y}", "x" to derivedPage, "y" to book.totalPages)
-                } else {
-                    "p. $derivedPage"
-                },
+                text = bookProgressLabel(book, derivedPage),
                 color = colors.ink2,
                 style = PautaType.Meta,
             )
@@ -672,19 +675,26 @@ private fun BookConcludeSheet(
             // U1: inside the body, so the page field waits for the sheet to settle.
             // // PT: espera que a folha assente antes de focar.
             val pageFocus = rememberAutoFocusRequester()
-            SheetEyebrow(if (isAudiobook) tr("Quantos minutos ouviste?") else tr("Até que página chegaste?"))
+            // F1: ask in the unit the book counts in. An attached EPUB has no
+            // pages — its text reflows — so it is asked for a percentage, and the
+            // mark beside the field keeps saying so while you type.
+            // // PT: pergunta na unidade do livro, com a marca ao lado do campo.
+            SheetEyebrow(bookProgressQuestion(book))
             Spacer(Modifier.height(8.dp))
-            Box(Modifier.width(120.dp)) {
-                BoxedField(
-                    value = page,
-                    onChange = { raw -> page = raw.filter { it.isDigit() }.take(6) },
-                    placeholder = book.currentPage.toString(),
-                    modifier = Modifier.focusRequester(pageFocus),
-                    singleLine = true,
-                    fontFamily = MonoFamily,
-                    keyboardType = KeyboardType.Number,
-                    imeAction = ImeAction.Next,
-                )
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Box(Modifier.width(120.dp)) {
+                    BoxedField(
+                        value = page,
+                        onChange = { raw -> page = raw.filter { it.isDigit() }.take(6) },
+                        placeholder = book.currentPage.toString(),
+                        modifier = Modifier.focusRequester(pageFocus),
+                        singleLine = true,
+                        fontFamily = MonoFamily,
+                        keyboardType = KeyboardType.Number,
+                        imeAction = ImeAction.Next,
+                    )
+                }
+                Text(bookProgressMark(book), color = colors.ink3, style = PautaType.Meta)
             }
         }
 
