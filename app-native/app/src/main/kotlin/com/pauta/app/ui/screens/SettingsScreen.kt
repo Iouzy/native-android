@@ -49,6 +49,7 @@ import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -81,11 +82,15 @@ import com.pauta.app.data.BookBackup
 import com.pauta.app.data.entity.HabitEntity
 import com.pauta.app.domain.DateUtils
 import com.pauta.app.service.ReminderScheduler
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.pauta.app.i18n.tr
 import com.pauta.app.i18n.trf
 import com.pauta.app.ui.EmptyState
+import com.pauta.app.ui.NotificationAccess
 import com.pauta.app.ui.PautaButton
 import com.pauta.app.ui.PautaButtonVariant
 import com.pauta.app.ui.PautaCard
@@ -96,6 +101,7 @@ import com.pauta.app.ui.SheetActionGap
 import com.pauta.app.ui.SheetFieldGap
 import com.pauta.app.ui.SheetLabelGap
 import com.pauta.app.ui.canUseBiometric
+import com.pauta.app.ui.rememberNotificationAsk
 import com.pauta.app.ui.clickableNoRipple
 import com.pauta.app.ui.theme.LocalPautaColors
 import com.pauta.app.ui.theme.MonoFamily
@@ -152,7 +158,28 @@ fun SettingsScreen(
     // (only shown alongside a set PIN). // PT: há biometria utilizável?
     val canBiometric = remember { context.canUseBiometric() }
 
-    val notifLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
+    // N1: the request itself lives in one place for all three call sites; here it
+    // is the reminder toggle's. // PT: o pedido vive num só sítio.
+    val askNotifications = rememberNotificationAsk(vm, prefs.notifAskedAt)
+    // N1: the OS's answer changes while we are backgrounded — the user goes to the
+    // system settings and switches notifications off, or back on — so re-read it
+    // on every resume instead of once per composition. Reading
+    // areNotificationsEnabled() rather than the permission alone is deliberate: a
+    // user can silence the app without ever touching POST_NOTIFICATIONS, and this
+    // row has to tell the truth in that case too. // PT: relê no regresso à app,
+    // e pergunta o que o sistema faz mesmo — não só a permissão.
+    val notifLifecycle = LocalLifecycleOwner.current
+    var notifEnabled by remember { mutableStateOf(NotificationAccess.enabled(context)) }
+    DisposableEffect(notifLifecycle) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                notifEnabled = NotificationAccess.enabled(context)
+            }
+        }
+        notifLifecycle.lifecycle.addObserver(observer)
+        onDispose { notifLifecycle.lifecycle.removeObserver(observer) }
+    }
+    val notifBlocked = NotificationAccess.blocked(prefs.notifAskedAt, notifEnabled)
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri != null) {
             val text = runCatching {
@@ -498,21 +525,34 @@ fun SettingsScreen(
         selected = prefs.timerPresets ?: TimerPresets.Pomodoro,
         keywords = "timer temporizador minutos minutes pomodoro foco focus",
     ) { vm.setTimerPresets(it) })
-    focoRows.add(toggleRow(
-        label = tr("Notificações"),
-        checked = prefs.remindersEnabled,
-        subtitle = tr("Avisos locais enquanto a app está aberta."),
-        keywords = "notifications notificações lembretes reminders avisos",
-        onChange = { enabled ->
-            vm.setRemindersEnabled(enabled)
-            if (enabled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-                ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
-            ) {
-                notifLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-            }
-        },
-    ))
-    if (prefs.remindersEnabled) {
+    // N1 · three states, not two. The old row said "Avisos locais enquanto a app
+    // está aberta" — which describes neither the foreground service (it runs with
+    // the app closed) nor the alarms (they fire with the app closed) — and it had
+    // no way to say that the OS had refused. A toggle you can move that changes
+    // nothing is the defect; a row that says why, and opens the one screen that
+    // can undo it, is the fix. // PT: três estados; a linha deixa de mentir e passa
+    // a abrir as definições do sistema quando é o sistema que recusa.
+    if (notifBlocked) {
+        focoRows.add(SettingsRow(
+            label = tr("Notificações"),
+            subtitle = tr("Bloqueado nas definições do sistema"),
+            keywords = "notifications notificações lembretes reminders avisos bloqueado blocked",
+        ) {
+            NotificationsBlockedRow { NotificationAccess.openSettings(context) }
+        })
+    } else {
+        focoRows.add(toggleRow(
+            label = tr("Notificações"),
+            checked = prefs.remindersEnabled,
+            subtitle = tr("Lembretes e o bloco em curso, mesmo com a app fechada."),
+            keywords = "notifications notificações lembretes reminders avisos",
+            onChange = { enabled ->
+                vm.setRemindersEnabled(enabled)
+                if (enabled) askNotifications()
+            },
+        ))
+    }
+    if (prefs.remindersEnabled && !notifBlocked) {
         val reminderKeys = "notificações notifications lembretes reminders hora time"
         focoRows.add(timeRow(tr("Plano do dia"), prefs.plannerTime, reminderKeys) { vm.setPlannerTime(it) })
         focoRows.add(timeRow(tr("Hábitos pendentes"), prefs.habitsTime, reminderKeys, divider = false) { vm.setHabitsTime(it) })
@@ -1621,6 +1661,49 @@ private fun ToggleRow(
                 uncheckedThumbColor = colors.paper,
                 uncheckedTrackColor = colors.rule,
             ),
+        )
+    }
+}
+
+/**
+ * N1 · the Notificações row when the OS has the last word. No switch: a control
+ * that cannot move is worse than none, and the only thing that can change the
+ * answer is the system screen this row opens. Same anatomy as every other row,
+ * with the app's own mono chip rather than a Material button. // PT: sem
+ * interruptor — só o sistema pode mudar isto, e a linha abre-o.
+ */
+@Composable
+private fun NotificationsBlockedRow(onOpenSettings: () -> Unit) {
+    val colors = LocalPautaColors.current
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .heightIn(min = RowMinHeight)
+            .clickableNoRipple(onOpenSettings)
+            .padding(vertical = RowVPadding),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(tr("Notificações"), color = colors.ink3, fontSize = 16.sp)
+            Spacer(Modifier.height(2.dp))
+            Text(
+                tr("Bloqueado nas definições do sistema"),
+                color = colors.ink3,
+                fontSize = 12.sp,
+                lineHeight = 16.sp,
+            )
+        }
+        Spacer(Modifier.width(8.dp))
+        Text(
+            tr("Abrir definições"),
+            color = colors.ink2,
+            fontFamily = MonoFamily,
+            fontSize = 10.sp,
+            letterSpacing = 0.08.sp,
+            modifier = Modifier
+                .clip(RoundedCornerShape(PautaRadius.Chip))
+                .border(1.dp, colors.rule, RoundedCornerShape(PautaRadius.Chip))
+                .padding(horizontal = 12.dp, vertical = 8.dp),
         )
     }
 }

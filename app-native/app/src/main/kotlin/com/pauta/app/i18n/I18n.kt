@@ -887,6 +887,16 @@ object I18n {
         "Marcar como não lido" to "Mark as unread", // native-only
         "Recomeçar" to "Start over", // native-only
         "Abandonado" to "Abandoned", // native-only
+
+        // N1 · the notification permission. The old subtitle ("Avisos locais
+        // enquanto a app está aberta") described neither the foreground service nor
+        // the alarms — both of which run with the app closed — and is replaced by
+        // the third line here. // PT: a permissão de notificações; o subtítulo
+        // antigo descrevia mal o que acontece.
+        "Bloqueado nas definições do sistema" to "Blocked in system settings", // native-only
+        "Abrir definições" to "Open settings", // native-only
+        "Lembretes e o bloco em curso, mesmo com a app fechada." to
+            "Reminders and the running block, even with the app closed.", // native-only
     )
 }
 

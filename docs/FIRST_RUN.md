@@ -153,7 +153,7 @@ AVD, Android 15, 1080×2400 @ 420 dpi, clean install, 2026-08-03.
 
 ---
 
-## N1 · The permission nobody asked for — Status: pending
+## N1 · The permission nobody asked for — Status: done (PR #187)
 
 **Depends on:** nothing. **Do this first, and on its own — it is the only task
 in any file where features that already shipped do nothing at all.**
@@ -590,3 +590,4 @@ This file exists because a green gate and a working app are different things; an
 entry that cannot say what was verified should say that instead.
 
 <!-- YYYY-MM-DD · N1 · #n · <what shipped, what was rejected and why> · Verified: <what ran, where> -->
+2026-08-06 · N1 · #187 · new `ui/Permissions.kt` is the single owner of "may we notify, and have we asked?" — three call sites (the planner's `startBlock`, the reading session's, and any tide that gains a `clock`) share one `rememberNotificationAsk`, so none of them grew permission logic of its own. One pref, `notifAskedAt` (Long, ms — not a Boolean, so a later task can tell *when* at no cost), Room **11 → 12**; that slot was `BOOK_LIBRARY.md` L5's claim and L5 has been moved to 12 → 13 in the same PR. The Settings row reads `areNotificationsEnabled()` rather than `checkSelfPermission` alone, re-read on every `ON_RESUME`, because a user can silence the app without ever touching the permission. **Two deliberate departures from the spec:** the blocked state has *no* switch rather than a disabled one — a control that cannot move reads as broken, and the mono "Abrir definições" chip (the same idiom as "Testar notificação" two rows down) is the affordance that actually does something; and `openSettings` falls back to the app-details screen when `ACTION_APP_NOTIFICATION_SETTINGS` is missing, so the link is never itself a dead tap. · **Verified:** nothing. The Android SDK is not available in this environment, so there was no local compile and no unit-test run; the Room migration is additive and follows the nine before it but **has not been executed** — this repo has no instrumentation tests, and a JVM test cannot open a Room database. Nobody has seen the permission dialog, the blocked row or the system-settings link on a screen.

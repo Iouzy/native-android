@@ -690,6 +690,14 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun setOnboardingSeen() = update { it.copy(onboardingSeen = true) }
 
     fun setRemindersEnabled(value: Boolean) = update { it.copy(remindersEnabled = value) }
+
+    // N1: we have been past the moment where the app asks for POST_NOTIFICATIONS.
+    // Written once and never cleared — Android shows that dialog a single time.
+    // // PT: marca que já pedimos a permissão de notificações (só uma vez).
+    fun markNotifAsked() = update {
+        if (it.notifAskedAt > 0L) it else it.copy(notifAskedAt = System.currentTimeMillis())
+    }
+
     fun setPlannerTime(value: String) = update { it.copy(plannerTime = value) }
     fun setHabitsTime(value: String) = update { it.copy(habitsTime = value) }
     fun setReflectionTime(value: String) = update { it.copy(reflectionTime = value) }

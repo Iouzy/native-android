@@ -90,6 +90,7 @@ import com.pauta.app.ui.clickableNoRipple
 import com.pauta.app.ui.computeTodayTides
 import com.pauta.app.ui.entranceStagger
 import com.pauta.app.ui.rememberEntrancePlay
+import com.pauta.app.ui.rememberNotificationAsk
 import com.pauta.app.ui.tick
 import com.pauta.app.ui.theme.LocalPautaColors
 import com.pauta.app.ui.theme.MonoFamily
@@ -196,6 +197,7 @@ fun PautaScreen(bookMode: Boolean = false, onOpenReader: (String) -> Unit = {}) 
             .filter { it.state == DayState.EMPTY }
     }
 
+    val askNotifications = rememberNotificationAsk(vm, prefs.notifAskedAt)
     var showStart by remember { mutableStateOf(false) }
     var showSwitch by remember { mutableStateOf(false) }
     var showManual by remember { mutableStateOf(false) }
@@ -222,6 +224,13 @@ fun PautaScreen(bookMode: Boolean = false, onOpenReader: (String) -> Unit = {}) 
         haptic.tick(prefs)
     }
     fun startBlock(title: String, linkedToId: String?, project: String? = null, targetMin: Int? = null) {
+        // N1: the honest moment to ask. The app is about to promise an ongoing
+        // notification for this block, and until v1.444 it made that promise on a
+        // clean Android 13+ install without ever having asked — the service ran
+        // foreground and the shade stayed empty. Asking here, once, is the whole
+        // design; a denial changes nothing about the timer. // PT: pede-se aqui,
+        // no momento em que a app promete o aviso do bloco. Recusar não pára nada.
+        askNotifications()
         vm.startBlock(title, linkedToId, project, targetMin)
         haptic.tick(prefs)
     }
