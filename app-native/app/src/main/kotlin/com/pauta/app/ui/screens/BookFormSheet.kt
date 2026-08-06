@@ -37,6 +37,7 @@ import com.pauta.app.data.ImportedFile
 import com.pauta.app.data.entity.BookEntity
 import com.pauta.app.domain.BookImport
 import com.pauta.app.i18n.tr
+import com.pauta.app.ui.OpenDocumentInDownloads
 import com.pauta.app.ui.PautaButton
 import com.pauta.app.ui.PautaButtonVariant
 import com.pauta.app.ui.PautaSheet
@@ -100,7 +101,7 @@ fun BookFormSheet(book: BookEntity? = null, onClose: () -> Unit) {
         onDispose { if (!saved && !editing) attached?.let { vm.discardAttachment(it.path) } }
     }
 
-    val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+    val picker = rememberLauncherForActivityResult(OpenDocumentInDownloads()) { uri ->
         if (uri != null) {
             copying = true
             attachError = null

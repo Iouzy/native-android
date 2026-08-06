@@ -54,6 +54,7 @@ import com.pauta.app.service.EpubInfo
 import com.pauta.app.service.EpubSession
 import com.pauta.app.service.PdfInfo
 import com.pauta.app.service.PdfSession
+import com.pauta.app.ui.OpenDocumentInDownloads
 import com.pauta.app.ui.PautaButton
 import com.pauta.app.ui.PautaButtonVariant
 import com.pauta.app.ui.ScreenMode
@@ -880,7 +881,7 @@ private fun MissingFileNotice(bookId: String, onAttached: () -> Unit) {
     val vm: AppViewModel = viewModel()
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
-    val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+    val picker = rememberLauncherForActivityResult(OpenDocumentInDownloads()) { uri ->
         if (uri != null) {
             busy = true
             error = null
