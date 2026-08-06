@@ -37,6 +37,20 @@ internal fun countsPercent(book: BookEntity): Boolean = book.fileKind == "epub"
 internal fun bookProgressLabel(book: BookEntity, page: Int = book.currentPage): String {
     val audiobook = book.format == "audiobook"
     return when {
+        // F7: an attached EPUB still counts in percent — that is settled — but a
+        // reader who also owns the paper copy has a print length they typed in,
+        // and a percentage of it is a real (if rough) answer to "where am I in the
+        // book on the shelf?". It carries `≈` and says what it assumed, because a
+        // derived figure presented as measured is exactly the defect this round
+        // exists to remove (GUARDRAILS K.11). The publisher's *own* numbers, where
+        // the book carries them, are drawn in the page itself by the marker rule
+        // — those need no `≈`. // PT: a percentagem fica; a página é uma estimativa
+        // e diz que o é.
+        countsPercent(book) && book.totalPages > 0 -> {
+            val pct = page.coerceIn(0, 100)
+            val approx = (book.totalPages * pct / 100).coerceIn(0, book.totalPages)
+            "$pct% · " + trf("≈ p. {x} de {y}", "x" to approx, "y" to book.totalPages)
+        }
         countsPercent(book) -> "${page.coerceIn(0, 100)}%"
         book.totalPages > 0 && audiobook ->
             trf("Min {x} de {y}", "x" to page, "y" to book.totalPages)
