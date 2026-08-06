@@ -48,6 +48,14 @@ import com.pauta.app.ui.theme.LocalPautaColors
 import com.pauta.app.ui.theme.PautaType
 import com.pauta.app.ui.theme.SerifFamily
 import com.pauta.app.ui.viewmodel.AppViewModel
+import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.input.ImeAction
+import com.pauta.app.domain.BookShelf
+import com.pauta.app.domain.BookStatus
+import com.pauta.app.i18n.trf
+import com.pauta.app.ui.theme.MonoFamily
 
 /**
  * native-only (K5): the book-mode face of the Hoje tab — a personal library
@@ -75,6 +83,16 @@ fun BookShelfScreen(onOpenReader: (String) -> Unit = {}) {
     // folha de captura rápida, agora aberta a partir do cabeçalho.
     var showCapture by remember { mutableStateOf(false) }
     var detailId by remember { mutableStateOf<String?>(null) }
+    // L8: screen state, deliberately not in the ViewModel — the shelf is one
+    // screen and a query is not app state. // PT: estado do ecrã, não do
+    // ViewModel: a consulta não é estado da app.
+    var query by remember { mutableStateOf("") }
+    var sort by remember { mutableStateOf(BookShelf.Sort.Recent) }
+    // The four flows collected once, here, rather than searched four times in
+    // four places. // PT: as quatro prateleiras juntas uma só vez.
+    val allBooks = remember(reading, paused, tbr, done) { reading + paused + tbr + done }
+    val results = remember(allBooks, query) { BookShelf.search(allBooks, query) }
+    val searching = query.isNotBlank()
 
     // K8: any book tap opens the detail sheet, which owns progress/rating/
     // status/notes/sessions. // PT: o toque abre a folha de detalhe do livro.
@@ -139,6 +157,32 @@ fun BookShelfScreen(onOpenReader: (String) -> Unit = {}) {
             Spacer(Modifier.height(20.dp))
         }
 
+        // L8 · the search field and the order, in the header.
+        //
+        // Empty query: the shelf renders exactly as it always did, four sections.
+        // A query: they collapse into one flat list ordered by relevance, because
+        // when you are searching, "which shelf is it on" is the *answer* and not
+        // the navigation. // PT: sem consulta, a estante é a de sempre; com
+        // consulta, uma lista só — a prateleira passa a ser a resposta.
+        item(key = "shelf-search") {
+            ShelfSearchRow(
+                query = query,
+                onQuery = { query = it },
+                sort = sort,
+                onSort = { sort = it },
+            )
+            Spacer(Modifier.height(14.dp))
+        }
+
+        if (searching) {
+            shelfResults(
+                results = BookShelf.sorted(results, sort),
+                onOpenBook = onOpenBook,
+            )
+            item(key = "bottom") { Spacer(Modifier.height(PautaFloatStrip)) }
+            return@LazyColumn
+        }
+
         // ── Section 1 · A ler agora (status = "reading") ──
         item(key = "reading-section") {
             SectionEyebrow(tr("A ler agora"))
@@ -191,15 +235,29 @@ fun BookShelfScreen(onOpenReader: (String) -> Unit = {}) {
             }
         }
 
-        // ── Section 4 · Lidos (status = "done"/"dnf", finishedAt DESC) ──
+        // ── Section 4 · Lidos (status = "done"/"dnf") ──
+        // L8: sorted by the header's choice, and past CAROUSEL_MAX it stops being
+        // a sideways scroll. A year's reading in a LazyRow is a long swipe with no
+        // way to reach a title you remember; rows scroll the way the page already
+        // does. // PT: acima de doze livros, "Lidos" passa a linhas — um ano de
+        // leituras num carrossel é uma travessia.
         if (done.isNotEmpty()) {
-            item(key = "done-section") {
+            val ordered = BookShelf.sorted(done, sort)
+            item(key = "done-header") {
                 Spacer(Modifier.height(36.dp))
                 SectionEyebrow(tr("Lidos"))
-                Spacer(Modifier.height(12.dp))
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    items(done, key = { "dn-${it.id}" }) { book ->
-                        BookDoneCard(book) { onOpenBook(book.id) }
+                Spacer(Modifier.height(if (ordered.size > BookShelf.CAROUSEL_MAX) 6.dp else 12.dp))
+            }
+            if (ordered.size > BookShelf.CAROUSEL_MAX) {
+                items(ordered, key = { "dn-${it.id}" }) { book ->
+                    BookListRow(book) { onOpenBook(book.id) }
+                }
+            } else {
+                item(key = "done-carousel") {
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        items(ordered, key = { "dn-${it.id}" }) { book ->
+                            BookDoneCard(book) { onOpenBook(book.id) }
+                        }
                     }
                 }
             }
@@ -303,7 +361,7 @@ private fun BookProgressCard(book: BookEntity, onOpenReader: () -> Unit, onOpenD
 
 /** "Up next" row: title + author, full width, tappable. */
 @Composable
-private fun BookListRow(book: BookEntity, onClick: () -> Unit) {
+private fun BookListRow(book: BookEntity, status: String? = null, onClick: () -> Unit) {
     val colors = LocalPautaColors.current
     Column(
         Modifier
@@ -318,14 +376,129 @@ private fun BookListRow(book: BookEntity, onClick: () -> Unit) {
             fontSize = 16.sp,
             lineHeight = 20.sp,
         )
-        if (book.author.isNotBlank()) {
+        // L8: in a result list the shelf a book is on is the answer, so the row
+        // says it. In a section it is already the heading above, so [status] is
+        // null there and nothing changes. // PT: numa lista de resultados a
+        // prateleira é a resposta; dentro de uma secção já está no título.
+        val meta = listOfNotNull(
+            book.author.takeIf { it.isNotBlank() },
+            status,
+        ).joinToString(" · ")
+        if (meta.isNotEmpty()) {
             Spacer(Modifier.height(2.dp))
             Text(
-                text = book.author,
+                text = meta,
                 color = colors.ink3,
                 style = PautaType.Meta,
             )
         }
+    }
+}
+
+
+/**
+ * L8 · the search field and the order, in the shelf header.
+ *
+ * The same quiet treatment U5 gave the Settings search — an underline field, not
+ * a boxed one, because this sits under a header rather than inside a card — and
+ * the pattern is reused rather than the code, which did not generalise cleanly
+ * out of `SettingsScreen`'s one-index-two-renderings shape.
+ * // PT: o campo de procura da estante, no mesmo tratamento discreto das
+ * definições.
+ */
+@Composable
+private fun ShelfSearchRow(
+    query: String,
+    onQuery: (String) -> Unit,
+    sort: String,
+    onSort: (String) -> Unit,
+) {
+    val colors = LocalPautaColors.current
+    val focus = LocalFocusManager.current
+    Column(Modifier.fillMaxWidth()) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.weight(1f)) {
+                UnderlineField(
+                    value = query,
+                    onChange = onQuery,
+                    placeholder = tr("Procurar na estante"),
+                    fontSize = 15.sp,
+                    imeAction = ImeAction.Search,
+                    // The results the query just produced should be visible, not
+                    // behind a keyboard. // PT: fecha o teclado para se verem os
+                    // resultados.
+                    keyboardActions = KeyboardActions(onSearch = { focus.clearFocus() }),
+                    modifier = Modifier.semantics { contentDescription = tr("Procurar na estante") },
+                )
+            }
+            if (query.isNotEmpty()) {
+                Spacer(Modifier.width(10.dp))
+                Text(
+                    text = tr("Limpar"),
+                    color = colors.ink3,
+                    fontFamily = MonoFamily,
+                    fontSize = 10.sp,
+                    letterSpacing = 0.4.sp,
+                    modifier = Modifier.clickableNoRipple { onQuery(""); focus.clearFocus() },
+                )
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        // The order, quiet beside the field. It governs "Lidos" — the only section
+        // long enough to need it — and the search results.
+        // // PT: a ordem, discreta ao lado do campo.
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            BookShelf.Sort.ALL.forEach { id ->
+                Text(
+                    text = sortLabel(id),
+                    color = if (id == sort) colors.ink2 else colors.ink4,
+                    fontFamily = MonoFamily,
+                    fontSize = 10.sp,
+                    letterSpacing = 0.4.sp,
+                    modifier = Modifier.clickableNoRipple { onSort(id) },
+                )
+            }
+        }
+    }
+}
+
+/** The four order names. // PT: os nomes das quatro ordens. */
+@Composable
+private fun sortLabel(id: String): String = when (id) {
+    BookShelf.Sort.Title -> tr("Título")
+    BookShelf.Sort.Author -> tr("Autor")
+    BookShelf.Sort.Rating -> tr("Classificação")
+    else -> tr("Recentes")
+}
+
+/**
+ * L8 · a query's answer: one flat list, each row saying which shelf its book is
+ * on — because that is what you were looking for. An empty result is the shared
+ * [EmptyState], not a bespoke message. // PT: a resposta a uma consulta: uma
+ * lista só, cada linha a dizer em que prateleira está.
+ */
+private fun LazyListScope.shelfResults(
+    results: List<BookEntity>,
+    onOpenBook: (String) -> Unit,
+) {
+    if (results.isEmpty()) {
+        item(key = "no-results") { EmptyState(tr("Nenhum livro encontrado")) }
+        return
+    }
+    item(key = "results-count") {
+        Text(
+            text = trf("{n} livros", "n" to results.size),
+            color = LocalPautaColors.current.ink4,
+            style = PautaType.MetaSmall,
+            letterSpacing = 0.4.sp,
+            // TalkBack reads the count as the list's own announcement rather than
+            // leaving the reader to count rows. // PT: o número é anunciado.
+            modifier = Modifier.semantics { contentDescription = trf("{n} livros", "n" to results.size) },
+        )
+        Spacer(Modifier.height(8.dp))
+    }
+    items(results, key = { "sr-${it.id}" }) { book ->
+        BookListRow(book, status = BookStatus.label(book.status)) { onOpenBook(book.id) }
     }
 }
 

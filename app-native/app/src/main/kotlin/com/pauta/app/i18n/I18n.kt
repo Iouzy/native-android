@@ -984,6 +984,15 @@ object I18n {
         // sheet's own title) and is reused for the reader's ✎ description.
         // // PT: capturar de dentro do livro; "Nova nota" já existe.
         "+ Nota" to "+ Note", // native-only
+
+        // L8 · the shelf at a hundred books. "Título", "Autor", "Limpar" and the
+        // four shelf names already exist above and are reused.
+        // // PT: só faltam estas; as outras já existem acima.
+        "Procurar na estante" to "Search the shelf", // native-only
+        "{n} livros" to "{n} books", // native-only
+        "Recentes" to "Recent", // native-only
+        "Classificação" to "Rating", // native-only
+        "Nenhum livro encontrado" to "No books found", // native-only
     )
 }
 
