@@ -45,26 +45,19 @@ Two more when a task needs them: **`docs/DATA_MODEL.md`** (every table, column
 and migration; the current Room version) and **`docs/TASK_FILE_FORMAT.md`**
 (read before writing a *new* task file). `docs/README.md` indexes everything.
 
-**Active task files, in order:**
+**There is no active task file.** All three finished on 2026-08-06 (PR #187) —
+`FIRST_RUN.md` (N1…N8), `BOOK_LIBRARY.md` (L1…L12) and `FIELD_FIXES.md`
+(F1…F13) — and moved to `docs/archive/` with the rest. So "do the next pending
+task" has no answer right now: the next change starts by **writing a task file**
+(`docs/TASK_FILE_FORMAT.md`), and `docs/CONTEXT.md` §3 and §4 are what to read
+first. §4 in particular ends with a seven-item list of what a device pass over
+#187 would have to cover, because that run had no Android SDK — CI compiled and
+unit-tested all thirty tasks and **no device saw any of them**.
 
-- `docs/FIRST_RUN.md` — **first**, N1…N8: the app's edges, found on a clean
-  emulator install. **N1 ships alone, ahead of everything** — on Android 13+ the
-  app never requests `POST_NOTIFICATIONS`, so the focus notification and all
-  three reminders are dropped by the OS in silence. Then the empty screens and
-  the front doors.
-- `docs/BOOK_LIBRARY.md` — book mode round three, L1…L12, from a full review of
-  K + R. L1 and L2 are done; **L3 closes Phase L-0** (the five statuses, of
-  which the UI can reach three, one-way). Then the reader controls a reader
-  expects, then the shelf at a hundred books.
-- `docs/FIELD_FIXES.md` — F1…F13: defects found by *using* the app rather than
-  by reading a spec. Ordered by what each costs the person using it, so the
-  prompt carries no number — "faz o próximo em `docs/FIELD_FIXES.md`" always
-  means the first task still `pending`, and the reply opens with the progress
-  bullet the file specifies.
-
-**Complete task files live in `docs/archive/`** — `NATIVE_IMPROVEMENTS.md`
+**Every task file lives in `docs/archive/`** — `NATIVE_IMPROVEMENTS.md`
 (A1…T2), `BOOK_MODE.md` (K1…K9), `POLISH.md` (P1…P10), `BOOK_READER.md`
-(R1…R8), `UX_FIXES.md` (U1…U7). Their **Logs are the record of why the app is
+(R1…R8), `UX_FIXES.md` (U1…U7), `BOOK_LIBRARY.md` (L1…L12), `FIELD_FIXES.md`
+(F1…F13), `FIRST_RUN.md` (N1…N8). Their **Logs are the record of why the app is
 the way it is**; read them for reasoning, never for instructions, and never
 follow their guardrails or data-model sections — those were consolidated into
 `GUARDRAILS.md` and `DATA_MODEL.md`.

@@ -129,7 +129,7 @@ The security rules that govern how a file gets there are section G of
 | EPUB word count | counted from the spine | exact |
 | PDF / physical word count | `BookMath.WORDS_PER_PAGE = 280` × pages | **`≈` everywhere** |
 | Reading speed (WPM) | words ÷ minutes | exact only for a counted EPUB |
-| ETA to finish | `BookMath.etaDays`, assuming 60 min/day | the assumption is **invisible today** — see `BOOK_LIBRARY.md` L12 |
+| ETA to finish | `BookMath.etaDays`, at the daily minutes measured from the book's own sessions (60 min/day when there are none) | the assumption is **printed beside the estimate** — L12 |
 
 **An estimate says so.** A derived figure presented as measured is the defect
 `FIELD_FIXES.md` exists to remove; see `GUARDRAILS.md` K.11.
