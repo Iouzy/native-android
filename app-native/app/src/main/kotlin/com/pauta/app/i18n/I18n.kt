@@ -998,6 +998,14 @@ object I18n {
         // above (L5's reader settings sheet) and is reused as the channel name.
         // // PT: a sessão de leitura fala como leitura; "Leitura" já existe.
         "Terminar sessão" to "End session", // native-only
+
+        // L10 · the reading reminder. Its notification text is built in
+        // `ReminderScheduler.titleBody` from the saved language, not from here —
+        // that path runs at process start, before Room. // PT: o texto da
+        // notificação vem do agendador, que corre antes da base de dados.
+        "Lembrete de leitura" to "Reading reminder", // native-only
+        "Um empurrão diário para abrir o livro." to "A daily nudge to open the book.", // native-only
+        "Hora de ler" to "Time to read", // native-only
     )
 }
 

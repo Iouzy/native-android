@@ -247,6 +247,13 @@ data class PrefsEntity(
     val readerLineHeight: Float = 1.62f, // 1.3–2.0
     val readerMargin: Int = 22,         // dp, 8–48
     val readerTheme: String = "app",    // "app" | "paper" | "sepia" | "night"
+    // native-only (L10): the reading reminder. Book mode's whole subject is a
+    // daily practice and it had no reminder of its own, while the app could
+    // already nudge you about habits and about the day. Nothing fires when
+    // `bookMode` is off — a planner user has not asked to be reminded to read.
+    // // PT: o lembrete de leitura; não dispara com o modo livro desligado.
+    val readingReminderEnabled: Boolean = false,
+    val readingReminderTime: String = "21:00",
 )
 
 /**

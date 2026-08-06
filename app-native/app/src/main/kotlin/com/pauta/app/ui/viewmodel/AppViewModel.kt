@@ -762,6 +762,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun setHabitsTime(value: String) = update { it.copy(habitsTime = value) }
     fun setReflectionTime(value: String) = update { it.copy(reflectionTime = value) }
 
+    // L10: the reading reminder's own pair. // PT: o par do lembrete de leitura.
+    fun setReadingReminderEnabled(value: Boolean) = update { it.copy(readingReminderEnabled = value) }
+    fun setReadingReminderTime(value: String) = update { it.copy(readingReminderTime = value) }
+
     private fun update(transform: (PrefsEntity) -> PrefsEntity) {
         viewModelScope.launch { repo.updatePrefs(transform) }
     }
@@ -772,10 +776,23 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         // lembretes do AlarmManager alinhados com as preferências.
         viewModelScope.launch {
             repo.prefs
-                .distinctUntilChangedBy { listOf(it.remindersEnabled, it.plannerTime, it.habitsTime, it.reflectionTime, it.lang) }
+                .distinctUntilChangedBy {
+                    listOf(
+                        it.remindersEnabled, it.plannerTime, it.habitsTime, it.reflectionTime, it.lang,
+                        // L10: the lens is a key too — turning book mode off has to
+                        // cancel the reading alarm, not merely stop showing its row.
+                        // // PT: desligar o modo livro cancela mesmo o alarme.
+                        it.readingReminderEnabled, it.readingReminderTime, it.bookMode,
+                    )
+                }
                 .collect { p ->
                     val ctx = getApplication<Application>()
-                    ReminderScheduler.save(ctx, p.remindersEnabled, p.plannerTime, p.habitsTime, p.reflectionTime, p.lang)
+                    ReminderScheduler.save(
+                        ctx, p.remindersEnabled, p.plannerTime, p.habitsTime, p.reflectionTime, p.lang,
+                        reading = p.readingReminderEnabled,
+                        readingTime = p.readingReminderTime,
+                        bookMode = p.bookMode,
+                    )
                     ReminderScheduler.reschedule(ctx)
                 }
         }
