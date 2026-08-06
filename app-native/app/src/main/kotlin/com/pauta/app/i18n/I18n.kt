@@ -1027,6 +1027,13 @@ object I18n {
         "Restaurar uma cópia" to "Restore a backup", // native-only
         "Biblioteca" to "Library", // native-only
         "Não foi possível ler esse ficheiro." to "That file could not be read.", // native-only
+
+        // N5 · the shelf's front door — the first screen of book mode.
+        // // PT: a porta de entrada da estante.
+        "A tua estante começa aqui." to "Your shelf starts here.", // native-only
+        "Três prateleiras — a ler, a seguir, lidos — e cada livro pode trazer um PDF ou um EPUB para ler aqui dentro." to
+            "Three shelves — reading, up next, finished — and any book can carry a PDF or an EPUB to read right here.", // native-only
+        "Adicionar o primeiro livro" to "Add the first book", // native-only
     )
 }
 

@@ -41,6 +41,7 @@ import com.pauta.app.data.entity.BookEntity
 import com.pauta.app.i18n.tr
 import com.pauta.app.ui.PautaFloatStrip
 import com.pauta.app.ui.EmptyState
+import com.pauta.app.ui.PautaButton
 import com.pauta.app.ui.PautaCard
 import com.pauta.app.ui.SectionEyebrow
 import com.pauta.app.ui.clickableNoRipple
@@ -188,9 +189,37 @@ fun BookShelfScreen(onOpenReader: (String) -> Unit = {}) {
         item(key = "reading-section") {
             SectionEyebrow(tr("A ler agora"))
             Spacer(Modifier.height(12.dp))
-            if (reading.isEmpty()) {
-                // P10: the one empty state, shared with the planner faces.
-                // // PT: o estado vazio único, partilhado com as tabs do planner.
+            if (reading.isEmpty() && allBooks.isEmpty()) {
+                // N5 · the shelf's front door.
+                //
+                // This is the **first screen of book mode** and of the second
+                // launcher icon, and it was one italic line — "Nenhum livro em
+                // curso" — over 80% empty screen, with the only entrance a small
+                // `Adicionar livro +` in the header that reads as a header link
+                // rather than as the thing to do. An empty state is a door, not a
+                // sign. Marés, one tab away, already solves this in this codebase,
+                // so this borrows its *structure* — Pip, a sentence, a real action
+                // — and not a new drawing (`GUARDRAILS.md` §A).
+                //
+                // The sentence says what the shelf is *for*, once: a first-time
+                // user has no way to know the app reads books at all, and the shelf
+                // is where that is discovered or not.
+                // // PT: a primeira coisa que se vê no modo livro — Pip, uma frase
+                // que diz para que serve a estante, e uma acção a sério.
+                EmptyState(
+                    line = tr("Três prateleiras — a ler, a seguir, lidos — e cada livro pode trazer um PDF ou um EPUB para ler aqui dentro."),
+                    title = tr("A tua estante começa aqui."),
+                    pip = true,
+                    pipHeight = 44.dp,
+                )
+                Spacer(Modifier.height(16.dp))
+                PautaButton(
+                    label = tr("Adicionar o primeiro livro"),
+                    modifier = Modifier.fillMaxWidth(),
+                ) { showAdd = true }
+            } else if (reading.isEmpty()) {
+                // Books exist, just none in progress: the shelf's own sections say
+                // the rest. // PT: há livros, só não há nenhum em curso.
                 EmptyState(tr("Nenhum livro em curso"))
             } else {
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
