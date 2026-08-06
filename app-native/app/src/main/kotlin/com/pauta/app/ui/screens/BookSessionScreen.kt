@@ -248,6 +248,11 @@ fun BookSessionScreen(onOpenReader: (String) -> Unit = {}) {
                         // isn't Pomodoro work. // PT: a leitura usa o conjunto
                         // simples, salvo escolha explícita de Pomodoro.
                         presets = TimerPresets.of(prefs.timerPresets, reading = true),
+                        // F9: it governs both lenses — the owner asked for exactly
+                        // that — so reading can change it too, and it writes the
+                        // same one preference. // PT: vale para os dois modos.
+                        presetSet = prefs.timerPresets ?: TimerPresets.Simples,
+                        onPresetSet = { vm.setTimerPresets(it) },
                         onChangeTarget = { targetMin = it },
                         onPick = { showPicker = true },
                         onStart = {
@@ -511,6 +516,10 @@ private fun StartReadingCard(
     canPick: Boolean,
     targetMin: Int,
     presets: List<Int>,
+    // F9: the set, and how to change it, so the reading card offers the same
+    // control the planner's start sheet does. // PT: o conjunto e como o trocar.
+    presetSet: String?,
+    onPresetSet: (String) -> Unit,
     onChangeTarget: (Int) -> Unit,
     onPick: () -> Unit,
     onStart: () -> Unit,
@@ -575,7 +584,13 @@ private fun StartReadingCard(
         Spacer(Modifier.height(18.dp))
         SheetEyebrow(tr("duração (opcional)"))
         Spacer(Modifier.height(10.dp))
-        DurationPicker(minutes = targetMin, presets = presets, onChange = onChangeTarget)
+        DurationPicker(
+            minutes = targetMin,
+            presets = presets,
+            presetSet = presetSet,
+            onPresetSet = onPresetSet,
+            onChange = onChangeTarget,
+        )
 
         Spacer(Modifier.height(20.dp))
         PautaButton(

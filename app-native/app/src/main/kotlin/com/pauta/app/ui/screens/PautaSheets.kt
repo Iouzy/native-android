@@ -91,8 +91,11 @@ fun StartSheet(
     hasActive: Boolean,
     activeTitle: String,
     // U2: which duration pills to offer — the user's chosen set (Settings → Foco).
-    // // PT: o conjunto de tempos escolhido nas Definições.
+    // F9: and the set itself, so it can be changed here rather than four screens
+    // away. // PT: o conjunto de tempos, e a forma de o trocar aqui mesmo.
     presets: List<Int>,
+    presetSet: String? = null,
+    onPresetSet: ((String) -> Unit)? = null,
     onStart: (title: String, linkedToId: String?, project: String?, targetMin: Int?) -> Unit,
     onClose: () -> Unit,
 ) {
@@ -251,7 +254,12 @@ fun StartSheet(
         Spacer(Modifier.height(SheetFieldGap))
         SheetEyebrow(tr("duração (opcional)"))
         Spacer(Modifier.height(SheetLabelGap))
-        DurationPicker(minutes = targetMin, presets = presets) { targetMin = it }
+        DurationPicker(
+            minutes = targetMin,
+            presets = presets,
+            presetSet = presetSet,
+            onPresetSet = onPresetSet,
+        ) { targetMin = it }
 
         Spacer(Modifier.height(SheetActionGap))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -686,6 +694,13 @@ private val DurationRange = 1..600
 internal fun DurationPicker(
     minutes: Int,
     presets: List<Int>,
+    // F9: the set these pills came from, and how to change it. The choice used to
+    // live only in Settings → Foco, several screens from any timer, and the owner
+    // could not find it. Passing both makes the toggle appear beside the pills it
+    // governs; passing neither leaves the picker exactly as it was.
+    // // PT: o conjunto de onde vêm estas pílulas, e como o trocar — ao lado delas.
+    presetSet: String? = null,
+    onPresetSet: ((String) -> Unit)? = null,
     onChange: (Int) -> Unit,
 ) {
     val colors = LocalPautaColors.current
@@ -749,6 +764,35 @@ internal fun DurationPicker(
             }
         }
 
+        // F9 · the set, where the times are.
+        //
+        // It governs both lenses — the owner asked for exactly that — and it
+        // writes the same single preference the Settings row writes, which is the
+        // discipline R8's launcher door already established: one boolean, two
+        // places to set it, last action wins. Quiet mono rather than a segmented
+        // control: this is a footnote to the pills, not a second decision.
+        // // PT: o conjunto ao pé dos tempos, a escrever a mesma preferência das
+        // definições — um valor, dois sítios para o mudar.
+        if (onPresetSet != null) {
+            Spacer(Modifier.height(SheetLabelGap))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                PresetSetWord(
+                    label = tr("pomodoro"),
+                    selected = presetSet == TimerPresets.Pomodoro,
+                ) { onPresetSet(TimerPresets.Pomodoro) }
+                Text(
+                    text = " · ",
+                    color = colors.ink4,
+                    fontFamily = MonoFamily,
+                    fontSize = 10.sp,
+                )
+                PresetSetWord(
+                    label = tr("simples"),
+                    selected = presetSet == TimerPresets.Simples,
+                ) { onPresetSet(TimerPresets.Simples) }
+            }
+        }
+
         if (open) {
             // Inside a sheet this waits for the sheet to have settled (U1); the
             // reading card isn't a sheet, and there the shared requester falls back
@@ -787,6 +831,21 @@ internal fun DurationPicker(
             }
         }
     }
+}
+
+/** F9 · one word of the preset toggle: the chosen one in ink, the other quiet.
+ *  // PT: uma palavra do interruptor de conjunto. */
+@Composable
+private fun PresetSetWord(label: String, selected: Boolean, onClick: () -> Unit) {
+    val colors = LocalPautaColors.current
+    Text(
+        text = label,
+        color = if (selected) colors.ink2 else colors.ink4,
+        fontFamily = MonoFamily,
+        fontSize = 10.sp,
+        letterSpacing = 0.4.sp,
+        modifier = Modifier.clickableNoRipple(onClick),
+    )
 }
 
 /** Opens the custom field pre-filled when the picker starts on a value no pill
