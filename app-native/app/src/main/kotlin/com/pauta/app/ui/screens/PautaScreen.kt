@@ -383,10 +383,18 @@ fun PautaScreen(bookMode: Boolean = false, onOpenReader: (String) -> Unit = {}) 
                         line = if (filter != null) tr("Nada por aqui ainda.") else tr("Ainda nenhum bloco hoje. Comece quando quiser."),
                         pip = true,
                     )
-                    if (filter == null) {
-                        Spacer(Modifier.height(14.dp))
-                        StarterChip(tr("Começar um bloco de foco")) { showStart = true }
-                    }
+                    // N7 · one way to start a block.
+                    //
+                    // The empty tab showed the dark COMEÇAR hero card and, ~200dp
+                    // below it, this chip — two primary actions for one thing, both
+                    // opening the same sheet, on the emptiest screen in the app.
+                    // The card stays: it is the app's own idiom and it reads as the
+                    // primary action. The chip goes **from the empty state only**;
+                    // it is still useful below a list of today's blocks, where the
+                    // card has scrolled away.
+                    //
+                    // // PT: o cartão fica (é a identidade da tab); a chip sai do
+                    // estado vazio, onde duplicava, e passa para baixo da lista.
                 }
             } else {
                 // Timeline events as keyed items; connectUp/connectDown still read
@@ -406,6 +414,15 @@ fun PautaScreen(bookMode: Boolean = false, onOpenReader: (String) -> Unit = {}) 
                             onEdit = { editFor = blockById[e.blockId] },
                             onEditNote = { rowId, text -> vm.setSessionNote(rowId, text) },
                         )
+                    }
+                }
+                // N7: this is where the chip earns its place — under a list, with
+                // the hero card scrolled away and no other way to start from here.
+                // // PT: por baixo da lista, onde o cartão já não se vê.
+                if (filter == null) {
+                    item(key = "start-below") {
+                        Spacer(Modifier.height(18.dp))
+                        StarterChip(tr("Começar um bloco de foco")) { showStart = true }
                     }
                 }
             }
