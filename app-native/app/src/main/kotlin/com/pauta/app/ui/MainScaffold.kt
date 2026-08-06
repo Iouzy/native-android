@@ -106,6 +106,8 @@ import com.pauta.app.ui.theme.SerifFamily
 import com.pauta.app.ui.viewmodel.AppViewModel
 import com.pauta.app.ui.viewmodel.PendingUndo
 import kotlinx.coroutines.launch
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.unit.Dp
 
 /** The three tabs, in order. Their labels are the Portuguese source strings
  *  (Hoje / Pauta / Marés), translated through the i18n layer. */
@@ -620,8 +622,26 @@ private fun HomeShell(
         // [StatusRow], not back on this strip. // PT: o atalho de nota saiu daqui
         // para o cabeçalho da estante; nada flutua sobre a barra de tabs.
 
-        // Pip lives just above the tab bar in the bottom-right corner.
-        if (prefs.parrot) {
+        // F11 · Pip lives just above the tab bar in the bottom-right corner —
+        // **when there is room for it to float in**.
+        //
+        // The rule is written down at [PautaFloatStrip]: nothing that carries
+        // information or accepts a tap may sit under a floating thing. Reserving
+        // the strip at the end of every scrolling screen answers that for a
+        // portrait scroll. It does not answer for a *short* viewport, which is
+        // where the emulator found the worse case: in landscape Pip sat on top of
+        // the Pauta tab's play button — the screen's primary action, not merely
+        // content, and reachable without scrolling at all. A short screen has no
+        // free strip; the floating layer lands over the fold rather than under it.
+        //
+        // So the fix is here, once, and not as a per-screen offset — a per-screen
+        // offset is how this comes back. Below the threshold Pip simply doesn't
+        // appear. He is company, and company does not sit on the button.
+        // // PT: o Pip só flutua quando há faixa livre para isso; num ecrã baixo
+        // (paisagem) fica sobre o botão, por isso não aparece. Uma regra, no sítio
+        // de sempre — um deslocamento por ecrã é como isto volta.
+        val roomToFloat = LocalConfiguration.current.screenHeightDp >= MinHeightToFloat
+        if (prefs.parrot && roomToFloat) {
             ParrotCompanion(
                 tab = Tab.entries[pager.currentPage],
                 activeFocus = activeBlock != null,
@@ -655,6 +675,28 @@ private fun HomeShell(
         }
     }
 }
+
+/**
+ * F11 · the floating layer's height, and the rule that goes with it.
+ *
+ * **The bottom strip belongs to Pip and the snackbar. Nothing that carries
+ * information — or accepts a tap — may sit under either of them, in any
+ * orientation.** Every scrolling screen therefore reserves this much at the end
+ * of its content, and R1 already removed one floating thing from this strip for
+ * exactly this reason.
+ *
+ * 96dp is Pip's own height (84dp) plus a little air; the tab bar is outside the
+ * pager, so it is not part of the sum. // PT: a faixa de baixo é do Pip e do
+ * snackbar — nada que informe ou aceite um toque fica por baixo deles, e cada
+ * ecrã que faz scroll reserva esta altura no fim.
+ */
+val PautaFloatStrip: Dp = 96.dp
+
+/** F11 · below this viewport height there is no free strip to float in, so Pip
+ *  steps aside entirely rather than sitting on the content. Landscape on a phone
+ *  is well under it; every portrait phone is well over. // PT: abaixo desta
+ *  altura não há faixa livre — o Pip sai de cena. */
+private val MinHeightToFloat = 480
 
 /**
  * Re-provide the Activity-scoped [ViewModelStoreOwner] inside a NavHost

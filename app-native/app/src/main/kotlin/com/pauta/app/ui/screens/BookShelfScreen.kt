@@ -39,6 +39,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.pauta.app.data.entity.BookEntity
 import com.pauta.app.i18n.tr
+import com.pauta.app.ui.PautaFloatStrip
 import com.pauta.app.ui.EmptyState
 import com.pauta.app.ui.PautaCard
 import com.pauta.app.ui.SectionEyebrow
@@ -204,7 +205,7 @@ fun BookShelfScreen(onOpenReader: (String) -> Unit = {}) {
             }
         }
 
-        item(key = "bottom") { Spacer(Modifier.height(48.dp)) }
+        item(key = "bottom") { Spacer(Modifier.height(PautaFloatStrip)) }
     }
 
     if (showAdd) {

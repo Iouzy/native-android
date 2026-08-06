@@ -89,6 +89,7 @@ import com.pauta.app.domain.Memory
 import com.pauta.app.i18n.I18n
 import com.pauta.app.i18n.tr
 import com.pauta.app.i18n.trf
+import com.pauta.app.ui.PautaFloatStrip
 import com.pauta.app.ui.EmptyState
 import com.pauta.app.ui.PautaButton
 import com.pauta.app.ui.PautaCard
@@ -556,7 +557,7 @@ fun HojeScreen(
             }
         }
 
-        item(key = "bottom") { Spacer(Modifier.height(48.dp)) }
+        item(key = "bottom") { Spacer(Modifier.height(PautaFloatStrip)) }
     }
 
     if (showWeek) {
