@@ -421,6 +421,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /** Live notes for one book — the K8 detail sheet observes this. */
     fun notesForBook(bookId: String): Flow<List<BookNoteEntity>> = repo.notesForBook(bookId)
 
+    /** F13: every note, for "Do teu caderno" — until now a note had no home
+     *  outside the one book it belonged to. // PT: todas as notas. */
+    val allNotes: StateFlow<List<BookNoteEntity>> =
+        repo.allNotes().stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
     /** Count of books finished since Jan 1 of the current local year — the K7
      *  annual goal counter. Suspends; call from a coroutine (e.g. LaunchedEffect).
      *  // PT: livros terminados este ano civil. */

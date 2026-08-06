@@ -71,23 +71,35 @@ import com.pauta.app.ui.theme.SerifFamily
 import com.pauta.app.ui.theme.rememberMotionEnabled
 import com.pauta.app.ui.viewmodel.AppViewModel
 import kotlin.math.roundToInt
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.ui.text.style.TextOverflow
+import com.pauta.app.data.entity.BookNoteEntity
+import com.pauta.app.ui.PautaFloatStrip
 
 /**
  * native-only (R7): book mode's third tab — the reading rhythm.
  *
  * K7 left this tab as the planner's tide grid with a goal card glued on top and
- * a header calling those tides "hábitos de leitura", which they never were. This
- * is the honest version: the annual goal, the days you actually read (filled by
- * sessions, not by tapping), what the charts can say about pace, the books
- * finished this year — and then, under a plain `HÁBITOS`, the same tides the
- * planner has, doing exactly what they always did.
+ * a header calling those tides "hábitos de leitura", which they never were. R7
+ * made them honest by labelling them plainly. **F13 removes them.**
  *
- * Everything above the tides is derived in [ReadingStats] from data that already
- * exists; nothing here has a table of its own. The tides are rendered by
- * [MaresContent], which takes this screen's sections as its leading items — one
- * LazyColumn, because two nested scrollables would clash.
- * // PT: a terceira tab do modo livro — o ritmo de leitura, com as marés normais
- * ao fundo, numa só lista.
+ * They were the thing that started this whole round — water and running under a
+ * reading screen — and the objection to splitting the habit list in two has been
+ * made twice and stands (`GUARDRAILS.md` §J, "one habit list"). So the tides are
+ * not duplicated here; they are simply not here, and a quiet *"as tuas marés →"*
+ * at the foot switches back to the planner. Living in book mode never means
+ * losing them.
+ *
+ * What is here instead is six sections, all **derived** from data that already
+ * exists — nothing on this tab has a table of its own, and nothing on it is
+ * self-reported: reading is proven by a session. The last two are new. *Ritmo da
+ * estante* says how long the book in hand has left at the pace actually measured
+ * and what is next after it; *Do teu caderno* is the first home the notes have
+ * had outside the single book they belong to.
+ *
+ * // PT: a terceira tab do modo livro — o ritmo de leitura. As marés saem daqui
+ * (ficam a um toque, no planeador) e tudo o que resta é derivado do que já existe.
  */
 @Composable
 fun BookHabitsScreen() {
@@ -112,21 +124,44 @@ fun BookHabitsScreen() {
         readingSessionsOf(sessionBlocks, allSessions, books)
     }
 
-    MaresContent {
-        readingRhythmItems(sessions = sessions, books = books, today = today, animate = animate)
+    // F13: the tab's own list. It used to be `MaresContent { … }` — the reading
+    // sections as leading items on top of the planner's tides — so a screen about
+    // reading ended in water and running, which is what started this round. The
+    // tides are one tap away at the foot; living in book mode never means losing
+    // them. // PT: a lista é desta tab; as marés saem daqui e ficam a um toque.
+    val notes by vm.allNotes.collectAsStateWithLifecycle()
+    LazyColumn(
+        Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(horizontal = 24.dp),
+    ) {
+        readingRhythmItems(
+            sessions = sessions,
+            books = books,
+            notes = notes,
+            today = today,
+            animate = animate,
+            onOpenTides = { vm.setBookMode(false) },
+        )
+        item(key = "bottom") { Spacer(Modifier.height(PautaFloatStrip)) }
     }
 }
 
 /**
- * Sections 1–5 of the tab, as items of [MaresContent]'s list. The last of them is
- * only an eyebrow: everything below it is the tides themselves.
- * // PT: as secções do ritmo de leitura; a última é só o eyebrow das marés.
+ * F13 · the six sections of the reading tab, and nothing else.
+ *
+ * Objetivo anual · Dias de leitura · Gráficos · Livros terminados · **Ritmo da
+ * estante** · **Do teu caderno**, then a quiet way back to the tides. The last
+ * two are new and both are **derived** — no new state, no self-reporting: reading
+ * is proven by a session, and the notes already exist with nowhere to be read.
+ * // PT: as seis secções da tab de leitura; as duas novas são derivadas.
  */
 private fun LazyListScope.readingRhythmItems(
     sessions: List<ReadingStats.Session>,
     books: List<BookEntity>,
+    notes: List<BookNoteEntity>,
     today: String,
     animate: Boolean,
+    onOpenTides: () -> Unit,
 ) {
     item(key = "book-goal") {
         Spacer(Modifier.height(6.dp))
@@ -134,7 +169,13 @@ private fun LazyListScope.readingRhythmItems(
         Spacer(Modifier.height(26.dp))
     }
 
-    if (sessions.isEmpty()) {
+    // F13(a): one definition of a reading day, asked once. This used to be
+    // `sessions.isEmpty()` while the charts asked whether anything was
+    // *plottable*, and both printed the same sentence — so the tab could say
+    // "Sequência atual: 1 dia" three lines above "Ainda sem leituras
+    // registadas.". // PT: uma só pergunta, a mesma do leitor.
+    val hasRead = ReadingStats.daysRead(sessions).isNotEmpty()
+    if (!hasRead) {
         // Nothing read yet: one quiet line instead of three empty charts and a
         // grid of blanks. // PT: uma linha em vez de gráficos vazios.
         item(key = "book-no-reading") {
@@ -154,11 +195,21 @@ private fun LazyListScope.readingRhythmItems(
         item(key = "book-finished") { FinishedBooksSection(books, today) }
     }
 
-    item(key = "book-habits-eyebrow") {
-        // The honest label: these are the user's ordinary tides, the same ones
-        // the planner shows. // PT: o rótulo honesto — são as marés de sempre.
-        SectionEyebrow(tr("Hábitos"))
-        Spacer(Modifier.height(14.dp))
+    item(key = "book-shelf-rhythm") { ShelfRhythmSection(books, sessions, today) }
+    item(key = "book-notebook") { NotebookSection(notes, books) }
+
+    item(key = "book-tides-link") {
+        // Living in book mode never means losing the tides — they are one tap
+        // away, in the planner where they belong. // PT: as marés a um toque.
+        Text(
+            text = tr("as tuas marés") + " →",
+            color = LocalPautaColors.current.ink3,
+            fontFamily = MonoFamily,
+            fontSize = 10.sp,
+            letterSpacing = 0.4.sp,
+            modifier = Modifier.clickableNoRipple(onOpenTides),
+        )
+        Spacer(Modifier.height(10.dp))
     }
 }
 
@@ -354,10 +405,13 @@ private fun ReadingChartsSection(sessions: List<ReadingStats.Session>, today: St
     }
 
     if (minutes.none { it > 0 } && pages.none { it > 0 } && speed.size < 3) {
-        // Sessions exist but none of them can be plotted (all under a minute, or
-        // all uncounted). // PT: há sessões, mas nenhuma dá gráfico.
+        // F13(a): the charts have their own sentence. Reading *has* happened —
+        // the grid and the streak above are showing it — so borrowing "Ainda sem
+        // leituras registadas." here was the contradiction. What is true is
+        // narrower: there is nothing yet to draw. // PT: leu-se, mas ainda não há
+        // o que desenhar — que é outra frase.
         Text(
-            text = tr("Ainda sem leituras registadas."),
+            text = tr("Ainda não há nada para desenhar."),
             color = colors.ink3,
             fontFamily = SerifFamily,
             fontStyle = FontStyle.Italic,
@@ -366,6 +420,130 @@ private fun ReadingChartsSection(sessions: List<ReadingStats.Session>, today: St
         )
         Spacer(Modifier.height(22.dp))
     }
+}
+
+
+// ─── 5 · Ritmo da estante ──────────────────────────────────
+
+/**
+ * F13 · what the shelf itself is doing, derived from what is already stored.
+ *
+ * Three sentences, each of which the app could always have said and never did:
+ * how long the book in hand has left at the pace actually measured, what is next
+ * after it, and what has been open for weeks without a session. No new state and
+ * no self-reporting — reading is proven by a session, and every figure here comes
+ * from one. The estimate carries its assumption out loud (GUARDRAILS K.11).
+ * // PT: o que a estante está a fazer, tudo derivado — quanto falta ao livro em
+ * curso, o que vem a seguir, e o que está parado há semanas.
+ */
+@Composable
+private fun ShelfRhythmSection(
+    books: List<BookEntity>,
+    sessions: List<ReadingStats.Session>,
+    today: String,
+) {
+    val colors = LocalPautaColors.current
+    val reading = remember(books) { books.filter { it.status == "reading" } }
+    val next = remember(books) { books.filter { it.status == "tbr" }.minByOrNull { it.position } }
+
+    // The measured pace, in minutes a day, over the last four weeks. Derived
+    // rather than assumed: BookMath.etaDays' 60 min/day default is a reasonable
+    // constant and an invisible one. // PT: o ritmo medido, não o presumido.
+    val dailyMinutes = remember(sessions, today) {
+        val last = ReadingStats.minutesLastDays(sessions, today, 28)
+        if (last.isEmpty()) 0f else last.sum().toFloat() / last.size
+    }
+    if (reading.isEmpty() && next == null) return
+
+    SectionEyebrow(tr("Ritmo da estante"))
+    Spacer(Modifier.height(8.dp))
+
+    reading.forEach { book ->
+        val remaining = when {
+            book.fileKind == "epub" -> 100 - book.currentPage.coerceIn(0, 100)
+            book.totalPages > 0 -> (book.totalPages - book.currentPage).coerceAtLeast(0)
+            else -> null
+        }
+        Text(
+            text = book.title,
+            color = colors.ink2,
+            style = PautaType.Body,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        // Only where a real pace was measured. Nothing is invented: a shelf with
+        // no sessions in four weeks says nothing rather than guessing.
+        // // PT: só onde há ritmo medido; sem sessões, não se inventa.
+        if (remaining != null && remaining > 0 && dailyMinutes >= 1f) {
+            Text(
+                text = trf(
+                    "≈ {n} dias a {m} min/dia",
+                    "n" to remaining.coerceAtLeast(1),
+                    "m" to dailyMinutes.roundToInt(),
+                ),
+                color = colors.ink3,
+                style = PautaType.MetaSmall,
+            )
+        }
+        Spacer(Modifier.height(8.dp))
+    }
+
+    if (next != null) {
+        Text(
+            text = tr("A seguir") + " · " + next.title,
+            color = colors.ink3,
+            style = PautaType.MetaSmall,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Spacer(Modifier.height(8.dp))
+    }
+    Spacer(Modifier.height(14.dp))
+}
+
+// ─── 6 · Do teu caderno ────────────────────────────────────
+
+/**
+ * F13 · the recent notes and quotes, which until now had no home outside the one
+ * book they belonged to — you could write a line down and then only find it again
+ * by remembering which book it was in. Read-only here: this is where they are
+ * *seen*, and the book's own sheet is still where they are edited.
+ * // PT: as notas recentes, que até aqui só existiam dentro de um livro.
+ */
+@Composable
+private fun NotebookSection(notes: List<BookNoteEntity>, books: List<BookEntity>) {
+    if (notes.isEmpty()) return
+    val colors = LocalPautaColors.current
+    val titles = remember(books) { books.associate { it.id to it.title } }
+    val recent = remember(notes) { notes.take(5) }
+
+    SectionEyebrow(tr("Do teu caderno"))
+    Spacer(Modifier.height(8.dp))
+    recent.forEach { note ->
+        Text(
+            text = note.text,
+            color = colors.ink2,
+            fontFamily = SerifFamily,
+            fontStyle = if (note.kind == "quote") FontStyle.Italic else FontStyle.Normal,
+            fontSize = 14.sp,
+            lineHeight = 20.sp,
+            maxLines = 3,
+            overflow = TextOverflow.Ellipsis,
+        )
+        val from = titles[note.bookId]
+        if (from != null) {
+            Spacer(Modifier.height(2.dp))
+            Text(
+                text = from,
+                color = colors.ink4,
+                style = PautaType.MetaSmall,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        Spacer(Modifier.height(12.dp))
+    }
+    Spacer(Modifier.height(10.dp))
 }
 
 @Composable

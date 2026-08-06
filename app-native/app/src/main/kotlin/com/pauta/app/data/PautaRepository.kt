@@ -1149,6 +1149,9 @@ class PautaRepository(private val db: AppDatabase) {
 
     fun notesForBook(bookId: String): Flow<List<BookNoteEntity>> = bookNoteDao.observeForBook(bookId)
 
+    /** F13: every note, newest first. // PT: todas as notas, mais recentes primeiro. */
+    fun allNotes(): Flow<List<BookNoteEntity>> = bookNoteDao.observeAll()
+
     /** Capture a quote / annotation / thought against a book; returns the new id. */
     suspend fun addNote(bookId: String, kind: String, text: String, page: Int?): String {
         val id = newId("bn_")

@@ -170,4 +170,42 @@ class ReadingStatsTest {
         )
         assertTrue(ReadingStats.speedPoints(sessions).isEmpty())
     }
+
+    // ── F13 · one definition of a reading day ─────────────────
+
+    @Test fun aSessionUnderAMinuteIsNotADayRead() {
+        // The tab contradicted itself — "Sequência atual: 1 dia" three lines above
+        // "Ainda sem leituras registadas." — because one place counted sessions and
+        // another counted plottable ones. A day read is a day with a session worth
+        // the name, and that is the same minute the reader uses to decide whether
+        // to save at all. // PT: a mesma regra do leitor, num só sítio.
+        assertEquals(false, ReadingStats.counts(ReadingStats.Session("2024-06-15", minutes = 0)))
+        assertEquals(true, ReadingStats.counts(ReadingStats.Session("2024-06-15", minutes = 1)))
+    }
+
+    @Test fun daysReadIgnoresZeroMinuteSessions() {
+        val sessions = listOf(
+            ReadingStats.Session("2024-06-14", minutes = 0),
+            ReadingStats.Session("2024-06-15", minutes = 25),
+        )
+        assertEquals(setOf("2024-06-15"), ReadingStats.daysRead(sessions))
+    }
+
+    @Test fun aDayWithOneRealSessionAmongPeeksStillCounts() {
+        val sessions = listOf(
+            ReadingStats.Session("2024-06-15", minutes = 0),
+            ReadingStats.Session("2024-06-15", minutes = 40),
+        )
+        assertEquals(setOf("2024-06-15"), ReadingStats.daysRead(sessions))
+    }
+
+    @Test fun theStreakAndTheGridCannotDisagree() {
+        // Both read the same day set, which is the whole point of F13(a): a streak
+        // of 1 alongside "nothing read yet" is now unreachable.
+        // // PT: a sequência e a grelha lêem o mesmo conjunto de dias.
+        val peeksOnly = listOf(ReadingStats.Session("2024-06-15", minutes = 0))
+        val days = ReadingStats.daysRead(peeksOnly)
+        assertEquals(emptySet<String>(), days)
+        assertEquals(0 to 0, ReadingStats.streaks(days, "2024-06-15"))
+    }
 }

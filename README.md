@@ -19,7 +19,7 @@ second launcher icon opens straight into book mode.
 |---|---|---|
 | **1** | **Hoje** — today's intentions + nightly reflection | **Estante** — the shelf: reading, up next, finished |
 | **2** | **Pauta** — focus blocks with a start/pause/resume/conclude timer | **Sessão** — reading sessions on the same timer |
-| **3** | **Marés** — habits with daily/weekly/monthly cadence and tide levels | **Hábitos** — the reading rhythm: days read, charts, annual goal |
+| **3** | **Marés** — habits with daily/weekly/monthly cadence and tide levels | **Hábitos** — the reading rhythm: annual goal, days read, charts, books finished, the shelf's pace, your notebook |
 
 ## Reading
 
@@ -39,6 +39,11 @@ never written into the backup. A book is untrusted input: it is parsed in a
 separate process, and an EPUB is rendered with scripting off, the network
 blocked and every navigation refused — see the Security model in
 [`docs/GUARDRAILS.md`](docs/GUARDRAILS.md) §G.
+
+Book mode's third tab is about reading and nothing else: your tides live in the
+planner, one tap away at the foot of it. Every figure on it is derived from
+sessions the app measured — nothing there is self-reported, and an estimate says
+so.
 
 ## Notifications
 

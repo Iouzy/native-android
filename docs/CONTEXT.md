@@ -54,7 +54,7 @@ this file → your task file. Nothing else needs opening unless a task names it.
 |---|---|---|---|
 | `docs/FIRST_RUN.md` | The edges: the permission never asked for, the empty screens, the front doors. Written from a device run, 2026-08-03 | N1…N8 | N1 **done**; N2…N8 pending |
 | `docs/BOOK_LIBRARY.md` | Book mode round three. Phase L-0 = promises the app already makes and does not keep | L1…L12 | L1, L2, L3 **done** — Phase L-0 closed; L4…L12 pending |
-| `docs/FIELD_FIXES.md` | Defects found by *using* the app. Ordered by what each costs the person using it | F1…F13 | F1…F7 **done** (F7 partial — its chrome half waits on L4); F8 **done**; F9 **done** (partial); F10 **done**; F11 **done**; F12 **done**; F13 pending |
+| `docs/FIELD_FIXES.md` | Defects found by *using* the app. Ordered by what each costs the person using it | F1…F13 | F1…F7 **done** (F7 partial — its chrome half waits on L4); F8 **done**; F9 **done** (partial); F10 **done**; F11 **done**; F12 **done**; F13 **done** — file complete |
 
 **Archived** (complete, in `docs/archive/`): `NATIVE_IMPROVEMENTS.md` (A1…T2),
 `BOOK_MODE.md` (K1…K9), `POLISH.md` (P1…P10), `BOOK_READER.md` (R1…R8),
@@ -148,7 +148,7 @@ than guess.
 | Question | Where it blocks | Current default |
 |---|---|---|
 | Are the two "start a block" affordances on the empty Pauta tab deliberate — one quick, one with options? | `FIRST_RUN.md` N7 | Written as duplication, with a note that it collapses to a relabel if not |
-| *Metas de leitura* — self-set reading targets? Proposed, then argued against on the grounds that a target on an empty shelf is a form of nagging. | `FIELD_FIXES.md` F13 | Not built. Ask first |
+| ~~*Metas de leitura* — self-set reading targets?~~ **Closed 2026-08-06 (#187):** asked, unanswered, and F13 shipped without them on the file's own argument — a target on an empty shelf is nagging, which `GUARDRAILS.md` §A forbids. Reversible: nothing was built that would have to be undone. | — | Not built |
 | Does `genre` earn its keep, or go? | `BOOK_LIBRARY.md` L7 | The task decides; L8 consumes it if kept |
 
 ---
