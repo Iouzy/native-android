@@ -85,7 +85,8 @@ class DocumentParseService : Service() {
 
         /** R4 · open (and keep open) the EPUB at `data[KEY_PATH]` → reply `arg1` =
          *  chapter count (or [FAILED]), `data[KEY_WORDS]` = each chapter's word
-         *  count and `data[KEY_HREFS]` its entry name, both in spine order. */
+         *  count, `data[KEY_HREFS]` its entry name and (L4) `data[KEY_TITLES]` its
+         *  name from the OPF, all three in spine order and the same length. */
         const val MSG_EPUB_OPEN = 5
 
         /** R4 · sanitised HTML for chapter `data[KEY_PAGE]`, written as UTF-8 into
@@ -102,6 +103,13 @@ class DocumentParseService : Service() {
         const val KEY_PIPE = "pipe"
         const val KEY_WORDS = "words"
         const val KEY_HREFS = "hrefs"
+
+        // L4: the chapter names. `Epub.EpubChapter` has always carried a title
+        // parsed from the OPF and this boundary dropped it, which is why the
+        // reader could only say "Capítulo 7 de 31" — it was never handed
+        // "Capítulo 7 · As Cidades e os Mortos". // PT: os nomes dos capítulos,
+        // que já eram lidos e se perdiam aqui.
+        const val KEY_TITLES = "titles"
 
         /** Reply value for "this file would not open" — the caller fails closed. */
         const val FAILED = -1
@@ -181,6 +189,7 @@ class DocumentParseService : Service() {
                         Bundle().apply {
                             putIntArray(KEY_WORDS, it.map { c -> c.words }.toIntArray())
                             putStringArray(KEY_HREFS, it.map { c -> c.href }.toTypedArray())
+                            putStringArray(KEY_TITLES, it.map { c -> c.title }.toTypedArray())
                         }
                     },
                 )

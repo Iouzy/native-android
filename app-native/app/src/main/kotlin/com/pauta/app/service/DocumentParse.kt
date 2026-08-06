@@ -177,8 +177,23 @@ class PdfSession(context: Context) {
  *  with the words that weight the progress line and the entry name that lets an
  *  internal link be resolved without the engine ever navigating. // PT: os
  *  capítulos por ordem — palavras e nome da entrada. */
-data class EpubInfo(val chapterWords: List<Int>, val chapterHrefs: List<String>) {
+data class EpubInfo(
+    val chapterWords: List<Int>,
+    val chapterHrefs: List<String>,
+    // L4: the chapter's own name, `""` where the OPF gave none. Same length and
+    // same order as the other two — a reply where they disagree is a corrupt one,
+    // and [EpubSession.open] refuses it. // PT: o nome do capítulo; vazio quando o
+    // OPF não diz nada.
+    val chapterTitles: List<String> = emptyList(),
+) {
     val chapterCount: Int get() = chapterWords.size
+
+    /** L4 · the name to show for chapter [index], or null when the book gave none
+     *  and the caller should fall back to its number. Untrusted text from the
+     *  book: it is rendered as a Compose `Text`, never as HTML.
+     *  // PT: o nome do capítulo, ou nada — e nunca como HTML. */
+    fun titleOf(index: Int): String? =
+        chapterTitles.getOrNull(index)?.trim()?.takeIf { it.isNotEmpty() }
 
     /**
      * The spine index a link points at, or null when it points outside the book.
@@ -224,7 +239,19 @@ class EpubSession(context: Context) {
         if (reply.value <= 0) return null
         val words = reply.data?.getIntArray(DocumentParseService.KEY_WORDS) ?: return null
         val hrefs = reply.data?.getStringArray(DocumentParseService.KEY_HREFS) ?: return null
-        EpubInfo(words.toList(), hrefs.map { it.orEmpty() })
+        // L4: titles are optional on the wire — an older reply simply has none —
+        // but where they are present the three lists must agree, because a reply
+        // whose lengths disagree is a corrupt one and not a book missing its
+        // names. // PT: os títulos podem faltar; se vierem, os comprimentos têm de
+        // bater certo, senão a resposta está corrompida.
+        val titles = reply.data?.getStringArray(DocumentParseService.KEY_TITLES)
+        if (hrefs.size != words.size) return null
+        if (titles != null && titles.size != words.size) return null
+        EpubInfo(
+            chapterWords = words.toList(),
+            chapterHrefs = hrefs.map { it.orEmpty() },
+            chapterTitles = titles?.map { it.orEmpty() } ?: List(words.size) { "" },
+        )
     }
 
     /** One chapter's sanitised HTML, or null when it could not be read. */

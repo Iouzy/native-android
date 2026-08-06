@@ -71,6 +71,8 @@ import java.io.File
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 
 /** How long the chrome lingers before getting out of the way. */
 private const val ChromeLingerMs = 2_000L
@@ -291,6 +293,7 @@ fun ReaderScreen(bookId: String, onClose: () -> Unit) {
             ReaderTopBar(
                 title = book.title,
                 onBack = onClose,
+                onContents = { state.wantContents = true }.takeIf { state.ready },
                 onDetails = { showDetail = true },
                 // Offered only while there is a session to act on: with neither a
                 // running nor a paused block for this book there is no clock to
@@ -349,13 +352,32 @@ private class ReaderState {
     var label by mutableStateOf("")
     /** How full the hairline is, 0–1. */
     var fraction by mutableFloatStateOf(0f)
+
+    /**
+     * L4 · the shell's `☰` has asked for the contents; whichever half is mounted
+     * answers and clears it.
+     *
+     * The chrome is composed by the shell and the position is owned by the half —
+     * so the shell asks rather than jumping, and the jump goes through the half's
+     * own `turn`/`scrollToItem`, which is what keeps the bookmark, the label and
+     * the session following it. Writing `position` from a sheet would bypass all
+     * three. // PT: a casca pede; a metade que sabe a posição é que salta, pelo
+     * mesmo caminho de sempre.
+     */
+    var wantContents by mutableStateOf(false)
 }
 
 /** The one line the EPUB chrome shows: how far through the book, and which
  *  chapter of how many — a percentage alone tells you nothing about where to stop.
  *  // PT: a percentagem e o capítulo; só a percentagem não diz onde parar. */
-private fun chapterLabel(percent: Int, chapter: Int, chapters: Int): String =
-    "$percent% · " + trf("Capítulo {n} de {total}", "n" to chapter + 1, "total" to chapters)
+private fun chapterLabel(percent: Int, chapter: Int, chapters: Int, title: String? = null): String {
+    val where = if (title != null) {
+        trf("Capítulo {n}", "n" to chapter + 1) + " · " + title
+    } else {
+        trf("Capítulo {n} de {total}", "n" to chapter + 1, "total" to chapters)
+    }
+    return "$percent% · $where"
+}
 
 /**
  * R3: the PDF half — a column of pages drawn in `:reader`, with the bookmark as a
@@ -421,6 +443,21 @@ private fun PdfReaderHost(
     } else {
         ReaderNotice(tr("A abrir…"))
     }
+
+    // L4: a PDF has no table of contents to parse — PdfRenderer cannot read
+    // outlines, and inventing one would be inventing a number — so its half of
+    // this is the other thing a long document needs. Returning to page 400 was a
+    // scroll. // PT: um PDF não tem índice para ler; o que pode ter é o salto para
+    // uma página.
+    if (state.wantContents && opened != null) {
+        val scope = rememberCoroutineScope()
+        ReaderGoToPageSheet(
+            pageCount = opened.pageCount,
+            current = listState.firstVisibleItemIndex + 1,
+            onJump = { page -> scope.launch { listState.scrollToItem((page - 1).coerceAtLeast(0)) } },
+            onClose = { state.wantContents = false },
+        )
+    }
 }
 
 /**
@@ -480,7 +517,11 @@ private fun EpubReaderHost(
         val percent = Epub.percent(book0.chapterWords, atChapter, atScroll)
         state.unit = percent
         state.position = Epub.formatPosition(atChapter, atScroll)
-        state.label = chapterLabel(percent, atChapter, book0.chapterCount)
+        // L4: the chapter's own name where the book gave one. It always had one —
+        // the parser read it and the process boundary dropped it, which is why
+        // this line could only ever count. // PT: o nome do capítulo, que já era
+        // lido e se perdia.
+        state.label = chapterLabel(percent, atChapter, book0.chapterCount, book0.titleOf(atChapter))
         state.fraction = percent / 100f
     }
 
@@ -549,6 +590,20 @@ private fun EpubReaderHost(
         onFailed = { state.failed = true },
         modifier = Modifier.fillMaxSize(),
     )
+
+    // L4: the shell's ☰ asked; this half answers, because this half owns the
+    // position. The jump goes through `turn` — the same path an edge-tap takes —
+    // so the bookmark, the label and the session all follow it. Writing
+    // `state.position` from the sheet would bypass all three.
+    // // PT: o salto passa por `turn`, como qualquer outra mudança de capítulo.
+    if (state.wantContents) {
+        ReaderContentsSheet(
+            info = opened,
+            current = chapter,
+            onJump = { turn(it) },
+            onClose = { state.wantContents = false },
+        )
+    }
 }
 
 /**
@@ -577,6 +632,7 @@ internal fun rememberCanRead(book: BookEntity?): Boolean {
 private fun ReaderTopBar(
     title: String,
     onBack: () -> Unit,
+    onContents: (() -> Unit)?,
     onDetails: () -> Unit,
     paused: Boolean,
     onTogglePause: (() -> Unit)?,
@@ -609,9 +665,19 @@ private fun ReaderTopBar(
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),
         )
-        // F5(a): the reader's own control row starts here. L4's ☰, L5's Aa and
-        // L6's ✎ join it rather than each adding a bar of their own.
-        // // PT: a fila de controlos do leitor começa aqui.
+        // F5(a) opened the reader's control row; L4's ☰ joins it here, and L5's Aa
+        // and L6's ✎ join the same one rather than each adding a bar.
+        // // PT: a fila de controlos do leitor; cada tarefa junta-se a ela.
+        if (onContents != null) {
+            Text(
+                text = "☰",
+                color = colors.ink2,
+                fontSize = 17.sp,
+                modifier = Modifier
+                    .clickableNoRipple(onContents)
+                    .semantics { contentDescription = tr("Índice"); role = Role.Button },
+            )
+        }
         if (onTogglePause != null) {
             Text(
                 text = if (paused) "▶" else "❙❙",
