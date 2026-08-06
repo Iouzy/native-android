@@ -323,4 +323,40 @@ object HabitCalculator {
         if (dayKey in h.respiros) return DayState.RESPIRO
         return if (dayKey > todayKey) DayState.FUTURE else DayState.EMPTY
     }
+
+    // ── F4 · a countable tide's ceiling ───────────────────────
+    //
+    // A tide with a target of 2 read "39/2 Treinos". Every tap added one and
+    // nothing ever subtracted: the repository clamped at zero and at nothing
+    // else, so a mis-tap was permanent and the tide showed 100% forever.
+    //
+    // The rule is the binary tide's own gesture with more steps — tap to mark,
+    // tap again to unmark — which is why it needs no new affordance and no
+    // long-press: a tap increments to the target, and the tap after that clears
+    // to zero. No count can then exceed its target, and an existing 39 is one tap
+    // from being right. // PT: a contagem sobe até à meta e o toque seguinte
+    // limpa — o mesmo gesto da maré binária, com mais passos.
+
+    /**
+     * What a stored count *means*. Rows written before F4 can be above their
+     * target, and showing 39 raw would be showing a number the tide can no longer
+     * reach. Reading it as "at the target" is both honest and what makes the
+     * repair one tap. // PT: o que uma contagem guardada quer dizer; acima da meta
+     * lê-se como "na meta".
+     */
+    fun shownCount(stored: Int, target: Int?): Int =
+        if (target != null && target > 0) stored.coerceIn(0, target) else stored.coerceAtLeast(0)
+
+    /**
+     * The count a requested value settles at. Anything past the target cycles to
+     * zero rather than being clamped *at* the target — clamping would make the
+     * tap after the last one do nothing, which is a dead control, and would leave
+     * no way down at all. // PT: passar da meta volta a zero; limitar na meta
+     * deixaria o gesto sem saída.
+     */
+    fun cycleCount(requested: Int, target: Int?): Int = when {
+        target == null || target <= 0 -> requested.coerceAtLeast(0)
+        requested > target -> 0
+        else -> requested.coerceAtLeast(0)
+    }
 }

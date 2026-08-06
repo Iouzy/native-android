@@ -88,7 +88,10 @@ fun computeTodayTides(
             habit = h,
             state = state,
             isCount = h.target != null && h.cadence == "daily",
-            count = countsByHabit[h.id]?.get(today) ?: 0,
+            // F4: the shown count, so a row stored above its target reads as "at
+            // the target" everywhere the strip appears. // PT: a contagem já lida
+            // com o tecto aplicado.
+            count = HabitCalculator.shownCount(countsByHabit[h.id]?.get(today) ?: 0, h.target),
             target = h.target ?: 1,
         )
     }

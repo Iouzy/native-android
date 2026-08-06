@@ -624,7 +624,11 @@ class PautaRepository(private val db: AppDatabase) {
         val m = modelOf(h)
         if (!HabitCalculator.isActiveOn(m, dayKey) || dayKey > todayKey) return
         val target = h.target ?: 1
-        val count = maxOf(0, n)
+        // F4: the ceiling, in the one place all four call sites pass through —
+        // the two screens, the notification action and the widget. Each of them
+        // asks for `current + 1` and none of them needs to know the rule.
+        // // PT: o tecto vive aqui, onde os quatro sítios passam.
+        val count = HabitCalculator.cycleCount(n, h.target)
         if (count <= 0) {
             habitMarkDao.removeCount(id, dayKey); habitMarkDao.removeLog(id, dayKey)
         } else {
