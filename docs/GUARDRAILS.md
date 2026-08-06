@@ -3,7 +3,7 @@
 > **What this is.** The constraints that apply to *all* work in this repo,
 > gathered in one place. Until now they lived in the Global guardrails section
 > of whichever task file happened to introduce them, and later files inherited
-> them by reference — `docs/FIELD_FIXES.md` opens by importing four other files,
+> them by reference — `FIELD_FIXES.md` opened by importing four other files,
 > two of which are finished work nobody should need to read. That indirection is
 > what this file removes.
 >
@@ -144,8 +144,8 @@ shipped defects visible at 1.5× and in landscape that no test could see.
 > Moved here in full from `docs/archive/BOOK_READER.md`, which is finished work. This is
 > the canonical copy. It is **binding on anything that touches an attached file,
 > the parser, the `:reader` process or the WebView** — which today means the
-> reader tasks in `docs/BOOK_LIBRARY.md` and `docs/FIELD_FIXES.md`, and anything
-> that comes after them.
+> reader work in `docs/archive/BOOK_LIBRARY.md` and `docs/archive/FIELD_FIXES.md`
+> — both finished — and everything that comes after them.
 
 An attached book arrives as a file the user picked, it may have come from
 anywhere, and it is parsed by native code and rendered in a browser engine.
@@ -384,6 +384,11 @@ every time.
 | **No state-management restructuring as polish.** | `AppViewModel` and the repo stay as they are unless a task explicitly adds one pref. | `POLISH`, `UX_FIXES` |
 | **No Settings row is ever deleted.** | `UX_FIXES` U5 re-grouped and re-styled; it removed no functionality, and neither may anything after it. | `UX_FIXES` |
 
+| **`genre` stays, as tags.** | Dropping it meant a dead column plus a form that quietly stopped collecting what people had already filled in. Keeping it cost one split (`BookMath.genreTags`), which `BOOK_LIBRARY` L8's search then reused. | Aug 2026, `BOOK_LIBRARY` L7 |
+| **No *Metas de leitura*.** Self-set reading targets were proposed for the book-mode Hábitos tab and are not built: a target on an empty shelf is a form of nagging, which §A forbids. Put to the owner during #187 and unanswered; reversible, since nothing was built that would have to be undone. | §A, and the argument in `FIELD_FIXES` F13 | Aug 2026, `FIELD_FIXES` F13 |
+| **The reader's body face stays the platform `serif`.** The CSP forbids `font-src`, so a face picker would have exactly one entry. Said in the code as well as here. | §G.3 | Aug 2026, `BOOK_LIBRARY` L5 |
+| **A rendered PDF page is never recoloured.** `night` dims the surround and leaves the page as the document drew it: a scanned page inverted is unreadable and a diagram inverted is wrong. | | Aug 2026, `BOOK_LIBRARY` L5 |
+
 **Adding to this table** is part of finishing a task that closed a question.
 Write the decision, the reason and the date — not just the outcome.
 
@@ -416,4 +421,5 @@ Rules change. When one does, say which, why, and what it replaced — a guardrai
 whose history is invisible gets quietly re-litigated.
 
 <!-- YYYY-MM-DD · <rule> · #PR · <what changed and why> -->
+2026-08-06 · §J gains four rows · #187 · four questions the 30-task run closed and that would otherwise be re-proposed: `genre` kept as tags (L7), *Metas de leitura* not built (F13, the owner's own open question, asked during the run and unanswered), no reader font picker and no recoloured PDF page (L5). §H's rule about removable recordings is now actually satisfied by `FIELD_FIXES` F2 — sessions can be reached, edited and deleted, and `deleteBook` cascades — which it was not when the rule was written.
 2026-08-03 · file created · — · consolidated from the Global guardrails sections of `NATIVE_IMPROVEMENTS`, `BOOK_MODE`, `POLISH`, `BOOK_READER`, `UX_FIXES`, `BOOK_LIBRARY` and `FIELD_FIXES`; the reader's Security model moved here in full from `BOOK_READER.md` so that finished files could be archived without breaking a binding reference; sections H, K and this Log are new.
