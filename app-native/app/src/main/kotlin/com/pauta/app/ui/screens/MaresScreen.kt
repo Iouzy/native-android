@@ -375,18 +375,6 @@ internal fun MaresContent(leading: (LazyListScope.() -> Unit)? = null) {
                         pip = true,
                         pipHeight = 44.dp,
                     )
-                    Spacer(Modifier.height(14.dp))
-                    SectionEyebrow(tr("Marés comuns"), color = colors.ink4)
-                    Spacer(Modifier.height(9.dp))
-                    @OptIn(ExperimentalLayoutApi::class)
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        listOf("Beber água", "Ler", "Meditar", "Exercício", "Dormir cedo").forEach { name ->
-                            StarterChip(tr(name)) { vm.addHabit(name = tr(name)) }
-                        }
-                    }
                 }
             } else {
                 // Como funciona — persistent, subtle hint.
@@ -473,6 +461,42 @@ internal fun MaresContent(leading: (LazyListScope.() -> Unit)? = null) {
                             textAlign = TextAlign.Center,
                             modifier = Modifier.fillMaxWidth(),
                         )
+                    }
+                }
+            }
+
+            // N6 · the suggestions don't leave.
+            //
+            // The five one-tap tides lived inside the `EmptyState` branch, so
+            // tapping one created a habit and, with it, destroyed the row: of five
+            // shortcuts exactly one was ever usable, and the second habit cost the
+            // full form. They live out here now, filtered to what isn't already
+            // there, and stop for good past **three** — someone with three tides
+            // has understood the feature and does not need prompting. Quiet: the
+            // same accent chips, no heading shouting at a user mid-list.
+            // // PT: as sugestões saem do estado vazio; ficam até três marés e
+            // desaparecem de vez — quem tem três já percebeu.
+            if (habits.size < 3) {
+                item(key = "starters") {
+                    val taken = remember(habits) { habits.mapTo(HashSet()) { it.name.trim().lowercase() } }
+                    val offer = remember(taken) {
+                        StarterTides.filter { tr(it).trim().lowercase() !in taken }
+                    }
+                    if (offer.isNotEmpty()) {
+                        Spacer(Modifier.height(if (habits.isEmpty()) 14.dp else 20.dp))
+                        if (habits.isEmpty()) {
+                            SectionEyebrow(tr("Marés comuns"), color = colors.ink4)
+                            Spacer(Modifier.height(9.dp))
+                        }
+                        @OptIn(ExperimentalLayoutApi::class)
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            offer.forEach { name ->
+                                StarterChip(tr(name)) { vm.addHabit(name = tr(name)) }
+                            }
+                        }
                     }
                 }
             }
@@ -829,6 +853,11 @@ private fun MaresHabitRow(
         }
     }
 }
+
+/** N6 · the five one-tap tides. Named here rather than inline so the empty state
+ *  and the list below it offer the same five. // PT: as cinco marés sugeridas,
+ *  num só sítio. */
+private val StarterTides = listOf("Beber água", "Ler", "Meditar", "Exercício", "Dormir cedo")
 
 /**
  * N3 · the sparse day ruler under the month strips.
