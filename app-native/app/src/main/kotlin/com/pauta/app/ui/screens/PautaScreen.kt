@@ -81,6 +81,7 @@ import com.pauta.app.domain.HabitCalculator.DayState
 import com.pauta.app.i18n.I18n
 import com.pauta.app.i18n.tr
 import com.pauta.app.i18n.trf
+import com.pauta.app.ui.PautaFloatStrip
 import com.pauta.app.ui.EmptyState
 import com.pauta.app.ui.PautaCard
 import com.pauta.app.ui.PautaRadius
@@ -409,7 +410,7 @@ fun PautaScreen(bookMode: Boolean = false, onOpenReader: (String) -> Unit = {}) 
                 }
             }
 
-            item(key = "bottom") { Spacer(Modifier.height(96.dp)) }
+            item(key = "bottom") { Spacer(Modifier.height(PautaFloatStrip)) }
         }
 
         // In-app goal-reached prompt, mirroring the native heads-up notification.

@@ -59,6 +59,7 @@ import com.pauta.app.domain.DateUtils
 import com.pauta.app.domain.FocusMath
 import com.pauta.app.domain.ReaderMath
 import com.pauta.app.i18n.tr
+import com.pauta.app.ui.PautaFloatStrip
 import com.pauta.app.ui.EmptyState
 import com.pauta.app.ui.PautaButton
 import com.pauta.app.ui.PautaButtonVariant
@@ -350,7 +351,7 @@ fun BookSessionScreen(onOpenReader: (String) -> Unit = {}) {
             }
         }
 
-        item(key = "bottom") { Spacer(Modifier.height(48.dp)) }
+        item(key = "bottom") { Spacer(Modifier.height(PautaFloatStrip)) }
     }
 
     if (showPicker) {
