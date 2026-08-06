@@ -59,7 +59,7 @@ private const val CachedPages = 5
  * vez; as últimas ficam em cache e o espaço é reservado antes de existirem.
  */
 @Composable
-fun PdfPages(
+internal fun PdfPages(
     session: PdfSession,
     info: PdfInfo,
     listState: LazyListState,

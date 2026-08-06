@@ -49,7 +49,7 @@ brings back the book, not the file.
 | `startedAt` | Long? | null | ms epoch; null until the first session |
 | `finishedAt` | Long? | null | ms epoch; null until done/dnf |
 | `rating` | Int? | null | 1–5; null = unrated |
-| `genre` | String | `""` | free text, comma-separated tags. **Write-only today** — see `BOOK_LIBRARY.md` L7 |
+| `genre` | String | `""` | free text, comma-separated tags; split by `BookMath.genreTags` and shown on the detail sheet — L7 |
 | `position` | Int | `0` | ordering within the status shelf. **Stale after a move** — see L3 |
 | `createdAt` | Long | — | ms epoch |
 | `filePath` | String? | null | absolute path inside `filesDir/books/`; null = no file |

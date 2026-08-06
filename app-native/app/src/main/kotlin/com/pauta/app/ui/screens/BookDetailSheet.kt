@@ -59,6 +59,9 @@ import com.pauta.app.ui.theme.PautaType
 import com.pauta.app.ui.theme.SerifFamily
 import com.pauta.app.ui.viewmodel.AppViewModel
 import kotlin.math.roundToInt
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.ui.text.style.TextOverflow
 
 /**
  * native-only (K8): the book detail sheet the shelf cards open — all book-level
@@ -151,20 +154,26 @@ fun BookDetailSheet(
             )
         }
         Spacer(Modifier.height(10.dp))
-        Text(
-            text = when (book.format) {
-                "ebook" -> tr("Ebook")
-                "audiobook" -> tr("Audiolivro")
-                else -> tr("Físico")
-            },
-            color = colors.ink3,
-            style = PautaType.MetaSmall,
-            letterSpacing = 0.54.sp,
-            modifier = Modifier
-                .clip(RoundedCornerShape(4.dp))
-                .border(1.dp, colors.rule, RoundedCornerShape(4.dp))
-                .padding(horizontal = 6.dp, vertical = 2.dp),
-        )
+        // L7: the format chip, and beside it the genres — which were collected by
+        // the form, trimmed, stored and migrated across two Room versions, and
+        // read by nothing. A field the user fills in and the app never shows is a
+        // small dishonesty; this is the whole of the fix. The chips flow so a book
+        // with five tags wraps instead of pushing the sheet sideways.
+        // // PT: o formato e, ao lado, os géneros — que até aqui nada lia.
+        @OptIn(ExperimentalLayoutApi::class)
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            MetaChip(
+                text = when (book.format) {
+                    "ebook" -> tr("Ebook")
+                    "audiobook" -> tr("Audiolivro")
+                    else -> tr("Físico")
+                },
+            )
+            BookMath.genreTags(book.genre).forEach { tag -> MetaChip(tag) }
+        }
 
         // ── R2 · the attached file ──
         // The name; R3's "Ler" is further down, with the status actions. // PT: o
@@ -577,6 +586,26 @@ private fun ProgressEditor(book: BookEntity, onConfirm: (Int) -> Unit, onCancel:
         PautaButton(tr("Guardar"), variant = PautaButtonVariant.Primary) { submit() }
         PautaButton(tr("Cancelar"), variant = PautaButtonVariant.Ghost) { onCancel() }
     }
+}
+
+/** L7 · the small bordered meta chip the format and the genres share, so a tag
+ *  never reads as a different kind of thing from the format beside it.
+ *  // PT: a mesma chip para o formato e para os géneros. */
+@Composable
+private fun MetaChip(text: String) {
+    val colors = LocalPautaColors.current
+    Text(
+        text = text,
+        color = colors.ink3,
+        style = PautaType.MetaSmall,
+        letterSpacing = 0.54.sp,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        modifier = Modifier
+            .clip(RoundedCornerShape(4.dp))
+            .border(1.dp, colors.rule, RoundedCornerShape(4.dp))
+            .padding(horizontal = 6.dp, vertical = 2.dp),
+    )
 }
 
 /** The 1–5 star strip. Tapping star n rates n; tapping the current one clears. */
