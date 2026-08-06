@@ -68,6 +68,9 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 import java.io.File
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Dp
 
 /** How long the chrome lingers before getting out of the way. */
 private const val ChromeLingerMs = 2_000L
@@ -162,6 +165,28 @@ fun ReaderScreen(bookId: String, onClose: () -> Unit) {
         if (state.ready) vm.beginReading(bookId, book.title)
     }
 
+    // F5(a) · pause without closing the book.
+    //
+    // Until now the only way to stop the clock was to leave, so a reading session
+    // measured every interruption — a conversation, a station, putting the phone
+    // down — as reading. This is also half of what an explicit "start reading"
+    // button was asked for, and the half that carries no risk: forgetting to
+    // press *start* loses an hour unrecoverably, forgetting to press *pause* just
+    // leaves the session as it always was.
+    //
+    // The session is a focus block, so pause and resume are the block's own, and
+    // the paused span is closed by `pauseActive` — the paused time is therefore
+    // not read, by construction rather than by arithmetic.
+    // // PT: pausar sem fechar o livro; a sessão é um bloco, e a pausa fecha o
+    // intervalo aberto — o tempo em pausa não conta, por construção.
+    val activeBlock by vm.activeBlock.collectAsStateWithLifecycle()
+    val sessionBlocks by vm.bookSessionBlocks.collectAsStateWithLifecycle()
+    val readerProject = "book:$bookId"
+    val runningHere = activeBlock?.takeIf { it.project == readerProject }
+    val pausedHere = remember(sessionBlocks, readerProject) {
+        sessionBlocks.firstOrNull { it.project == readerProject && it.status == "paused" }
+    }
+
     // A position that stays put for a second is where the reader is. // PT: a
     // posição que fica parada um segundo é a que se guarda.
     LaunchedEffect(state.ready) {
@@ -199,6 +224,27 @@ fun ReaderScreen(bookId: String, onClose: () -> Unit) {
     }
     val chromeVisible = chrome || !state.ready
 
+    // F5(b) · the bars stop covering the page.
+    //
+    // The chapter used to be inset by a guessed 8px at the top and 64px at the
+    // bottom, which is not enough at any real text size: a chapter heading, a last
+    // line and a publisher's logo were each found hidden under a bar. The inset is
+    // now the bars' **measured** height — the top bar carries the status-bar inset,
+    // the bottom one the navigation-bar inset, and neither is a number this file
+    // can know in advance.
+    //
+    // The last non-zero measurement is kept on purpose. The bars are inside an
+    // `AnimatedVisibility`, so they measure 0 while hidden — following that would
+    // reflow the whole chapter every time the chrome fades, throwing the reader's
+    // place away twice a minute. The margin is reserved whether or not the bar is
+    // currently drawn. // PT: o recuo é a altura medida das barras, e mantém-se
+    // quando elas se escondem — senão o capítulo reflui a cada fade.
+    val density = LocalDensity.current
+    var topBarPx by remember { mutableIntStateOf(0) }
+    var bottomBarPx by remember { mutableIntStateOf(0) }
+    val topInset = with(density) { topBarPx.toDp() }
+    val bottomInset = with(density) { bottomBarPx.toDp() }
+
     var showDetail by remember { mutableStateOf(false) }
 
     Box(
@@ -220,12 +266,16 @@ fun ReaderScreen(bookId: String, onClose: () -> Unit) {
                 path = path!!,
                 book = book,
                 state = state,
+                topInset = topInset,
+                bottomInset = bottomInset,
                 onTapMiddle = { chrome = !chrome },
             )
             kind == "epub" -> EpubReaderHost(
                 path = path!!,
                 book = book,
                 state = state,
+                topInset = topInset,
+                bottomInset = bottomInset,
                 onTapMiddle = { chrome = !chrome },
                 onWordCount = { words -> vm.setWordCount(bookId, words) },
             )
@@ -242,6 +292,16 @@ fun ReaderScreen(bookId: String, onClose: () -> Unit) {
                 title = book.title,
                 onBack = onClose,
                 onDetails = { showDetail = true },
+                // Offered only while there is a session to act on: with neither a
+                // running nor a paused block for this book there is no clock to
+                // stop. // PT: só aparece quando há sessão sobre que agir.
+                paused = runningHere == null && pausedHere != null,
+                onTogglePause = when {
+                    runningHere != null -> ({ vm.pauseActive("") })
+                    pausedHere != null -> ({ vm.resumeBlock(pausedHere.id) })
+                    else -> null
+                },
+                modifier = Modifier.onSizeChanged { if (it.height > 0) topBarPx = it.height },
             )
         }
 
@@ -251,7 +311,11 @@ fun ReaderScreen(bookId: String, onClose: () -> Unit) {
             exit = if (animate) fadeOut(PautaMotion.tween()) else ExitTransition.None,
             modifier = Modifier.align(Alignment.BottomCenter),
         ) {
-            ReaderBottomBar(label = state.label, fraction = state.fraction)
+            ReaderBottomBar(
+                label = state.label,
+                fraction = state.fraction,
+                modifier = Modifier.onSizeChanged { if (it.height > 0) bottomBarPx = it.height },
+            )
         }
     }
 
@@ -303,6 +367,8 @@ private fun PdfReaderHost(
     path: String,
     book: BookEntity,
     state: ReaderState,
+    topInset: Dp,
+    bottomInset: Dp,
     onTapMiddle: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -346,6 +412,8 @@ private fun PdfReaderHost(
             session = session,
             info = opened,
             listState = listState,
+            topInset = topInset,
+            bottomInset = bottomInset,
             onTapMiddle = onTapMiddle,
             onReaderDied = { state.failed = true },
             modifier = Modifier.fillMaxSize(),
@@ -370,6 +438,8 @@ private fun EpubReaderHost(
     path: String,
     book: BookEntity,
     state: ReaderState,
+    topInset: Dp,
+    bottomInset: Dp,
     onTapMiddle: () -> Unit,
     onWordCount: (Int) -> Unit,
 ) {
@@ -453,6 +523,8 @@ private fun EpubReaderHost(
     EpubChapterView(
         session = session,
         chapter = chapter,
+        topInset = topInset,
+        bottomInset = bottomInset,
         restoreScroll = restoreScroll,
         onScroll = { value ->
             scroll = value
@@ -502,10 +574,17 @@ internal fun rememberCanRead(book: BookEntity?): Boolean {
 /** Back · title · the book's own sheet. Sits on a paper band so it stays legible
  *  over a white page. // PT: recuar, título e a folha do livro. */
 @Composable
-private fun ReaderTopBar(title: String, onBack: () -> Unit, onDetails: () -> Unit) {
+private fun ReaderTopBar(
+    title: String,
+    onBack: () -> Unit,
+    onDetails: () -> Unit,
+    paused: Boolean,
+    onTogglePause: (() -> Unit)?,
+    modifier: Modifier = Modifier,
+) {
     val colors = LocalPautaColors.current
     Row(
-        Modifier
+        modifier
             .fillMaxWidth()
             .background(colors.paper)
             .statusBarsPadding()
@@ -530,6 +609,22 @@ private fun ReaderTopBar(title: String, onBack: () -> Unit, onDetails: () -> Uni
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),
         )
+        // F5(a): the reader's own control row starts here. L4's ☰, L5's Aa and
+        // L6's ✎ join it rather than each adding a bar of their own.
+        // // PT: a fila de controlos do leitor começa aqui.
+        if (onTogglePause != null) {
+            Text(
+                text = if (paused) "▶" else "❙❙",
+                color = if (paused) colors.accent else colors.ink2,
+                fontSize = if (paused) 18.sp else 15.sp,
+                modifier = Modifier
+                    .clickableNoRipple(onTogglePause)
+                    .semantics {
+                        contentDescription = if (paused) tr("Retomar") else tr("Pausar")
+                        role = Role.Button
+                    },
+            )
+        }
         Text(
             text = "⋯",
             color = colors.ink2,
@@ -545,10 +640,10 @@ private fun ReaderTopBar(title: String, onBack: () -> Unit, onDetails: () -> Uni
  *  PDF and a percentage in an EPUB — the shell is handed the sentence rather than
  *  the numbers. // PT: a posição, em texto e em traço. */
 @Composable
-private fun ReaderBottomBar(label: String, fraction: Float) {
+private fun ReaderBottomBar(label: String, fraction: Float, modifier: Modifier = Modifier) {
     val colors = LocalPautaColors.current
     Column(
-        Modifier
+        modifier
             .fillMaxWidth()
             .background(colors.paper),
     ) {

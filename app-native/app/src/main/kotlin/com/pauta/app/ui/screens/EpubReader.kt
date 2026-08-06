@@ -23,6 +23,7 @@ import com.pauta.app.domain.Epub
 import com.pauta.app.service.EpubSession
 import com.pauta.app.ui.theme.LocalPautaColors
 import java.io.ByteArrayInputStream
+import androidx.compose.ui.unit.Dp
 
 /** Where a tap landed: the outer thirds turn a page, the middle calls the chrome
  *  back. // PT: os terços exteriores mudam de capítulo; o meio chama a cromagem. */
@@ -60,6 +61,11 @@ enum class ReaderTap { PREVIOUS, MIDDLE, NEXT }
 fun EpubChapterView(
     session: EpubSession,
     chapter: Int,
+    // F5(b): the measured height of the reader's bars, which the chapter is inset
+    // by. WebView maps one CSS px to one dp, so these carry straight into the
+    // stylesheet. // PT: a altura das barras, que o capítulo respeita.
+    topInset: Dp,
+    bottomInset: Dp,
     restoreScroll: Float,
     onScroll: (Float) -> Unit,
     onTap: (ReaderTap) -> Unit,
@@ -68,7 +74,7 @@ fun EpubChapterView(
     modifier: Modifier = Modifier,
 ) {
     val colors = LocalPautaColors.current
-    val css = rememberChapterCss()
+    val css = rememberChapterCss(topInset, bottomInset)
 
     // The chapter's markup, fetched from `:reader`. A null answer for a chapter
     // that should exist means the archive (or the process) is gone. // PT: o
@@ -285,14 +291,21 @@ private fun restore(view: WebView, fraction: Float, attempt: Int = 0) {
  * deixa passar tipos de letra e a Instrument Serif é de títulos, não de corpo.
  */
 @Composable
-private fun rememberChapterCss(): String {
+private fun rememberChapterCss(topInset: Dp, bottomInset: Dp): String {
     val colors = LocalPautaColors.current
     val density = androidx.compose.ui.platform.LocalDensity.current
     // The text-size preference already lives in the density's font scale (set once
     // in MainActivity), so reading it here keeps the reader in step with the rest
     // of the app for free. // PT: a escala do texto vem da densidade, já ajustada.
     val scale = density.fontScale
-    return remember(colors.paper, colors.ink, colors.accent, colors.rule, scale) {
+    // F5(b): the bars' own height, plus the breathing room the page had before.
+    // A WebView's CSS px is a dp, so the value crosses unchanged. The floor keeps
+    // a sane margin in the frame before the bars have been measured.
+    // // PT: a altura das barras em px de CSS (= dp), com um mínimo para o
+    // primeiro frame.
+    val topPad = topInset.value.toInt().coerceAtLeast(8) + 8
+    val bottomPad = bottomInset.value.toInt().coerceAtLeast(24) + 16
+    return remember(colors.paper, colors.ink, colors.accent, colors.rule, scale, topPad, bottomPad) {
         val body = (18f * scale).toInt().coerceIn(12, 40)
         """
         html,body{margin:0;padding:0;background:${hex(colors.paper)};}
@@ -301,7 +314,7 @@ private fun rememberChapterCss(): String {
           font-family:serif;
           font-size:${body}px;
           line-height:1.62;
-          padding:8px 22px 64px 22px;
+          padding:${topPad}px 22px ${bottomPad}px 22px;
           text-align:left;
           word-wrap:break-word;
           overflow-wrap:break-word;
@@ -316,6 +329,11 @@ private fun rememberChapterCss(): String {
         }
         h1{font-size:1.5em;} h2{font-size:1.3em;} h3{font-size:1.15em;}
         a{color:${hex(colors.accent)};text-decoration:none;}
+        /* F5(d): a link that resolves to nothing in this book is not painted as a
+           link. The reader refuses every navigation, so an external URL is inert —
+           and an inert thing in the accent is a promise the app cannot keep.
+           // PT: um link que não leva a lado nenhum fica em tinta, não em acento. */
+        a.${Epub.DEAD_LINK_CLASS}{color:${hex(colors.ink)};text-decoration:none;}
         blockquote{
           margin:1.2em 0;padding-left:1em;
           border-left:2px solid ${hex(colors.rule)};

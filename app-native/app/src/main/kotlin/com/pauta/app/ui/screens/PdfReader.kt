@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.dp
 import com.pauta.app.service.PdfInfo
 import com.pauta.app.service.PdfSession
 import com.pauta.app.ui.theme.LocalPautaColors
+import androidx.compose.ui.unit.Dp
 
 /** How far a page may be pinched, and how many rendered pages are kept around.
  *  Five is enough for the page you're on plus its neighbours in both directions;
@@ -61,6 +62,11 @@ fun PdfPages(
     session: PdfSession,
     info: PdfInfo,
     listState: LazyListState,
+    // F5(b): the measured height of the reader's own bars. A page drawn under
+    // them is a page with its top and bottom hidden, and the bars are drawn over
+    // the content by design. // PT: a altura medida das barras do leitor.
+    topInset: Dp = 0.dp,
+    bottomInset: Dp = 0.dp,
     onTapMiddle: () -> Unit,
     onReaderDied: () -> Unit,
     modifier: Modifier = Modifier,
@@ -80,7 +86,7 @@ fun PdfPages(
         modifier = modifier
             .fillMaxSize()
             .onSizeChanged { widthPx = it.width },
-        contentPadding = PaddingValues(vertical = 4.dp),
+        contentPadding = PaddingValues(top = topInset + 4.dp, bottom = bottomInset + 4.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         items(info.pageCount) { index ->

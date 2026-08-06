@@ -206,6 +206,38 @@ class EpubTest {
         assertTrue(html, html.contains("""href="ch7.xhtml#p3""""))
     }
 
+    // ── F5(d) · a dead link is not painted as a link ──────────
+
+    @Test fun `a schemeless url survives the sanitiser and is marked dead`() {
+        // www.panmacmillan.com has no colon before its first slash, so safeHref
+        // reads it as a relative href and keeps it. Nothing navigates — the reader
+        // refuses every navigation — so painting it in the accent was a promise
+        // the app could not keep. // PT: o caso encontrado no livro real.
+        val html = Epub.sanitize("""<a href="www.panmacmillan.com">Pan Macmillan</a>""")
+        assertTrue(html, html.contains("class=\"${Epub.DEAD_LINK_CLASS}\""))
+    }
+
+    @Test fun `a link the book actually contains keeps the accent`() {
+        val html = Epub.sanitize(
+            """<a href="ch7.xhtml#p3">nota</a>""",
+            linkResolves = { it == "ch7.xhtml#p3" },
+        )
+        assertFalse(html, html.contains(Epub.DEAD_LINK_CLASS))
+    }
+
+    @Test fun `an anchor with no href at all is dead too`() {
+        // `<a id="p3">` is a jump target, not a link; its id doesn't survive the
+        // allow-list, so what is left must not look tappable.
+        // // PT: uma âncora sem href também não deve parecer um link.
+        val html = Epub.sanitize("""<a id="p3">texto</a>""")
+        assertTrue(html, html.contains("class=\"${Epub.DEAD_LINK_CLASS}\""))
+    }
+
+    @Test fun `an external-looking url is dead when nothing resolves it`() {
+        val html = Epub.sanitize("""<a href="other.xhtml">outro</a>""")
+        assertTrue(html, html.contains(Epub.DEAD_LINK_CLASS))
+    }
+
     @Test fun `a base element cannot redirect what relative urls mean`() {
         val html = Epub.sanitize("""<base href="https://evil.example/"><p>texto</p>""")
         assertFalse(html, html.contains("base", ignoreCase = true))
