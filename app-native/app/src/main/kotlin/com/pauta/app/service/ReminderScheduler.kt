@@ -36,6 +36,16 @@ object ReminderScheduler {
         READING(104, "readingTime"),
     }
 
+    /**
+     * L11 · the lens, for components that run with the app closed — the QS tile
+     * reads it when the shade opens, which may be long before Room has loaded
+     * anything. It lives here because this is already the file background
+     * components read their state from, and L10 had just put `bookMode` in it.
+     * // PT: a lente, para quem corre com a app fechada; já se guardava aqui.
+     */
+    fun savedBookMode(context: Context): Boolean =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean("bookMode", false)
+
     /** The persisted app language ("pt"/"en") — readable at process start,
      *  before Room/prefs load, so background components speak the right one. */
     fun savedLang(context: Context): String =

@@ -17,6 +17,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -198,6 +199,30 @@ internal fun MaresContent(leading: (LazyListScope.() -> Unit)? = null) {
         ?: habitModelOf(h, logsByHabit[h.id].orEmpty(), respByHabit[h.id].orEmpty())
 
     val isCurrentMonth = year == nowYm.year && month == nowYm.monthValue
+    // N3 · one month, one strip.
+    //
+    // Every habit row used to own its own `horizontalScroll` state, so scrolling
+    // "Beber água" to day 24 left "Meditar" showing day 1 and the month stopped
+    // being readable as a grid — which is the whole point of the tab. One state,
+    // hoisted here, means every row moves together and a habit added later starts
+    // aligned. // PT: uma só posição de scroll para o mês inteiro — comparar as
+    // marés entre si é a funcionalidade.
+    val monthStrip = rememberScrollState()
+    val stripDensity = LocalDensity.current
+    // Open on today, not on day 1: the useful end of the month is the one you are
+    // in. // PT: abre no dia de hoje.
+    LaunchedEffect(year, month, isCurrentMonth) {
+        if (!isCurrentMonth) {
+            monthStrip.scrollTo(0)
+            return@LaunchedEffect
+        }
+        val todayD = today.substring(8).toInt()
+        // 31dp pitch = 28dp cell + 3dp gap. // PT: passo = célula + intervalo.
+        val target = with(stripDensity) {
+            ((todayD - 1) * 31).dp.toPx().toInt() - 150.dp.toPx().toInt()
+        }
+        monthStrip.scrollTo(target.coerceAtLeast(0))
+    }
     val monthEnd = "%04d-%02d-%02d".format(year, month, DateUtils.daysInMonth(year, month))
     // Only tides that already existed in the viewed month; the rest are counted
     // in the footer note, like the web. // PT: só marés que já existiam no mês.
@@ -264,6 +289,20 @@ internal fun MaresContent(leading: (LazyListScope.() -> Unit)? = null) {
                     Spacer(Modifier.width(10.dp))
                     GridLegend()
                 }
+            }
+
+            // N3 · the ruler. A `DayCell` is 28dp and carries no date, so after one
+            // scroll nothing on screen said which days you were looking at — and
+            // *which days* is the tab's whole subject. The number does not fit
+            // inside a cell at any text scale, so it goes **under** the strip as a
+            // sparse ruler: 1, 8, 15, 22 and the last day, in the mono meta
+            // treatment. That reads at a glance, survives `textScale`, and costs
+            // one row per tab rather than one per habit.
+            // // PT: uma régua esparsa por baixo das tiras — os números não cabem
+            // nas células, e sem eles não se sabe que dias estão à vista.
+            item(key = "day-ruler") {
+                Spacer(Modifier.height(10.dp))
+                MonthRuler(strip = monthStrip, days = DateUtils.daysInMonth(year, month))
             }
 
             // Header — eyebrow + serif month, with the overall % at the right.
@@ -401,6 +440,7 @@ internal fun MaresContent(leading: (LazyListScope.() -> Unit)? = null) {
                             month = month,
                             today = today,
                             isCurrentMonth = isCurrentMonth,
+                            strip = monthStrip,
                             animate = animate,
                             // P10 · the haptic map: filling a day (tap, count bump or
                             // respiro) is the tab's gesture, so each one ticks.
@@ -575,6 +615,9 @@ private fun MaresHabitRow(
     month: Int,
     today: String,
     isCurrentMonth: Boolean,
+    // N3: the tab's one scroll state, shared by every row. // PT: o scroll do mês,
+    // partilhado por todas as linhas.
+    strip: ScrollState,
     animate: Boolean,
     onToggle: (String) -> Unit,
     onIncrement: (String, Int) -> Unit,
@@ -742,16 +785,8 @@ private fun MaresHabitRow(
         }
         Spacer(Modifier.height(8.dp))
 
-        // Month strip — the pulse of days, auto-scrolled so today is visible.
-        val strip = rememberScrollState()
-        val density = LocalDensity.current
-        if (isCurrentMonth) {
-            val todayD = today.substring(8).toInt()
-            LaunchedEffect(year, month) {
-                // 31dp pitch = 28dp cell + 3dp gap. // PT: passo = célula + intervalo.
-                strip.scrollTo(with(density) { ((todayD - 1) * 31).dp.toPx().toInt() - 150.dp.toPx().toInt() }.coerceAtLeast(0))
-            }
-        }
+        // Month strip — the pulse of days. N3: the scroll state and the
+        // scroll-to-today are the tab's, not this row's. // PT: o scroll é da tab.
         Row(
             Modifier
                 .fillMaxWidth()
@@ -791,6 +826,39 @@ private fun MaresHabitRow(
                 style = PautaType.MetaSmall,
                 letterSpacing = 0.72.sp,
             )
+        }
+    }
+}
+
+/**
+ * N3 · the sparse day ruler under the month strips.
+ *
+ * It scrolls with them — same [ScrollState], so the numbers stay over the cells
+ * they name — and marks 1, 8, 15, 22 and the last day of the month. The pitch is
+ * the cells' own: 28dp wide plus a 3dp gap.
+ * // PT: a régua que acompanha as tiras; marca 1, 8, 15, 22 e o último dia.
+ */
+@Composable
+private fun MonthRuler(strip: ScrollState, days: Int) {
+    val colors = LocalPautaColors.current
+    val marks = remember(days) { (listOf(1, 8, 15, 22) + days).distinct().filter { it in 1..days } }
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .horizontalScroll(strip),
+        horizontalArrangement = Arrangement.spacedBy(3.dp),
+    ) {
+        for (day in 1..days) {
+            Box(Modifier.width(28.dp), contentAlignment = Alignment.Center) {
+                if (day in marks) {
+                    Text(
+                        text = day.toString(),
+                        color = colors.ink4,
+                        style = PautaType.MetaSmall,
+                        letterSpacing = 0.4.sp,
+                    )
+                }
+            }
         }
     }
 }
