@@ -67,6 +67,7 @@ import com.pauta.app.ui.viewmodel.AppViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
 import java.io.File
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
@@ -215,17 +216,46 @@ fun ReaderScreen(bookId: String, onClose: () -> Unit) {
         }
     }
 
+    // N2 · arriving is not the same as asking.
+    //
     // Chrome starts visible (so the way back is never a secret), then gets out of
-    // the way. With nothing to read it stays. // PT: a cromagem aparece, esconde-se
-    // sozinha, e fica se não houver nada para ler.
+    // the way. The bug was that the linger re-armed on *every* transition to
+    // visible, including the deliberate middle tap that asked for it back — so
+    // reaching `←`, reading the progress line or aiming at `⋯` all had to happen
+    // inside two seconds, and by now there are four controls up there.
+    //
+    // The timer belongs to the **first appearance only**. Once the reader has
+    // summoned the chrome it is theirs: it stays until they tap again, or until
+    // they scroll — which is the one automatic dismissal worth keeping, because it
+    // means "I am reading again" and it is what every reader does.
+    // // PT: o temporizador é só da primeira aparição; depois de o leitor a pedir,
+    // a cromagem fica até ele a mandar embora — ou até ele voltar a ler.
     var chrome by remember { mutableStateOf(true) }
-    LaunchedEffect(chrome, state.ready) {
-        if (chrome && state.ready) {
+    var summoned by remember { mutableStateOf(false) }
+    LaunchedEffect(state.ready) {
+        if (state.ready && !summoned) {
             delay(ChromeLingerMs)
-            chrome = false
+            if (!summoned) chrome = false
         }
     }
+    // Reading again puts it away. `drop(1)` skips the position the bookmark
+    // restored, which is not a scroll. // PT: voltar a ler esconde-a; ignora-se a
+    // posição inicial, que não foi um gesto.
+    LaunchedEffect(state.ready) {
+        if (!state.ready) return@LaunchedEffect
+        snapshotFlow { state.position }
+            .distinctUntilChanged()
+            .drop(1)
+            .collect { if (chrome && summoned) chrome = false }
+    }
     val chromeVisible = chrome || !state.ready
+
+    /** N2: a middle tap is the reader taking control of the chrome. // PT: o toque
+     *  ao meio passa a cromagem para as mãos do leitor. */
+    fun toggleChrome() {
+        summoned = true
+        chrome = !chrome
+    }
 
     // F5(b) · the bars stop covering the page.
     //
@@ -284,7 +314,7 @@ fun ReaderScreen(bookId: String, onClose: () -> Unit) {
                 topInset = topInset,
                 bottomInset = bottomInset,
                 reader = readerSettings,
-                onTapMiddle = { chrome = !chrome },
+                onTapMiddle = { toggleChrome() },
             )
             kind == "epub" -> EpubReaderHost(
                 path = path!!,
@@ -293,7 +323,7 @@ fun ReaderScreen(bookId: String, onClose: () -> Unit) {
                 topInset = topInset,
                 bottomInset = bottomInset,
                 reader = readerSettings,
-                onTapMiddle = { chrome = !chrome },
+                onTapMiddle = { toggleChrome() },
                 onWordCount = { words -> vm.setWordCount(bookId, words) },
             )
             else -> ReaderNotice(tr("Não foi possível abrir este ficheiro."))
