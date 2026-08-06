@@ -1006,6 +1006,14 @@ object I18n {
         "Lembrete de leitura" to "Reading reminder", // native-only
         "Um empurrão diário para abrir o livro." to "A daily nudge to open the book.", // native-only
         "Hora de ler" to "Time to read", // native-only
+
+        // L11 · the widget and the tile in book mode. "Nenhum livro em curso"
+        // already exists (the shelf's empty state) and is reused.
+        // // PT: o widget e o azulejo no modo livro.
+        "Ritmo de leitura" to "Reading rhythm", // native-only
+        "{n} dias seguidos" to "{n} days in a row", // native-only
+        "{n} min esta semana" to "{n} min this week", // native-only
+        "Sessão de leitura" to "Reading session", // native-only
     )
 }
 
