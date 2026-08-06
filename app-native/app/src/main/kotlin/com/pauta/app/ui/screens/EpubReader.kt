@@ -305,7 +305,7 @@ private fun rememberChapterCss(topInset: Dp, bottomInset: Dp): String {
     // primeiro frame.
     val topPad = topInset.value.toInt().coerceAtLeast(8) + 8
     val bottomPad = bottomInset.value.toInt().coerceAtLeast(24) + 16
-    return remember(colors.paper, colors.ink, colors.accent, colors.rule, scale, topPad, bottomPad) {
+    return remember(colors.paper, colors.ink, colors.ink3, colors.accent, colors.rule, scale, topPad, bottomPad) {
         val body = (18f * scale).toInt().coerceIn(12, 40)
         """
         html,body{margin:0;padding:0;background:${hex(colors.paper)};}
@@ -334,6 +334,25 @@ private fun rememberChapterCss(topInset: Dp, bottomInset: Dp): String {
            and an inert thing in the accent is a promise the app cannot keep.
            // PT: um link que não leva a lado nenhum fica em tinta, não em acento. */
         a.${Epub.DEAD_LINK_CLASS}{color:${hex(colors.ink)};text-decoration:none;}
+        /* F7: the print edition's page break — a hairline across the measure with
+           the publisher's own number small at the end of it. This is the
+           orientation pagination would have given, using numbers nobody invented:
+           a book without markers is unchanged. The number comes either from the
+           marker's attributes (drawn by ::after) or, when it wasn't there, from
+           the element's own text. // PT: a separação da página impressa — um traço
+           e o número que o editor imprimiu. */
+        .${Epub.PAGEBREAK_CLASS}{
+          display:block;
+          border-top:1px solid ${hex(colors.rule)};
+          margin:1.7em 0 1.5em 0;
+          padding-top:0.3em;
+          text-align:right;
+          font-family:monospace;
+          font-size:0.72em;
+          letter-spacing:0.06em;
+          color:${hex(colors.ink3)};
+        }
+        .${Epub.PAGEBREAK_CLASS}::after{content:attr(${Epub.PAGEBREAK_ATTR});}
         blockquote{
           margin:1.2em 0;padding-left:1em;
           border-left:2px solid ${hex(colors.rule)};

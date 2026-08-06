@@ -203,6 +203,72 @@ object Epub {
      */
     const val DEAD_LINK_CLASS = "dead"
 
+    /**
+     * F7 · the class an EPUB3 page-break marker is rendered with.
+     *
+     * The owner's observation, and the best idea of the round: *"mesmo no nosso
+     * epub temos as páginas algures lá"*. EPUB3 carries the **print edition's**
+     * page numbers as `epub:type="pagebreak"` markers, precisely so a reader can
+     * cross-reference a paper copy — and the sanitiser was throwing them away,
+     * because `span` survives the allow-list and its attributes do not.
+     *
+     * Nothing here is invented. A book without markers is unchanged; a book with
+     * them shows the numbers its publisher printed. That is what makes reading in
+     * this app compatible with reading anywhere else.
+     * // PT: os números de página da edição impressa, que o EPUB3 já traz — não se
+     * inventa nenhum.
+     */
+    const val PAGEBREAK_CLASS = "pb"
+
+    /** Where the marker's number is written, when the attributes carry it.
+     *  // PT: onde fica o número, quando vem nos atributos. */
+    const val PAGEBREAK_ATTR = "data-p"
+
+    /**
+     * F7 · whether this element is a page-break marker. EPUB3 spells it
+     * `epub:type="pagebreak"`; the ARIA form (`role="doc-pagebreak"`) means the
+     * same thing and appears in real books, so both are honoured.
+     * // PT: reconhece as duas formas de marcar uma quebra de página.
+     */
+    private fun isPageBreak(attrs: List<Pair<String, String>>): Boolean = attrs.any { (name, value) ->
+        val n = name.substringAfter(':').lowercase()
+        (n == "type" && value.lowercase().contains("pagebreak")) ||
+            (n == "role" && value.lowercase().contains("doc-pagebreak"))
+    }
+
+    /**
+     * F7 · the printed page a marker names, taken from the attributes a publisher
+     * actually uses — `title` first, then `aria-label`, then the digits inside an
+     * `id` like `page123`. Null when none of them says anything, in which case the
+     * marker keeps its own text content instead and the stylesheet draws that.
+     *
+     * The label is length-capped and reduced to what a page number can be —
+     * digits, roman numerals, a hyphen — because it is text out of an untrusted
+     * book being placed into the page by CSS. // PT: o número vem dos atributos que
+     * os editores usam; limitado, porque é texto de um livro em que não se confia.
+     */
+    private fun pageBreakLabel(attrs: List<Pair<String, String>>): String? {
+        fun attr(want: String): String? = attrs.firstOrNull {
+            it.first.substringAfter(':').lowercase() == want
+        }?.second?.trim()?.takeIf { it.isNotEmpty() }
+        // Validated against what a page number can actually be, rather than
+        // filtered down to it: filtering "&lt;script&gt;" would leave "lci", which
+        // is a plausible-looking roman numeral and a lie. A value that isn't a page
+        // number is not a page number. // PT: valida-se em vez de se limpar — um
+        // valor que não é um número de página não vira um.
+        fun pageish(v: String?): String? = v?.takeIf {
+            it.length <= 12 &&
+                (it.matches(ARABIC_PAGE) || it.matches(ROMAN_PAGE))
+        }
+        return pageish(attr("title"))
+            ?: pageish(attr("aria-label"))
+            ?: pageish(attr("id")?.let { id -> ARABIC_RUN.find(id)?.value })
+    }
+
+    private val ARABIC_PAGE = Regex("^\\d{1,6}$")
+    private val ROMAN_PAGE = Regex("^[ivxlcdm]{1,12}$", RegexOption.IGNORE_CASE)
+    private val ARABIC_RUN = Regex("\\d{1,6}")
+
     fun sanitize(
         html: String,
         inlineImage: (String) -> String? = { null },
@@ -238,6 +304,45 @@ object Epub {
                 if (tag !in ALLOWED) return
                 if (closing) {
                     if (tag !in VOID) out.append("</").append(tag).append('>')
+                    return
+                }
+                // F7: a page-break marker is emitted as our own element rather than
+                // passed through, because the number lives in attributes the
+                // allow-list drops. When the attributes name the page, the marker
+                // is written whole and the source element's own content is
+                // discarded — publishers write the number in both places, and
+                // printing it twice would put a stray "123" mid-paragraph. When
+                // they don't, the element stays open and its text becomes the
+                // label the stylesheet draws. // PT: o marcador é escrito por nós;
+                // com número nos atributos, descarta-se o conteúdo (senão sai duas
+                // vezes); sem ele, o texto do elemento é que serve de número.
+                if (isPageBreak(attrs)) {
+                    val label = pageBreakLabel(attrs)
+                    val empty = selfClosing || tag in VOID
+                    // The marker keeps the book's own tag name so the closing tag
+                    // the scanner will hand us still matches; the class is what the
+                    // stylesheet selects on. // PT: mantém-se o nome da etiqueta do
+                    // livro, para o fecho continuar a bater certo.
+                    out.append('<').append(tag)
+                        .append(" class=\"").append(PAGEBREAK_CLASS).append('"')
+                    if (label != null) {
+                        out.append(' ').append(PAGEBREAK_ATTR).append("=\"")
+                            .append(escape(label)).append('"')
+                    }
+                    out.append('>')
+                    if (label != null) {
+                        // The complete marker is written here, and the source
+                        // element's own content is discarded down to its matching
+                        // close — publishers write the number in the attributes
+                        // *and* as text, and printing both puts a stray "123"
+                        // mid-paragraph.
+                        out.append("</").append(tag).append('>')
+                        if (!empty) { dropping = 1; droppingTag = tag }
+                    } else if (empty) {
+                        out.append("</").append(tag).append('>')
+                    }
+                    // With no label in the attributes the element stays open and
+                    // its own text becomes what the stylesheet draws.
                     return
                 }
                 val keep = KEEP_ATTRS[tag].orEmpty()

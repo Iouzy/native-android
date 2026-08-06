@@ -928,6 +928,12 @@ object I18n {
         // // PT: o recibo na unidade do livro; "Pausar"/"Retomar" já existem.
         "{n} palavras em {min} min" to "{n} words in {min} min", // native-only
         "{n}% em {min} min" to "{n}% in {min} min", // native-only
+
+        // F7 · the print edition's pages. The publisher's own numbers are drawn
+        // inside the page and need no string; this one is the estimate derived
+        // from a hand-recorded length, and it carries its "≈" into both languages.
+        // // PT: a estimativa de página, com o "≈" que a marca como tal.
+        "≈ p. {x} de {y}" to "≈ p. {x} of {y}", // native-only
     )
 }
 
