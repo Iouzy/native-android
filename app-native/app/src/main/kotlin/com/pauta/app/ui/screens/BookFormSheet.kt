@@ -37,6 +37,7 @@ import com.pauta.app.data.ImportedFile
 import com.pauta.app.data.entity.BookEntity
 import com.pauta.app.domain.BookImport
 import com.pauta.app.i18n.tr
+import com.pauta.app.ui.OpenDocumentInDownloads
 import com.pauta.app.ui.PautaButton
 import com.pauta.app.ui.PautaButtonVariant
 import com.pauta.app.ui.PautaSheet
@@ -72,6 +73,8 @@ fun BookFormSheet(book: BookEntity? = null, onClose: () -> Unit) {
     var genre by remember { mutableStateOf(book?.genre ?: "") }
     var status by remember { mutableStateOf(book?.status ?: "tbr") }
     var triedSubmit by remember { mutableStateOf(false) }
+    // N8: expanded from the start when editing. // PT: já aberto ao editar.
+    var expanded by remember { mutableStateOf(editing) }
     var confirmDelete by remember { mutableStateOf(false) }
     val isAudiobook = format == "audiobook"
 
@@ -98,7 +101,7 @@ fun BookFormSheet(book: BookEntity? = null, onClose: () -> Unit) {
         onDispose { if (!saved && !editing) attached?.let { vm.discardAttachment(it.path) } }
     }
 
-    val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+    val picker = rememberLauncherForActivityResult(OpenDocumentInDownloads()) { uri ->
         if (uri != null) {
             copying = true
             attachError = null
@@ -108,6 +111,19 @@ fun BookFormSheet(book: BookEntity? = null, onClose: () -> Unit) {
                     is AttachResult.Ok -> {
                         attached = result.file
                         attachedPages = result.pageCount
+                        // N8 · the file answers what it can.
+                        //
+                        // Attaching an EPUB or a PDF left **formato** on `Físico`,
+                        // which is the app contradicting itself: the parser has
+                        // just proved otherwise. And an empty title is offered the
+                        // file's own name — an *offer*, filling a blank, never a
+                        // silent overwrite of something typed.
+                        // // PT: o ficheiro responde ao que sabe — o formato, e o
+                        // título só se estiver vazio.
+                        format = "ebook"
+                        if (title.isBlank()) {
+                            title = result.file.name.substringBeforeLast('.').trim()
+                        }
                     }
                     AttachResult.UnsupportedType -> attachError = tr("Só PDF e EPUB por agora.")
                     AttachResult.CopyFailed -> attachError = tr("Não foi possível copiar o ficheiro.")
@@ -169,29 +185,6 @@ fun BookFormSheet(book: BookEntity? = null, onClose: () -> Unit) {
         Spacer(Modifier.height(SheetLabelGap))
         BoxedField(author, { author = it }, tr("Autor"), singleLine = true, imeAction = ImeAction.Next)
 
-        Spacer(Modifier.height(SheetFieldGap))
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.Top) {
-            Column(Modifier.weight(2f)) {
-                SheetEyebrow(tr("Série"))
-                Spacer(Modifier.height(SheetLabelGap))
-                BoxedField(series, { series = it }, tr("Série"), singleLine = true, imeAction = ImeAction.Next)
-            }
-            Column(Modifier.width(88.dp)) {
-                SheetEyebrow(tr("Nº na série"))
-                Spacer(Modifier.height(SheetLabelGap))
-                DigitField(seriesNo, max = 3) { seriesNo = it }
-            }
-        }
-
-        Spacer(Modifier.height(SheetFieldGap))
-        SheetEyebrow(tr("Formato"))
-        Spacer(Modifier.height(SheetLabelGap))
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            SelectPill(tr("Físico"), format == "physical", colors.accent, large = true) { format = "physical" }
-            SelectPill(tr("Ebook"), format == "ebook", colors.accent, large = true) { format = "ebook" }
-            SelectPill(tr("Audiolivro"), format == "audiobook", colors.accent, large = true) { format = "audiobook" }
-        }
-
         // ── R2 · o ficheiro anexado ──
         // Audiobooks have nothing to read in-app, so the row is for page-based
         // formats only. // PT: audiolivros não têm ficheiro para ler.
@@ -248,27 +241,76 @@ fun BookFormSheet(book: BookEntity? = null, onClose: () -> Unit) {
             }
         }
 
-        Spacer(Modifier.height(SheetFieldGap))
-        SheetEyebrow(if (isAudiobook) tr("Total de minutos") else tr("Total de páginas"))
-        Spacer(Modifier.height(SheetLabelGap))
-        Box(Modifier.width(120.dp)) {
-            DigitField(total, max = 6, imeAction = ImeAction.Done, keyboardActions = KeyboardActions(onDone = { submit() })) { total = it }
-        }
-
-        Spacer(Modifier.height(SheetFieldGap))
-        SheetEyebrow(tr("Género"))
-        Spacer(Modifier.height(SheetLabelGap))
-        BoxedField(genre, { genre = it }, tr("Género"), singleLine = true, imeAction = ImeAction.Done, keyboardActions = KeyboardActions(onDone = { submit() }))
-
-        // Estado is only set on add; an existing book changes status through the
-        // detail sheet (K8). // PT: o estado só se escolhe ao adicionar.
-        if (!editing) {
+        // N8 · the form asks three questions, not nine.
+        //
+        // "Adicionar livro" opened with título, autor, série, nº, formato,
+        // ficheiro, total, género and estado — nine fields, of which only the
+        // title is required — while `HabitFormSheet`, two taps away in the other
+        // lens and from the same week's work, asks for a name and a *quando* and
+        // hides the rest behind `+ mais opções`. Adding a book is the most common
+        // action in book mode and it looked like a cataloguing form.
+        //
+        // Expanded by default when **editing**: someone editing an existing book
+        // has come for one of those fields. Nothing is removed and nothing becomes
+        // required — the point is fewer questions, not stricter ones.
+        // // PT: título, autor e o ficheiro à vista; o resto atrás de "+ mais
+        // opções", já aberto quando se está a editar.
+        if (!expanded) {
             Spacer(Modifier.height(SheetFieldGap))
-            SheetEyebrow(tr("Estado"))
+            Text(
+                text = tr("+ mais opções (série, formato, páginas, género, estado)"),
+                color = colors.ink3,
+                fontFamily = MonoFamily,
+                fontSize = 10.sp,
+                letterSpacing = 0.4.sp,
+                modifier = Modifier.clickableNoRipple { expanded = true },
+            )
+        } else {
+            Spacer(Modifier.height(SheetFieldGap))
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.Top) {
+                Column(Modifier.weight(2f)) {
+                    SheetEyebrow(tr("Série"))
+                    Spacer(Modifier.height(SheetLabelGap))
+                    BoxedField(series, { series = it }, tr("Série"), singleLine = true, imeAction = ImeAction.Next)
+                }
+                Column(Modifier.width(88.dp)) {
+                    SheetEyebrow(tr("Nº na série"))
+                    Spacer(Modifier.height(SheetLabelGap))
+                    DigitField(seriesNo, max = 3) { seriesNo = it }
+                }
+            }
+
+            Spacer(Modifier.height(SheetFieldGap))
+            SheetEyebrow(tr("Formato"))
             Spacer(Modifier.height(SheetLabelGap))
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                SelectPill(tr("A ler"), status == "reading", colors.accent, large = true) { status = "reading" }
-                SelectPill(tr("A seguir"), status == "tbr", colors.accent, large = true) { status = "tbr" }
+                SelectPill(tr("Físico"), format == "physical", colors.accent, large = true) { format = "physical" }
+                SelectPill(tr("Ebook"), format == "ebook", colors.accent, large = true) { format = "ebook" }
+                SelectPill(tr("Audiolivro"), format == "audiobook", colors.accent, large = true) { format = "audiobook" }
+            }
+
+            Spacer(Modifier.height(SheetFieldGap))
+            SheetEyebrow(if (isAudiobook) tr("Total de minutos") else tr("Total de páginas"))
+            Spacer(Modifier.height(SheetLabelGap))
+            Box(Modifier.width(120.dp)) {
+                DigitField(total, max = 6, imeAction = ImeAction.Done, keyboardActions = KeyboardActions(onDone = { submit() })) { total = it }
+            }
+
+            Spacer(Modifier.height(SheetFieldGap))
+            SheetEyebrow(tr("Género"))
+            Spacer(Modifier.height(SheetLabelGap))
+            BoxedField(genre, { genre = it }, tr("Género"), singleLine = true, imeAction = ImeAction.Done, keyboardActions = KeyboardActions(onDone = { submit() }))
+
+            // Estado is only set on add; an existing book changes status through the
+            // detail sheet (K8). // PT: o estado só se escolhe ao adicionar.
+            if (!editing) {
+                Spacer(Modifier.height(SheetFieldGap))
+                SheetEyebrow(tr("Estado"))
+                Spacer(Modifier.height(SheetLabelGap))
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    SelectPill(tr("A ler"), status == "reading", colors.accent, large = true) { status = "reading" }
+                    SelectPill(tr("A seguir"), status == "tbr", colors.accent, large = true) { status = "tbr" }
+                }
             }
         }
 

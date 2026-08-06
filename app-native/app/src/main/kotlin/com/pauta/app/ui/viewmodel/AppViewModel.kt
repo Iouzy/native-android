@@ -41,7 +41,9 @@ import com.pauta.app.service.MaresWidget
 import com.pauta.app.service.ReminderScheduler
 import com.pauta.app.service.WhatsNew
 import com.pauta.app.service.WhatsNewState
+import com.pauta.app.ui.theme.ReaderThemes
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
@@ -235,6 +237,16 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun updateBlock(id: String, title: String, project: String?, targetMs: Long?) =
         viewModelScope.launch { repo.updateBlock(id, title, project, targetMs) }
     fun setSessionNote(rowId: Long, note: String) = viewModelScope.launch { repo.setSessionNote(rowId, note) }
+
+    // F2: thin delegates — a session's span, its removal, and a reading session's
+    // own page delta. // PT: delegações finas para editar e apagar uma sessão.
+    fun setSessionTimes(rowId: Long, startedAt: Long, endedAt: Long?) =
+        viewModelScope.launch { repo.setSessionTimes(rowId, startedAt, endedAt) }
+
+    fun deleteSession(rowId: Long) = viewModelScope.launch { repo.deleteSession(rowId) }
+
+    fun setBlockPagesDelta(id: String, pagesDelta: Int?) =
+        viewModelScope.launch { repo.setBlockPagesDelta(id, pagesDelta) }
     fun addManualBlock(title: String, startMs: Long, endMs: Long) =
         viewModelScope.launch { repo.addManualBlock(title, startMs, endMs) }
     fun setBlockReflection(id: String, text: String) = viewModelScope.launch { repo.setBlockReflection(id, text) }
@@ -410,6 +422,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /** Live notes for one book — the K8 detail sheet observes this. */
     fun notesForBook(bookId: String): Flow<List<BookNoteEntity>> = repo.notesForBook(bookId)
 
+    /** F13: every note, for "Do teu caderno" — until now a note had no home
+     *  outside the one book it belonged to. // PT: todas as notas. */
+    val allNotes: StateFlow<List<BookNoteEntity>> =
+        repo.allNotes().stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
     /** Count of books finished since Jan 1 of the current local year — the K7
      *  annual goal counter. Suspends; call from a coroutine (e.g. LaunchedEffect).
      *  // PT: livros terminados este ano civil. */
@@ -435,12 +452,36 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
      *  lying. // PT: a verificação falhou (sem rede), distinto de "atualizado". */
     val updateCheckFailed: MutableStateFlow<Boolean> = MutableStateFlow(false)
 
+    /**
+     * F10 · when the last check finished, as `HH:MM` (empty = not yet this
+     * session).
+     *
+     * Tapping "Verificar atualizações" a second time showed nothing at all, so the
+     * row looked stuck on "Está atualizado.". The button, the state order and
+     * `AppUpdater.check()` were each read and are correct — which leaves the other
+     * possibility: the check resolves faster than the eye, and a state that
+     * resolves faster than a frame is indistinguishable from a dead button. That
+     * is a UI defect whatever the plumbing says, so the fix is on both sides: the
+     * result carries a **time**, which changes visibly even when the answer
+     * doesn't, and the checking state is held for a minimum visible beat.
+     * // PT: a hora da última verificação — muda mesmo quando a resposta não muda,
+     * que é o que faltava para o botão parecer vivo.
+     */
+    val updateCheckedAt: MutableStateFlow<String> = MutableStateFlow("")
+
     fun checkForUpdate() = viewModelScope.launch {
         updateChecking.value = true
         updateCheckFailed.value = false
         updateDownloadError.value = false
         updateNeedsPerm.value = false
-        when (val result = AppUpdater.check()) {
+        val startedAt = System.currentTimeMillis()
+        val result = AppUpdater.check()
+        // F10: the tap has to be *seen* to have been taken. A check that returns
+        // in 40 ms leaves the row exactly as it was, and the user is right to
+        // conclude the button does nothing. // PT: a verificação tem de se ver.
+        val elapsed = System.currentTimeMillis() - startedAt
+        if (elapsed < MIN_CHECK_VISIBLE_MS) delay(MIN_CHECK_VISIBLE_MS - elapsed)
+        when (result) {
             is AppUpdater.CheckResult.Available -> {
                 updateAvailable.value = result.update
                 updateChecked.value = true
@@ -457,6 +498,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 updateCheckFailed.value = true
             }
         }
+        // Stamped on every outcome, including a failure: "we tried, at 23:56" is
+        // still an answer, and it is the one thing that always changes.
+        // // PT: a hora fica mesmo quando a verificação falha.
+        updateCheckedAt.value = DateUtils.fmtClock(System.currentTimeMillis())
         updateChecking.value = false
     }
 
@@ -551,10 +596,14 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                         // down to it and the lock-screen "target reached" alert can
                         // arm (C2). // PT: passa o alvo do bloco para a contagem
                         // decrescente e o aviso de alvo atingido.
+                        // L9: the project too, so the service can tell a reading
+                        // session from a focus block and say so.
+                        // // PT: também o projecto, para a notificação saber o que é.
                         FocusServiceController.start(
                             ctx, block.title,
                             FocusMath.blockElapsedMs(segs, System.currentTimeMillis()),
                             block.targetMs,
+                            block.project,
                         )
                     }
                 }
@@ -689,10 +738,33 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun setParrot(value: Boolean) = update { it.copy(parrot = value) }
     fun setOnboardingSeen() = update { it.copy(onboardingSeen = true) }
 
+    // L5: the reader's own settings. Every value clamps **in the setter**, not in
+    // the CSS — a prefs row is data, and data that can be out of range is data
+    // something downstream has to keep re-checking. // PT: limita-se aqui, não no
+    // CSS: uma linha de preferências é dados.
+    fun setReaderTextScale(value: Float) = update { it.copy(readerTextScale = value.coerceIn(0.8f, 1.8f)) }
+    fun setReaderLineHeight(value: Float) = update { it.copy(readerLineHeight = value.coerceIn(1.3f, 2.0f)) }
+    fun setReaderMargin(value: Int) = update { it.copy(readerMargin = value.coerceIn(8, 48)) }
+    fun setReaderTheme(value: String) = update {
+        it.copy(readerTheme = if (value in ReaderThemes.ALL) value else ReaderThemes.App)
+    }
+
     fun setRemindersEnabled(value: Boolean) = update { it.copy(remindersEnabled = value) }
+
+    // N1: we have been past the moment where the app asks for POST_NOTIFICATIONS.
+    // Written once and never cleared — Android shows that dialog a single time.
+    // // PT: marca que já pedimos a permissão de notificações (só uma vez).
+    fun markNotifAsked() = update {
+        if (it.notifAskedAt > 0L) it else it.copy(notifAskedAt = System.currentTimeMillis())
+    }
+
     fun setPlannerTime(value: String) = update { it.copy(plannerTime = value) }
     fun setHabitsTime(value: String) = update { it.copy(habitsTime = value) }
     fun setReflectionTime(value: String) = update { it.copy(reflectionTime = value) }
+
+    // L10: the reading reminder's own pair. // PT: o par do lembrete de leitura.
+    fun setReadingReminderEnabled(value: Boolean) = update { it.copy(readingReminderEnabled = value) }
+    fun setReadingReminderTime(value: String) = update { it.copy(readingReminderTime = value) }
 
     private fun update(transform: (PrefsEntity) -> PrefsEntity) {
         viewModelScope.launch { repo.updatePrefs(transform) }
@@ -704,10 +776,23 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         // lembretes do AlarmManager alinhados com as preferências.
         viewModelScope.launch {
             repo.prefs
-                .distinctUntilChangedBy { listOf(it.remindersEnabled, it.plannerTime, it.habitsTime, it.reflectionTime, it.lang) }
+                .distinctUntilChangedBy {
+                    listOf(
+                        it.remindersEnabled, it.plannerTime, it.habitsTime, it.reflectionTime, it.lang,
+                        // L10: the lens is a key too — turning book mode off has to
+                        // cancel the reading alarm, not merely stop showing its row.
+                        // // PT: desligar o modo livro cancela mesmo o alarme.
+                        it.readingReminderEnabled, it.readingReminderTime, it.bookMode,
+                    )
+                }
                 .collect { p ->
                     val ctx = getApplication<Application>()
-                    ReminderScheduler.save(ctx, p.remindersEnabled, p.plannerTime, p.habitsTime, p.reflectionTime, p.lang)
+                    ReminderScheduler.save(
+                        ctx, p.remindersEnabled, p.plannerTime, p.habitsTime, p.reflectionTime, p.lang,
+                        reading = p.readingReminderEnabled,
+                        readingTime = p.readingReminderTime,
+                        bookMode = p.bookMode,
+                    )
                     ReminderScheduler.reschedule(ctx)
                 }
         }
@@ -739,5 +824,12 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 .distinctUntilChangedBy { it.autoBackup }
                 .collect { p -> BackupScheduler.reschedule(getApplication<Application>(), p.autoBackup) }
         }
+    }
+
+    private companion object {
+        /** F10: how long "A verificar…" is held for, so a check that resolves in
+         *  40 ms is still visible. Long enough to read, short enough not to be a
+         *  fake wait. // PT: o tempo mínimo em que "A verificar…" se vê. */
+        const val MIN_CHECK_VISIBLE_MS = 450L
     }
 }

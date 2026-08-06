@@ -36,6 +36,8 @@ import androidx.compose.ui.unit.dp
 import com.pauta.app.service.PdfInfo
 import com.pauta.app.service.PdfSession
 import com.pauta.app.ui.theme.LocalPautaColors
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.graphics.Color
 
 /** How far a page may be pinched, and how many rendered pages are kept around.
  *  Five is enough for the page you're on plus its neighbours in both directions;
@@ -57,10 +59,17 @@ private const val CachedPages = 5
  * vez; as últimas ficam em cache e o espaço é reservado antes de existirem.
  */
 @Composable
-fun PdfPages(
+internal fun PdfPages(
     session: PdfSession,
     info: PdfInfo,
     listState: LazyListState,
+    // F5(b): the measured height of the reader's own bars. A page drawn under
+    // them is a page with its top and bottom hidden, and the bars are drawn over
+    // the content by design. // PT: a altura medida das barras do leitor.
+    topInset: Dp = 0.dp,
+    bottomInset: Dp = 0.dp,
+    // L5: the theme's paper, for the surround only. // PT: só o fundo à volta.
+    surround: Color? = null,
     onTapMiddle: () -> Unit,
     onReaderDied: () -> Unit,
     modifier: Modifier = Modifier,
@@ -75,12 +84,19 @@ fun PdfPages(
         } else DefaultPageAspect
     }
 
+    // L5 · the PDF honours `readerTheme` only in what it *can*: the surface behind
+    // the page. **A rendered PDF page is never inverted or recoloured** — a
+    // scanned page inverted is unreadable and a diagram inverted is wrong — so
+    // `night` dims the surround and leaves the page as the document drew it.
+    // // PT: o tema só muda o fundo à volta; a página fica como o documento a
+    // desenhou — inverter um digitalizado torna-o ilegível.
     LazyColumn(
         state = listState,
         modifier = modifier
             .fillMaxSize()
+            .then(if (surround != null) Modifier.background(surround) else Modifier)
             .onSizeChanged { widthPx = it.width },
-        contentPadding = PaddingValues(vertical = 4.dp),
+        contentPadding = PaddingValues(top = topInset + 4.dp, bottom = bottomInset + 4.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         items(info.pageCount) { index ->

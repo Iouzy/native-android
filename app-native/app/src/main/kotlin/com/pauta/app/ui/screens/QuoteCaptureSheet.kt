@@ -55,33 +55,61 @@ import com.pauta.app.ui.viewmodel.AppViewModel
  * saves via addNote to the picked reading book; the page field hides for
  * audiobooks. // PT: captura rápida de citações e notas — tipo, texto, página
  * (excepto audiolivros) e livro; guarda sem interromper a leitura.
+ *
+ * **L6 · a targeted mode.** Capturing a quote is the highest-value thing a
+ * reading app does, and this sheet opened from exactly one place — the shelf
+ * header — offered only books with `status == "reading"`, and asked you to type
+ * a page the reader already knew.
+ *
+ * [bookId] fixes the target: no picker, and **no shelf filter**, because the
+ * caller has already chosen and a note on a book you just finished has to have
+ * somewhere to go. [atPage] pre-fills the position and stays editable — the
+ * reader's position is right far more often than not, and a quote spanning a page
+ * break is real. Both null is the shelf header's original behaviour, unchanged.
+ * // PT: com [bookId] não há selector nem filtro de prateleira (uma nota num livro
+ * acabado tem de caber), e [atPage] pré-preenche sem trancar.
  */
 @Composable
-fun QuoteCaptureSheet(onClose: () -> Unit) {
+fun QuoteCaptureSheet(
+    onClose: () -> Unit,
+    bookId: String? = null,
+    atPage: Int? = null,
+) {
     val vm: AppViewModel = viewModel()
     val colors = LocalPautaColors.current
     val reading by vm.booksReading.collectAsStateWithLifecycle()
+    // L6: with a target, every shelf is in scope — the point of the parameter is
+    // that the caller decided. // PT: com alvo, todas as prateleiras contam.
+    val tbr by vm.booksTbr.collectAsStateWithLifecycle()
+    val paused by vm.booksPaused.collectAsStateWithLifecycle()
+    val done by vm.booksDone.collectAsStateWithLifecycle()
+    val targeted = remember(bookId, reading, tbr, paused, done) {
+        bookId?.let { id -> (reading + tbr + paused + done).firstOrNull { it.id == id } }
+    }
 
     var kind by remember { mutableStateOf("annotation") }
     var text by remember { mutableStateOf("") }
-    var page by remember { mutableStateOf("") }
-    var bookId by remember { mutableStateOf<String?>(null) }
+    var page by remember { mutableStateOf(atPage?.takeIf { it > 0 }?.toString() ?: "") }
+    var pickedId by remember { mutableStateOf<String?>(null) }
     var triedSubmit by remember { mutableStateOf(false) }
 
     // Keep the pick pinned to the reading shelf: default to the first (often
     // only) book, re-pick if the chosen one leaves. // PT: escolhe o livro em curso.
     LaunchedEffect(reading) {
-        if (bookId == null || reading.none { it.id == bookId }) {
-            bookId = reading.firstOrNull()?.id
+        if (pickedId == null || reading.none { it.id == pickedId }) {
+            pickedId = reading.firstOrNull()?.id
         }
     }
-    val book = reading.firstOrNull { it.id == bookId }
+    val book = targeted ?: reading.firstOrNull { it.id == pickedId }
     val isAudiobook = book?.format == "audiobook"
 
     fun submit() {
         val b = book ?: return
         if (text.isBlank()) { triedSubmit = true; return }
-        vm.addNote(b.id, kind, text.trim(), page.toIntOrNull().takeIf { !isAudiobook })
+        // F1: a note's position is clamped like any other progress value — a
+        // percentage cannot be 340. // PT: a posição da nota também se limita.
+        val at = page.toIntOrNull()?.let { clampBookProgress(b, it) }
+        vm.addNote(b.id, kind, text.trim(), at.takeIf { !isAudiobook })
         onClose()
     }
 
@@ -89,10 +117,17 @@ fun QuoteCaptureSheet(onClose: () -> Unit) {
         // U1: inside the body, so the capture field waits for the sheet to settle
         // before raising the keyboard. // PT: espera que a folha assente.
         val textFocus = rememberAutoFocusRequester()
-        if (reading.isEmpty()) {
+        // L6: with a target there is always somewhere for the note to land, so
+        // the "no books being read" branch is the untargeted case only.
+        // // PT: com alvo, a nota tem sempre onde cair.
+        if (targeted == null && reading.isEmpty()) {
             // No book being read: the capture has nowhere to land, so say so.
+            // L12: it used to say "adiciona um na Estante" while being reachable
+            // only *from* the Estante — directions to the room you are standing
+            // in. It names the action instead. // PT: apontava para a Estante
+            // estando já lá; agora nomeia a acção.
             Text(
-                text = tr("Sem livros em curso — adiciona um na Estante"),
+                text = tr("Sem livros em curso — usa \"Adicionar livro +\" aqui em cima"),
                 color = colors.ink3,
                 fontFamily = SerifFamily,
                 fontStyle = FontStyle.Italic,
@@ -125,10 +160,18 @@ fun QuoteCaptureSheet(onClose: () -> Unit) {
         // ── Página (hidden for audiobooks) ──
         if (!isAudiobook) {
             Spacer(Modifier.height(SheetFieldGap))
-            SheetEyebrow(tr("Página (opcional)"))
+            // F1: the note's position is stored in the same unit `currentPage`
+            // is — a percentage point for an attached EPUB — so the label and the
+            // mark have to say which, or the number means something the reader
+            // didn't. // PT: a posição da nota usa a unidade do livro.
+            // `reading` is non-empty here (the branch above returned), so the
+            // fallback only covers the frame before the pick settles.
+            // // PT: a lista não está vazia aqui; o recurso cobre só o 1.º frame.
+            val unitBook = book ?: reading.first()
+            SheetEyebrow(bookProgressUnit(unitBook) + " · " + tr("opcional"))
             Spacer(Modifier.height(SheetLabelGap))
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("p.", color = colors.ink3, style = PautaType.Meta)
+                Text(bookProgressMark(unitBook), color = colors.ink3, style = PautaType.Meta)
                 Box(Modifier.width(96.dp)) {
                     BoxedField(
                         value = page,
@@ -145,10 +188,21 @@ fun QuoteCaptureSheet(onClose: () -> Unit) {
         }
 
         // ── Livro: a fixed label with one reading book, chips when several ──
+        // L6: with a target there is nothing to pick — the caller chose, and a
+        // picker offering one option is a question with one answer.
+        // // PT: com alvo não há nada para escolher.
         Spacer(Modifier.height(SheetFieldGap))
         SheetEyebrow(tr("Livro"))
         Spacer(Modifier.height(SheetLabelGap))
-        if (reading.size == 1) {
+        if (targeted != null) {
+            Text(
+                text = targeted.title,
+                color = colors.ink2,
+                style = PautaType.Body,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        } else if (reading.size == 1) {
             Text(
                 text = reading.first().title,
                 color = colors.ink2,
@@ -159,7 +213,7 @@ fun QuoteCaptureSheet(onClose: () -> Unit) {
         } else {
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 reading.forEach { b ->
-                    val sel = b.id == bookId
+                    val sel = b.id == pickedId
                     Text(
                         text = b.title,
                         color = if (sel) colors.ink else colors.ink3,
@@ -171,7 +225,7 @@ fun QuoteCaptureSheet(onClose: () -> Unit) {
                             .clip(RoundedCornerShape(PautaRadius.Field))
                             .background(if (sel) colors.paper2 else androidx.compose.ui.graphics.Color.Transparent)
                             .border(1.dp, if (sel) colors.accent else colors.rule, RoundedCornerShape(PautaRadius.Field))
-                            .clickableNoRipple { bookId = b.id }
+                            .clickableNoRipple { pickedId = b.id }
                             .padding(horizontal = 12.dp, vertical = 10.dp),
                     )
                 }

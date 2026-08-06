@@ -164,7 +164,7 @@ conversation that produced it.
 
 ---
 
-## F1 · The unit of progress, and what counts as reading — Status: pending
+## F1 · The unit of progress, and what counts as reading — Status: done (PR #187)
 
 **Depends on:** nothing. **Do this first — it is writing wrong numbers now.**
 
@@ -224,7 +224,7 @@ CI green.
 
 ---
 
-## F2 · Sessions you can edit and remove — Status: pending
+## F2 · Sessions you can edit and remove — Status: done (PR #187)
 
 **Depends on:** F1 (so a corrected session is corrected in the right unit)
 
@@ -284,7 +284,7 @@ list is unchanged; CI green.
 
 ---
 
-## F3 · The keyboard that swallows what you wrote — Status: pending
+## F3 · The keyboard that swallows what you wrote — Status: done (PR #187)
 
 **Depends on:** nothing. **Data loss on an ordinary action — this is why it is third.**
 
@@ -327,7 +327,7 @@ the sheet correctly; CI green.
 
 ---
 
-## F4 · Counts that stop where they should — Status: pending
+## F4 · Counts that stop where they should — Status: done (PR #187)
 
 **Depends on:** nothing. Corrupts data on an ordinary tap.
 
@@ -365,7 +365,7 @@ rule; `HabitCalculator` tests green; CI green.
 
 ---
 
-## F5 · The reader's own controls — Status: pending
+## F5 · The reader's own controls — Status: done (PR #187)
 
 **Depends on:** F1 (the receipt's unit)
 
@@ -414,7 +414,7 @@ words; a link to panmacmillan.com is ink-coloured and inert; CI green.
 
 ---
 
-## F6 · The launcher door, properly — Status: pending
+## F6 · The launcher door, properly — Status: done (PR #187)
 
 **Depends on:** nothing
 
@@ -448,7 +448,7 @@ see.**
 
 ---
 
-## F7 · The pages of the print edition — Status: pending
+## F7 · The pages of the print edition — Status: done (PR #187, partial — see Log)
 
 **Depends on:** `BOOK_LIBRARY.md` L4 (same parsing pass, same sheet)
 
@@ -485,7 +485,7 @@ CI green.
 
 ---
 
-## F8 · The Hoje composer — Status: pending
+## F8 · The Hoje composer — Status: done (PR #187)
 
 **Depends on:** nothing
 
@@ -521,7 +521,7 @@ deliberate arrangement in both Hoje and the Estante; CI green.
 
 ---
 
-## F9 · The duration toggle, next to the durations — Status: pending
+## F9 · The duration toggle, next to the durations — Status: done (PR #187, partial — see Log)
 
 **Depends on:** nothing
 
@@ -547,7 +547,7 @@ still works; CI green.
 
 ---
 
-## F10 · The updater that answers — Status: pending
+## F10 · The updater that answers — Status: done (PR #187)
 
 **Depends on:** nothing
 
@@ -579,7 +579,7 @@ reports; CI green.
 
 ---
 
-## F11 · The floating layer — Status: pending
+## F11 · The floating layer — Status: done (PR #187)
 
 **Depends on:** nothing
 
@@ -612,7 +612,7 @@ green.
 
 ---
 
-## F12 · "Quando", without typing it — Status: pending
+## F12 · "Quando", without typing it — Status: done (PR #187)
 
 **Depends on:** nothing
 
@@ -646,7 +646,7 @@ free text; a `pauta.v4` round-trip is byte-identical; CI green.
 
 ---
 
-## F13 · The reading tab, honestly — Status: pending
+## F13 · The reading tab, honestly — Status: done (PR #187)
 
 **Depends on:** F2 (the day data must be correctable first)
 
@@ -723,3 +723,9 @@ to be different things; an entry that cannot say what was verified should say
 that instead.
 
 <!-- e.g. 2026-08-03 · F1 · #n · … · Verified: JVM tests; not tested on a phone -->
+2026-08-06 · F13 · #187 · **(a)** `ReadingStats.counts` is the single definition — a day was read when at least one session on it lasted a minute, which is deliberately the *same* minute `ReaderMath.sessionOutcome` uses to decide whether to save at all, so the two halves of the app now agree about what reading is. `daysRead` filters on it, and the grid, the streak and the charts all read that one set: "Sequência atual: 1 dia" above "Ainda sem leituras registadas." is now unreachable. Where the **charts alone** have nothing to draw they say so in their own narrower words — reading *has* happened, and borrowing the other sentence was the contradiction. **(b)** the tides are gone from the tab rather than duplicated into it; §J's "one habit list" has been decided twice and stands. `BookHabitsScreen` owns its own `LazyColumn` now instead of hanging leading items off `MaresContent`, and a quiet "as tuas marés →" switches lens at the foot. Two new sections, both derived and neither with a table of its own: **Ritmo da estante** (how long the book in hand has left at the pace *measured over the last four weeks* — deliberately not `etaDays`' invisible 60 min/day constant, and it prints the assumption beside the estimate) and **Do teu caderno**, which is the first home the notes have had outside the one book they belong to. **Metas de leitura: not built.** The open question was put to the owner and not answered, so the file's own argument stands — a target on an empty shelf is a form of nagging, which §A forbids. `CONTEXT.md` §6 records it as closed on that reasoning and reversible. · **Verified:** the day-definition is pure and covered (four new `ReadingStatsTest` cases, including the streak-and-grid agreement that was the actual bug). **The tab has not been looked at.** No SDK here; the two new sections have never rendered, and "bookMode off leaves Marés pixel-identical" is an argument from the diff, not an observation. Three multi-select chips over the field, and the field stays — the whole rule is in `domain/TimeOfDay`, which is pure and covered. **No column, no migration:** `HabitEntity.time` is `pauta.v4` data, the web app wrote prose into it, and the chips are a way of *writing* that string. Three decisions worth not re-deriving. **The stored words are Portuguese, always** — PT is the source language and the PT string is the key everywhere else; storing the interface language would change what a tide means when someone switches languages, and a tide written in one would stop matching in the other. Reading recognises both, so a tide someone typed "morning" into still lights its chip. **A tap never wipes prose:** `remainder` keeps whatever the chips have no opinion about, so "depois do almoço" + manhã becomes "manhã, depois do almoço" and not a lost lunch — data loss on an ordinary tap is the subject of this whole file. **A stranded conjunction is only ours when we stranded it:** removing "tarde" from "manhã e tarde" leaves an "e" holding nothing, and that goes; but the same cleanup run on "café e treino", which has no period in it at all, would eat somebody's own word, so it only runs after a period was actually removed. The no-period path returns the text untouched, which is what "the field stays" has to mean. · **Verified:** the string logic is genuinely covered — 12 cases including the owner's own "manhã e tarde", the "amanhã"-is-not-"manhã" boundary, the conjunction trap, and a round-trip identity for imported web prose. **The chips themselves have never been tapped**: no SDK here, nothing ran locally, and no device has opened the tide form. The rule is written down where it can be read — `PautaFloatStrip` in `MainScaffold`, with the sentence next to the number — and applied by every scrolling screen instead of each one guessing (they were guessing: 48dp on Hoje, the Estante and Sessão, 96dp on Pauta and Marés, which is why the same defect appeared on some tabs and not others). **The landscape half needed a different answer, and this is the part worth not re-deriving.** Reserving a strip at the *end* of the content fixes a portrait scroll and does nothing for a short viewport, where the content never scrolls at all and the floating layer lands over the fold rather than under it — Pip on the Pauta tab's play button, which is a primary action and not merely content. So below a viewport height Pip does not appear. That is one rule in the scaffold, which is what the task requires: a per-screen offset is explicitly named as how this comes back. He is company, and company does not sit on the button. · **Verified:** nothing. No SDK here, and this is the one task in the file whose acceptance is literally "in both modes, on all six screens, in portrait **and landscape**" — six screens × two lenses × two orientations, none of them looked at. The threshold (480dp) is reasoned from the viewport, not measured on a device. **The diagnosis the spec asked for, first:** the tap does reach `checkForUpdate()` — the call chain was re-read and is sound — so the cause is the other branch it named. The check resolves faster than the eye, and *"Está atualizado."* is the same sentence whatever the answer, so a successful second check leaves the row byte-identical to before it. A state that resolves faster than a frame is indistinguishable from a dead button, and that is a UI defect whatever the plumbing says. Both halves of the fix therefore shipped: `updateCheckedAt` stamps every outcome (**including a failure** — "we tried, at 23:56" is still an answer, and it is the one thing that always changes), and `MIN_CHECK_VISIBLE_MS` (450 ms) holds "A verificar…" long enough to be seen without faking a wait. The time appears in the Settings row *and* in the sheet, because the sheet is where the second tap actually happens. `Cache-Control: no-cache` went on the request while there: `latest-native` is a rolling tag, which is precisely the thing an intermediary caches, and a cached answer is another way the check can come back instantly with yesterday's release. · **Verified:** nothing. No SDK here; the diagnosis is a code reading, not an instrumented one, and the spec explicitly asked for instrumentation before a fix. If the button is still dead on a device, the timestamp will now say so — which is itself the instrument this needed. The toggle now lives **inside `DurationPicker`**, so it appears wherever the pills do rather than being wired per screen, and it writes the same single `timerPresets` preference the Settings row writes — one boolean, two places to set it, last action wins, which is R8's launcher-door discipline applied again. It governs **both lenses**: the planner's start sheet and the reading card each pass their own default for the unset case (Pomodoro and Simples respectively, as U2 established) while changing the same value. Quiet mono `pomodoro · simples` rather than a segmented control, because it is a footnote to the pills and not a second decision. **Two of the four places named in the spec did not get the picker, deliberately:** *Registar tempo* asks for a **past** duration with a different range (1–1440) and no meaning for "sem limite", so `DurationPicker`'s 0-and-sentinel semantics would be a regression rather than a unification; and an intention's target minutes is an inline field inside the Hoje composer, where a pill flow plus a custom field would dominate the row F8 has just untangled. Both are judgement calls against the spec's "every place", and both are recorded here rather than silently skipped. · **Verified:** nothing ran locally (no SDK) and no device has seen the toggle. That the two rows agree is a property of writing one preference, which is read from the code and not observed. Three wrapping faults, one cause each. **The composer:** U3's single flat `FlowRow` kept the property that matters (a large `textScale` wraps rather than clips) and paid for it with a flow that can break *anywhere* — including between a label and the pills it names, which is what put `QUANDO` at the end of the priority row and `MIN` at the end of the time row. `ComposerGroup` makes each label-and-its-pills one child of the outer flow, so a group that doesn't fit moves down whole; it can still wrap inside itself if a group is wider than the entire measure, which is U3's property intact. **The header chips:** the cause was width, not wrapping — four chips shared the date's row, so they had about half the measure and came down as three ragged right-aligned lines at 1.0 and four at 1.5. They now have their own full-width row under the date. The headline still gets the full measure, which is what U3 was protecting. **The Estante header:** the `·` was a flat sibling and could therefore end a line with nothing after it; bound to the action it precedes, it can only sit between the two or lead the second line. · **Verified:** nothing. This is a **layout** fix and layout at a text scale is precisely what CI cannot see — no SDK here, so no compile locally, and nobody has looked at these three headers at 1.0, 1.3 or 1.5. The reasoning is sound and unobserved. **Two of the three parts shipped, and the third is honestly out of reach here.** The sanitiser now recognises both spellings of a page break (`epub:type="pagebreak"` and `role="doc-pagebreak"`) and emits its own marker carrying the publisher's number, because `span` survives the allow-list and its attributes do not — which is exactly why the numbers were being lost. Three details worth not re-deriving: the marker keeps the **book's own tag name** so the closing tag the scanner hands back still matches; a marker whose attributes name the page has its **own text discarded** to the matching close, since publishers write the number in both places and printing both leaves a stray "123" mid-paragraph; and the label is **validated** against what a page number can be rather than filtered down to it — filtering `&lt;script&gt;` leaves "lci", which is a plausible roman numeral and a lie. The separator is a hairline with the number in the margin, drawn from `data-p` or from the element's own text when the attributes were silent. **Not built: "página 123 de 228" in the chrome.** Saying *which* marker you are at needs the page-list plumbed from the `:reader` process and mapped against the scroll — that is the parsing pass `BOOK_LIBRARY.md` **L4** owns and which this task declares a dependency on; L4 has not shipped, and inventing a second channel for it here would be the duplication the dependency exists to avoid. What did ship in its place is the **estimate**, from a hand-recorded `totalPages`, carrying `≈` and saying what it assumed — which is the only form the spec permits. **One behaviour to know about:** an unclosed numbered marker swallows the rest of the chapter, because it reuses the same drop mechanism an unclosed `<script>` already has. Consistent with the file, and covered by a test that asserts the document before it survives. · **Verified:** the parser half is well covered (`EpubTest`: a marker with a title, the ARIA form, the number-in-`id` case, roman numerals, a hostile title, no double-printing, a book with no markers, a malformed one). **Nothing was run locally and no book has been rendered** — the separator's appearance, which is the whole point of the feature, has never been seen. The certain half, and only that. R8's `coldStart` test was a stand-in for two conditions, and `LauncherDoor.opensADoor` now checks both directly — not arriving through recents (`FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY`), and not already spent. The **spent** half is the one worth not re-deriving: a launch intent outlives its launch (it is still `getIntent()` after a configuration change or a process restore), so "read the door on every create" is only safe once the door can be marked used; the extra is written back with `setIntent` so the marked copy is what the system hands back. `onCreate` now reads the door **even with saved state** — that is exactly the path a tap on the icon takes when the process was killed but the task survived, and the path R8's cold-start test called "not a cold start". Shortcuts and shares still fire only on a genuine first create. R8's stated worry (the document picker, the share sheet) turned out not to be a path here at all: both return through a result, never through a new intent. **The uncertain half is not built.** The spec makes the no-UI trampoline conditional on the device still failing, and no device has run this — so building it would be adding an activity on a guess. If the icon still misbehaves with an existing task, that fallback is the next step and the reason is recorded here. · **Verified:** the decision is pure and fully covered in `LauncherDoorTest` (recents, spent, wrong action, wrong component). **The thing this task exists to fix has not been observed** — the spec says "verify on the device, this is the failure a unit test cannot see", and no device has seen it. Nothing here ran locally either.
+2026-08-06 · F5 · #187 · **(a)** pause/resume is a glyph in the reader's top bar rather than an item inside `⋯` — the timer control should not be two taps deep behind a sheet that covers the book. This is the **new chrome control row** `BOOK_LIBRARY.md`'s guardrail says the first of F5/L4/L5/L6 owns; `☰`, `Aa` and `✎` join it here. The paused time is not counted by construction, not by arithmetic: a reading session is a focus block, `pauseActive` closes the open span, and `blockElapsedMs` only ever sums spans. **(b)** the bars' inset is now **measured** (`onSizeChanged`) instead of the guessed 8px/64px, because the top bar carries the status-bar inset and the bottom one the navigation-bar inset and neither is knowable in advance. The last non-zero measurement is deliberately kept: the bars are inside an `AnimatedVisibility` and measure 0 while hidden, and following that would reflow the whole chapter on every chrome fade. A WebView's CSS px is a dp, so the number crosses into the stylesheet unchanged. **(c)** the receipt's unit is decided in the repository, where the book is in hand — the snackbar fires in the shell long after the reader is gone — and F1's ceiling applies to it, so a chapter jump reports its minutes and not a word count it didn't earn. **(d)** `sanitize` takes a `linkResolves` predicate and marks everything else `class="dead"`; the archive itself is the authority, and a bare `#p3` is dead too, because the reader has no same-document jump and painting it differently would be a second lie. · **Verified:** the sanitiser half is genuinely tested (`EpubTest` covers the panmacmillan case, a resolving link, a bare anchor and the default). **Everything else is unverified** — no SDK here, so no local compile or test run, and the inset measurement, the pause glyph and the receipt have never been on a screen. (b) in particular is the kind of fix only a device can confirm.
+2026-08-06 · F4 · #187 · The rule is two pure functions in `HabitCalculator` — `cycleCount` (what a requested value settles at) and `shownCount` (what a stored one means) — and one call: `setHabitCount` applies the cycle, which is the single point all four writers already pass through, so the two screens, the notification action and the widget each keep asking for `current + 1` and none of them learns the rule. **Why a cycle and not a clamp:** clamping at the target would make the tap after the last one do nothing, which is a dead control, and would leave no way down at all — the tide would still read 100% forever. The cycle is the binary tide's own gesture with more steps, which is also why F4 needed no new affordance: the "way down" the spec asks for is the tap that was already there. `shownCount` is what repairs the existing damage — a row holding 39 against a target of 2 reads as 2 (printing 39 would print a number the tide can no longer reach) and is then one tap from zero. Applied at the two places that print `n/target`: the Hoje strip via `TideHelpers`, and the Marés row header. · **Verified:** the new `HabitCalculatorTest` cases are the honest part of this one — the rule is pure and covered, including the 39-against-2 case from the phone. But **nothing ran locally** (no SDK) and no device has tapped a tide; that the widget and the notification action really do route through `setHabitCount` was read from the code, not observed.
+2026-08-06 · F3 · #187 · `SheetImeBackHandler` lives in `PautaSheet`, so **every** sheet in the app gets the two-stage back at once rather than each form growing its own — the tide form was the worst case, not the only one. Two things it depends on, both worth not re-deriving: the handler is composed *inside* the sheet body, which is what puts it above Material's own sheet-level back handling on the dispatcher, and it is enabled only while `WindowInsets.isImeVisible`, so it can never eat a back press that should close the sheet. It clears focus as well as hiding — a field that keeps focus keeps asking for the IME and the keyboard returns on its own. The background tap is `detectTapGestures` rather than a `clickable`: children get the pointer first (so fields, chips and buttons are unaffected) and a tap only resolves after a still lift (so the body still scrolls). The tide form's *quando* field is now `ImeAction.Done` in both the add and edit sheets, since what follows it is chips and a picker, not another field. · **Verified:** nothing. No SDK locally; CI compiled it. This is a **gesture** fix and gestures are exactly what CI cannot see — predictive back, the two-stage press and the background tap have never been performed. If one task in this file needs a device before it is believed, it is this one.
+2026-08-06 · F2 · #187 · **(a)** the session rows in `BookDetailSheet` and the Sessão tab are tappable and open the planner's own `EditBlockSheet` — without this nothing else in the task is reachable, which is why it was first. **(b)** each ended span gets a start and an end, both `PautaTimeField` **pickers rather than text fields**: a picker has no keyboard, so F3's trap cannot apply to a control F2 just added, and the duration recomputes live beside it. The new pure helper is `DateUtils.withClock`, which applies an `HH:MM` to the day of *the instant being edited* — correcting last Tuesday must correct last Tuesday — and returns null on anything that isn't a time, so a half-picked field can't send a session to midnight. Backwards spans are refused twice: the sheet says so inline and `Guardar` drops them rather than writing a coerced value. **(c)** `pagesDelta` is editable in book mode, in F1's unit, with the placeholder "por contar" so null stays visibly distinct from 0; `pagesDeltaChanged` on the payload is what stops a planner block's absent editor from reading as "the user cleared it". **(d)** `deleteBook` now deletes the book's blocks and their spans first (sessions before blocks — the spans are found *through* the block ids). The five positional `onSave` arguments became a `BlockEdit` payload; five was already past what a call site can read, and this task would have made it seven. **Two things the Accept asks for and did not happen:** there is no repository test proving the cascade, because Room needs a device and Robolectric would be a new dependency (§D, §K.3) — the assertion is honestly unwriteable here, not skipped; and nothing was exercised on a screen. · **Verified:** nothing was run locally (no SDK). New `DateUtilsTest` cases cover `withClock` only. CI compiled it. The tap targets, the pickers, the delete and the cascade have never executed.
+2026-08-06 · F1 · #187 · **(a)** `BookProgress.kt` already decided how progress is *shown*; it now also decides how it is *asked for* — `bookProgressQuestion` / `bookProgressUnit` / `bookProgressMark` / `clampBookProgress`, one place, four call sites. The conclude sheet had **no clamp at all**, which is the actual mechanism behind the 100%: it asked "Até que página chegaste?", the owner answered with a page number, and an attached EPUB stored it as percentage points. Every field now carries the unit *beside* it as well as above it, because the label scrolls off and the mark does not. **(b)** `BookMath.MAX_HUMAN_WPM = 1000` with `impliedWpm` + `readingSpans` as the pure pair; `pagesPerHour` takes an optional `wordsPerUnit` (default null = no ceiling, so callers with no book keep the old arithmetic) and `wordsPerMinute` passes it through, so the two figures can still never disagree. Applied at the detail sheet's Ritmo line **and** in `BookHabitsScreen`'s per-session `words`, which F1's file list didn't name but which feeds the same inflated number into the charts. **(c)** `sessionOutcome`'s guard is now duration alone; `aShortSittingThatTurnedAPageIsStillASession` was R5's rule and is deliberately reversed, with the reasoning kept in the test. **One thing in the spec was not done:** F1 lists `BookFormSheet.kt — current/total page fields`, and that sheet has no current-page field — only `totalPages`, which does not write `currentPage` and is a real quantity for an EPUB (the print edition's length, which F7 will use with an `≈`). Left alone deliberately. · **Verified:** nothing was run. No Android SDK in this environment, so the new `BookMathTest` / `ReaderMathTest` cases have not executed locally — CI is the only thing that has compiled or run them, and no device has seen a single one of these fields.

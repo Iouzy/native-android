@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.pauta.app.data.entity.BookEntity
+import com.pauta.app.data.entity.FocusBlockEntity
 import com.pauta.app.domain.BookMath
 import com.pauta.app.domain.DateUtils
 import com.pauta.app.domain.FocusMath
@@ -58,6 +59,9 @@ import com.pauta.app.ui.theme.PautaType
 import com.pauta.app.ui.theme.SerifFamily
 import com.pauta.app.ui.viewmodel.AppViewModel
 import kotlin.math.roundToInt
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.ui.text.style.TextOverflow
 
 /**
  * native-only (K8): the book detail sheet the shelf cards open — all book-level
@@ -110,6 +114,10 @@ fun BookDetailSheet(
     val canRead = rememberCanRead(book)
     var editingProgress by remember { mutableStateOf(false) }
     var showEdit by remember { mutableStateOf(false) }
+    // F2: the reading session opened from this sheet's Sessões list.
+    var editBlock by remember { mutableStateOf<FocusBlockEntity?>(null) }
+    // L6: capture against this book, whatever shelf it is on.
+    var showCapture by remember { mutableStateOf(false) }
     var showFinish by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
     var confirmAbandon by remember { mutableStateOf(false) }
@@ -146,20 +154,26 @@ fun BookDetailSheet(
             )
         }
         Spacer(Modifier.height(10.dp))
-        Text(
-            text = when (book.format) {
-                "ebook" -> tr("Ebook")
-                "audiobook" -> tr("Audiolivro")
-                else -> tr("Físico")
-            },
-            color = colors.ink3,
-            style = PautaType.MetaSmall,
-            letterSpacing = 0.54.sp,
-            modifier = Modifier
-                .clip(RoundedCornerShape(4.dp))
-                .border(1.dp, colors.rule, RoundedCornerShape(4.dp))
-                .padding(horizontal = 6.dp, vertical = 2.dp),
-        )
+        // L7: the format chip, and beside it the genres — which were collected by
+        // the form, trimmed, stored and migrated across two Room versions, and
+        // read by nothing. A field the user fills in and the app never shows is a
+        // small dishonesty; this is the whole of the fix. The chips flow so a book
+        // with five tags wraps instead of pushing the sheet sideways.
+        // // PT: o formato e, ao lado, os géneros — que até aqui nada lia.
+        @OptIn(ExperimentalLayoutApi::class)
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            MetaChip(
+                text = when (book.format) {
+                    "ebook" -> tr("Ebook")
+                    "audiobook" -> tr("Audiolivro")
+                    else -> tr("Físico")
+                },
+            )
+            BookMath.genreTags(book.genre).forEach { tag -> MetaChip(tag) }
+        }
 
         // ── R2 · the attached file ──
         // The name; R3's "Ler" is further down, with the status actions. // PT: o
@@ -194,9 +208,26 @@ fun BookDetailSheet(
                     .padding(vertical = 4.dp),
             )
         }
-        bookProgressFraction(book)?.let { fraction ->
+        val fraction = bookProgressFraction(book)
+        if (fraction != null) {
             Spacer(Modifier.height(6.dp))
             ProgressBar(fraction)
+        } else if (book.format != "audiobook" && book.filePath == null) {
+            // L12: a book with no length and no file gets no bar and no estimate,
+            // which is correct — there is nothing honest to draw. What it never
+            // did was say that the one thing that would fix it is a number the
+            // user can type. // PT: sem tamanho não há barra, e isso está certo; o
+            // que faltava era dizer o que a traria de volta.
+            Spacer(Modifier.height(6.dp))
+            Text(
+                text = tr("Diz quantas páginas tem e a barra aparece."),
+                color = colors.ink4,
+                fontFamily = SerifFamily,
+                fontStyle = FontStyle.Italic,
+                fontSize = 12.sp,
+                lineHeight = 17.sp,
+                modifier = Modifier.clickableNoRipple { showEdit = true },
+            )
         }
 
         // ── K-extra: pace + ETA · R6: reading speed ──
@@ -220,13 +251,29 @@ fun BookDetailSheet(
                 BookMath.SessionSpan(((book.currentPage.toLong() * d) / total).toInt(), d)
             }
         }
-        val pace = remember(spans) { BookMath.pagesPerHour(spans) }
+        // F1: the ceiling. A span implying more than MAX_HUMAN_WPM was navigating,
+        // not reading — in an EPUB one tap moves several percentage points — and
+        // averaging it in is what produced "Ritmo: 9191 palavras/min" from
+        // arithmetic that was entirely correct. // PT: descarta os intervalos que
+        // implicam uma velocidade impossível.
+        // L12: the daily reading budget the estimate assumes, measured over the
+        // last four weeks where there is anything to measure and falling back to
+        // `etaDays`' own constant otherwise. Either way it is printed beside the
+        // estimate — an assumption that is invisible is an assumption presented as
+        // knowledge. // PT: o orçamento diário medido, e dito ao lado da estimativa.
+        val dailyMinutes = remember(bookBlocks, segsByBlock) {
+            val recent = bookBlocks.take(20).map { blockMs(it.id) }.filter { it > 0 }
+            if (recent.isEmpty()) 60f
+            else (recent.sum() / 60_000f / 28f).coerceAtLeast(5f)
+        }
+        val perUnit = remember(book) { BookMath.wordsPerUnit(book) }
+        val pace = remember(spans, perUnit) { BookMath.pagesPerHour(spans, perUnit) }
         // R6: anything with words says its pace in words per minute. An audiobook
         // keeps min/hora — its progress is already time, and there is no honest
         // word figure to fudge out of it. // PT: WPM para tudo o que tem palavras;
         // o audiolivro fica-se pelos min/hora.
-        val wpm = remember(spans, book) {
-            BookMath.wordsPerUnit(book)?.let { BookMath.wordsPerMinute(spans, it) }
+        val wpm = remember(spans, perUnit) {
+            perUnit?.let { BookMath.wordsPerMinute(spans, it) }
         }
         if (pace != null) {
             Spacer(Modifier.height(8.dp))
@@ -253,11 +300,18 @@ fun BookDetailSheet(
                 book.totalPages > 0 -> book.totalPages - book.currentPage
                 else -> null
             }
-            val eta = remaining?.let { BookMath.etaDays(it, pace) }
+            // L12: `etaDays` assumes 60 minutes of reading a day, which is a
+            // reasonable constant and an **invisible** one — the estimate read as
+            // if it knew something it had assumed. Derived from the last four
+            // weeks where there is anything to derive from, and the assumption is
+            // printed either way. // PT: o pressuposto passa a ser medido onde há
+            // dados, e dito sempre.
+            val eta = remaining?.let { BookMath.etaDays(it, pace, dailyMinutes) }
             if (eta != null && eta > 0) {
                 Spacer(Modifier.height(2.dp))
                 Text(
-                    text = trf("Conclusão estimada: em ~{n} dias", "n" to eta),
+                    text = trf("Conclusão estimada: em ~{n} dias", "n" to eta) +
+                        " · " + trf("a {m} min/dia", "m" to dailyMinutes.roundToInt()),
                     color = colors.ink3,
                     style = PautaType.MetaSmall,
                 )
@@ -363,7 +417,21 @@ fun BookDetailSheet(
         Spacer(Modifier.height(SheetFieldGap))
         Box(Modifier.fillMaxWidth().height(1.dp).background(colors.rule))
         Spacer(Modifier.height(SheetFieldGap))
-        SheetEyebrow(tr("Notas & Citações"))
+        // L6: an add action on the eyebrow row. This is what makes a note on a
+        // *finished* book possible at all — the shelf-header capture only ever
+        // offered books being read. // PT: é isto que permite anotar um livro já
+        // terminado.
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            SheetEyebrow(tr("Notas & Citações"), modifier = Modifier.weight(1f))
+            Text(
+                text = tr("+ Nota"),
+                color = colors.ink3,
+                fontFamily = MonoFamily,
+                fontSize = 10.sp,
+                letterSpacing = 0.4.sp,
+                modifier = Modifier.clickableNoRipple { showCapture = true },
+            )
+        }
         Spacer(Modifier.height(SheetLabelGap))
         if (notes.isEmpty()) {
             // P10: the one empty state. // PT: o estado vazio único.
@@ -392,9 +460,22 @@ fun BookDetailSheet(
                             color = colors.accent,
                         )
                         // Audiobooks have no pages, so the tag is hidden for them.
+                        // L6: and the position reads in the book's own unit — an
+                        // EPUB note is "43%", not "p. 43". Calling a percentage a
+                        // page would be the second time the app had to learn this
+                        // lesson (R4 was the first). // PT: a posição na unidade do
+                        // livro; num EPUB é percentagem, não página.
                         if (!isAudiobook && note.page != null) {
                             Spacer(Modifier.width(8.dp))
-                            Text("p. ${note.page}", color = colors.ink4, style = PautaType.MetaSmall)
+                            Text(
+                                text = if (countsPercent(book)) {
+                                    "${note.page.coerceIn(0, 100)}%"
+                                } else {
+                                    "${bookProgressMark(book)} ${note.page}"
+                                },
+                                color = colors.ink4,
+                                style = PautaType.MetaSmall,
+                            )
                         }
                         Spacer(Modifier.weight(1f))
                         if (armed) {
@@ -426,8 +507,17 @@ fun BookDetailSheet(
             EmptyState(tr("Nenhuma sessão ainda"))
         } else {
             bookBlocks.forEach { b ->
+                // F2: the entry point. A reading session was text here and text in
+                // the Sessão tab, filtered out of the planner on purpose, and
+                // therefore reachable from nowhere — twelve junk sessions from one
+                // evening's testing were permanent. Tapping opens the same sheet a
+                // planner block opens. // PT: a linha passa a abrir a folha de
+                // edição — sem isto, nada do resto desta tarefa é alcançável.
                 Row(
-                    Modifier.fillMaxWidth().padding(vertical = 3.dp),
+                    Modifier
+                        .fillMaxWidth()
+                        .clickableNoRipple { editBlock = b }
+                        .padding(vertical = 3.dp),
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     Text(
@@ -458,6 +548,28 @@ fun BookDetailSheet(
         Spacer(Modifier.height(6.dp))
     }
 
+    editBlock?.let { b ->
+        EditBlockSheet(
+            block = sessionBlocks.firstOrNull { it.id == b.id } ?: b,
+            sessions = segsByBlock[b.id].orEmpty(),
+            now = System.currentTimeMillis(),
+            book = book,
+            onSave = { edit ->
+                vm.updateBlock(b.id, edit.title, edit.project, edit.targetMs)
+                vm.setBlockReflection(b.id, edit.reflection)
+                edit.notes.forEach { (rowId, text) -> vm.setSessionNote(rowId, text) }
+                edit.times.forEach { vm.setSessionTimes(it.rowId, it.startedAt, it.endedAt) }
+                if (edit.pagesDeltaChanged) vm.setBlockPagesDelta(b.id, edit.pagesDelta)
+                editBlock = null
+            },
+            onDeleteSession = { rowId -> vm.deleteSession(rowId) },
+            onDelete = { vm.deleteBlock(b.id); editBlock = null },
+            onClose = { editBlock = null },
+        )
+    }
+    if (showCapture) {
+        QuoteCaptureSheet(onClose = { showCapture = false }, bookId = book.id)
+    }
     if (showEdit) {
         BookFormSheet(book = book, onClose = { showEdit = false })
     }
@@ -484,15 +596,21 @@ private fun RowScope.QuietAction(label: String, onClick: () -> Unit) {
 private fun ProgressEditor(book: BookEntity, onConfirm: (Int) -> Unit, onCancel: () -> Unit) {
     var value by remember { mutableStateOf(book.currentPage.takeIf { it > 0 }?.toString() ?: "") }
     val focus = rememberAutoFocusRequester()
-    val max = bookProgressMax(book)
-    fun clamp(n: Int) = if (max != null) n.coerceIn(0, max) else n
-    fun submit() = onConfirm(clamp(value.toIntOrNull() ?: book.currentPage))
+    val colors = LocalPautaColors.current
+    val progressDigits = (bookProgressMax(book)?.toString()?.length ?: 6).coerceIn(1, 6)
+    fun submit() = onConfirm(clampBookProgress(book, value.toIntOrNull() ?: book.currentPage))
 
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         Box(Modifier.width(110.dp)) {
             BoxedField(
                 value = value,
-                onChange = { raw -> value = raw.filter { it.isDigit() }.take(6) },
+                // L12: capped at the maximum's own digit count. It always
+                // clamped — typing 999999 against a percentage silently became
+                // 100 — and a field that swallows four digits and shows a
+                // different number is a field that lied about accepting them.
+                // // PT: o campo aceita só os dígitos que o máximo tem; antes
+                // engolia seis e devolvia outro número sem dizer nada.
+                onChange = { raw -> value = raw.filter { it.isDigit() }.take(progressDigits) },
                 placeholder = book.currentPage.toString(),
                 modifier = Modifier.focusRequester(focus),
                 singleLine = true,
@@ -502,9 +620,33 @@ private fun ProgressEditor(book: BookEntity, onConfirm: (Int) -> Unit, onCancel:
                 keyboardActions = KeyboardActions(onDone = { submit() }),
             )
         }
+        // F1: this editor always clamped correctly and never said what it was
+        // clamping to. The mark is the difference between "100 pages" and
+        // "finished". // PT: a marca diz a unidade; sem ela, 100 é ambíguo.
+        Text(bookProgressMark(book), color = colors.ink3, style = PautaType.Meta)
         PautaButton(tr("Guardar"), variant = PautaButtonVariant.Primary) { submit() }
         PautaButton(tr("Cancelar"), variant = PautaButtonVariant.Ghost) { onCancel() }
     }
+}
+
+/** L7 · the small bordered meta chip the format and the genres share, so a tag
+ *  never reads as a different kind of thing from the format beside it.
+ *  // PT: a mesma chip para o formato e para os géneros. */
+@Composable
+private fun MetaChip(text: String) {
+    val colors = LocalPautaColors.current
+    Text(
+        text = text,
+        color = colors.ink3,
+        style = PautaType.MetaSmall,
+        letterSpacing = 0.54.sp,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        modifier = Modifier
+            .clip(RoundedCornerShape(4.dp))
+            .border(1.dp, colors.rule, RoundedCornerShape(4.dp))
+            .padding(horizontal = 6.dp, vertical = 2.dp),
+    )
 }
 
 /** The 1–5 star strip. Tapping star n rates n; tapping the current one clears. */

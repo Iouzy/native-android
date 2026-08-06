@@ -19,7 +19,7 @@ second launcher icon opens straight into book mode.
 |---|---|---|
 | **1** | **Hoje** — today's intentions + nightly reflection | **Estante** — the shelf: reading, up next, finished |
 | **2** | **Pauta** — focus blocks with a start/pause/resume/conclude timer | **Sessão** — reading sessions on the same timer |
-| **3** | **Marés** — habits with daily/weekly/monthly cadence and tide levels | **Hábitos** — the reading rhythm: days read, charts, annual goal |
+| **3** | **Marés** — habits with daily/weekly/monthly cadence and tide levels | **Hábitos** — the reading rhythm: annual goal, days read, charts, books finished, the shelf's pace, your notebook |
 
 ## Reading
 
@@ -40,7 +40,29 @@ separate process, and an EPUB is rendered with scripting off, the network
 blocked and every navigation refused — see the Security model in
 [`docs/GUARDRAILS.md`](docs/GUARDRAILS.md) §G.
 
+Book mode's third tab is about reading and nothing else: your tides live in the
+planner, one tap away at the foot of it. Every figure on it is derived from
+sessions the app measured — nothing there is self-reported, and an estimate says
+so.
+
+## Notifications
+
+Pauta asks for notification permission **once**, at the moment it first needs it
+— when you start your first focus or reading block — and never at launch. Say no
+and nothing stops working: the timer runs, the block records, and Settings →
+Foco e lembretes tells you notifications are blocked and opens the system screen
+that can undo it.
+
+What it posts, and only this: the ongoing notification for a running block, the
+three daily reminders you set yourself, and a per-tide reminder if you give a
+tide a time. All local, all from the device.
+
 ## Install
+
+Coming back after a reinstall or a new phone? The last page of the welcome
+sequence offers **Restaurar uma cópia** (a `pauta.v4` export) and **Biblioteca**
+(a `pauta.books.v1` one) beside "start blank" — you do not have to start blank
+and go looking for the importer afterwards.
 
 Download `pauta-native-v<N>.apk` from the rolling
 [`latest-native`](../../releases/tag/latest-native) release and install it.

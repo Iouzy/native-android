@@ -54,6 +54,7 @@ import com.pauta.app.service.EpubInfo
 import com.pauta.app.service.EpubSession
 import com.pauta.app.service.PdfInfo
 import com.pauta.app.service.PdfSession
+import com.pauta.app.ui.OpenDocumentInDownloads
 import com.pauta.app.ui.PautaButton
 import com.pauta.app.ui.PautaButtonVariant
 import com.pauta.app.ui.ScreenMode
@@ -67,7 +68,14 @@ import com.pauta.app.ui.viewmodel.AppViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
 import java.io.File
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Dp
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
+import com.pauta.app.ui.theme.ReaderThemes
 
 /** How long the chrome lingers before getting out of the way. */
 private const val ChromeLingerMs = 2_000L
@@ -162,6 +170,28 @@ fun ReaderScreen(bookId: String, onClose: () -> Unit) {
         if (state.ready) vm.beginReading(bookId, book.title)
     }
 
+    // F5(a) · pause without closing the book.
+    //
+    // Until now the only way to stop the clock was to leave, so a reading session
+    // measured every interruption — a conversation, a station, putting the phone
+    // down — as reading. This is also half of what an explicit "start reading"
+    // button was asked for, and the half that carries no risk: forgetting to
+    // press *start* loses an hour unrecoverably, forgetting to press *pause* just
+    // leaves the session as it always was.
+    //
+    // The session is a focus block, so pause and resume are the block's own, and
+    // the paused span is closed by `pauseActive` — the paused time is therefore
+    // not read, by construction rather than by arithmetic.
+    // // PT: pausar sem fechar o livro; a sessão é um bloco, e a pausa fecha o
+    // intervalo aberto — o tempo em pausa não conta, por construção.
+    val activeBlock by vm.activeBlock.collectAsStateWithLifecycle()
+    val sessionBlocks by vm.bookSessionBlocks.collectAsStateWithLifecycle()
+    val readerProject = "book:$bookId"
+    val runningHere = activeBlock?.takeIf { it.project == readerProject }
+    val pausedHere = remember(sessionBlocks, readerProject) {
+        sessionBlocks.firstOrNull { it.project == readerProject && it.status == "paused" }
+    }
+
     // A position that stays put for a second is where the reader is. // PT: a
     // posição que fica parada um segundo é a que se guarda.
     LaunchedEffect(state.ready) {
@@ -187,19 +217,81 @@ fun ReaderScreen(bookId: String, onClose: () -> Unit) {
         }
     }
 
+    // N2 · arriving is not the same as asking.
+    //
     // Chrome starts visible (so the way back is never a secret), then gets out of
-    // the way. With nothing to read it stays. // PT: a cromagem aparece, esconde-se
-    // sozinha, e fica se não houver nada para ler.
+    // the way. The bug was that the linger re-armed on *every* transition to
+    // visible, including the deliberate middle tap that asked for it back — so
+    // reaching `←`, reading the progress line or aiming at `⋯` all had to happen
+    // inside two seconds, and by now there are four controls up there.
+    //
+    // The timer belongs to the **first appearance only**. Once the reader has
+    // summoned the chrome it is theirs: it stays until they tap again, or until
+    // they scroll — which is the one automatic dismissal worth keeping, because it
+    // means "I am reading again" and it is what every reader does.
+    // // PT: o temporizador é só da primeira aparição; depois de o leitor a pedir,
+    // a cromagem fica até ele a mandar embora — ou até ele voltar a ler.
     var chrome by remember { mutableStateOf(true) }
-    LaunchedEffect(chrome, state.ready) {
-        if (chrome && state.ready) {
+    var summoned by remember { mutableStateOf(false) }
+    LaunchedEffect(state.ready) {
+        if (state.ready && !summoned) {
             delay(ChromeLingerMs)
-            chrome = false
+            if (!summoned) chrome = false
         }
+    }
+    // Reading again puts it away. `drop(1)` skips the position the bookmark
+    // restored, which is not a scroll. // PT: voltar a ler esconde-a; ignora-se a
+    // posição inicial, que não foi um gesto.
+    LaunchedEffect(state.ready) {
+        if (!state.ready) return@LaunchedEffect
+        snapshotFlow { state.position }
+            .distinctUntilChanged()
+            .drop(1)
+            .collect { if (chrome && summoned) chrome = false }
     }
     val chromeVisible = chrome || !state.ready
 
+    /** N2: a middle tap is the reader taking control of the chrome. // PT: o toque
+     *  ao meio passa a cromagem para as mãos do leitor. */
+    fun toggleChrome() {
+        summoned = true
+        chrome = !chrome
+    }
+
+    // F5(b) · the bars stop covering the page.
+    //
+    // The chapter used to be inset by a guessed 8px at the top and 64px at the
+    // bottom, which is not enough at any real text size: a chapter heading, a last
+    // line and a publisher's logo were each found hidden under a bar. The inset is
+    // now the bars' **measured** height — the top bar carries the status-bar inset,
+    // the bottom one the navigation-bar inset, and neither is a number this file
+    // can know in advance.
+    //
+    // The last non-zero measurement is kept on purpose. The bars are inside an
+    // `AnimatedVisibility`, so they measure 0 while hidden — following that would
+    // reflow the whole chapter every time the chrome fades, throwing the reader's
+    // place away twice a minute. The margin is reserved whether or not the bar is
+    // currently drawn. // PT: o recuo é a altura medida das barras, e mantém-se
+    // quando elas se escondem — senão o capítulo reflui a cada fade.
+    val density = LocalDensity.current
+    var topBarPx by remember { mutableIntStateOf(0) }
+    var bottomBarPx by remember { mutableIntStateOf(0) }
+    val topInset = with(density) { topBarPx.toDp() }
+    val bottomInset = with(density) { bottomBarPx.toDp() }
+
     var showDetail by remember { mutableStateOf(false) }
+    // L5: the reader's own type and colour, applied live.
+    val prefs by vm.prefs.collectAsStateWithLifecycle()
+    val readerSettings = remember(
+        prefs.readerTextScale, prefs.readerLineHeight, prefs.readerMargin, prefs.readerTheme,
+    ) { ReaderSettings.of(prefs) }
+    var showReaderSettings by remember { mutableStateOf(false) }
+    // L6: capture without leaving the book. The sheet composes *over* the reader,
+    // so the reader stays composed, `onDispose` does not run and the reading
+    // session keeps going — which is the thing to get right here: a navigation
+    // destination would end the session every time you wrote a line down.
+    // // PT: a folha abre por cima do leitor; a sessão não é interrompida.
+    var showCapture by remember { mutableStateOf(false) }
 
     Box(
         Modifier
@@ -220,13 +312,19 @@ fun ReaderScreen(bookId: String, onClose: () -> Unit) {
                 path = path!!,
                 book = book,
                 state = state,
-                onTapMiddle = { chrome = !chrome },
+                topInset = topInset,
+                bottomInset = bottomInset,
+                reader = readerSettings,
+                onTapMiddle = { toggleChrome() },
             )
             kind == "epub" -> EpubReaderHost(
                 path = path!!,
                 book = book,
                 state = state,
-                onTapMiddle = { chrome = !chrome },
+                topInset = topInset,
+                bottomInset = bottomInset,
+                reader = readerSettings,
+                onTapMiddle = { toggleChrome() },
                 onWordCount = { words -> vm.setWordCount(bookId, words) },
             )
             else -> ReaderNotice(tr("Não foi possível abrir este ficheiro."))
@@ -241,7 +339,20 @@ fun ReaderScreen(bookId: String, onClose: () -> Unit) {
             ReaderTopBar(
                 title = book.title,
                 onBack = onClose,
+                onContents = { state.wantContents = true }.takeIf { state.ready },
+                onReaderSettings = { showReaderSettings = true },
+                onCapture = { showCapture = true }.takeIf { state.ready },
                 onDetails = { showDetail = true },
+                // Offered only while there is a session to act on: with neither a
+                // running nor a paused block for this book there is no clock to
+                // stop. // PT: só aparece quando há sessão sobre que agir.
+                paused = runningHere == null && pausedHere != null,
+                onTogglePause = when {
+                    runningHere != null -> ({ vm.pauseActive("") })
+                    pausedHere != null -> ({ vm.resumeBlock(pausedHere.id) })
+                    else -> null
+                },
+                modifier = Modifier.onSizeChanged { if (it.height > 0) topBarPx = it.height },
             )
         }
 
@@ -251,10 +362,34 @@ fun ReaderScreen(bookId: String, onClose: () -> Unit) {
             exit = if (animate) fadeOut(PautaMotion.tween()) else ExitTransition.None,
             modifier = Modifier.align(Alignment.BottomCenter),
         ) {
-            ReaderBottomBar(label = state.label, fraction = state.fraction)
+            ReaderBottomBar(
+                label = state.label,
+                fraction = state.fraction,
+                modifier = Modifier.onSizeChanged { if (it.height > 0) bottomBarPx = it.height },
+            )
         }
     }
 
+    if (showCapture) {
+        QuoteCaptureSheet(
+            onClose = { showCapture = false },
+            bookId = bookId,
+            // The reader's position, in the unit the book counts in — for an EPUB
+            // that is a percentage point, which is what `BookNoteEntity.page`
+            // means too (F1). // PT: a posição na unidade do livro.
+            atPage = state.unit.takeIf { it > 0 },
+        )
+    }
+    if (showReaderSettings) {
+        ReaderSettingsSheet(
+            settings = readerSettings,
+            onTextScale = { vm.setReaderTextScale(it) },
+            onLineHeight = { vm.setReaderLineHeight(it) },
+            onMargin = { vm.setReaderMargin(it) },
+            onTheme = { vm.setReaderTheme(it) },
+            onClose = { showReaderSettings = false },
+        )
+    }
     if (showDetail) {
         // No "Ler" from in here — you are already reading. // PT: sem "Ler" — já
         // se está a ler.
@@ -285,13 +420,32 @@ private class ReaderState {
     var label by mutableStateOf("")
     /** How full the hairline is, 0–1. */
     var fraction by mutableFloatStateOf(0f)
+
+    /**
+     * L4 · the shell's `☰` has asked for the contents; whichever half is mounted
+     * answers and clears it.
+     *
+     * The chrome is composed by the shell and the position is owned by the half —
+     * so the shell asks rather than jumping, and the jump goes through the half's
+     * own `turn`/`scrollToItem`, which is what keeps the bookmark, the label and
+     * the session following it. Writing `position` from a sheet would bypass all
+     * three. // PT: a casca pede; a metade que sabe a posição é que salta, pelo
+     * mesmo caminho de sempre.
+     */
+    var wantContents by mutableStateOf(false)
 }
 
 /** The one line the EPUB chrome shows: how far through the book, and which
  *  chapter of how many — a percentage alone tells you nothing about where to stop.
  *  // PT: a percentagem e o capítulo; só a percentagem não diz onde parar. */
-private fun chapterLabel(percent: Int, chapter: Int, chapters: Int): String =
-    "$percent% · " + trf("Capítulo {n} de {total}", "n" to chapter + 1, "total" to chapters)
+private fun chapterLabel(percent: Int, chapter: Int, chapters: Int, title: String? = null): String {
+    val where = if (title != null) {
+        trf("Capítulo {n}", "n" to chapter + 1) + " · " + title
+    } else {
+        trf("Capítulo {n} de {total}", "n" to chapter + 1, "total" to chapters)
+    }
+    return "$percent% · $where"
+}
 
 /**
  * R3: the PDF half — a column of pages drawn in `:reader`, with the bookmark as a
@@ -303,6 +457,9 @@ private fun PdfReaderHost(
     path: String,
     book: BookEntity,
     state: ReaderState,
+    topInset: Dp,
+    bottomInset: Dp,
+    reader: ReaderSettings,
     onTapMiddle: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -346,12 +503,30 @@ private fun PdfReaderHost(
             session = session,
             info = opened,
             listState = listState,
+            topInset = topInset,
+            bottomInset = bottomInset,
+            surround = ReaderThemes.pair(reader.theme)?.first,
             onTapMiddle = onTapMiddle,
             onReaderDied = { state.failed = true },
             modifier = Modifier.fillMaxSize(),
         )
     } else {
         ReaderNotice(tr("A abrir…"))
+    }
+
+    // L4: a PDF has no table of contents to parse — PdfRenderer cannot read
+    // outlines, and inventing one would be inventing a number — so its half of
+    // this is the other thing a long document needs. Returning to page 400 was a
+    // scroll. // PT: um PDF não tem índice para ler; o que pode ter é o salto para
+    // uma página.
+    if (state.wantContents && opened != null) {
+        val scope = rememberCoroutineScope()
+        ReaderGoToPageSheet(
+            pageCount = opened.pageCount,
+            current = listState.firstVisibleItemIndex + 1,
+            onJump = { page -> scope.launch { listState.scrollToItem((page - 1).coerceAtLeast(0)) } },
+            onClose = { state.wantContents = false },
+        )
     }
 }
 
@@ -370,6 +545,9 @@ private fun EpubReaderHost(
     path: String,
     book: BookEntity,
     state: ReaderState,
+    topInset: Dp,
+    bottomInset: Dp,
+    reader: ReaderSettings,
     onTapMiddle: () -> Unit,
     onWordCount: (Int) -> Unit,
 ) {
@@ -410,7 +588,11 @@ private fun EpubReaderHost(
         val percent = Epub.percent(book0.chapterWords, atChapter, atScroll)
         state.unit = percent
         state.position = Epub.formatPosition(atChapter, atScroll)
-        state.label = chapterLabel(percent, atChapter, book0.chapterCount)
+        // L4: the chapter's own name where the book gave one. It always had one —
+        // the parser read it and the process boundary dropped it, which is why
+        // this line could only ever count. // PT: o nome do capítulo, que já era
+        // lido e se perdia.
+        state.label = chapterLabel(percent, atChapter, book0.chapterCount, book0.titleOf(atChapter))
         state.fraction = percent / 100f
     }
 
@@ -433,6 +615,20 @@ private fun EpubReaderHost(
         state.ready = true
     }
 
+    // L5: changing the type size re-lays the chapter out, so the same scroll
+    // fraction is a different place in it. The chapter reloads (the stylesheet is
+    // part of the document), and it has to land where the reader was — otherwise
+    // nudging the text size would throw away their place. Re-marking straight
+    // after keeps the bookmark and the percentage truthful.
+    // // PT: mudar o tamanho volta a compor o capítulo; recarrega-se para o mesmo
+    // sítio e volta-se a marcar, senão perde-se onde se ia.
+    LaunchedEffect(reader) {
+        if (state.ready) {
+            restoreScroll = scroll
+            mark(chapter, scroll)
+        }
+    }
+
     // Nothing is drawn until the bookmark has been read: composing the first
     // chapter before it would fetch chapter 0 only to throw it away. // PT: só
     // desenha depois do marcador — senão buscava o capítulo 0 para o deitar fora.
@@ -453,6 +649,9 @@ private fun EpubReaderHost(
     EpubChapterView(
         session = session,
         chapter = chapter,
+        topInset = topInset,
+        bottomInset = bottomInset,
+        reader = reader,
         restoreScroll = restoreScroll,
         onScroll = { value ->
             scroll = value
@@ -477,6 +676,20 @@ private fun EpubReaderHost(
         onFailed = { state.failed = true },
         modifier = Modifier.fillMaxSize(),
     )
+
+    // L4: the shell's ☰ asked; this half answers, because this half owns the
+    // position. The jump goes through `turn` — the same path an edge-tap takes —
+    // so the bookmark, the label and the session all follow it. Writing
+    // `state.position` from the sheet would bypass all three.
+    // // PT: o salto passa por `turn`, como qualquer outra mudança de capítulo.
+    if (state.wantContents) {
+        ReaderContentsSheet(
+            info = opened,
+            current = chapter,
+            onJump = { turn(it) },
+            onClose = { state.wantContents = false },
+        )
+    }
 }
 
 /**
@@ -502,10 +715,20 @@ internal fun rememberCanRead(book: BookEntity?): Boolean {
 /** Back · title · the book's own sheet. Sits on a paper band so it stays legible
  *  over a white page. // PT: recuar, título e a folha do livro. */
 @Composable
-private fun ReaderTopBar(title: String, onBack: () -> Unit, onDetails: () -> Unit) {
+private fun ReaderTopBar(
+    title: String,
+    onBack: () -> Unit,
+    onContents: (() -> Unit)?,
+    onReaderSettings: (() -> Unit)?,
+    onCapture: (() -> Unit)?,
+    onDetails: () -> Unit,
+    paused: Boolean,
+    onTogglePause: (() -> Unit)?,
+    modifier: Modifier = Modifier,
+) {
     val colors = LocalPautaColors.current
     Row(
-        Modifier
+        modifier
             .fillMaxWidth()
             .background(colors.paper)
             .statusBarsPadding()
@@ -530,6 +753,53 @@ private fun ReaderTopBar(title: String, onBack: () -> Unit, onDetails: () -> Uni
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),
         )
+        // F5(a) opened the reader's control row; L4's ☰ joins it here, and L5's Aa
+        // and L6's ✎ join the same one rather than each adding a bar.
+        // // PT: a fila de controlos do leitor; cada tarefa junta-se a ela.
+        if (onContents != null) {
+            Text(
+                text = "☰",
+                color = colors.ink2,
+                fontSize = 17.sp,
+                modifier = Modifier
+                    .clickableNoRipple(onContents)
+                    .semantics { contentDescription = tr("Índice"); role = Role.Button },
+            )
+        }
+        if (onReaderSettings != null) {
+            Text(
+                text = "Aa",
+                color = colors.ink2,
+                fontFamily = SerifFamily,
+                fontSize = 15.sp,
+                modifier = Modifier
+                    .clickableNoRipple(onReaderSettings)
+                    .semantics { contentDescription = tr("Leitura"); role = Role.Button },
+            )
+        }
+        if (onCapture != null) {
+            Text(
+                text = "✎",
+                color = colors.ink2,
+                fontSize = 17.sp,
+                modifier = Modifier
+                    .clickableNoRipple(onCapture)
+                    .semantics { contentDescription = tr("Nova nota"); role = Role.Button },
+            )
+        }
+        if (onTogglePause != null) {
+            Text(
+                text = if (paused) "▶" else "❙❙",
+                color = if (paused) colors.accent else colors.ink2,
+                fontSize = if (paused) 18.sp else 15.sp,
+                modifier = Modifier
+                    .clickableNoRipple(onTogglePause)
+                    .semantics {
+                        contentDescription = if (paused) tr("Retomar") else tr("Pausar")
+                        role = Role.Button
+                    },
+            )
+        }
         Text(
             text = "⋯",
             color = colors.ink2,
@@ -545,10 +815,10 @@ private fun ReaderTopBar(title: String, onBack: () -> Unit, onDetails: () -> Uni
  *  PDF and a percentage in an EPUB — the shell is handed the sentence rather than
  *  the numbers. // PT: a posição, em texto e em traço. */
 @Composable
-private fun ReaderBottomBar(label: String, fraction: Float) {
+private fun ReaderBottomBar(label: String, fraction: Float, modifier: Modifier = Modifier) {
     val colors = LocalPautaColors.current
     Column(
-        Modifier
+        modifier
             .fillMaxWidth()
             .background(colors.paper),
     ) {
@@ -611,7 +881,7 @@ private fun MissingFileNotice(bookId: String, onAttached: () -> Unit) {
     val vm: AppViewModel = viewModel()
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
-    val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+    val picker = rememberLauncherForActivityResult(OpenDocumentInDownloads()) { uri ->
         if (uri != null) {
             busy = true
             error = null

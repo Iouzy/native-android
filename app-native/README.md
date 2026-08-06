@@ -96,6 +96,7 @@ insights/reviews, quarterly goals, week-ahead planning, PIN lock, reminders, hom
 widget, QS tile, in-app updater and `pauta.v4` backups — plus book mode and the
 reader.
 
-Active work is `docs/FIELD_FIXES.md`; `docs/README.md` indexes every task file,
-and `docs/TASK_FILE_FORMAT.md` is the shape a new one follows. **A task that
+There is no active task file — all of them finished on 2026-08-06.
+`docs/README.md` indexes them, `docs/CONTEXT.md` is the state of the work, and
+`docs/TASK_FILE_FORMAT.md` is the shape the next one follows. **A task that
 changes what a user can see updates the repo-root `README.md` in the same PR.**

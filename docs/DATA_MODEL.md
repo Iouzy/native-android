@@ -12,8 +12,8 @@
 Source paths are relative to
 `app-native/app/src/main/kotlin/com/pauta/app/`.
 
-**Room is at version 11** (`data/AppDatabase.kt:64`), with migrations 1→2
-through 10→11 registered. The next migration a task writes is **11 → 12**.
+**Room is at version 14** (`data/AppDatabase.kt`), with migrations 1→2
+through 13→14 registered. The next migration a task writes is **14 → 15**.
 
 ---
 
@@ -49,7 +49,7 @@ brings back the book, not the file.
 | `startedAt` | Long? | null | ms epoch; null until the first session |
 | `finishedAt` | Long? | null | ms epoch; null until done/dnf |
 | `rating` | Int? | null | 1–5; null = unrated |
-| `genre` | String | `""` | free text, comma-separated tags. **Write-only today** — see `BOOK_LIBRARY.md` L7 |
+| `genre` | String | `""` | free text, comma-separated tags; split by `BookMath.genreTags` and shown on the detail sheet — L7 |
 | `position` | Int | `0` | ordering within the status shelf. **Stale after a move** — see L3 |
 | `createdAt` | Long | — | ms epoch |
 | `filePath` | String? | null | absolute path inside `filesDir/books/`; null = no file |
@@ -84,10 +84,17 @@ Progress % = `currentPage.toFloat() / totalPages.coerceAtLeast(1)`.
 | `bookMode` | Boolean | `false` | the lens switch; one source of truth |
 | `bookAnnualGoal` | Int | `0` | 0 = no goal set |
 | `timerPresets` | String | `"pomodoro"` | `pomodoro` (25/50/90) / `simples` (15/30/45/60) — U2 |
+| `notifAskedAt` | Long | `0` | 0 = we have never asked the OS for `POST_NOTIFICATIONS`; ms epoch once we have — N1 |
+| `readerTextScale` | Float | `1.0` | 0.8–1.8; the reader's body size only — L5 |
+| `readerLineHeight` | Float | `1.62` | 1.3–2.0 — L5 |
+| `readerMargin` | Int | `22` | dp, 8–48 — L5 |
+| `readerTheme` | String | `"app"` | `app` / `paper` / `sepia` / `night` — L5 |
+| `readingReminderEnabled` | Boolean | `false` | gated on its own switch **and** `bookMode` — L10 |
+| `readingReminderTime` | String | `"21:00"` | HH:MM — L10 |
 
-All `// native-only`. Prefs added by pending tasks (`readerTextScale`,
-`readerLineHeight`, `readerMargin`, `readerTheme` in L5; the reading-reminder
-pair in L10) are specified in those tasks and land with their own migration.
+All `// native-only`. Every value in the reader group clamps **in the
+setter**, not at the point of use — a prefs row is data, and data that can be out
+of range is data something downstream has to keep re-checking.
 
 ### Reading sessions — no new tables
 
@@ -100,11 +107,11 @@ That reuse bought the timer, the history and the backup round-trip for free.
 - `AppViewModel.blocks` (the planner's flow) **excludes** `project LIKE 'book:%'`
   so the Pauta tab stays clean; `bookSessionBlocks` is the book-mode flow.
 
-> **Two consequences worth knowing before you touch this.** Reading sessions
-> inherit the *focus* notification, wording and all — `BOOK_LIBRARY.md` L9.
-> And because the planner's flow filters them out while `deleteBook` does not
-> cascade to them, a deleted book's sessions become unreachable and keep
-> counting — `FIELD_FIXES.md` F2.
+> **Both of the consequences this used to warn about are fixed.** Reading
+> sessions no longer inherit the *focus* notification — the service reads the
+> block's `project` and uses its own channel and wording (L9) — and `deleteBook`
+> cascades to the blocks and their spans, so a deleted book leaves no orphans
+> counting in the statistics (F2).
 
 ---
 
@@ -122,7 +129,7 @@ The security rules that govern how a file gets there are section G of
 | EPUB word count | counted from the spine | exact |
 | PDF / physical word count | `BookMath.WORDS_PER_PAGE = 280` × pages | **`≈` everywhere** |
 | Reading speed (WPM) | words ÷ minutes | exact only for a counted EPUB |
-| ETA to finish | `BookMath.etaDays`, assuming 60 min/day | the assumption is **invisible today** — see `BOOK_LIBRARY.md` L12 |
+| ETA to finish | `BookMath.etaDays`, at the daily minutes measured from the book's own sessions (60 min/day when there are none) | the assumption is **printed beside the estimate** — L12 |
 
 **An estimate says so.** A derived figure presented as measured is the defect
 `FIELD_FIXES.md` exists to remove; see `GUARDRAILS.md` K.11.
@@ -137,8 +144,11 @@ The security rules that govern how a file gets there are section G of
 | 7 → 8 | `books`, `book_notes`, `bookMode`, `bookAnnualGoal` | `BOOK_MODE` K1 |
 | 8 → 9 | `timerPresets` | `UX_FIXES` U2 |
 | 9 → 10 | `filePath`, `fileKind`, `fileName`, `readPosition`, `wordCount` | `BOOK_READER` R2 |
-| 10 → 11 | *(see `AppDatabase.kt`)* | — |
-| **11 → 12** | **next free** | — |
+| 10 → 11 | `pagesDelta` on `focus_blocks` | `BOOK_READER` R5 |
+| 11 → 12 | `notifAskedAt` | `FIRST_RUN` N1 |
+| 12 → 13 | `readerTextScale`, `readerLineHeight`, `readerMargin`, `readerTheme` | `BOOK_LIBRARY` L5 |
+| 13 → 14 | `readingReminderEnabled`, `readingReminderTime` | `BOOK_LIBRARY` L10 |
+| **14 → 15** | **next free** | — |
 
 **Never rewrite a shipped migration.** If a shipped one was wrong, the fix is a
 new migration that repairs the data, plus a Log line saying what it repairs.
@@ -153,4 +163,7 @@ cost a rebase.
 ## Log (append when the model changes)
 
 <!-- YYYY-MM-DD · <what changed> · #PR · <why, and what it replaced> -->
+2026-08-06 · the reading reminder on `prefs`, Room 13 → 14 · #187 · L10. Two gates, not one: its own switch and `bookMode`, and the lens is a key of the reschedule flow so turning it off cancels the alarm rather than hiding the switch.
+2026-08-06 · the reader's four settings on `prefs`, Room 12 → 13 · #187 · L5. All four default to what the reader already did, so an existing install reads exactly as before until someone opens the sheet. `readerTextScale` **replaces** the density font scale for a book's body; the app-wide `textScale` still governs the reader's chrome.
+2026-08-06 · `notifAskedAt` on `prefs`, Room 11 → 12 · #187 · N1 needed one bit of state — have we ever asked for `POST_NOTIFICATIONS`? — because Android shows that dialog once and a second request is silent. Stored as a timestamp rather than a Boolean so a later task can tell *when*, at no cost. **This took the 11 → 12 slot `BOOK_LIBRARY.md` L5 had claimed**; L5 moves to 12 → 13 and L10 to the next free one after it.
 2026-08-03 · file created · — · consolidated from the Data model sections of `BOOK_MODE.md` (entities, sessions-as-blocks) and `BOOK_READER.md` (file columns, `filesDir/books`, the words-per-page constant), so those files could be archived without later work losing its reference; the migration history table, the "derived numbers" table and the version-collision note are new.

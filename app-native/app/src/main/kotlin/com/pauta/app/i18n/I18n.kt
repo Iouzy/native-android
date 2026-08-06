@@ -887,6 +887,158 @@ object I18n {
         "Marcar como não lido" to "Mark as unread", // native-only
         "Recomeçar" to "Start over", // native-only
         "Abandonado" to "Abandoned", // native-only
+
+        // N1 · the notification permission. The old subtitle ("Avisos locais
+        // enquanto a app está aberta") described neither the foreground service nor
+        // the alarms — both of which run with the app closed — and is replaced by
+        // the third line here. // PT: a permissão de notificações; o subtítulo
+        // antigo descrevia mal o que acontece.
+        "Bloqueado nas definições do sistema" to "Blocked in system settings", // native-only
+        "Abrir definições" to "Open settings", // native-only
+        "Lembretes e o bloco em curso, mesmo com a app fechada." to
+            "Reminders and the running block, even with the app closed.", // native-only
+
+        // F1 · every progress input asks in the unit the book counts in. "Página",
+        // "Minutos" and "Quantos minutos ouviste?" already exist above and are
+        // reused; only the percentage half is new. // PT: só falta a metade da
+        // percentagem — as outras chaves já existem.
+        "Em que percentagem ficaste?" to "What percentage are you at?", // native-only
+        "Percentagem" to "Percentage", // native-only
+        // The two nouns the same label needs for the other formats. ("Página
+        // (opcional)" above is now unused by the note sheet, which composes the
+        // noun with "opcional" instead so all three units read alike; the key
+        // stays rather than being deleted.) // PT: os nomes das outras unidades.
+        "Página" to "Page", // native-only
+        "Minutos" to "Minutes", // native-only
+
+        // F2 · a session you can reach, correct and remove. "Início" already
+        // exists above (the web app's own key) and is reused; only "Fim" is new.
+        // // PT: editar e apagar uma sessão; "Início" já existe e reaproveita-se.
+        "Fim" to "End", // native-only
+        "Editar sessão" to "Edit session", // native-only
+        "Apagar sessão" to "Delete session", // native-only
+        "Apagar esta sessão? O bloco fica, sem este tempo." to
+            "Delete this session? The block stays, without this time.", // native-only
+        "O fim não pode ser antes do início." to "The end cannot precede the start.", // native-only
+        "por contar" to "not counted", // native-only
+
+        // F5 · the reader's own controls. "Pausar" and "Retomar" already exist
+        // above (the Pauta tab's block states) and are reused verbatim; what is
+        // new is the receipt saying the book's unit instead of always "págs".
+        // // PT: o recibo na unidade do livro; "Pausar"/"Retomar" já existem.
+        "{n} palavras em {min} min" to "{n} words in {min} min", // native-only
+        "{n}% em {min} min" to "{n}% in {min} min", // native-only
+
+        // F7 · the print edition's pages. The publisher's own numbers are drawn
+        // inside the page and need no string; this one is the estimate derived
+        // from a hand-recorded length, and it carries its "≈" into both languages.
+        // // PT: a estimativa de página, com o "≈" que a marca como tal.
+        "≈ p. {x} de {y}" to "≈ p. {x} of {y}", // native-only
+
+        // F9 · the preset set, said in lower case beside the times it governs.
+        // "Pomodoro"/"Simples" already exist above as the Settings row's labels;
+        // these are the quieter footnote spellings. // PT: as versões minúsculas,
+        // ao pé dos tempos.
+        "pomodoro" to "pomodoro", // native-only
+        "simples" to "simple", // native-only
+
+        // F10 · the updater answers. "Está atualizado." is the same sentence
+        // whatever the answer, so the time is the part that proves the tap was
+        // taken. // PT: a hora é o que prova que o toque chegou.
+        "Verificado às {h}" to "Checked at {h}", // native-only
+
+        // F13 · the reading tab stops contradicting itself and stops ending in
+        // tides. "A seguir" already exists (the shelf section) and is reused.
+        // // PT: a tab de leitura deixa de se contradizer e de acabar em marés.
+        "Ainda não há nada para desenhar." to "Nothing to plot yet.", // native-only
+        "Ritmo da estante" to "The shelf's rhythm", // native-only
+        "≈ {n} dias a {m} min/dia" to "≈ {n} days at {m} min/day", // native-only
+        "Do teu caderno" to "From your notebook", // native-only
+        "as tuas marés" to "your tides", // native-only
+
+        // L4 · the contents, and the PDF's way to jump. The chapter names were
+        // already being parsed and dropped at the :reader boundary.
+        // // PT: o índice; os nomes dos capítulos já eram lidos e perdiam-se.
+        "Índice" to "Contents", // native-only
+        "Capítulo {n}" to "Chapter {n}", // native-only
+        "Ir para a página" to "Go to page", // native-only
+        "Ir" to "Go", // native-only
+        "de {n}" to "of {n}", // native-only
+        "Entre 1 e {n}." to "Between 1 and {n}.", // native-only
+
+        // L5 · the reader's own type and colour. "Noite" and "Papel" are new here
+        // as *reader themes*; the app's own theme names live elsewhere.
+        // // PT: as definições do leitor.
+        "Leitura" to "Reading", // native-only
+        // "Tamanho do texto" already exists above (the app-wide accessibility
+        // row) and is reused verbatim. // PT: já existe acima; reaproveita-se.
+        "Entrelinha" to "Line height", // native-only
+        "Margens" to "Margins", // native-only
+        "Tema de leitura" to "Reading theme", // native-only
+        "Papel" to "Paper", // native-only
+        "Sépia" to "Sepia", // native-only
+        "Noite" to "Night", // native-only
+        "Como a app" to "Match the app", // native-only
+
+        // L6 · capture from inside the book. "Nova nota" already exists (the
+        // sheet's own title) and is reused for the reader's ✎ description.
+        // // PT: capturar de dentro do livro; "Nova nota" já existe.
+        "+ Nota" to "+ Note", // native-only
+
+        // L8 · the shelf at a hundred books. "Título", "Autor", "Limpar" and the
+        // four shelf names already exist above and are reused.
+        // // PT: só faltam estas; as outras já existem acima.
+        "Procurar na estante" to "Search the shelf", // native-only
+        "{n} livros" to "{n} books", // native-only
+        "Recentes" to "Recent", // native-only
+        "Classificação" to "Rating", // native-only
+        "Nenhum livro encontrado" to "No books found", // native-only
+
+        // L9 · a reading session is not a focus block. "Leitura" already exists
+        // above (L5's reader settings sheet) and is reused as the channel name.
+        // // PT: a sessão de leitura fala como leitura; "Leitura" já existe.
+        "Terminar sessão" to "End session", // native-only
+
+        // L10 · the reading reminder. Its notification text is built in
+        // `ReminderScheduler.titleBody` from the saved language, not from here —
+        // that path runs at process start, before Room. // PT: o texto da
+        // notificação vem do agendador, que corre antes da base de dados.
+        "Lembrete de leitura" to "Reading reminder", // native-only
+        "Um empurrão diário para abrir o livro." to "A daily nudge to open the book.", // native-only
+        "Hora de ler" to "Time to read", // native-only
+
+        // L11 · the widget and the tile in book mode. "Nenhum livro em curso"
+        // already exists (the shelf's empty state) and is reused.
+        // // PT: o widget e o azulejo no modo livro.
+        "Ritmo de leitura" to "Reading rhythm", // native-only
+        "{n} dias seguidos" to "{n} days in a row", // native-only
+        "{n} min esta semana" to "{n} min this week", // native-only
+        "Sessão de leitura" to "Reading session", // native-only
+
+        // L12 · the review's leftovers. // PT: os restos da revisão.
+        "a {m} min/dia" to "at {m} min/day", // native-only
+        "Diz quantas páginas tem e a barra aparece." to
+            "Say how many pages it has and the bar appears.", // native-only
+        "Sem livros em curso — usa \"Adicionar livro +\" aqui em cima" to
+            "No books in progress — use \"Adicionar livro +\" above", // native-only
+
+        // N4 · the way back in, from onboarding's last page. // PT: a porta de
+        // volta, na última página do onboarding.
+        "Restaurar uma cópia" to "Restore a backup", // native-only
+        "Biblioteca" to "Library", // native-only
+        "Não foi possível ler esse ficheiro." to "That file could not be read.", // native-only
+
+        // N5 · the shelf's front door — the first screen of book mode.
+        // // PT: a porta de entrada da estante.
+        "A tua estante começa aqui." to "Your shelf starts here.", // native-only
+        "Três prateleiras — a ler, a seguir, lidos — e cada livro pode trazer um PDF ou um EPUB para ler aqui dentro." to
+            "Three shelves — reading, up next, finished — and any book can carry a PDF or an EPUB to read right here.", // native-only
+        "Adicionar o primeiro livro" to "Add the first book", // native-only
+
+        // N8 · the book form asks three questions, not nine. // PT: o formulário
+        // do livro passa a três perguntas.
+        "+ mais opções (série, formato, páginas, género, estado)" to
+            "+ more options (series, format, pages, genre, status)", // native-only
     )
 }
 

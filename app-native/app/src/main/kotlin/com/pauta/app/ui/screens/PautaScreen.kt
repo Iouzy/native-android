@@ -81,6 +81,7 @@ import com.pauta.app.domain.HabitCalculator.DayState
 import com.pauta.app.i18n.I18n
 import com.pauta.app.i18n.tr
 import com.pauta.app.i18n.trf
+import com.pauta.app.ui.PautaFloatStrip
 import com.pauta.app.ui.EmptyState
 import com.pauta.app.ui.PautaCard
 import com.pauta.app.ui.PautaRadius
@@ -90,6 +91,7 @@ import com.pauta.app.ui.clickableNoRipple
 import com.pauta.app.ui.computeTodayTides
 import com.pauta.app.ui.entranceStagger
 import com.pauta.app.ui.rememberEntrancePlay
+import com.pauta.app.ui.rememberNotificationAsk
 import com.pauta.app.ui.tick
 import com.pauta.app.ui.theme.LocalPautaColors
 import com.pauta.app.ui.theme.MonoFamily
@@ -196,6 +198,7 @@ fun PautaScreen(bookMode: Boolean = false, onOpenReader: (String) -> Unit = {}) 
             .filter { it.state == DayState.EMPTY }
     }
 
+    val askNotifications = rememberNotificationAsk(vm, prefs.notifAskedAt)
     var showStart by remember { mutableStateOf(false) }
     var showSwitch by remember { mutableStateOf(false) }
     var showManual by remember { mutableStateOf(false) }
@@ -222,6 +225,13 @@ fun PautaScreen(bookMode: Boolean = false, onOpenReader: (String) -> Unit = {}) 
         haptic.tick(prefs)
     }
     fun startBlock(title: String, linkedToId: String?, project: String? = null, targetMin: Int? = null) {
+        // N1: the honest moment to ask. The app is about to promise an ongoing
+        // notification for this block, and until v1.444 it made that promise on a
+        // clean Android 13+ install without ever having asked — the service ran
+        // foreground and the shade stayed empty. Asking here, once, is the whole
+        // design; a denial changes nothing about the timer. // PT: pede-se aqui,
+        // no momento em que a app promete o aviso do bloco. Recusar não pára nada.
+        askNotifications()
         vm.startBlock(title, linkedToId, project, targetMin)
         haptic.tick(prefs)
     }
@@ -373,10 +383,18 @@ fun PautaScreen(bookMode: Boolean = false, onOpenReader: (String) -> Unit = {}) 
                         line = if (filter != null) tr("Nada por aqui ainda.") else tr("Ainda nenhum bloco hoje. Comece quando quiser."),
                         pip = true,
                     )
-                    if (filter == null) {
-                        Spacer(Modifier.height(14.dp))
-                        StarterChip(tr("Começar um bloco de foco")) { showStart = true }
-                    }
+                    // N7 · one way to start a block.
+                    //
+                    // The empty tab showed the dark COMEÇAR hero card and, ~200dp
+                    // below it, this chip — two primary actions for one thing, both
+                    // opening the same sheet, on the emptiest screen in the app.
+                    // The card stays: it is the app's own idiom and it reads as the
+                    // primary action. The chip goes **from the empty state only**;
+                    // it is still useful below a list of today's blocks, where the
+                    // card has scrolled away.
+                    //
+                    // // PT: o cartão fica (é a identidade da tab); a chip sai do
+                    // estado vazio, onde duplicava, e passa para baixo da lista.
                 }
             } else {
                 // Timeline events as keyed items; connectUp/connectDown still read
@@ -398,9 +416,18 @@ fun PautaScreen(bookMode: Boolean = false, onOpenReader: (String) -> Unit = {}) 
                         )
                     }
                 }
+                // N7: this is where the chip earns its place — under a list, with
+                // the hero card scrolled away and no other way to start from here.
+                // // PT: por baixo da lista, onde o cartão já não se vê.
+                if (filter == null) {
+                    item(key = "start-below") {
+                        Spacer(Modifier.height(18.dp))
+                        StarterChip(tr("Começar um bloco de foco")) { showStart = true }
+                    }
+                }
             }
 
-            item(key = "bottom") { Spacer(Modifier.height(96.dp)) }
+            item(key = "bottom") { Spacer(Modifier.height(PautaFloatStrip)) }
         }
 
         // In-app goal-reached prompt, mirroring the native heads-up notification.
@@ -428,6 +455,11 @@ fun PautaScreen(bookMode: Boolean = false, onOpenReader: (String) -> Unit = {}) 
             hasActive = active != null,
             activeTitle = active?.title.orEmpty(),
             presets = TimerPresets.of(prefs.timerPresets),
+            // F9: the set is changed where the times are, writing the same pref
+            // the Settings row writes. // PT: o conjunto muda-se aqui, na mesma
+            // preferência das definições.
+            presetSet = prefs.timerPresets ?: TimerPresets.Pomodoro,
+            onPresetSet = { vm.setTimerPresets(it) },
             onStart = { title, linkedToId, project, targetMin ->
                 startBlock(title, linkedToId, project, targetMin)
                 showStart = false
@@ -472,12 +504,15 @@ fun PautaScreen(bookMode: Boolean = false, onOpenReader: (String) -> Unit = {}) 
             block = blockById[b.id] ?: b,
             sessions = sessionsOf(b.id),
             now = now,
-            onSave = { title, project, targetMs, reflection, notes ->
-                vm.updateBlock(b.id, title, project, targetMs)
-                vm.setBlockReflection(b.id, reflection)
-                notes.forEach { (rowId, text) -> vm.setSessionNote(rowId, text) }
+            onSave = { edit ->
+                vm.updateBlock(b.id, edit.title, edit.project, edit.targetMs)
+                vm.setBlockReflection(b.id, edit.reflection)
+                edit.notes.forEach { (rowId, text) -> vm.setSessionNote(rowId, text) }
+                // F2: the spans whose clock moved. // PT: as sessões cuja hora mudou.
+                edit.times.forEach { vm.setSessionTimes(it.rowId, it.startedAt, it.endedAt) }
                 editFor = null
             },
+            onDeleteSession = { rowId -> vm.deleteSession(rowId) },
             onDelete = { vm.deleteBlock(b.id); editFor = null },
             onClose = { editFor = null },
         )

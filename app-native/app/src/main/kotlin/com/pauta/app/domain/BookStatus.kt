@@ -1,5 +1,7 @@
 package com.pauta.app.domain
 
+import com.pauta.app.i18n.tr
+
 /**
  * native-only (L3): the five states a book can be in, and the shelf section
  * that shows each one.
@@ -35,6 +37,21 @@ object BookStatus {
         TBR -> Shelf.UpNext
         DONE, DNF -> Shelf.Finished
         else -> null
+    }
+
+    /**
+     * L8 · the one word a search result uses to say which shelf its book is on.
+     * Kept here beside the statuses themselves so a sixth status cannot be added
+     * without someone seeing that it needs a name. // PT: a palavra que diz a
+     * prateleira, ao pé dos próprios estados.
+     */
+    fun label(status: String): String = when (status) {
+        READING -> tr("A ler agora")
+        PAUSED -> tr("Em pausa")
+        TBR -> tr("A seguir")
+        DONE -> tr("Lidos")
+        DNF -> tr("Abandonado")
+        else -> tr("A seguir")
     }
 
     /** Sanitises a status arriving from outside the app (an L2 library file, a

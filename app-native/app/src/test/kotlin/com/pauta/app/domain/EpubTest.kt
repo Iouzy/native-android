@@ -206,6 +206,98 @@ class EpubTest {
         assertTrue(html, html.contains("""href="ch7.xhtml#p3""""))
     }
 
+    // ── F5(d) · a dead link is not painted as a link ──────────
+
+    @Test fun `a schemeless url survives the sanitiser and is marked dead`() {
+        // www.panmacmillan.com has no colon before its first slash, so safeHref
+        // reads it as a relative href and keeps it. Nothing navigates — the reader
+        // refuses every navigation — so painting it in the accent was a promise
+        // the app could not keep. // PT: o caso encontrado no livro real.
+        val html = Epub.sanitize("""<a href="www.panmacmillan.com">Pan Macmillan</a>""")
+        assertTrue(html, html.contains("class=\"${Epub.DEAD_LINK_CLASS}\""))
+    }
+
+    @Test fun `a link the book actually contains keeps the accent`() {
+        val html = Epub.sanitize(
+            """<a href="ch7.xhtml#p3">nota</a>""",
+            linkResolves = { it == "ch7.xhtml#p3" },
+        )
+        assertFalse(html, html.contains(Epub.DEAD_LINK_CLASS))
+    }
+
+    @Test fun `an anchor with no href at all is dead too`() {
+        // `<a id="p3">` is a jump target, not a link; its id doesn't survive the
+        // allow-list, so what is left must not look tappable.
+        // // PT: uma âncora sem href também não deve parecer um link.
+        val html = Epub.sanitize("""<a id="p3">texto</a>""")
+        assertTrue(html, html.contains("class=\"${Epub.DEAD_LINK_CLASS}\""))
+    }
+
+    @Test fun `an external-looking url is dead when nothing resolves it`() {
+        val html = Epub.sanitize("""<a href="other.xhtml">outro</a>""")
+        assertTrue(html, html.contains(Epub.DEAD_LINK_CLASS))
+    }
+
+    // ── F7 · the print edition's pages ────────────────────────
+
+    @Test fun `a pagebreak marker survives with the publisher's number`() {
+        // The sanitiser keeps `span` and drops its attributes, so the page number
+        // was being lost — the whole defect. // PT: o número vinha a ser perdido.
+        val html = Epub.sanitize("""<p>antes</p><span epub:type="pagebreak" title="123"/><p>depois</p>""")
+        assertTrue(html, html.contains("class=\"${Epub.PAGEBREAK_CLASS}\""))
+        assertTrue(html, html.contains("${Epub.PAGEBREAK_ATTR}=\"123\""))
+    }
+
+    @Test fun `the aria form of a pagebreak counts too`() {
+        val html = Epub.sanitize("""<span role="doc-pagebreak" aria-label="47">47</span>""")
+        assertTrue(html, html.contains("${Epub.PAGEBREAK_ATTR}=\"47\""))
+    }
+
+    @Test fun `a numbered marker does not also print its own text`() {
+        // Publishers write the number in the attributes and as text. Printing both
+        // leaves a stray "123" mid-paragraph. // PT: o número não sai duas vezes.
+        val html = Epub.sanitize("""<p>a<span epub:type="pagebreak" title="123">123</span>b</p>""")
+        assertEquals(html, 1, Regex("123").findAll(html).count())
+    }
+
+    @Test fun `a marker with no number in its attributes keeps its text`() {
+        // Nothing is invented: if the only place the number appears is the
+        // element's text, that text is what the stylesheet draws.
+        val html = Epub.sanitize("""<span epub:type="pagebreak">88</span>""")
+        assertTrue(html, html.contains("class=\"${Epub.PAGEBREAK_CLASS}\""))
+        assertTrue(html, html.contains("88"))
+    }
+
+    @Test fun `a number can be recovered from the marker's id`() {
+        val html = Epub.sanitize("""<span epub:type="pagebreak" id="page207"/>""")
+        assertTrue(html, html.contains("${Epub.PAGEBREAK_ATTR}=\"207\""))
+    }
+
+    @Test fun `roman numerals survive but arbitrary text does not`() {
+        val roman = Epub.sanitize("""<span epub:type="pagebreak" title="xiv"/>""")
+        assertTrue(roman, roman.contains("${Epub.PAGEBREAK_ATTR}=\"xiv\""))
+        // A book is untrusted input and this label is placed into the page by CSS,
+        // so it is reduced to what a page number can be.
+        val junk = Epub.sanitize("""<span epub:type="pagebreak" title="&lt;script&gt;"/>""")
+        assertFalse(junk, junk.contains("script"))
+    }
+
+    @Test fun `a book with no markers is completely unchanged`() {
+        val html = Epub.sanitize("""<p>um paragrafo</p><span>texto</span>""")
+        assertFalse(html, html.contains(Epub.PAGEBREAK_CLASS))
+        assertFalse(html, html.contains(Epub.PAGEBREAK_ATTR))
+    }
+
+    @Test fun `a malformed marker does not break the document around it`() {
+        // No closing tag, no attributes, nested markers: the chapter after it must
+        // still be there. // PT: um marcador malformado não parte o resto.
+        val html = Epub.sanitize(
+            """<p>antes</p><span epub:type="pagebreak" title="9"><span>x</span><p>depois</p>""",
+        )
+        assertTrue(html, html.contains("antes"))
+        assertTrue(html, html.contains("class=\"${Epub.PAGEBREAK_CLASS}\""))
+    }
+
     @Test fun `a base element cannot redirect what relative urls mean`() {
         val html = Epub.sanitize("""<base href="https://evil.example/"><p>texto</p>""")
         assertFalse(html, html.contains("base", ignoreCase = true))

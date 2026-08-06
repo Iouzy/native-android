@@ -2,6 +2,7 @@ package com.pauta.app.data
 
 import android.content.Context
 import android.net.Uri
+import com.pauta.app.domain.BookMath
 import com.pauta.app.domain.BookImport
 import com.pauta.app.domain.BookStatus
 import com.pauta.app.service.DocumentParse
@@ -58,6 +59,18 @@ data class ReaderSessionRecord(
     val durationMs: Long,
     /** The book's progress before this session wrote to it. */
     val previousPage: Int,
+    /**
+     * F5(c) · what the receipt should say this session was worth. Words for a
+     * counted EPUB — the honest figure, and the one the reader actually knows —
+     * and null for everything else, where [pagesDelta] is already in the book's
+     * own unit. Computed here because this is where the book is in hand; the
+     * snackbar that shows it lives in the shell, long after the reader is gone.
+     * // PT: as palavras da sessão, quando o livro as tem contadas.
+     */
+    val words: Int? = null,
+    /** F5(c) · true when [pagesDelta] counts percentage points rather than pages,
+     *  so the receipt can say "%" instead of "págs". // PT: a unidade do delta. */
+    val countsPercent: Boolean = false,
 )
 
 /**
@@ -421,6 +434,38 @@ class PautaRepository(private val db: AppDatabase) {
         focusSessionDao.update(s.copy(note = note.trim()))
     }
 
+    /**
+     * F2 · correct one session's span. The end never precedes the start, and an
+     * open (running) session keeps its null end rather than being closed by an
+     * edit — closing a live session is `concludeActive`'s job, not this one.
+     * // PT: corrigir o início e o fim de uma sessão; o fim nunca antes do início.
+     */
+    suspend fun setSessionTimes(rowId: Long, startedAt: Long, endedAt: Long?) {
+        val s = focusSessionDao.getAll().firstOrNull { it.rowId == rowId } ?: return
+        if (s.endedAt == null) return
+        val end = (endedAt ?: s.endedAt).coerceAtLeast(startedAt)
+        focusSessionDao.update(s.copy(startedAt = startedAt, endedAt = end))
+    }
+
+    /**
+     * F2 · remove one span. The block stays: a block whose spans are all gone is
+     * a block with no time in it, which is a thing the user can then delete on
+     * purpose — deleting it for them would take the reflection and the title with
+     * it. // PT: apaga uma sessão; o bloco fica, com as suas notas.
+     */
+    suspend fun deleteSession(rowId: Long) = focusSessionDao.deleteByRowId(rowId)
+
+    /**
+     * F2 · a reading session's own page span (R5's `pagesDelta`). Correcting the
+     * time without this leaves the pace exactly as wrong as it was, because
+     * `BookMath` reads the delta and not the clock. Null means "nobody counted",
+     * which stays distinct from 0. // PT: o delta de páginas de uma sessão de
+     * leitura; null = ninguém contou, que não é zero.
+     */
+    suspend fun setBlockPagesDelta(id: String, pagesDelta: Int?) {
+        focusBlockDao.getById(id)?.let { focusBlockDao.upsert(it.copy(pagesDelta = pagesDelta)) }
+    }
+
     suspend fun setBlockReflection(id: String, text: String) {
         focusBlockDao.getById(id)?.let { focusBlockDao.upsert(it.copy(reflection = text.trim())) }
     }
@@ -592,7 +637,11 @@ class PautaRepository(private val db: AppDatabase) {
         val m = modelOf(h)
         if (!HabitCalculator.isActiveOn(m, dayKey) || dayKey > todayKey) return
         val target = h.target ?: 1
-        val count = maxOf(0, n)
+        // F4: the ceiling, in the one place all four call sites pass through —
+        // the two screens, the notification action and the widget. Each of them
+        // asks for `current + 1` and none of them needs to know the rule.
+        // // PT: o tecto vive aqui, onde os quatro sítios passam.
+        val count = HabitCalculator.cycleCount(n, h.target)
         if (count <= 0) {
             habitMarkDao.removeCount(id, dayKey); habitMarkDao.removeLog(id, dayKey)
         } else {
@@ -831,9 +880,26 @@ class PautaRepository(private val db: AppDatabase) {
 
     suspend fun updateBook(book: BookEntity) = bookDao.upsert(book)
 
-    /** Removes the book, its notes and — R2 — its attached file. // PT: apaga o
-     *  livro, as notas e o ficheiro anexado. */
+    /**
+     * Removes the book, its notes, its attached file (R2) and — F2 — its reading
+     * sessions.
+     *
+     * The sessions used to survive. A reading session is a `FocusBlockEntity` with
+     * `project = "book:<id>"`, the planner's flow filters those out, and book mode
+     * looks them up through the book — so once the book was gone they were
+     * reachable from nowhere and still counted in the Hábitos statistics. That is
+     * an orphan the user cannot see, cannot delete and cannot stop being measured
+     * by, which is precisely what GUARDRAILS §H forbids.
+     *
+     * Sessions go before blocks: the span rows are found through the block ids,
+     * so deleting the blocks first would leave nothing to find them by.
+     * // PT: apaga o livro, as notas, o ficheiro e as sessões de leitura — as
+     * sessões primeiro, senão perdem-se os ids por onde se encontram.
+     */
     suspend fun deleteBook(context: Context, id: String) {
+        val project = "book:$id"
+        focusBlockDao.getForProject(project).forEach { focusSessionDao.deleteForBlock(it.id) }
+        focusBlockDao.deleteForProject(project)
         bookDao.getById(id)?.let { BookFiles.delete(context, it) }
         bookNoteDao.run { getAll().filter { it.bookId == id }.forEach { deleteById(it.id) } }
         bookDao.deleteById(id)
@@ -1028,18 +1094,72 @@ class PautaRepository(private val db: AppDatabase) {
             )
         }
 
-        if (block == null) return@withLock null
+        // L9 · the defect hiding behind the wording.
+        //
+        // Concluding a session **from the notification while the reader is open**
+        // ends the block; the reader's `onDispose` then arrives here, finds no
+        // active block, and used to write the bookmark, leave `currentPage`
+        // untouched and return null. It is the one path where the reader knows
+        // exactly how far you got and records none of it.
+        //
+        // The position is written above regardless now — the reader's own reading
+        // of where it was left is better than a stale hand-typed page. What is
+        // left is the delta, and the heuristic is deliberately narrow: back-fill
+        // only a block for *this* book, concluded in the last few seconds, that
+        // nobody measured. An older block is a different sitting and its silence
+        // is honest. // PT: concluir pela notificação com o leitor aberto perdia a
+        // página; agora escreve-se, e o delta só se preenche num bloco deste livro
+        // fechado agora mesmo e que ninguém mediu.
+        if (block == null) {
+            // `outcome` is useless here — with no block there is no duration, so
+            // it always reads as a peek. The honest test is whether the reader
+            // moved. // PT: sem bloco não há duração; o que conta é ter-se mexido.
+            val moved = endPage != startPage
+            if (book != null && moved) {
+                bookDao.upsert(book.copy(currentPage = endPage.coerceAtLeast(0)))
+                // The most recent block of *this* book that nobody measured, and
+                // only if it was closed seconds ago — keyed on when its last span
+                // actually ended, not on when the block was created, because a
+                // forty-minute sitting is created forty minutes before it ends.
+                // // PT: pelo fim do último intervalo, não pela criação do bloco.
+                val candidate = focusBlockDao.getForProject(project)
+                    .filter { it.status == "done" && it.pagesDelta == null }
+                    .maxByOrNull { it.createdAt }
+                val closedAt = candidate?.let { c ->
+                    focusSessionDao.getForBlock(c.id).mapNotNull { it.endedAt }.maxOrNull()
+                }
+                if (candidate != null && closedAt != null && now - closedAt <= JUST_CONCLUDED_MS) {
+                    focusBlockDao.upsert(candidate.copy(pagesDelta = endPage - startPage))
+                }
+            }
+            return@withLock null
+        }
         if (!outcome.save) {
             deleteBlock(block.id)
             return@withLock null
         }
         focusBlockDao.upsert(block.copy(status = "done", pagesDelta = outcome.pagesDelta))
+        // F5(c): the receipt in the book's own unit. A counted EPUB can say words,
+        // which is the figure a reader actually recognises; F1's ceiling applies
+        // here too, so a session that was really a chapter jump reports its time
+        // and not a word count it did not earn. // PT: o recibo na unidade do
+        // livro, com o mesmo tecto de velocidade da tarefa F1.
+        val perUnit = book?.let { BookMath.wordsPerUnit(it) }
+        val words = if (book != null && BookMath.hasCountedWords(book) && perUnit != null) {
+            val span = BookMath.SessionSpan(outcome.pagesDelta, durationMs)
+            if (BookMath.readingSpans(listOf(span), perUnit).isEmpty()) null
+            else (outcome.pagesDelta.coerceAtLeast(0) * perUnit).toInt()
+        } else {
+            null
+        }
         ReaderSessionRecord(
             blockId = block.id,
             bookId = bookId,
             pagesDelta = outcome.pagesDelta,
             durationMs = durationMs,
             previousPage = book?.currentPage ?: startPage,
+            words = words,
+            countsPercent = book?.fileKind == "epub",
         )
     }
 
@@ -1067,6 +1187,9 @@ class PautaRepository(private val db: AppDatabase) {
     suspend fun booksFinishedThisYear(yearStartMs: Long): Int = bookDao.countFinishedSince(yearStartMs)
 
     fun notesForBook(bookId: String): Flow<List<BookNoteEntity>> = bookNoteDao.observeForBook(bookId)
+
+    /** F13: every note, newest first. // PT: todas as notas, mais recentes primeiro. */
+    fun allNotes(): Flow<List<BookNoteEntity>> = bookNoteDao.observeAll()
 
     /** Capture a quote / annotation / thought against a book; returns the new id. */
     suspend fun addNote(bookId: String, kind: String, text: String, page: Int?): String {
@@ -1414,4 +1537,16 @@ class PautaRepository(private val db: AppDatabase) {
             .listFiles()
             ?.sortedByDescending { it.lastModified() }
             ?: emptyList()
+
+    private companion object {
+        /**
+         * L9: how recently a block must have closed for the reader's page span to
+         * still be describing it. Wide enough to cover the notification tap and
+         * the activity teardown that follows it; far too narrow to reach a session
+         * from earlier in the evening, which is a different sitting whose silence
+         * about pages is honest. // PT: a janela em que o bloco fechado ainda é
+         * esta sessão — o toque na notificação e o fecho do ecrã, e nada mais.
+         */
+        const val JUST_CONCLUDED_MS = 10_000L
+    }
 }

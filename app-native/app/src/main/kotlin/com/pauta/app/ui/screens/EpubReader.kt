@@ -23,6 +23,8 @@ import com.pauta.app.domain.Epub
 import com.pauta.app.service.EpubSession
 import com.pauta.app.ui.theme.LocalPautaColors
 import java.io.ByteArrayInputStream
+import androidx.compose.ui.unit.Dp
+import com.pauta.app.ui.theme.ReaderThemes
 
 /** Where a tap landed: the outer thirds turn a page, the middle calls the chrome
  *  back. // PT: os terços exteriores mudam de capítulo; o meio chama a cromagem. */
@@ -57,9 +59,23 @@ enum class ReaderTap { PREVIOUS, MIDDLE, NEXT }
  */
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
-fun EpubChapterView(
+// L5: internal, because it takes the module-internal `ReaderSettings`. It has
+// only ever been called from `ReaderScreen`, one file over.
+// // PT: interno — recebe um tipo interno e só é usado aqui ao lado.
+internal fun EpubChapterView(
     session: EpubSession,
     chapter: Int,
+    // L5: the reader's own type and colour. Named `reader` and not `settings`
+    // because the WebView's own `settings` is an implicit receiver a few lines
+    // below, and two things called the same thing in one function is how a
+    // lockdown line silently stops applying. // PT: chama-se `reader` porque o
+    // WebView já tem um `settings` — dois nomes iguais aqui seria perigoso.
+    reader: ReaderSettings,
+    // F5(b): the measured height of the reader's bars, which the chapter is inset
+    // by. WebView maps one CSS px to one dp, so these carry straight into the
+    // stylesheet. // PT: a altura das barras, que o capítulo respeita.
+    topInset: Dp,
+    bottomInset: Dp,
     restoreScroll: Float,
     onScroll: (Float) -> Unit,
     onTap: (ReaderTap) -> Unit,
@@ -68,14 +84,19 @@ fun EpubChapterView(
     modifier: Modifier = Modifier,
 ) {
     val colors = LocalPautaColors.current
-    val css = rememberChapterCss()
+    val webBg = (ReaderThemes.pair(reader.theme)?.first ?: colors.paper).toArgb()
+    val css = rememberChapterCss(topInset, bottomInset, reader)
 
     // The chapter's markup, fetched from `:reader`. A null answer for a chapter
     // that should exist means the archive (or the process) is gone. // PT: o
     // capítulo vem do processo :reader; um nulo é o fim.
     var html by remember(session) { mutableStateOf<String?>(null) }
     var forChapter by remember(session) { mutableStateOf(-1) }
-    LaunchedEffect(session, chapter) {
+    // L5: `css` is a key. The stylesheet is baked into the document at fetch time,
+    // so without it a settings change would write a new stylesheet nobody ever
+    // loaded — the sheet would look like it did nothing. // PT: o CSS entra na
+    // chave, senão mudar as definições não muda nada do que está carregado.
+    LaunchedEffect(session, chapter, css) {
         html = null
         val body = session.chapter(chapter)
         if (body == null) {
@@ -105,7 +126,10 @@ fun EpubChapterView(
                     // The engine paints its own background before our CSS lands;
                     // paper it now or every chapter starts with a white flash.
                     // // PT: fundo já em papel, senão pisca branco.
-                    setBackgroundColor(colors.paper.toArgb())
+                    // L5: the reader's paper, not the app's — a night theme must not
+                    // flash the app's light paper before the CSS lands.
+                    // // PT: o papel do leitor, senão pisca o da app.
+                    setBackgroundColor(webBg)
                     overScrollMode = WebView.OVER_SCROLL_NEVER
 
                     settings.javaScriptEnabled = false
@@ -285,23 +309,53 @@ private fun restore(view: WebView, fraction: Float, attempt: Int = 0) {
  * deixa passar tipos de letra e a Instrument Serif é de títulos, não de corpo.
  */
 @Composable
-private fun rememberChapterCss(): String {
-    val colors = LocalPautaColors.current
-    val density = androidx.compose.ui.platform.LocalDensity.current
-    // The text-size preference already lives in the density's font scale (set once
-    // in MainActivity), so reading it here keeps the reader in step with the rest
-    // of the app for free. // PT: a escala do texto vem da densidade, já ajustada.
-    val scale = density.fontScale
-    return remember(colors.paper, colors.ink, colors.accent, colors.rule, scale) {
+private fun rememberChapterCss(topInset: Dp, bottomInset: Dp, reader: ReaderSettings): String {
+    val appColors = LocalPautaColors.current
+    // L5: the reader's own scale **replaces** the density's font scale here. The
+    // app-wide `textScale` accessibility preference still governs the reader's
+    // *chrome* — the bars, the sheets, every label — as it does everywhere else;
+    // it simply stops being the only thing that sets the body size of a book.
+    // // PT: a escala do leitor substitui a global no corpo do livro; a global
+    // continua a valer para a cromagem.
+    val scale = reader.textScale
+    // `app` follows LocalPautaColors, sepia wash and all; the three fixed themes
+    // come from the token table beside the others. // PT: "app" segue as cores da
+    // app; os outros vêm da tabela de tokens.
+    val fixed = ReaderThemes.pair(reader.theme)
+    val paper = fixed?.first ?: appColors.paper
+    val ink = fixed?.second ?: appColors.ink
+    val rule = ReaderThemes.rule(reader.theme) ?: appColors.rule
+    val ink3 = if (fixed != null) ink.copy(alpha = 0.55f) else appColors.ink3
+    val accent = appColors.accent
+    // Clamped in the setter, so these arrive already sane; the local names keep
+    // the CSS readable. // PT: já vêm limitados do setter.
+    val lineHeight = reader.lineHeight
+    val margin = reader.margin
+    // The CSP still forbids `font-src`, so the body face stays the platform
+    // `serif`. A face picker here would be a picker with one entry — said out loud
+    // so the next reader doesn't rediscover it. // PT: a CSP não deixa carregar
+    // tipos de letra; um selector de tipo teria uma entrada só.
+    // F5(b): the bars' own height, plus the breathing room the page had before.
+    // A WebView's CSS px is a dp, so the value crosses unchanged. The floor keeps
+    // a sane margin in the frame before the bars have been measured.
+    // // PT: a altura das barras em px de CSS (= dp), com um mínimo para o
+    // primeiro frame.
+    val topPad = topInset.value.toInt().coerceAtLeast(8) + 8
+    val bottomPad = bottomInset.value.toInt().coerceAtLeast(24) + 16
+    // The key must carry every value the string interpolates, or a changed
+    // setting leaves the chapter as it was — and getting it wrong the other way
+    // reloads the chapter on every recomposition and throws the scroll away (see
+    // the LoadState comment above). // PT: a chave leva tudo o que a string usa.
+    return remember(paper, ink, ink3, accent, rule, scale, lineHeight, margin, topPad, bottomPad) {
         val body = (18f * scale).toInt().coerceIn(12, 40)
         """
-        html,body{margin:0;padding:0;background:${hex(colors.paper)};}
+        html,body{margin:0;padding:0;background:${hex(paper)};}
         body{
-          color:${hex(colors.ink)};
+          color:${hex(ink)};
           font-family:serif;
           font-size:${body}px;
-          line-height:1.62;
-          padding:8px 22px 64px 22px;
+          line-height:$lineHeight;
+          padding:${topPad}px ${margin}px ${bottomPad}px ${margin}px;
           text-align:left;
           word-wrap:break-word;
           overflow-wrap:break-word;
@@ -312,21 +366,45 @@ private fun rememberChapterCss(): String {
           font-weight:normal;
           line-height:1.25;
           margin:1.6em 0 0.7em 0;
-          color:${hex(colors.ink)};
+          color:${hex(ink)};
         }
         h1{font-size:1.5em;} h2{font-size:1.3em;} h3{font-size:1.15em;}
-        a{color:${hex(colors.accent)};text-decoration:none;}
+        a{color:${hex(accent)};text-decoration:none;}
+        /* F5(d): a link that resolves to nothing in this book is not painted as a
+           link. The reader refuses every navigation, so an external URL is inert —
+           and an inert thing in the accent is a promise the app cannot keep.
+           // PT: um link que não leva a lado nenhum fica em tinta, não em acento. */
+        a.${Epub.DEAD_LINK_CLASS}{color:${hex(ink)};text-decoration:none;}
+        /* F7: the print edition's page break — a hairline across the measure with
+           the publisher's own number small at the end of it. This is the
+           orientation pagination would have given, using numbers nobody invented:
+           a book without markers is unchanged. The number comes either from the
+           marker's attributes (drawn by ::after) or, when it wasn't there, from
+           the element's own text. // PT: a separação da página impressa — um traço
+           e o número que o editor imprimiu. */
+        .${Epub.PAGEBREAK_CLASS}{
+          display:block;
+          border-top:1px solid ${hex(rule)};
+          margin:1.7em 0 1.5em 0;
+          padding-top:0.3em;
+          text-align:right;
+          font-family:monospace;
+          font-size:0.72em;
+          letter-spacing:0.06em;
+          color:${hex(ink3)};
+        }
+        .${Epub.PAGEBREAK_CLASS}::after{content:attr(${Epub.PAGEBREAK_ATTR});}
         blockquote{
           margin:1.2em 0;padding-left:1em;
-          border-left:2px solid ${hex(colors.rule)};
-          color:${hex(colors.ink)};
+          border-left:2px solid ${hex(rule)};
+          color:${hex(ink)};
         }
-        hr{border:0;border-top:1px solid ${hex(colors.rule)};margin:1.8em 0;}
+        hr{border:0;border-top:1px solid ${hex(rule)};margin:1.8em 0;}
         img{max-width:100%;height:auto;display:block;margin:1.2em auto;}
         ul,ol{padding-left:1.4em;margin:0 0 0.9em 0;}
         li{margin:0 0 0.35em 0;}
         table{border-collapse:collapse;width:100%;margin:1.2em 0;}
-        td,th{border:1px solid ${hex(colors.rule)};padding:6px 8px;text-align:left;}
+        td,th{border:1px solid ${hex(rule)};padding:6px 8px;text-align:left;}
         pre,code{font-family:monospace;font-size:0.9em;white-space:pre-wrap;}
         """.trimIndent()
     }

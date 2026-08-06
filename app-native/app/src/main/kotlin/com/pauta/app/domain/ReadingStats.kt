@@ -36,9 +36,29 @@ object ReadingStats {
         val words: Float? = null,
     )
 
-    /** Local day keys on which any reading session was concluded. */
+    /**
+     * F13 · **the one definition of a reading day.**
+     *
+     * The Hábitos tab used to contradict itself — *"Sequência atual: 1 dia"* three
+     * lines above *"Ainda sem leituras registadas."* — because two places asked
+     * different questions and printed the same sentence: one counted sessions, the
+     * other counted *plottable* sessions, and a 0-minute session satisfies one and
+     * not the other.
+     *
+     * A day was read when at least one session on it lasted a minute. Below that
+     * it is a peek, which is exactly the rule `ReaderMath.sessionOutcome` applies
+     * when deciding whether to save at all (F1) — so the two halves of the app now
+     * agree about what reading is. This governs the grid, the streak and the
+     * charts; where the *charts alone* have nothing to draw, they say so in their
+     * own words rather than borrowing this sentence.
+     * // PT: um dia lido é um dia com pelo menos uma sessão de um minuto — a mesma
+     * regra que o leitor usa para decidir se guarda a sessão.
+     */
+    fun counts(session: Session): Boolean = session.minutes >= 1
+
+    /** Local day keys on which any reading session worth the name was concluded. */
     fun daysRead(sessions: List<Session>): Set<String> =
-        sessions.mapTo(LinkedHashSet()) { it.dayKey }
+        sessions.filter { counts(it) }.mapTo(LinkedHashSet()) { it.dayKey }
 
     /**
      * Current and best consecutive-day reading streaks, as `current to best`.

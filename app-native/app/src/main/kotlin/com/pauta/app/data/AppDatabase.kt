@@ -61,7 +61,7 @@ import com.pauta.app.data.entity.RoutineItemEntity
         BookEntity::class,
         BookNoteEntity::class,
     ],
-    version = 11,
+    version = 14,
     exportSchema = false,
 )
 @TypeConverters(Converters::class)
@@ -225,6 +225,40 @@ abstract class AppDatabase : RoomDatabase() {
         private val MIGRATION_10_11 = object : Migration(10, 11) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE focus_blocks ADD COLUMN pagesDelta INTEGER")
+            }
+        }
+
+        // N1: the moment we last asked for POST_NOTIFICATIONS (0 = never). Every
+        // existing install starts at 0, so the first focus block after this update
+        // asks once — which for anyone who already granted the permission through
+        // Settings resolves silently and changes nothing. // PT: quando pedimos a
+        // permissão de notificações; instalações existentes começam a 0.
+        private val MIGRATION_11_12 = object : Migration(11, 12) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE prefs ADD COLUMN notifAskedAt INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
+        // L5: the reader's own type and colour. All four defaulted to what the
+        // reader already did, so an existing install reads exactly as it did
+        // before anyone opens the sheet. // PT: as definições do leitor, com os
+        // valores que ele já usava — nada muda até alguém as mexer.
+        private val MIGRATION_12_13 = object : Migration(12, 13) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE prefs ADD COLUMN readerTextScale REAL NOT NULL DEFAULT 1.0")
+                db.execSQL("ALTER TABLE prefs ADD COLUMN readerLineHeight REAL NOT NULL DEFAULT 1.62")
+                db.execSQL("ALTER TABLE prefs ADD COLUMN readerMargin INTEGER NOT NULL DEFAULT 22")
+                db.execSQL("ALTER TABLE prefs ADD COLUMN readerTheme TEXT NOT NULL DEFAULT 'app'")
+            }
+        }
+
+        // L10: the reading reminder — off for everyone until they turn it on, and
+        // silent in planner mode whatever it says. // PT: o lembrete de leitura,
+        // desligado por omissão e mudo fora do modo livro.
+        private val MIGRATION_13_14 = object : Migration(13, 14) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE prefs ADD COLUMN readingReminderEnabled INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE prefs ADD COLUMN readingReminderTime TEXT NOT NULL DEFAULT '21:00'")
             }
         }
 
@@ -406,7 +440,8 @@ abstract class AppDatabase : RoomDatabase() {
                     .addMigrations(
                         MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5,
                         MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9,
-                        MIGRATION_9_10, MIGRATION_10_11,
+                        MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12,
+                        MIGRATION_12_13, MIGRATION_13_14,
                     )
                     .addCallback(SEARCH_CALLBACK)
                     .build()

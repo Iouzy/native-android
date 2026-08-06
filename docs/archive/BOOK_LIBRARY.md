@@ -75,8 +75,9 @@ that bite hardest in this file:
   identity, and they add no toolbars, FABs or Material chrome. **Whichever of
   the three ships first owns the new control row**; the other two join it.
 - **Claim your Room version in the task before you write code.** L5 takes
-  **11 → 12**; L10 takes the next free one. A collision on v9 once cost a
-  rebase.
+  **12 → 13**; L10 takes the next free one. A collision on v9 once cost a
+  rebase — and 11 → 12 went to `FIRST_RUN.md` N1, which shipped ahead of this
+  file, which is why L5's number moved.
 
 ---
 
@@ -405,7 +406,7 @@ recomputed on every move; planner mode untouched; CI green.
 
 ## Phase L-1 — the reader a reader expects
 
-### L4 · A table of contents, and a way to jump — Status: pending
+### L4 · A table of contents, and a way to jump — Status: done (PR #187)
 
 **Depends on:** nothing
 
@@ -477,7 +478,7 @@ session follow a jump; TalkBack announces both controls; CI green.
 
 ---
 
-### L5 · Reading settings — Status: pending
+### L5 · Reading settings — Status: done (PR #187)
 
 **Depends on:** nothing (independent of L4; both add to the reader chrome —
 whichever ships second reuses the first's control row)
@@ -490,7 +491,7 @@ book, open Settings, change a global preference that also resizes the whole
 planner, and come back.
 
 **Files to touch:**
-- `data/entity/Entities.kt` + `data/AppDatabase.kt` — prefs columns, Room v11 → v12
+- `data/entity/Entities.kt` + `data/AppDatabase.kt` — prefs columns, Room v12 → v13
 - `ui/screens/ReaderScreen.kt` — the chrome action + the sheet
 - `ui/screens/EpubReader.kt` — `rememberChapterCss` reads them
 - `ui/screens/PdfReader.kt` — the theme half only
@@ -498,8 +499,8 @@ planner, and come back.
 
 **How:**
 
-Four new `PrefsEntity` columns, all `// native-only`, Room **v11 → v12** as
-`MIGRATION_11_12`:
+Four new `PrefsEntity` columns, all `// native-only`, Room **v12 → v13** as
+`MIGRATION_12_13`:
 
 | Column | Type | Default | Notes |
 |---|---|---|---|
@@ -575,7 +576,7 @@ green.
 
 ---
 
-### L6 · Keeping a line, from inside the book — Status: pending
+### L6 · Keeping a line, from inside the book — Status: done (PR #187)
 
 **Depends on:** nothing
 
@@ -653,7 +654,7 @@ the shelf header path is unchanged; CI green.
 
 ## Phase L-2 — the shelf at scale
 
-### L7 · `genre` earns its keep, or goes — Status: pending
+### L7 · `genre` earns its keep, or goes — Status: done (PR #187)
 
 **Depends on:** nothing (but L8 is where it becomes useful — ship L7 first and
 L8 consumes it)
@@ -692,7 +693,7 @@ taxonomy.
 
 ---
 
-### L8 · The shelf at a hundred books — Status: pending
+### L8 · The shelf at a hundred books — Status: done (PR #187)
 
 **Depends on:** L3 (the paused section), L7 (genre tags, if kept)
 
@@ -777,7 +778,7 @@ pixel-identical to today's; CI green.
 
 ## Phase L-3 — the edges
 
-### L9 · A reading session is not a focus block — Status: pending
+### L9 · A reading session is not a focus block — Status: done (PR #187)
 
 **Depends on:** nothing
 
@@ -832,7 +833,7 @@ focus notification is unchanged; CI green.
 
 ---
 
-### L10 · A reminder to read — Status: pending
+### L10 · A reminder to read — Status: done (PR #187)
 
 **Depends on:** nothing
 
@@ -842,7 +843,7 @@ daily practice — has no reminder of its own. The scheduling machinery is built
 tested and boot-persistent; this is a third caller, not a new system.
 
 **Files to touch:**
-- `data/entity/Entities.kt` + `data/AppDatabase.kt` — two prefs columns (v12 → v13,
+- `data/entity/Entities.kt` + `data/AppDatabase.kt` — two prefs columns (v13 → v14,
   or fold into L5's migration if that ships first and hasn't merged)
 - `service/ReminderScheduler.kt` / `ReminderReceiver.kt` — a reading kind
 - `ui/screens/SettingsScreen.kt` — a row in the reminders section, book mode only
@@ -862,7 +863,7 @@ planner mode and when disabled; CI green.
 
 ---
 
-### L11 · The widget and the tile know about book mode — Status: pending
+### L11 · The widget and the tile know about book mode — Status: done (PR #187)
 
 **Depends on:** nothing
 
@@ -886,7 +887,7 @@ a reading session; with it off both are exactly as today; CI green.
 
 ---
 
-### L12 · The review's leftovers — Status: pending
+### L12 · The review's leftovers — Status: done (PR #187) — all five
 
 **Depends on:** everything above (do it last, or drop it)
 
@@ -944,4 +945,5 @@ its data is already parsed and thrown away.
 <!-- e.g. 2026-08-03 · L1 · #n · resetAll now clears books, notes and filesDir/books -->
 2026-08-02 · L1 · #181 · resetAll now clears book_notes, books and filesDir/books/ via BookFiles.clearAll; reseed inherits the fix
 2026-08-02 · L2 · #182 · snapshot()/importJson() filter book blocks both ways (rule now single-sourced in BookBackup); new pauta.books.v1 export/import merges by id, no filePath/fileKind, two rows in Settings → Dados (book mode only)
+2026-08-06 · L12 · #187 · **All five done, none struck.** (1) `ProgressEditor` caps input at the maximum's own digit count — it always clamped, so typing 999999 against a percentage silently became 100, and a field that swallows four digits and shows a different number lied about accepting them. (2) `BookDoneCard` shows the finish **year**: "Lidos" is sorted by `finishedAt` and never showed it, so the shelf's own order was invisible; a year reads at a glance and a full date would be a receipt (the exact day is in the detail sheet). (3) The ETA's 60 min/day is **derived** from the book's own sessions where there are any, and **printed either way** — an assumption that is invisible is an assumption presented as knowledge (K.11). (4) The capture sheet's empty state said "adiciona um na Estante" while being reachable only *from* the Estante — directions to the room you are standing in; it names the action instead. (5) A book with no length and no file gets a line saying what would bring the bar back, and tapping it opens the form — the absence of a bar was correct and unexplained. · **Verified:** nothing. Five small visual changes, no SDK here, and none of them has been on a screen. One widget and one tile, two faces each — the same answer the tabs already are, and the reason neither gained a second of itself: a second widget is another thing to place and to keep in step. The widget's reading face derives everything from `ReadingStats` (F13's definition of a reading day included), so nothing new is stored and nothing is self-reported. **The tile turned out to need less than the spec assumed and one thing it didn't mention.** Its action is already lens-correct: `SHORTCUT_FOCUS` opens tab 2, and in book mode tab 2 *is* Sessão — so the destination follows for free and only the **label** was lying. It is refreshed in `onStartListening`, which is when the shade opens, so it can never be stale. Reading the lens there could not go through Room: a tile runs with the app closed and long before anything is loaded, so `bookMode` is now saved alongside the reminder settings — which is already the place background components read from, and which L10 had just put it in. · **Verified:** nothing. No SDK; no widget has been placed and no tile has been added to a shade. A third caller of the existing `AlarmManager` path, not a new system — `Kind.READING` joins `PLANNER`/`HABITS`/`REFLECTION` and inherits the re-arm-on-fire and the boot restore for free. Room **13 → 14**. **Two gates, and the second is the one worth stating:** the reminder has its own switch rather than riding the master reminders toggle (someone can want a nudge to read without wanting a plan-your-day notification — different promises), *and* it is gated on `bookMode`, because a preference a planner user cannot see must not be able to wake their phone. `bookMode` is a **key** of the reschedule flow, not just of the row's visibility, so turning the lens off genuinely cancels the alarm instead of merely hiding the switch that armed it. The notification names the book when there is exactly one being read and stays generic otherwise: naming one of four would be picking a favourite. It also inherits N1 — the row asks for the permission when switched on, and disappears behind the same blocked state, because a row offering an alarm the OS will drop is exactly the defect N1 exists to remove. · **Verified:** nothing. No SDK; the migration has never run, no alarm has fired, and "survives a reboot" is a property of the machinery this joins rather than something observed. The service now receives the block's **project** and reads reading from focus off it: its own channel (`pauta_reading`, named "Leitura") and "Terminar sessão" instead of "Concluir". A second *channel* is right — reading and focusing are different ongoing activities and someone may well want to silence one — and a second *notification* would not be, so there is still exactly one. **The defect behind the wording is the part that mattered.** Concluding from the notification while the reader is open ended the block; the reader's `onDispose` then found none, wrote the bookmark, left `currentPage` untouched and returned null — the one path where the reader knows exactly how far you got and records nothing. Two things not to re-derive: `ReaderMath.sessionOutcome` is **useless in that branch**, because with no block there is no duration and it therefore always reads as a peek — the honest test is whether the position moved; and the back-fill is keyed on when the candidate block's last *span ended*, not on `createdAt`, because a forty-minute sitting is created forty minutes before it closes. The window is 10 s: wide enough for the tap and the teardown after it, far too narrow to reach a session from earlier in the evening, whose silence about pages is honest. The spec offered "write the progress and leave `pagesDelta` null" as an acceptable fallback; the narrow heuristic was cheap enough to be worth it, and the page — the part that must not be lost — is written either way. · **Verified:** nothing. No SDK; the whole of this is a notification and a race between a broadcast receiver and a composable's `onDispose`, and neither has been exercised anywhere. `domain/BookShelf` is the whole of it — search, sort and the carousel threshold, pure and covered by 15 cases including a hundred-book library, because a shelf that stops working at scale is not a thing to find out on a device. Accent- and case-insensitive over title, author, series and genre, with title matches above author above the rest and a **prefix** match above a match in the middle; ties break by title so results never shuffle between keystrokes. No fuzzy matching: a substring match over four fields is enough for a personal library and it is *explicable*, and a result you cannot explain is a result you cannot trust. **It reuses L7's `genreTags`** rather than splitting the string again — which is why L7 put it in `domain/`. Two judgements in the sort: `Recentes` falls back from `finishedAt` to `createdAt`, because a book with no finish date is not undated; and an **unrated book sorts last under `Classificação` rather than as a zero** — unrated is not bad. The search state is screen state, deliberately not in the ViewModel. The four flows are combined once. "Lidos" stops being a `LazyRow` past twelve — about a year of ordinary reading, the point at which sideways stops being a gesture — and becomes rows that scroll the way the page already does. A result row says which shelf its book is on, because when you are searching that *is* the answer; `BookStatus.label` lives beside the statuses so a sixth one cannot be added without someone seeing it needs a name. An empty result is the shared `EmptyState`. · **Verified:** the pure half thoroughly. **The screen not at all** — no SDK here, and "the empty-query shelf is pixel-identical to today's" is an argument from the diff (the four sections' code is untouched; only "Lidos" gained a sort and a threshold) rather than something anyone has looked at. **Kept, not dropped** — and the choice is worth recording because the task allowed either. Dropping it would have meant a column that stays behind forever plus a form that quietly stopped collecting something people had already filled in; keeping it costs one `split` and makes an existing field honest. `BookMath.genreTags` is that split, pure and tested (`"ficção, ensaio"`, `"ficção,ensaio"`, `" "`, `""`, `",,, "`), and **L8's filter will reuse it** rather than splitting the string a second time — which was the reason to put it in `domain/` rather than inline in the sheet. Rendered on the detail sheet beside the format, sharing one `MetaChip` so a tag never reads as a different kind of thing from the format next to it, in a `FlowRow` so five tags wrap instead of pushing the sheet sideways. No new column and no migration. · **Verified:** the split is covered. The chips have not been drawn — no SDK here, nothing ran locally. `QuoteCaptureSheet` gains `bookId` and `atPage`; three callers now, and the shelf header's is byte-for-byte what it was. With a target the sheet drops the picker *and* the `status == "reading"` filter — the caller has already chosen, and that filter is exactly why a note on a book you had just finished had nowhere to go. **The thing to get right, and it was verified by reading rather than assumed:** the reader's `✎` composes the sheet *over* the reader, so the reader stays composed, its `onDispose` does not run and the reading session keeps going. A navigation destination would have ended the session every time someone wrote a line down, which is the failure this task exists to avoid. The position passed in is `state.unit`, which is already the unit the book counts in — a percentage point for an EPUB, exactly as `currentPage` is — and the detail sheet's note list now renders it that way too, reusing `bookProgressMark`/`countsPercent` rather than writing a second branch: calling a percentage "p. 43" would be the second time the app had to learn R4's lesson. · **Verified:** nothing was run. No SDK; the "session is not interrupted" property is an argument from how the sheet is composed, not an observation, and the honest test for it is a device. Four prefs columns, Room **12 → 13** (the 11 → 12 slot this task had claimed went to `FIRST_RUN.md` N1, which shipped first — recorded here and in `DATA_MODEL.md` when N1 landed). Steppers rather than sliders, and the `Aa` control joins the chrome row F5(a) opened rather than adding a bar. **Three things a later session should not re-derive.** The stylesheet is baked into the document at fetch time, so `css` had to become a **key** of the chapter-loading effect — without it the sheet would write a new stylesheet nobody ever loaded and appear to do nothing. Because the chapter then reloads, a size change would throw the reader's place away, so `reader` changing sets `restoreScroll` to where they are and re-`mark()`s — the bookmark and the percentage stay truthful across a nudge. And the parameter is named `reader`, not `settings`, because `WebView.settings` is an implicit receiver a few lines below and two things called the same thing in one function is how a lockdown line silently stops applying. `readerTextScale` **replaces** the density's font scale for the body only; the app-wide `textScale` still governs the reader's chrome, as everywhere else. A rendered PDF page is never recoloured — `night` dims the surround and leaves the page as the document drew it. No face picker, and the reason is in the code: the CSP forbids `font-src`, so it would have one entry. · **Verified:** nothing. No SDK here, so no compile or test run locally, and **the migration has never been executed** — this repo has no instrumentation tests and a JVM test cannot open a Room database. Nobody has seen a stepper move, a theme change, or the scroll survive one. `EpubInfo` carries `chapterTitles` and `KEY_TITLES` puts them on the wire — the names were always parsed (`Epub.EpubChapter.title`) and dropped at the `:reader` boundary, which is the whole reason the chrome could only count. The three lists' lengths are validated on arrival and a mismatch is refused as a corrupt reply, not treated as a book missing its names; titles absent entirely are fine, so an older reply still opens. **The jump does not write `state.position`.** The shell owns the chrome and the half owns the position, so `☰` sets a request on `ReaderState` and whichever half is mounted answers — the EPUB through its own `turn`, the PDF through `scrollToItem` — which is what keeps the bookmark, the label and the session following a jump. Writing the position from a sheet would bypass all three. The list opens scrolled to the current chapter; a title is untrusted text and renders as a Compose `Text` at two lines, never as HTML. The PDF half is a clamped go-to-page, since `PdfRenderer` cannot read outlines and inventing one would be inventing a number. **Worth knowing:** OPF *manifest* items rarely carry a `title` attribute, so in practice many books will fall back to "Capítulo {n}" — that is the designed fallback, and reading the `nav`/`ncx` document is explicitly out of scope (another XML parser is another attack surface). The chrome now reads "43% · Capítulo 7 · As Cidades e os Mortos" where a name exists and keeps "de 31" where it doesn't. · **Verified:** `EpubInfoTest` covers the shape titles arrive in. **Nothing else** — no SDK here, the wire itself needs a Bundle and therefore a device, and no book has been opened to see whether its OPF names anything.
 2026-08-05 · L3 · #186 · new domain/BookStatus single-sources the five statuses + which shelf shows each (BookStatusTest asserts total cover, BookBackup reuses it); repo setBookStatus owns startedAt/finishedAt/position on every move (finishBook goes through it); the detail sheet reaches all five and reverses them, "Abandonar" arms in two steps; EM PAUSA shelf section; the reader, Sessão and Hábitos lookups now search all four shelves; position appends after the shelf maximum, not its size, so pause-then-resume no longer ties with the last book

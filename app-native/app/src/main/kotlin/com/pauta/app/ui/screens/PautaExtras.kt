@@ -41,6 +41,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.pauta.app.data.entity.BookEntity
 import com.pauta.app.data.entity.FocusBlockEntity
 import com.pauta.app.data.entity.FocusSessionEntity
 import com.pauta.app.domain.DateUtils
@@ -241,12 +242,42 @@ internal fun PautaSheetConfirm(
 // ─── Edit block sheet ──────────────────────────────────────
 // sheets.jsx EditBlockSheet: status line, serif title field, project, reflection,
 // per-session notes and the delete action.
+/** F2 · one corrected span: the row it belongs to and its new bounds. */
+internal data class SessionTimes(val rowId: Long, val startedAt: Long, val endedAt: Long)
+
+/**
+ * F2 · everything this sheet can change, in one payload. It grew from five
+ * positional arguments to a named one when the sheet learned to edit a span's
+ * clock and a reading session's page delta — five was already at the limit of
+ * what a call site can read. // PT: tudo o que a folha pode alterar, num objecto.
+ */
+internal data class BlockEdit(
+    val title: String,
+    val project: String?,
+    val targetMs: Long?,
+    val reflection: String,
+    val notes: List<Pair<Long, String>>,
+    /** Only the spans whose clock actually moved. */
+    val times: List<SessionTimes> = emptyList(),
+    /** Null when this isn't a reading session, or when nobody counted. */
+    val pagesDelta: Int? = null,
+    /** False when the delta editor wasn't shown — so null can't be mistaken for
+     *  "the user cleared it". // PT: distingue "não mexeu" de "apagou". */
+    val pagesDeltaChanged: Boolean = false,
+)
+
 @Composable
 internal fun EditBlockSheet(
     block: FocusBlockEntity,
     sessions: List<FocusSessionEntity>,
     now: Long,
-    onSave: (title: String, project: String?, targetMs: Long?, reflection: String, notes: List<Pair<Long, String>>) -> Unit,
+    // F2: set in book mode, and it is what tells the sheet to offer the page
+    // delta — and in which unit. Correcting a session's time without its delta
+    // leaves the pace exactly as wrong as it was, because BookMath reads the
+    // delta and not the clock. // PT: em modo livro, traz a unidade e o delta.
+    book: BookEntity? = null,
+    onSave: (BlockEdit) -> Unit,
+    onDeleteSession: (rowId: Long) -> Unit = {},
     onDelete: () -> Unit,
     onClose: () -> Unit,
 ) {
@@ -256,7 +287,32 @@ internal fun EditBlockSheet(
     var reflection by remember(block.id) { mutableStateOf(block.reflection) }
     val ordered = remember(sessions) { sessions.sortedBy { it.position } }
     var notes by remember(block.id, ordered.size) { mutableStateOf(ordered.map { it.note }) }
+    // F2: the spans' clocks, as "HH:MM" text. Keyed on the row ids so a delete
+    // rebuilds them rather than leaving an edit pointing at a row that is gone.
+    // // PT: as horas em texto, refeitas quando uma sessão desaparece.
+    val rowKey = remember(ordered) { ordered.map { it.rowId } }
+    var starts by remember(block.id, rowKey) {
+        mutableStateOf(ordered.map { DateUtils.fmtClock(it.startedAt) })
+    }
+    var ends by remember(block.id, rowKey) {
+        mutableStateOf(ordered.map { s -> s.endedAt?.let { DateUtils.fmtClock(it) } ?: "" })
+    }
+    var deleteSession by remember { mutableStateOf<FocusSessionEntity?>(null) }
+    var pagesDelta by remember(block.id) {
+        mutableStateOf(block.pagesDelta?.toString() ?: "")
+    }
     var confirmDelete by remember { mutableStateOf(false) }
+
+    if (deleteSession != null) {
+        val target = deleteSession!!
+        PautaSheetConfirm(
+            message = tr("Apagar esta sessão? O bloco fica, sem este tempo."),
+            confirmLabel = tr("Apagar sessão"),
+            onConfirm = { onDeleteSession(target.rowId); deleteSession = null },
+            onClose = { deleteSession = null },
+        )
+        return
+    }
 
     if (confirmDelete) {
         PautaSheetConfirm(
@@ -328,20 +384,64 @@ internal fun EditBlockSheet(
                         radius = PautaRadius.Field,
                         padding = PaddingValues(horizontal = 12.dp, vertical = 10.dp),
                     ) {
-                        Row(Modifier.fillMaxWidth()) {
-                            Text(
-                                text = seg.endedAt?.let {
-                                    trf("{a} → {b}", "a" to DateUtils.fmtClock(seg.startedAt), "b" to DateUtils.fmtClock(it))
-                                } ?: trf("{a} · em curso", "a" to DateUtils.fmtClock(seg.startedAt)),
-                                color = colors.ink2,
-                                style = PautaType.Meta,
-                                modifier = Modifier.weight(1f),
-                            )
-                            Text(
-                                text = FocusMath.fmtDuration(dur),
-                                color = colors.ink3,
-                                style = PautaType.MetaSmall,
-                            )
+                        // F2: the span used to be read-only text — twelve junk
+                        // sessions with no way to reach them is what this task
+                        // exists for. Both ends are now pickers (no keyboard, so
+                        // F3's trap never applies here) and the duration follows.
+                        // // PT: os dois extremos passam a editáveis, com selector.
+                        if (seg.endedAt == null) {
+                            Row(Modifier.fillMaxWidth()) {
+                                Text(
+                                    text = trf("{a} · em curso", "a" to DateUtils.fmtClock(seg.startedAt)),
+                                    color = colors.ink2,
+                                    style = PautaType.Meta,
+                                    modifier = Modifier.weight(1f),
+                                )
+                                Text(
+                                    text = FocusMath.fmtDuration(dur),
+                                    color = colors.ink3,
+                                    style = PautaType.MetaSmall,
+                                )
+                            }
+                        } else {
+                            val startMs = DateUtils.withClock(seg.startedAt, starts.getOrElse(i) { "" })
+                            val endMs = DateUtils.withClock(seg.endedAt, ends.getOrElse(i) { "" })
+                            val backwards = startMs != null && endMs != null && endMs < startMs
+                            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                Box(Modifier.width(92.dp)) {
+                                    PautaTimeField(
+                                        value = starts.getOrElse(i) { "" },
+                                        onChange = { v -> starts = starts.toMutableList().also { it[i] = v } },
+                                        title = tr("Início"),
+                                    )
+                                }
+                                Text("→", color = colors.ink3, style = PautaType.Meta, modifier = Modifier.padding(horizontal = 8.dp))
+                                Box(Modifier.width(92.dp)) {
+                                    PautaTimeField(
+                                        value = ends.getOrElse(i) { "" },
+                                        onChange = { v -> ends = ends.toMutableList().also { it[i] = v } },
+                                        title = tr("Fim"),
+                                    )
+                                }
+                                Spacer(Modifier.weight(1f))
+                                Text(
+                                    text = if (startMs != null && endMs != null && !backwards) {
+                                        FocusMath.fmtDuration(endMs - startMs)
+                                    } else {
+                                        FocusMath.fmtDuration(dur)
+                                    },
+                                    color = colors.ink3,
+                                    style = PautaType.MetaSmall,
+                                )
+                            }
+                            if (backwards) {
+                                Spacer(Modifier.height(4.dp))
+                                Text(
+                                    text = tr("O fim não pode ser antes do início."),
+                                    color = Color(0xFFA8543D),
+                                    style = PautaType.MetaSmall,
+                                )
+                            }
                         }
                         val editable = seg.endedAt != null && (i < ordered.size - 1 || block.status != "done")
                         if (editable) {
@@ -369,8 +469,41 @@ internal fun EditBlockSheet(
                                 },
                             )
                         }
+                        if (seg.endedAt != null) {
+                            Spacer(Modifier.height(6.dp))
+                            Text(
+                                text = tr("Apagar sessão"),
+                                color = Color(0xFFA8543D),
+                                style = PautaType.MetaSmall,
+                                modifier = Modifier.clickableNoRipple { deleteSession = seg },
+                            )
+                        }
                     }
                 }
+            }
+            Spacer(Modifier.height(18.dp))
+        }
+
+        // F2 · a reading session's own page span. R5 measures it, BookMath reads
+        // it, and until now nothing could correct it — so a session whose *time*
+        // you fixed still reported the pace it always had. Shown only in book
+        // mode, and asked in the unit F1 established. // PT: o delta de páginas da
+        // sessão, na unidade do livro; sem ele, corrigir a hora não corrige o ritmo.
+        if (book != null) {
+            SectionEyebrow(bookProgressUnit(book))
+            Spacer(Modifier.height(8.dp))
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Box(Modifier.width(110.dp)) {
+                    BoxedField(
+                        value = pagesDelta,
+                        onChange = { raw -> pagesDelta = raw.filter { it.isDigit() }.take(4) },
+                        placeholder = tr("por contar"),
+                        singleLine = true,
+                        fontFamily = MonoFamily,
+                        fontSize = 14.sp,
+                    )
+                }
+                Text(bookProgressMark(book), color = colors.ink3, style = PautaType.Meta)
             }
             Spacer(Modifier.height(18.dp))
         }
@@ -382,7 +515,31 @@ internal fun EditBlockSheet(
                     val n = notes.getOrElse(i) { "" }
                     if (n != seg.note) seg.rowId to n else null
                 }
-                onSave(title, project.takeIf { it.isNotBlank() }, block.targetMs, reflection, changedNotes)
+                // Only the spans that actually moved, and never a backwards one:
+                // a half-picked pair leaves the stored span alone rather than
+                // writing something the user didn't mean. // PT: só as sessões que
+                // mudaram, e nunca com o fim antes do início.
+                val changedTimes = ordered.mapIndexedNotNull { i, seg ->
+                    val ended = seg.endedAt ?: return@mapIndexedNotNull null
+                    val a = DateUtils.withClock(seg.startedAt, starts.getOrElse(i) { "" })
+                        ?: return@mapIndexedNotNull null
+                    val b = DateUtils.withClock(ended, ends.getOrElse(i) { "" })
+                        ?: return@mapIndexedNotNull null
+                    if (b < a) return@mapIndexedNotNull null
+                    if (a == seg.startedAt && b == ended) null else SessionTimes(seg.rowId, a, b)
+                }
+                onSave(
+                    BlockEdit(
+                        title = title,
+                        project = project.takeIf { it.isNotBlank() },
+                        targetMs = block.targetMs,
+                        reflection = reflection,
+                        notes = changedNotes,
+                        times = changedTimes,
+                        pagesDelta = pagesDelta.toIntOrNull(),
+                        pagesDeltaChanged = book != null,
+                    ),
+                )
             }
         }
         Spacer(Modifier.height(8.dp))

@@ -188,6 +188,19 @@ object ReminderNotifications {
     // ── shared bits ───────────────────────────────────────────
     /** The common notification skeleton (icon, title/body, channel, tap-to-open).
      *  Each reminder kind keeps its own id so same-kind posts replace each other. */
+    /**
+     * L10 · the reading reminder. Names the book when there is exactly one being
+     * read; stays generic otherwise, because naming one of four would be picking a
+     * favourite. // PT: nomeia o livro quando há só um; com vários fica genérico.
+     */
+    suspend fun postReading(context: Context, repo: PautaRepository) {
+        val (title, generic) = ReminderScheduler.titleBody(context, ReminderScheduler.Kind.READING)
+        val code = ReminderScheduler.Kind.READING.code
+        val reading = runCatching { repo.booksReading().first() }.getOrNull().orEmpty()
+        val body = if (reading.size == 1) reading.first().title else generic
+        notify(context, code, base(context, title, body, code).build())
+    }
+
     private fun base(context: Context, title: String, body: String, code: Int): NotificationCompat.Builder {
         ReminderScheduler.ensureChannel(context)
         return NotificationCompat.Builder(context, ReminderScheduler.channelId())

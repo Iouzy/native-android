@@ -202,6 +202,14 @@ data class PrefsEntity(
     val parrot: Boolean = true,
     val onboardingSeen: Boolean = false,
     val remindersEnabled: Boolean = false,
+    // native-only (N1): when we last asked the OS for POST_NOTIFICATIONS (0 =
+    // never). Android 13+ shows that dialog exactly once — a second request after
+    // a denial returns instantly and silently — so asking repeatedly is noise.
+    // This records that the app has been past the moment where it asks, which is
+    // also what lets the Settings row tell "never asked" from "denied". Device
+    // state, so not part of the pauta.v4 shape. // PT: quando pedimos a permissão
+    // de notificações (0 = nunca); o Android só mostra o diálogo uma vez.
+    val notifAskedAt: Long = 0,
     val plannerTime: String = "08:00",
     val habitsTime: String = "09:00",
     val reflectionTime: String = "21:30",
@@ -228,6 +236,24 @@ data class PrefsEntity(
     // so neither field is exported. // PT: modo livro — lente local sobre as tabs.
     val bookMode: Boolean = false,
     val bookAnnualGoal: Int = 0,        // 0 = no annual reading goal set
+    // native-only (L5): the reader's own type and colour, which until now came
+    // entirely from the app-wide `textScale` — so reading at night meant leaving
+    // the book, changing a preference that also resized the planner, and coming
+    // back. These are the *reader's* settings, not the book's: a per-book copy
+    // would be four columns on `books` and a question nobody asked.
+    // // PT: as definições do leitor (tamanho, entrelinha, margens, tema) — do
+    // leitor e não de cada livro.
+    val readerTextScale: Float = 1f,    // 0.8–1.8; multiplies the reader body only
+    val readerLineHeight: Float = 1.62f, // 1.3–2.0
+    val readerMargin: Int = 22,         // dp, 8–48
+    val readerTheme: String = "app",    // "app" | "paper" | "sepia" | "night"
+    // native-only (L10): the reading reminder. Book mode's whole subject is a
+    // daily practice and it had no reminder of its own, while the app could
+    // already nudge you about habits and about the day. Nothing fires when
+    // `bookMode` is off — a planner user has not asked to be reminded to read.
+    // // PT: o lembrete de leitura; não dispara com o modo livro desligado.
+    val readingReminderEnabled: Boolean = false,
+    val readingReminderTime: String = "21:00",
 )
 
 /**

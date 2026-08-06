@@ -43,6 +43,12 @@ import com.pauta.app.i18n.tr
 import com.pauta.app.ui.theme.LocalPautaColors
 import com.pauta.app.ui.theme.MonoFamily
 import com.pauta.app.ui.theme.SerifFamily
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.pauta.app.ui.viewmodel.AppViewModel
 
 /**
  * The web's onboarding carousel (extras.jsx OnboardingOverlay): five calm,
@@ -55,7 +61,54 @@ import com.pauta.app.ui.theme.SerifFamily
 @Composable
 fun OnboardingOverlay(onDone: () -> Unit) {
     val colors = LocalPautaColors.current
+    val context = LocalContext.current
+    val vm: AppViewModel = viewModel()
     var idx by remember { mutableIntStateOf(0) }
+
+    // N4 · a way back in.
+    //
+    // The last page offered "Começar em branco" and nothing else — wording that
+    // implies an alternative that was not there. Someone reinstalling after a
+    // phone change had a `.json` backup in their files and no visible way to use
+    // it: *Importar dados* is in Settings → Dados e privacidade, four taps past a
+    // screen that has just told them to start blank.
+    //
+    // This is the cheapest task in the file and the one with the largest worst
+    // case. It is a **second button on the page that already exists** — an
+    // onboarding flow that grows is an onboarding flow nobody finishes — and it
+    // is a ghost beside the primary, because most first runs are genuinely first
+    // runs. // PT: um segundo botão na página que já existe; a maioria dos
+    // primeiros arranques é mesmo um primeiro arranque.
+    var restoreError by remember { mutableStateOf<String?>(null) }
+    fun readText(uri: android.net.Uri): String? = runCatching {
+        context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
+    }.getOrNull()
+
+    val restoreLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        val text = uri?.let { readText(it) }
+        if (text.isNullOrBlank()) {
+            if (uri != null) restoreError = tr("Não foi possível ler esse ficheiro.")
+            return@rememberLauncherForActivityResult
+        }
+        restoreError = null
+        vm.importBackup(text) { ok ->
+            // A successful import closes onboarding and lands on Hoje with the data
+            // in place; a failure says so and leaves onboarding where it was.
+            // // PT: se correr bem, fecha; se não, diz e fica.
+            if (ok) onDone() else restoreError = tr("Não foi possível ler esse ficheiro.")
+        }
+    }
+    val libraryLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        val text = uri?.let { readText(it) }
+        if (text.isNullOrBlank()) {
+            if (uri != null) restoreError = tr("Este ficheiro não é uma biblioteca Pauta.")
+            return@rememberLauncherForActivityResult
+        }
+        restoreError = null
+        vm.importLibrary(text) { n ->
+            if (n != null) onDone() else restoreError = tr("Este ficheiro não é uma biblioteca Pauta.")
+        }
+    }
 
     data class Card(val tag: String, val icon: String, val title: @Composable () -> Unit, val body: String)
 
@@ -217,6 +270,39 @@ fun OnboardingOverlay(onDone: () -> Unit) {
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 if (last) onDone() else idx += 1
+            }
+            if (last) {
+                Spacer(Modifier.height(10.dp))
+                // Two rows rather than one button: the app writes two backup files
+                // in two formats, and silently guessing which one you picked is
+                // not better than asking. // PT: dois formatos, duas linhas —
+                // adivinhar qual é não seria melhor do que perguntar.
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    PautaButton(
+                        label = tr("Restaurar uma cópia"),
+                        modifier = Modifier.weight(1f),
+                        variant = PautaButtonVariant.Ghost,
+                    ) { restoreLauncher.launch("*/*") }
+                    PautaButton(
+                        label = tr("Biblioteca"),
+                        modifier = Modifier.weight(1f),
+                        variant = PautaButtonVariant.Ghost,
+                    ) { libraryLauncher.launch("*/*") }
+                }
+                restoreError?.let { message ->
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = message,
+                        color = colors.ink3,
+                        fontFamily = SerifFamily,
+                        fontStyle = FontStyle.Italic,
+                        fontSize = 12.sp,
+                        lineHeight = 17.sp,
+                    )
+                }
             }
         }
     }

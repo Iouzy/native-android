@@ -17,6 +17,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -86,6 +87,7 @@ import com.pauta.app.domain.StreakResult
 import com.pauta.app.i18n.I18n
 import com.pauta.app.i18n.tr
 import com.pauta.app.i18n.trf
+import com.pauta.app.ui.PautaFloatStrip
 import com.pauta.app.ui.EmptyState
 import com.pauta.app.ui.PautaButton
 import com.pauta.app.ui.PautaButtonVariant
@@ -97,6 +99,7 @@ import com.pauta.app.ui.PautaSheet
 import com.pauta.app.ui.CellState
 import com.pauta.app.ui.cellStateFor
 import com.pauta.app.ui.clickableNoRipple
+import com.pauta.app.ui.rememberNotificationAsk
 import com.pauta.app.ui.entranceStagger
 import com.pauta.app.ui.rememberEntrancePlay
 import com.pauta.app.ui.tick
@@ -155,6 +158,7 @@ internal fun MaresContent(leading: (LazyListScope.() -> Unit)? = null) {
     val counts by vm.habitCounts.collectAsStateWithLifecycle()
     val today by vm.todayKey.collectAsStateWithLifecycle()
     val prefs by vm.prefs.collectAsStateWithLifecycle()
+    val askNotifications = rememberNotificationAsk(vm, prefs.notifAskedAt)
     // A3: cell fills, respiro hatching and row add/remove all snap when reduced.
     // // PT: animações das células respeitam "movimento reduzido".
     val animate = rememberMotionEnabled()
@@ -195,6 +199,30 @@ internal fun MaresContent(leading: (LazyListScope.() -> Unit)? = null) {
         ?: habitModelOf(h, logsByHabit[h.id].orEmpty(), respByHabit[h.id].orEmpty())
 
     val isCurrentMonth = year == nowYm.year && month == nowYm.monthValue
+    // N3 · one month, one strip.
+    //
+    // Every habit row used to own its own `horizontalScroll` state, so scrolling
+    // "Beber água" to day 24 left "Meditar" showing day 1 and the month stopped
+    // being readable as a grid — which is the whole point of the tab. One state,
+    // hoisted here, means every row moves together and a habit added later starts
+    // aligned. // PT: uma só posição de scroll para o mês inteiro — comparar as
+    // marés entre si é a funcionalidade.
+    val monthStrip = rememberScrollState()
+    val stripDensity = LocalDensity.current
+    // Open on today, not on day 1: the useful end of the month is the one you are
+    // in. // PT: abre no dia de hoje.
+    LaunchedEffect(year, month, isCurrentMonth) {
+        if (!isCurrentMonth) {
+            monthStrip.scrollTo(0)
+            return@LaunchedEffect
+        }
+        val todayD = today.substring(8).toInt()
+        // 31dp pitch = 28dp cell + 3dp gap. // PT: passo = célula + intervalo.
+        val target = with(stripDensity) {
+            ((todayD - 1) * 31).dp.toPx().toInt() - 150.dp.toPx().toInt()
+        }
+        monthStrip.scrollTo(target.coerceAtLeast(0))
+    }
     val monthEnd = "%04d-%02d-%02d".format(year, month, DateUtils.daysInMonth(year, month))
     // Only tides that already existed in the viewed month; the rest are counted
     // in the footer note, like the web. // PT: só marés que já existiam no mês.
@@ -261,6 +289,20 @@ internal fun MaresContent(leading: (LazyListScope.() -> Unit)? = null) {
                     Spacer(Modifier.width(10.dp))
                     GridLegend()
                 }
+            }
+
+            // N3 · the ruler. A `DayCell` is 28dp and carries no date, so after one
+            // scroll nothing on screen said which days you were looking at — and
+            // *which days* is the tab's whole subject. The number does not fit
+            // inside a cell at any text scale, so it goes **under** the strip as a
+            // sparse ruler: 1, 8, 15, 22 and the last day, in the mono meta
+            // treatment. That reads at a glance, survives `textScale`, and costs
+            // one row per tab rather than one per habit.
+            // // PT: uma régua esparsa por baixo das tiras — os números não cabem
+            // nas células, e sem eles não se sabe que dias estão à vista.
+            item(key = "day-ruler") {
+                Spacer(Modifier.height(10.dp))
+                MonthRuler(strip = monthStrip, days = DateUtils.daysInMonth(year, month))
             }
 
             // Header — eyebrow + serif month, with the overall % at the right.
@@ -333,18 +375,6 @@ internal fun MaresContent(leading: (LazyListScope.() -> Unit)? = null) {
                         pip = true,
                         pipHeight = 44.dp,
                     )
-                    Spacer(Modifier.height(14.dp))
-                    SectionEyebrow(tr("Marés comuns"), color = colors.ink4)
-                    Spacer(Modifier.height(9.dp))
-                    @OptIn(ExperimentalLayoutApi::class)
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        listOf("Beber água", "Ler", "Meditar", "Exercício", "Dormir cedo").forEach { name ->
-                            StarterChip(tr(name)) { vm.addHabit(name = tr(name)) }
-                        }
-                    }
                 }
             } else {
                 // Como funciona — persistent, subtle hint.
@@ -398,6 +428,7 @@ internal fun MaresContent(leading: (LazyListScope.() -> Unit)? = null) {
                             month = month,
                             today = today,
                             isCurrentMonth = isCurrentMonth,
+                            strip = monthStrip,
                             animate = animate,
                             // P10 · the haptic map: filling a day (tap, count bump or
                             // respiro) is the tab's gesture, so each one ticks.
@@ -434,6 +465,42 @@ internal fun MaresContent(leading: (LazyListScope.() -> Unit)? = null) {
                 }
             }
 
+            // N6 · the suggestions don't leave.
+            //
+            // The five one-tap tides lived inside the `EmptyState` branch, so
+            // tapping one created a habit and, with it, destroyed the row: of five
+            // shortcuts exactly one was ever usable, and the second habit cost the
+            // full form. They live out here now, filtered to what isn't already
+            // there, and stop for good past **three** — someone with three tides
+            // has understood the feature and does not need prompting. Quiet: the
+            // same accent chips, no heading shouting at a user mid-list.
+            // // PT: as sugestões saem do estado vazio; ficam até três marés e
+            // desaparecem de vez — quem tem três já percebeu.
+            if (habits.size < 3) {
+                item(key = "starters") {
+                    val taken = remember(habits) { habits.mapTo(HashSet()) { it.name.trim().lowercase() } }
+                    val offer = remember(taken) {
+                        StarterTides.filter { tr(it).trim().lowercase() !in taken }
+                    }
+                    if (offer.isNotEmpty()) {
+                        Spacer(Modifier.height(if (habits.isEmpty()) 14.dp else 20.dp))
+                        if (habits.isEmpty()) {
+                            SectionEyebrow(tr("Marés comuns"), color = colors.ink4)
+                            Spacer(Modifier.height(9.dp))
+                        }
+                        @OptIn(ExperimentalLayoutApi::class)
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            offer.forEach { name ->
+                                StarterChip(tr(name)) { vm.addHabit(name = tr(name)) }
+                            }
+                        }
+                    }
+                }
+            }
+
             // The web's dashed full-width "adicionar maré" button.
             item(key = "add") {
                 Spacer(Modifier.height(20.dp))
@@ -452,7 +519,7 @@ internal fun MaresContent(leading: (LazyListScope.() -> Unit)? = null) {
                 }
             }
 
-            item(key = "bottom") { Spacer(Modifier.height(96.dp)) }
+            item(key = "bottom") { Spacer(Modifier.height(PautaFloatStrip)) }
         }
     }
 
@@ -469,7 +536,15 @@ internal fun MaresContent(leading: (LazyListScope.() -> Unit)? = null) {
     editTarget?.let { h ->
         EditHabitSheet(
             habit = h,
-            onSave = { updated -> vm.updateHabit(updated); editTarget = null },
+            onSave = { updated ->
+                // N1: a tide with a clock is a tide that will try to notify. Ask at
+                // the moment the reminder is set, not at launch — and only when the
+                // habit actually gained one. // PT: pede a permissão quando a maré
+                // ganha hora certa.
+                if (updated.clock.isNotBlank() && h.clock.isBlank()) askNotifications()
+                vm.updateHabit(updated)
+                editTarget = null
+            },
             onArchive = { vm.setHabitArchived(h.id, true); editTarget = null },
             onRemove = { removeTarget = h; editTarget = null },
             onClose = { editTarget = null },
@@ -489,6 +564,8 @@ internal fun MaresContent(leading: (LazyListScope.() -> Unit)? = null) {
     if (showAdd) {
         AddHabitSheet(
             onSubmit = { d ->
+                // N1: same reason as the edit sheet above. // PT: idem.
+                if (d.clock.isNotBlank()) askNotifications()
                 vm.addHabit(
                     name = d.name, time = d.time, cadence = d.cadence, anchor = d.anchor,
                     weekdays = d.weekdays, target = d.target, unit = d.unit, clock = d.clock,
@@ -562,6 +639,9 @@ private fun MaresHabitRow(
     month: Int,
     today: String,
     isCurrentMonth: Boolean,
+    // N3: the tab's one scroll state, shared by every row. // PT: o scroll do mês,
+    // partilhado por todas as linhas.
+    strip: ScrollState,
     animate: Boolean,
     onToggle: (String) -> Unit,
     onIncrement: (String, Int) -> Unit,
@@ -579,7 +659,12 @@ private fun MaresHabitRow(
 
     val ndays = DateUtils.daysInMonth(year, month)
     val isCount = habit.target != null && habit.cadence == "daily"
-    val todayCount = countsForHabit[today] ?: 0
+    // F4: what a stored count means, not the raw row. A tide written before the
+    // ceiling existed can hold 39 against a target of 2, and printing 39 would be
+    // printing a number the tide can no longer reach — reading it as "at the
+    // target" is what makes the repair one tap. // PT: lê-se a contagem já
+    // limitada; um 39 antigo mostra-se como "na meta".
+    val todayCount = HabitCalculator.shownCount(countsForHabit[today] ?: 0, habit.target)
 
     // P8: keyed on the model, the viewed month and today — a mark on one tide
     // leaves the others' models equal, so only the tide that actually changed
@@ -724,16 +809,8 @@ private fun MaresHabitRow(
         }
         Spacer(Modifier.height(8.dp))
 
-        // Month strip — the pulse of days, auto-scrolled so today is visible.
-        val strip = rememberScrollState()
-        val density = LocalDensity.current
-        if (isCurrentMonth) {
-            val todayD = today.substring(8).toInt()
-            LaunchedEffect(year, month) {
-                // 31dp pitch = 28dp cell + 3dp gap. // PT: passo = célula + intervalo.
-                strip.scrollTo(with(density) { ((todayD - 1) * 31).dp.toPx().toInt() - 150.dp.toPx().toInt() }.coerceAtLeast(0))
-            }
-        }
+        // Month strip — the pulse of days. N3: the scroll state and the
+        // scroll-to-today are the tab's, not this row's. // PT: o scroll é da tab.
         Row(
             Modifier
                 .fillMaxWidth()
@@ -773,6 +850,44 @@ private fun MaresHabitRow(
                 style = PautaType.MetaSmall,
                 letterSpacing = 0.72.sp,
             )
+        }
+    }
+}
+
+/** N6 · the five one-tap tides. Named here rather than inline so the empty state
+ *  and the list below it offer the same five. // PT: as cinco marés sugeridas,
+ *  num só sítio. */
+private val StarterTides = listOf("Beber água", "Ler", "Meditar", "Exercício", "Dormir cedo")
+
+/**
+ * N3 · the sparse day ruler under the month strips.
+ *
+ * It scrolls with them — same [ScrollState], so the numbers stay over the cells
+ * they name — and marks 1, 8, 15, 22 and the last day of the month. The pitch is
+ * the cells' own: 28dp wide plus a 3dp gap.
+ * // PT: a régua que acompanha as tiras; marca 1, 8, 15, 22 e o último dia.
+ */
+@Composable
+private fun MonthRuler(strip: ScrollState, days: Int) {
+    val colors = LocalPautaColors.current
+    val marks = remember(days) { (listOf(1, 8, 15, 22) + days).distinct().filter { it in 1..days } }
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .horizontalScroll(strip),
+        horizontalArrangement = Arrangement.spacedBy(3.dp),
+    ) {
+        for (day in 1..days) {
+            Box(Modifier.width(28.dp), contentAlignment = Alignment.Center) {
+                if (day in marks) {
+                    Text(
+                        text = day.toString(),
+                        color = colors.ink4,
+                        style = PautaType.MetaSmall,
+                        letterSpacing = 0.4.sp,
+                    )
+                }
+            }
         }
     }
 }

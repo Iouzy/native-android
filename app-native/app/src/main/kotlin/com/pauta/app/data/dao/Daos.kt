@@ -87,6 +87,16 @@ interface FocusBlockDao {
     // blocos do planeador; as sessões de leitura ficam.
     @Query("DELETE FROM focus_blocks WHERE project IS NULL OR project NOT GLOB 'book:*'")
     suspend fun clearPlanner()
+
+    // F2: every block belonging to one book, so deleting the book can take its
+    // reading sessions with it instead of orphaning them. Same GLOB reasoning as
+    // above, and the id is matched exactly rather than by prefix.
+    // // PT: os blocos de um livro, para o apagar levar as sessões consigo.
+    @Query("SELECT * FROM focus_blocks WHERE project = :project")
+    suspend fun getForProject(project: String): List<FocusBlockEntity>
+
+    @Query("DELETE FROM focus_blocks WHERE project = :project")
+    suspend fun deleteForProject(project: String)
 }
 
 @Dao
@@ -105,6 +115,11 @@ interface FocusSessionDao {
 
     @Query("SELECT * FROM focus_sessions") suspend fun getAll(): List<FocusSessionEntity>
     @Query("DELETE FROM focus_sessions WHERE blockId = :blockId") suspend fun deleteForBlock(blockId: String)
+
+    // F2: one span, addressed by its row. Everything else here works on a whole
+    // block; a session you can delete on its own is what makes automatic
+    // recording defensible (GUARDRAILS §H). // PT: apagar uma sessão só.
+    @Query("DELETE FROM focus_sessions WHERE rowId = :rowId") suspend fun deleteByRowId(rowId: Long)
     @Query("DELETE FROM focus_sessions") suspend fun clear()
 
     // L2's other half — run this BEFORE [FocusBlockDao.clearPlanner], while the
@@ -268,6 +283,12 @@ interface BookNoteDao {
 
     @Query("SELECT * FROM book_notes WHERE bookId = :bookId ORDER BY createdAt DESC")
     fun observeForBook(bookId: String): Flow<List<BookNoteEntity>>
+
+    // F13: every note, newest first — the "Do teu caderno" section, which is the
+    // first home the notes have had outside a single book's detail sheet.
+    // // PT: todas as notas, para a secção "Do teu caderno".
+    @Query("SELECT * FROM book_notes ORDER BY createdAt DESC")
+    fun observeAll(): Flow<List<BookNoteEntity>>
 
     @Query("SELECT * FROM book_notes") suspend fun getAll(): List<BookNoteEntity>
     @Query("DELETE FROM book_notes") suspend fun clear()

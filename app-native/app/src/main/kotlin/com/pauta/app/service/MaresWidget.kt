@@ -43,7 +43,10 @@ import androidx.glance.unit.ColorProvider
 import com.pauta.app.MainActivity
 import com.pauta.app.PautaApplication
 import com.pauta.app.R
+import com.pauta.app.data.PautaRepository
 import com.pauta.app.domain.DateUtils
+import com.pauta.app.domain.FocusMath
+import com.pauta.app.domain.ReadingStats
 import com.pauta.app.domain.HabitCalculator.DayState
 import com.pauta.app.i18n.tr
 import com.pauta.app.i18n.trf
@@ -66,6 +69,26 @@ class MaresWidget : GlanceAppWidget() {
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val repo = (context.applicationContext as PautaApplication).repository
         val today = DateUtils.todayKey()
+        val prefs = repo.prefs.first()
+
+        // Resolve the paper/ink palette for the host's current mode now (RemoteViews
+        // can't read LocalPautaColors); on a mode flip the next update re-resolves.
+        // // PT: resolve a paleta clara/escura conforme o modo do anfitrião.
+        val night = (context.resources.configuration.uiMode and
+            Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+        val palette = paletteFor(night)
+
+        // L11 · one widget, two faces — exactly like the tabs. Someone using the
+        // book launcher icon had a home screen that still talked about the planner;
+        // a *second* widget would have been a second thing to place and to keep in
+        // step, and the lens is already the app's answer to this question.
+        // // PT: um widget, duas faces — como as tabs. Um segundo widget seria mais
+        // uma coisa para colocar e manter alinhada.
+        if (prefs.bookMode) {
+            val stats = readingSnapshot(repo, today)
+            provideContent { ReadingWidgetContent(stats, palette, prefs.accent) }
+            return
+        }
         // One-shot snapshot of the reactive flows: the widget lives outside Compose
         // and the ViewModel, so it reads Room directly (then re-renders on demand
         // via [refresh]). // PT: leitura pontual dos flows — o widget vive fora da UI.
@@ -76,7 +99,7 @@ class MaresWidget : GlanceAppWidget() {
             counts = repo.habitCounts().first(),
             today = today,
         )
-        val accentHex = repo.prefs.first().accent
+        val accentHex = prefs.accent
 
         // Header count mirrors the Hoje strip: done over the non-respiro total
         // (an honest rest is neither done nor pending). // PT: como no separador Hoje.
@@ -86,14 +109,40 @@ class MaresWidget : GlanceAppWidget() {
         val countLabel = if (denom > 0) trf("{d}/{t} marés", "d" to done, "t" to denom) else null
         val emptyLabel = tr("Sem marés para hoje")
 
-        // Resolve the paper/ink palette for the host's current mode now (RemoteViews
-        // can't read LocalPautaColors); on a mode flip the next update re-resolves.
-        // // PT: resolve a paleta clara/escura conforme o modo do anfitrião.
-        val night = (context.resources.configuration.uiMode and
-            Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
-        val palette = paletteFor(night)
-
         provideContent { MaresWidgetContent(tides, eyebrow, countLabel, emptyLabel, accentHex, palette) }
+    }
+
+    /**
+     * L11 · what the reading face shows, read off the same data the Hábitos tab
+     * derives from. Nothing new is stored and nothing is self-reported: a reading
+     * day is proven by a session, and `ReadingStats` already owns what that means
+     * (F13). // PT: a face de leitura, derivada dos mesmos dados da tab.
+     */
+    private suspend fun readingSnapshot(repo: PautaRepository, today: String): ReadingWidgetStats {
+        val books = repo.booksReading().first()
+        val bookIds = books.mapTo(HashSet()) { it.id }
+        val blocks = repo.blocks().first().filter { it.project?.startsWith("book:") == true }
+        val spans = repo.allSessions().first().groupBy { it.blockId }
+        val sessions = blocks.mapNotNull { b ->
+            val segs = spans[b.id].orEmpty()
+            val endedAt = segs.mapNotNull { it.endedAt }.maxOrNull() ?: return@mapNotNull null
+            val ms = FocusMath.blockElapsedMs(
+                segs.map { FocusMath.FocusSeg(it.startedAt, it.endedAt) },
+                System.currentTimeMillis(),
+            )
+            ReadingStats.Session(dayKey = DateUtils.dayKeyOf(endedAt), minutes = (ms / 60_000L).toInt())
+        }
+        val days = ReadingStats.daysRead(sessions)
+        val (streak, _) = ReadingStats.streaks(days, today)
+        // The last seven days, which is what "this week" means on a widget you
+        // glance at. // PT: os últimos sete dias.
+        val weekMinutes = ReadingStats.minutesLastDays(sessions, today, 7).sum()
+        return ReadingWidgetStats(
+            streakDays = streak,
+            weekMinutes = weekMinutes,
+            currentTitle = books.singleOrNull()?.title,
+            hasBooks = bookIds.isNotEmpty(),
+        )
     }
 
     companion object {
@@ -101,6 +150,75 @@ class MaresWidget : GlanceAppWidget() {
          *  tide or the day rolls over, and after a tap marks one from the widget.
          *  // PT: re-renderiza os widgets de Marés colocados. */
         suspend fun refresh(context: Context) = MaresWidget().updateAll(context)
+    }
+}
+
+/** L11 · the reading face's four facts. // PT: os quatro factos da face de leitura. */
+private data class ReadingWidgetStats(
+    val streakDays: Int,
+    val weekMinutes: Int,
+    /** Named only when exactly one book is being read — naming one of four would
+     *  be picking a favourite. // PT: só se houver um livro em curso. */
+    val currentTitle: String?,
+    val hasBooks: Boolean,
+)
+
+/**
+ * L11 · the widget in book mode: the reading streak and this week's minutes, and
+ * the book being read when there is one. Tapping opens the app, as the planner
+ * face's header already does. // PT: a face de leitura do widget.
+ */
+@Composable
+private fun ReadingWidgetContent(
+    stats: ReadingWidgetStats,
+    palette: WPalette,
+    accentHex: String?,
+) {
+    val accent = ColorProvider(parseHexColor(accentHex) ?: WDefaultAccent)
+    Column(
+        modifier = GlanceModifier
+            .fillMaxSize()
+            .background(palette.paper)
+            .padding(14.dp)
+            .clickable(actionStartActivity<MainActivity>()),
+    ) {
+        Text(
+            text = tr("Ritmo de leitura").uppercase(),
+            maxLines = 1,
+            style = TextStyle(
+                color = palette.ink3,
+                fontSize = 11.sp,
+                fontFamily = FontFamily.Monospace,
+                fontWeight = FontWeight.Medium,
+            ),
+        )
+        Spacer(GlanceModifier.height(10.dp))
+        if (!stats.hasBooks) {
+            Text(
+                text = tr("Nenhum livro em curso"),
+                style = TextStyle(color = palette.ink3, fontSize = 13.sp),
+            )
+            return@Column
+        }
+        Text(
+            text = trf("{n} dias seguidos", "n" to stats.streakDays),
+            maxLines = 1,
+            style = TextStyle(color = if (stats.streakDays > 0) accent else palette.ink3, fontSize = 17.sp),
+        )
+        Spacer(GlanceModifier.height(4.dp))
+        Text(
+            text = trf("{n} min esta semana", "n" to stats.weekMinutes),
+            maxLines = 1,
+            style = TextStyle(color = palette.ink3, fontSize = 12.sp, fontFamily = FontFamily.Monospace),
+        )
+        if (stats.currentTitle != null) {
+            Spacer(GlanceModifier.height(8.dp))
+            Text(
+                text = stats.currentTitle,
+                maxLines = 2,
+                style = TextStyle(color = palette.ink, fontSize = 13.sp),
+            )
+        }
     }
 }
 

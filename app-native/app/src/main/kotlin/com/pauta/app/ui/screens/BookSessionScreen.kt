@@ -59,7 +59,7 @@ import com.pauta.app.domain.DateUtils
 import com.pauta.app.domain.FocusMath
 import com.pauta.app.domain.ReaderMath
 import com.pauta.app.i18n.tr
-import com.pauta.app.i18n.trf
+import com.pauta.app.ui.PautaFloatStrip
 import com.pauta.app.ui.EmptyState
 import com.pauta.app.ui.PautaButton
 import com.pauta.app.ui.PautaButtonVariant
@@ -69,6 +69,7 @@ import com.pauta.app.ui.PautaSheet
 import com.pauta.app.ui.SectionEyebrow
 import com.pauta.app.ui.SheetEyebrow
 import com.pauta.app.ui.clickableNoRipple
+import com.pauta.app.ui.rememberNotificationAsk
 import com.pauta.app.ui.tick
 import com.pauta.app.ui.theme.LocalPautaColors
 import com.pauta.app.ui.theme.MonoFamily
@@ -114,6 +115,9 @@ fun BookSessionScreen(onOpenReader: (String) -> Unit = {}) {
     val prefs by vm.prefs.collectAsStateWithLifecycle()
     val motion = rememberMotionEnabled()
     val haptic = LocalHapticFeedback.current
+    val askNotifications = rememberNotificationAsk(vm, prefs.notifAskedAt)
+    // F2: the reading session opened from the history list below.
+    var editBlock by remember { mutableStateOf<FocusBlockEntity?>(null) }
 
     // 1s clock tick driving the live timer (same as the planner's Pauta).
     var now by remember { mutableStateOf(System.currentTimeMillis()) }
@@ -245,10 +249,20 @@ fun BookSessionScreen(onOpenReader: (String) -> Unit = {}) {
                         // isn't Pomodoro work. // PT: a leitura usa o conjunto
                         // simples, salvo escolha explícita de Pomodoro.
                         presets = TimerPresets.of(prefs.timerPresets, reading = true),
+                        // F9: it governs both lenses — the owner asked for exactly
+                        // that — so reading can change it too, and it writes the
+                        // same one preference. // PT: vale para os dois modos.
+                        presetSet = prefs.timerPresets ?: TimerPresets.Simples,
+                        onPresetSet = { vm.setTimerPresets(it) },
                         onChangeTarget = { targetMin = it },
                         onPick = { showPicker = true },
                         onStart = {
                             selectedBook?.let { b ->
+                                // N1: same promise, same moment — a reading session
+                                // raises the same ongoing notification the planner's
+                                // block does. // PT: a sessão de leitura promete o
+                                // mesmo aviso, e pergunta no mesmo momento.
+                                askNotifications()
                                 vm.startBlock(
                                     title = b.title,
                                     linkedToId = null,
@@ -308,8 +322,15 @@ fun BookSessionScreen(onOpenReader: (String) -> Unit = {}) {
                     )
                     Spacer(Modifier.height(6.dp))
                     blocks.forEach { b ->
+                        // F2: same entry point as the detail sheet's list — a
+                        // reading session has to be reachable from wherever it is
+                        // shown. // PT: a linha abre a folha de edição, como na
+                        // folha do livro.
                         Row(
-                            Modifier.fillMaxWidth().padding(vertical = 3.dp),
+                            Modifier
+                                .fillMaxWidth()
+                                .clickableNoRipple { editBlock = b }
+                                .padding(vertical = 3.dp),
                             horizontalArrangement = Arrangement.spacedBy(10.dp),
                         ) {
                             Text(
@@ -330,7 +351,7 @@ fun BookSessionScreen(onOpenReader: (String) -> Unit = {}) {
             }
         }
 
-        item(key = "bottom") { Spacer(Modifier.height(48.dp)) }
+        item(key = "bottom") { Spacer(Modifier.height(PautaFloatStrip)) }
     }
 
     if (showPicker) {
@@ -339,6 +360,29 @@ fun BookSessionScreen(onOpenReader: (String) -> Unit = {}) {
             selectedId = selectedBookId,
             onPick = { selectedBookId = it; showPicker = false },
             onClose = { showPicker = false },
+        )
+    }
+    editBlock?.let { b ->
+        // F2: the book gives the sheet its unit, so a session's page delta is
+        // asked for the way F1 established. // PT: o livro traz a unidade do delta.
+        val editBook = (reading + pausedBooks + tbr + done)
+            .firstOrNull { it.id == b.project?.removePrefix("book:") }
+        EditBlockSheet(
+            block = sessionBlocks.firstOrNull { it.id == b.id } ?: b,
+            sessions = segsByBlock[b.id].orEmpty(),
+            now = now,
+            book = editBook,
+            onSave = { edit ->
+                vm.updateBlock(b.id, edit.title, edit.project, edit.targetMs)
+                vm.setBlockReflection(b.id, edit.reflection)
+                edit.notes.forEach { (rowId, text) -> vm.setSessionNote(rowId, text) }
+                edit.times.forEach { vm.setSessionTimes(it.rowId, it.startedAt, it.endedAt) }
+                if (edit.pagesDeltaChanged) vm.setBlockPagesDelta(b.id, edit.pagesDelta)
+                editBlock = null
+            },
+            onDeleteSession = { rowId -> vm.deleteSession(rowId) },
+            onDelete = { vm.deleteBlock(b.id); editBlock = null },
+            onClose = { editBlock = null },
         )
     }
     concludeFor?.let { book ->
@@ -473,6 +517,10 @@ private fun StartReadingCard(
     canPick: Boolean,
     targetMin: Int,
     presets: List<Int>,
+    // F9: the set, and how to change it, so the reading card offers the same
+    // control the planner's start sheet does. // PT: o conjunto e como o trocar.
+    presetSet: String?,
+    onPresetSet: (String) -> Unit,
     onChangeTarget: (Int) -> Unit,
     onPick: () -> Unit,
     onStart: () -> Unit,
@@ -537,7 +585,13 @@ private fun StartReadingCard(
         Spacer(Modifier.height(18.dp))
         SheetEyebrow(tr("duração (opcional)"))
         Spacer(Modifier.height(10.dp))
-        DurationPicker(minutes = targetMin, presets = presets, onChange = onChangeTarget)
+        DurationPicker(
+            minutes = targetMin,
+            presets = presets,
+            presetSet = presetSet,
+            onPresetSet = onPresetSet,
+            onChange = onChangeTarget,
+        )
 
         Spacer(Modifier.height(20.dp))
         PautaButton(
@@ -642,22 +696,26 @@ private fun BookConcludeSheet(
     onClose: () -> Unit,
 ) {
     val colors = LocalPautaColors.current
-    val isAudiobook = book.format == "audiobook"
     var page by remember { mutableStateOf(book.currentPage.takeIf { it > 0 }?.toString() ?: "") }
     var note by remember { mutableStateOf("") }
 
-    fun submit() = onConfirm(derivedPage ?: page.toIntOrNull() ?: book.currentPage, note.trim())
+    // F1: clamp what was typed into what this book can mean. Without this a "100"
+    // typed into a field that *said* pages and *stored* percentage points sent an
+    // attached EPUB straight to finished — which is exactly what happened.
+    // // PT: limita o valor tecleado ao que o livro pode significar.
+    fun submit() = onConfirm(
+        derivedPage ?: clampBookProgress(book, page.toIntOrNull() ?: book.currentPage),
+        note.trim(),
+    )
 
     PautaSheet(title = tr("Concluir bloco"), onClose = onClose) {
         if (derivedPage != null) {
             // The same unlabelled progress line the detail sheet uses — a
             // statement, not a question. // PT: a linha de progresso, sem pergunta.
+            // F1: the reader's own figure, said in the book's unit rather than
+            // always in pages. // PT: a linha de progresso na unidade certa.
             Text(
-                text = if (book.totalPages > 0) {
-                    trf("Página {x} de {y}", "x" to derivedPage, "y" to book.totalPages)
-                } else {
-                    "p. $derivedPage"
-                },
+                text = bookProgressLabel(book, derivedPage),
                 color = colors.ink2,
                 style = PautaType.Meta,
             )
@@ -665,19 +723,26 @@ private fun BookConcludeSheet(
             // U1: inside the body, so the page field waits for the sheet to settle.
             // // PT: espera que a folha assente antes de focar.
             val pageFocus = rememberAutoFocusRequester()
-            SheetEyebrow(if (isAudiobook) tr("Quantos minutos ouviste?") else tr("Até que página chegaste?"))
+            // F1: ask in the unit the book counts in. An attached EPUB has no
+            // pages — its text reflows — so it is asked for a percentage, and the
+            // mark beside the field keeps saying so while you type.
+            // // PT: pergunta na unidade do livro, com a marca ao lado do campo.
+            SheetEyebrow(bookProgressQuestion(book))
             Spacer(Modifier.height(8.dp))
-            Box(Modifier.width(120.dp)) {
-                BoxedField(
-                    value = page,
-                    onChange = { raw -> page = raw.filter { it.isDigit() }.take(6) },
-                    placeholder = book.currentPage.toString(),
-                    modifier = Modifier.focusRequester(pageFocus),
-                    singleLine = true,
-                    fontFamily = MonoFamily,
-                    keyboardType = KeyboardType.Number,
-                    imeAction = ImeAction.Next,
-                )
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Box(Modifier.width(120.dp)) {
+                    BoxedField(
+                        value = page,
+                        onChange = { raw -> page = raw.filter { it.isDigit() }.take(6) },
+                        placeholder = book.currentPage.toString(),
+                        modifier = Modifier.focusRequester(pageFocus),
+                        singleLine = true,
+                        fontFamily = MonoFamily,
+                        keyboardType = KeyboardType.Number,
+                        imeAction = ImeAction.Next,
+                    )
+                }
+                Text(bookProgressMark(book), color = colors.ink3, style = PautaType.Meta)
             }
         }
 

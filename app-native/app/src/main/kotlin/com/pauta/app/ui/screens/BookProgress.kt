@@ -1,6 +1,7 @@
 package com.pauta.app.ui.screens
 
 import com.pauta.app.data.entity.BookEntity
+import com.pauta.app.i18n.tr
 import com.pauta.app.i18n.trf
 
 /**
@@ -36,6 +37,20 @@ internal fun countsPercent(book: BookEntity): Boolean = book.fileKind == "epub"
 internal fun bookProgressLabel(book: BookEntity, page: Int = book.currentPage): String {
     val audiobook = book.format == "audiobook"
     return when {
+        // F7: an attached EPUB still counts in percent — that is settled — but a
+        // reader who also owns the paper copy has a print length they typed in,
+        // and a percentage of it is a real (if rough) answer to "where am I in the
+        // book on the shelf?". It carries `≈` and says what it assumed, because a
+        // derived figure presented as measured is exactly the defect this round
+        // exists to remove (GUARDRAILS K.11). The publisher's *own* numbers, where
+        // the book carries them, are drawn in the page itself by the marker rule
+        // — those need no `≈`. // PT: a percentagem fica; a página é uma estimativa
+        // e diz que o é.
+        countsPercent(book) && book.totalPages > 0 -> {
+            val pct = page.coerceIn(0, 100)
+            val approx = (book.totalPages * pct / 100).coerceIn(0, book.totalPages)
+            "$pct% · " + trf("≈ p. {x} de {y}", "x" to approx, "y" to book.totalPages)
+        }
         countsPercent(book) -> "${page.coerceIn(0, 100)}%"
         book.totalPages > 0 && audiobook ->
             trf("Min {x} de {y}", "x" to page, "y" to book.totalPages)
@@ -67,4 +82,49 @@ internal fun bookProgressMax(book: BookEntity): Int? = when {
     countsPercent(book) -> 100
     book.totalPages > 0 -> book.totalPages
     else -> null
+}
+
+/**
+ * F1 · this file decided how progress is *shown*; from here it also decides how
+ * it is **asked for**.
+ *
+ * That split is what put a book at 100%. R4 taught every display that an attached
+ * EPUB counts percentage points, and taught none of the inputs: the conclude
+ * sheet went on asking *"Até que página chegaste?"*, the owner answered it with a
+ * page number, and the app stored a percentage. A field whose meaning differs
+ * from the line above it is not a small inconsistency — it is a number the user
+ * did not mean, written to their data.
+ *
+ * // PT: as perguntas e as marcas dos campos de progresso, na unidade que o livro
+ * conta — o mesmo sítio que já decidia como se mostra.
+ */
+
+/** The eyebrow above a progress input. // PT: a pergunta do campo. */
+internal fun bookProgressQuestion(book: BookEntity): String = when {
+    countsPercent(book) -> tr("Em que percentagem ficaste?")
+    book.format == "audiobook" -> tr("Quantos minutos ouviste?")
+    else -> tr("Até que página chegaste?")
+}
+
+/** The field's own noun, for a label that isn't a question. // PT: o nome da unidade. */
+internal fun bookProgressUnit(book: BookEntity): String = when {
+    countsPercent(book) -> tr("Percentagem")
+    book.format == "audiobook" -> tr("Minutos")
+    else -> tr("Página")
+}
+
+/** The mark that sits beside the field — `%`, `min.`, `p.` — so the unit is
+ *  visible while typing, not only in the label. // PT: a marca ao lado do campo. */
+internal fun bookProgressMark(book: BookEntity): String = when {
+    countsPercent(book) -> "%"
+    book.format == "audiobook" -> "min."
+    else -> "p."
+}
+
+/** Clamp a typed value into what this book can mean. A percentage stops at 100,
+ *  a book of known length at its length, and a book of unknown length is not
+ *  second-guessed. // PT: limita o valor ao que o livro pode significar. */
+internal fun clampBookProgress(book: BookEntity, value: Int): Int {
+    val max = bookProgressMax(book)
+    return if (max != null) value.coerceIn(0, max) else value.coerceAtLeast(0)
 }
