@@ -437,6 +437,11 @@ fun PautaScreen(bookMode: Boolean = false, onOpenReader: (String) -> Unit = {}) 
             hasActive = active != null,
             activeTitle = active?.title.orEmpty(),
             presets = TimerPresets.of(prefs.timerPresets),
+            // F9: the set is changed where the times are, writing the same pref
+            // the Settings row writes. // PT: o conjunto muda-se aqui, na mesma
+            // preferência das definições.
+            presetSet = prefs.timerPresets ?: TimerPresets.Pomodoro,
+            onPresetSet = { vm.setTimerPresets(it) },
             onStart = { title, linkedToId, project, targetMin ->
                 startBlock(title, linkedToId, project, targetMin)
                 showStart = false

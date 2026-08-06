@@ -934,6 +934,13 @@ object I18n {
         // from a hand-recorded length, and it carries its "≈" into both languages.
         // // PT: a estimativa de página, com o "≈" que a marca como tal.
         "≈ p. {x} de {y}" to "≈ p. {x} of {y}", // native-only
+
+        // F9 · the preset set, said in lower case beside the times it governs.
+        // "Pomodoro"/"Simples" already exist above as the Settings row's labels;
+        // these are the quieter footnote spellings. // PT: as versões minúsculas,
+        // ao pé dos tempos.
+        "pomodoro" to "pomodoro", // native-only
+        "simples" to "simple", // native-only
     )
 }
 
