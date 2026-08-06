@@ -539,17 +539,18 @@ CI green.
 
 ## Leftovers — too small to be tasks
 
-Fold each into the next PR that touches the same file, or do them together in
-one sweep at the end. **Strike anything not done, with a reason, in the Log.**
+**All three done (PR #187).** Kept here with what happened to each.
 
-- **Hoje prints `0/2 intenções` twice** on one screen — the progress card and
-  the *Reflexão da noite* card. One of them is enough. `ui/screens/HojeScreen.kt`.
-- **The document picker opens on "Recent", which is empty** on a clean device.
-  Pass `EXTRA_INITIAL_URI` pointing at Downloads.
-  `ui/screens/BookFormSheet.kt:101`, `ui/screens/ReaderScreen.kt:610`.
-- **The Estante header leaves an orphan `·`** at textScale 1.5, wrapping
-  `✎ Nota + ·` onto one line and `Adicionar livro +` onto the next. Same family
-  as `FIELD_FIXES.md` F8 — fix it there if F8 lands first, here if not.
+- ~~**Hoje prints `0/2 intenções` twice**~~ — the reflection card repeated the
+  top card's pulse line *on the assumption that the top one had scrolled away*,
+  which is wrong on a day with no intentions, and that is exactly the day the
+  emulator found. The repeat is now conditional on there being a list.
+- ~~**The document picker opens on "Recent"**~~ — a small
+  `OpenDocumentInDownloads` contract adds `EXTRA_INITIAL_URI`, shared by both
+  call sites. It is a **hint**: the system picker may ignore it, and nothing
+  depends on it doing anything.
+- ~~**The Estante header leaves an orphan `·`**~~ — fixed in `FIELD_FIXES.md`
+  **F8**, which landed first, exactly as this note anticipated.
 
 ## Amendments to other files
 

@@ -493,10 +493,17 @@ fun HojeScreen(
                         fontStyle = FontStyle.Italic,
                     )
                     Spacer(Modifier.height(12.dp))
-                    if (pulseParts.isNotEmpty()) {
-                        // The same pulse line as the card at the top of the tab (that
-                        // one has scrolled away by now) — one composable, so the two
-                        // can't drift again. // PT: a mesma linha de pulso do topo.
+                    // The same pulse line as the card at the top of the tab, on the
+                    // assumption that that one has scrolled away by now — one
+                    // composable, so the two can't drift again.
+                    //
+                    // N8-leftover: on a day with no intentions the assumption is
+                    // wrong, and the emulator run found both on one screen printing
+                    // "0/2 intenções" twice. A list is what makes the top card
+                    // scroll away, so the repeat is conditional on there being one.
+                    // // PT: a linha do topo só se repete aqui quando há lista — sem
+                    // ela, os dois cartões cabem no mesmo ecrã e diziam o mesmo.
+                    if (pulseParts.isNotEmpty() && intentions.isNotEmpty()) {
                         DayPulseLine(pulseParts)
                         Spacer(Modifier.height(12.dp))
                         Box(Modifier.fillMaxWidth().height(1.dp).background(colors.rule))
