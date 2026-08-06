@@ -941,6 +941,11 @@ object I18n {
         // ao pé dos tempos.
         "pomodoro" to "pomodoro", // native-only
         "simples" to "simple", // native-only
+
+        // F10 · the updater answers. "Está atualizado." is the same sentence
+        // whatever the answer, so the time is the part that proves the tap was
+        // taken. // PT: a hora é o que prova que o toque chegou.
+        "Verificado às {h}" to "Checked at {h}", // native-only
     )
 }
 

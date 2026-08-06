@@ -106,6 +106,7 @@ import com.pauta.app.ui.clickableNoRipple
 import com.pauta.app.ui.theme.LocalPautaColors
 import com.pauta.app.ui.theme.MonoFamily
 import com.pauta.app.ui.theme.PautaMotion
+import com.pauta.app.ui.theme.PautaType
 import com.pauta.app.ui.theme.rememberMotionEnabled
 import com.pauta.app.ui.theme.SerifFamily
 import com.pauta.app.ui.viewmodel.AppViewModel
@@ -153,6 +154,7 @@ fun SettingsScreen(
     val updDownloadProgress by vm.updateDownloadProgress.collectAsStateWithLifecycle()
     val updDownloadError by vm.updateDownloadError.collectAsStateWithLifecycle()
     val updCheckFailed by vm.updateCheckFailed.collectAsStateWithLifecycle()
+    val updCheckedAt by vm.updateCheckedAt.collectAsStateWithLifecycle()
     val context = LocalContext.current
     // C3: whether the device has usable biometrics — gates the unlock toggle below
     // (only shown alongside a set PIN). // PT: há biometria utilizável?
@@ -387,6 +389,12 @@ fun SettingsScreen(
         updDownloadError || updCheckFailed -> tr("Tentar outra vez")
         updChecking -> tr("A verificar…")
         updAvailable != null -> tr("Nova versão")
+        // F10: the answer, and when it was given. "Está atualizado." alone never
+        // changes, so a second tap looked like a dead button; the time is the part
+        // that always moves. // PT: a resposta e a hora — a hora é o que muda
+        // sempre, e é o que faltava.
+        updChecked && updCheckedAt.isNotEmpty() ->
+            tr("Está atualizado.") + " " + trf("Verificado às {h}", "h" to updCheckedAt)
         updChecked -> tr("Está atualizado.")
         else -> null
     }
@@ -1473,6 +1481,7 @@ private fun UpdateSheet(onClose: () -> Unit) {
     val downloadError by vm.updateDownloadError.collectAsStateWithLifecycle()
     val needsPerm by vm.updateNeedsPerm.collectAsStateWithLifecycle()
     val checkFailed by vm.updateCheckFailed.collectAsStateWithLifecycle()
+    val checkedAt by vm.updateCheckedAt.collectAsStateWithLifecycle()
 
     PautaSheet(title = tr("Atualizações"), onClose = onClose) {
         val update = available
@@ -1493,6 +1502,16 @@ private fun UpdateSheet(onClose: () -> Unit) {
             // "up to date" (B2). // PT: falha de rede, não "atualizado".
             checkFailed -> {
                 UpdateLine(tr("Não foi possível verificar. Confirma a ligação à internet."), colors.accent)
+                // A failure is an answer too, and it has a time. // PT: falhar
+                // também é responder, e tem hora.
+                if (checkedAt.isNotEmpty()) {
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        text = trf("Verificado às {h}", "h" to checkedAt),
+                        color = colors.ink3,
+                        style = PautaType.MetaSmall,
+                    )
+                }
                 Spacer(Modifier.height(SheetActionGap))
                 PautaButton(tr("Tentar outra vez"), Modifier.fillMaxWidth()) { vm.checkForUpdate() }
             }
@@ -1533,6 +1552,18 @@ private fun UpdateSheet(onClose: () -> Unit) {
             }
             checked -> {
                 UpdateLine(tr("Está atualizado."))
+                // F10: the sheet is where the second tap actually happens, and
+                // "Está atualizado." is the same sentence whatever the answer —
+                // so this is the line that tells you the tap was taken.
+                // // PT: a linha que prova que o toque chegou.
+                if (checkedAt.isNotEmpty()) {
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        text = trf("Verificado às {h}", "h" to checkedAt),
+                        color = colors.ink3,
+                        style = PautaType.MetaSmall,
+                    )
+                }
                 Spacer(Modifier.height(SheetActionGap))
                 PautaButton(
                     tr("Verificar atualizações"),
