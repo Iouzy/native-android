@@ -202,6 +202,14 @@ data class PrefsEntity(
     val parrot: Boolean = true,
     val onboardingSeen: Boolean = false,
     val remindersEnabled: Boolean = false,
+    // native-only (N1): when we last asked the OS for POST_NOTIFICATIONS (0 =
+    // never). Android 13+ shows that dialog exactly once — a second request after
+    // a denial returns instantly and silently — so asking repeatedly is noise.
+    // This records that the app has been past the moment where it asks, which is
+    // also what lets the Settings row tell "never asked" from "denied". Device
+    // state, so not part of the pauta.v4 shape. // PT: quando pedimos a permissão
+    // de notificações (0 = nunca); o Android só mostra o diálogo uma vez.
+    val notifAskedAt: Long = 0,
     val plannerTime: String = "08:00",
     val habitsTime: String = "09:00",
     val reflectionTime: String = "21:30",

@@ -97,6 +97,7 @@ import com.pauta.app.ui.PautaSheet
 import com.pauta.app.ui.CellState
 import com.pauta.app.ui.cellStateFor
 import com.pauta.app.ui.clickableNoRipple
+import com.pauta.app.ui.rememberNotificationAsk
 import com.pauta.app.ui.entranceStagger
 import com.pauta.app.ui.rememberEntrancePlay
 import com.pauta.app.ui.tick
@@ -155,6 +156,7 @@ internal fun MaresContent(leading: (LazyListScope.() -> Unit)? = null) {
     val counts by vm.habitCounts.collectAsStateWithLifecycle()
     val today by vm.todayKey.collectAsStateWithLifecycle()
     val prefs by vm.prefs.collectAsStateWithLifecycle()
+    val askNotifications = rememberNotificationAsk(vm, prefs.notifAskedAt)
     // A3: cell fills, respiro hatching and row add/remove all snap when reduced.
     // // PT: animações das células respeitam "movimento reduzido".
     val animate = rememberMotionEnabled()
@@ -469,7 +471,15 @@ internal fun MaresContent(leading: (LazyListScope.() -> Unit)? = null) {
     editTarget?.let { h ->
         EditHabitSheet(
             habit = h,
-            onSave = { updated -> vm.updateHabit(updated); editTarget = null },
+            onSave = { updated ->
+                // N1: a tide with a clock is a tide that will try to notify. Ask at
+                // the moment the reminder is set, not at launch — and only when the
+                // habit actually gained one. // PT: pede a permissão quando a maré
+                // ganha hora certa.
+                if (updated.clock.isNotBlank() && h.clock.isBlank()) askNotifications()
+                vm.updateHabit(updated)
+                editTarget = null
+            },
             onArchive = { vm.setHabitArchived(h.id, true); editTarget = null },
             onRemove = { removeTarget = h; editTarget = null },
             onClose = { editTarget = null },
@@ -489,6 +499,8 @@ internal fun MaresContent(leading: (LazyListScope.() -> Unit)? = null) {
     if (showAdd) {
         AddHabitSheet(
             onSubmit = { d ->
+                // N1: same reason as the edit sheet above. // PT: idem.
+                if (d.clock.isNotBlank()) askNotifications()
                 vm.addHabit(
                     name = d.name, time = d.time, cadence = d.cadence, anchor = d.anchor,
                     weekdays = d.weekdays, target = d.target, unit = d.unit, clock = d.clock,

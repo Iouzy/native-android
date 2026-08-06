@@ -12,8 +12,8 @@
 Source paths are relative to
 `app-native/app/src/main/kotlin/com/pauta/app/`.
 
-**Room is at version 11** (`data/AppDatabase.kt:64`), with migrations 1→2
-through 10→11 registered. The next migration a task writes is **11 → 12**.
+**Room is at version 12** (`data/AppDatabase.kt`), with migrations 1→2
+through 11→12 registered. The next migration a task writes is **12 → 13**.
 
 ---
 
@@ -84,6 +84,7 @@ Progress % = `currentPage.toFloat() / totalPages.coerceAtLeast(1)`.
 | `bookMode` | Boolean | `false` | the lens switch; one source of truth |
 | `bookAnnualGoal` | Int | `0` | 0 = no goal set |
 | `timerPresets` | String | `"pomodoro"` | `pomodoro` (25/50/90) / `simples` (15/30/45/60) — U2 |
+| `notifAskedAt` | Long | `0` | 0 = we have never asked the OS for `POST_NOTIFICATIONS`; ms epoch once we have — N1 |
 
 All `// native-only`. Prefs added by pending tasks (`readerTextScale`,
 `readerLineHeight`, `readerMargin`, `readerTheme` in L5; the reading-reminder
@@ -137,8 +138,9 @@ The security rules that govern how a file gets there are section G of
 | 7 → 8 | `books`, `book_notes`, `bookMode`, `bookAnnualGoal` | `BOOK_MODE` K1 |
 | 8 → 9 | `timerPresets` | `UX_FIXES` U2 |
 | 9 → 10 | `filePath`, `fileKind`, `fileName`, `readPosition`, `wordCount` | `BOOK_READER` R2 |
-| 10 → 11 | *(see `AppDatabase.kt`)* | — |
-| **11 → 12** | **next free** | — |
+| 10 → 11 | `pagesDelta` on `focus_blocks` | `BOOK_READER` R5 |
+| 11 → 12 | `notifAskedAt` | `FIRST_RUN` N1 |
+| **12 → 13** | **next free** | — |
 
 **Never rewrite a shipped migration.** If a shipped one was wrong, the fix is a
 new migration that repairs the data, plus a Log line saying what it repairs.
@@ -153,4 +155,5 @@ cost a rebase.
 ## Log (append when the model changes)
 
 <!-- YYYY-MM-DD · <what changed> · #PR · <why, and what it replaced> -->
+2026-08-06 · `notifAskedAt` on `prefs`, Room 11 → 12 · #187 · N1 needed one bit of state — have we ever asked for `POST_NOTIFICATIONS`? — because Android shows that dialog once and a second request is silent. Stored as a timestamp rather than a Boolean so a later task can tell *when*, at no cost. **This took the 11 → 12 slot `BOOK_LIBRARY.md` L5 had claimed**; L5 moves to 12 → 13 and L10 to the next free one after it.
 2026-08-03 · file created · — · consolidated from the Data model sections of `BOOK_MODE.md` (entities, sessions-as-blocks) and `BOOK_READER.md` (file columns, `filesDir/books`, the words-per-page constant), so those files could be archived without later work losing its reference; the migration history table, the "derived numbers" table and the version-collision note are new.

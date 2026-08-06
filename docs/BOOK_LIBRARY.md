@@ -75,8 +75,9 @@ that bite hardest in this file:
   identity, and they add no toolbars, FABs or Material chrome. **Whichever of
   the three ships first owns the new control row**; the other two join it.
 - **Claim your Room version in the task before you write code.** L5 takes
-  **11 → 12**; L10 takes the next free one. A collision on v9 once cost a
-  rebase.
+  **12 → 13**; L10 takes the next free one. A collision on v9 once cost a
+  rebase — and 11 → 12 went to `FIRST_RUN.md` N1, which shipped ahead of this
+  file, which is why L5's number moved.
 
 ---
 
@@ -490,7 +491,7 @@ book, open Settings, change a global preference that also resizes the whole
 planner, and come back.
 
 **Files to touch:**
-- `data/entity/Entities.kt` + `data/AppDatabase.kt` — prefs columns, Room v11 → v12
+- `data/entity/Entities.kt` + `data/AppDatabase.kt` — prefs columns, Room v12 → v13
 - `ui/screens/ReaderScreen.kt` — the chrome action + the sheet
 - `ui/screens/EpubReader.kt` — `rememberChapterCss` reads them
 - `ui/screens/PdfReader.kt` — the theme half only
@@ -498,8 +499,8 @@ planner, and come back.
 
 **How:**
 
-Four new `PrefsEntity` columns, all `// native-only`, Room **v11 → v12** as
-`MIGRATION_11_12`:
+Four new `PrefsEntity` columns, all `// native-only`, Room **v12 → v13** as
+`MIGRATION_12_13`:
 
 | Column | Type | Default | Notes |
 |---|---|---|---|
@@ -842,7 +843,7 @@ daily practice — has no reminder of its own. The scheduling machinery is built
 tested and boot-persistent; this is a third caller, not a new system.
 
 **Files to touch:**
-- `data/entity/Entities.kt` + `data/AppDatabase.kt` — two prefs columns (v12 → v13,
+- `data/entity/Entities.kt` + `data/AppDatabase.kt` — two prefs columns (v13 → v14,
   or fold into L5's migration if that ships first and hasn't merged)
 - `service/ReminderScheduler.kt` / `ReminderReceiver.kt` — a reading kind
 - `ui/screens/SettingsScreen.kt` — a row in the reminders section, book mode only

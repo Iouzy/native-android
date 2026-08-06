@@ -40,6 +40,18 @@ separate process, and an EPUB is rendered with scripting off, the network
 blocked and every navigation refused — see the Security model in
 [`docs/GUARDRAILS.md`](docs/GUARDRAILS.md) §G.
 
+## Notifications
+
+Pauta asks for notification permission **once**, at the moment it first needs it
+— when you start your first focus or reading block — and never at launch. Say no
+and nothing stops working: the timer runs, the block records, and Settings →
+Foco e lembretes tells you notifications are blocked and opens the system screen
+that can undo it.
+
+What it posts, and only this: the ongoing notification for a running block, the
+three daily reminders you set yourself, and a per-tide reminder if you give a
+tide a time. All local, all from the device.
+
 ## Install
 
 Download `pauta-native-v<N>.apk` from the rolling

@@ -69,6 +69,7 @@ import com.pauta.app.ui.PautaSheet
 import com.pauta.app.ui.SectionEyebrow
 import com.pauta.app.ui.SheetEyebrow
 import com.pauta.app.ui.clickableNoRipple
+import com.pauta.app.ui.rememberNotificationAsk
 import com.pauta.app.ui.tick
 import com.pauta.app.ui.theme.LocalPautaColors
 import com.pauta.app.ui.theme.MonoFamily
@@ -114,6 +115,7 @@ fun BookSessionScreen(onOpenReader: (String) -> Unit = {}) {
     val prefs by vm.prefs.collectAsStateWithLifecycle()
     val motion = rememberMotionEnabled()
     val haptic = LocalHapticFeedback.current
+    val askNotifications = rememberNotificationAsk(vm, prefs.notifAskedAt)
 
     // 1s clock tick driving the live timer (same as the planner's Pauta).
     var now by remember { mutableStateOf(System.currentTimeMillis()) }
@@ -249,6 +251,11 @@ fun BookSessionScreen(onOpenReader: (String) -> Unit = {}) {
                         onPick = { showPicker = true },
                         onStart = {
                             selectedBook?.let { b ->
+                                // N1: same promise, same moment — a reading session
+                                // raises the same ongoing notification the planner's
+                                // block does. // PT: a sessão de leitura promete o
+                                // mesmo aviso, e pergunta no mesmo momento.
+                                askNotifications()
                                 vm.startBlock(
                                     title = b.title,
                                     linkedToId = null,
