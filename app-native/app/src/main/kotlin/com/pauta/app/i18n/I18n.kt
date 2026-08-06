@@ -979,6 +979,11 @@ object I18n {
         "Sépia" to "Sepia", // native-only
         "Noite" to "Night", // native-only
         "Como a app" to "Match the app", // native-only
+
+        // L6 · capture from inside the book. "Nova nota" already exists (the
+        // sheet's own title) and is reused for the reader's ✎ description.
+        // // PT: capturar de dentro do livro; "Nova nota" já existe.
+        "+ Nota" to "+ Note", // native-only
     )
 }
 

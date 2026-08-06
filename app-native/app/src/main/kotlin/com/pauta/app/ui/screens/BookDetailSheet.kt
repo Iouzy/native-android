@@ -113,6 +113,8 @@ fun BookDetailSheet(
     var showEdit by remember { mutableStateOf(false) }
     // F2: the reading session opened from this sheet's Sessões list.
     var editBlock by remember { mutableStateOf<FocusBlockEntity?>(null) }
+    // L6: capture against this book, whatever shelf it is on.
+    var showCapture by remember { mutableStateOf(false) }
     var showFinish by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
     var confirmAbandon by remember { mutableStateOf(false) }
@@ -372,7 +374,21 @@ fun BookDetailSheet(
         Spacer(Modifier.height(SheetFieldGap))
         Box(Modifier.fillMaxWidth().height(1.dp).background(colors.rule))
         Spacer(Modifier.height(SheetFieldGap))
-        SheetEyebrow(tr("Notas & Citações"))
+        // L6: an add action on the eyebrow row. This is what makes a note on a
+        // *finished* book possible at all — the shelf-header capture only ever
+        // offered books being read. // PT: é isto que permite anotar um livro já
+        // terminado.
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            SheetEyebrow(tr("Notas & Citações"), modifier = Modifier.weight(1f))
+            Text(
+                text = tr("+ Nota"),
+                color = colors.ink3,
+                fontFamily = MonoFamily,
+                fontSize = 10.sp,
+                letterSpacing = 0.4.sp,
+                modifier = Modifier.clickableNoRipple { showCapture = true },
+            )
+        }
         Spacer(Modifier.height(SheetLabelGap))
         if (notes.isEmpty()) {
             // P10: the one empty state. // PT: o estado vazio único.
@@ -401,9 +417,22 @@ fun BookDetailSheet(
                             color = colors.accent,
                         )
                         // Audiobooks have no pages, so the tag is hidden for them.
+                        // L6: and the position reads in the book's own unit — an
+                        // EPUB note is "43%", not "p. 43". Calling a percentage a
+                        // page would be the second time the app had to learn this
+                        // lesson (R4 was the first). // PT: a posição na unidade do
+                        // livro; num EPUB é percentagem, não página.
                         if (!isAudiobook && note.page != null) {
                             Spacer(Modifier.width(8.dp))
-                            Text("p. ${note.page}", color = colors.ink4, style = PautaType.MetaSmall)
+                            Text(
+                                text = if (countsPercent(book)) {
+                                    "${note.page.coerceIn(0, 100)}%"
+                                } else {
+                                    "${bookProgressMark(book)} ${note.page}"
+                                },
+                                color = colors.ink4,
+                                style = PautaType.MetaSmall,
+                            )
                         }
                         Spacer(Modifier.weight(1f))
                         if (armed) {
@@ -494,6 +523,9 @@ fun BookDetailSheet(
             onDelete = { vm.deleteBlock(b.id); editBlock = null },
             onClose = { editBlock = null },
         )
+    }
+    if (showCapture) {
+        QuoteCaptureSheet(onClose = { showCapture = false }, bookId = book.id)
     }
     if (showEdit) {
         BookFormSheet(book = book, onClose = { showEdit = false })
