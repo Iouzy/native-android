@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.FlowRowScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -258,11 +259,16 @@ fun HojeScreen(
         // largura por baixo.
         item(key = "header") {
             Spacer(Modifier.height(22.dp))
-            // U3: the four actions used to stack in a right-hand Column, so four
-            // different chip widths made a staircase — and the column stole width
-            // from the headline. They now flow, right-aligned, beside the date
-            // only; the question below gets the full measure. // PT: as ações
-            // passam a fluir alinhadas à direita, em vez de uma escada.
+            // U3 made the four actions flow instead of stacking in a right-hand
+            // Column. F8 gives them the width to flow *in*: sharing the date's row
+            // left them about half the measure, so four chips came down as three
+            // ragged right-aligned lines at textScale 1.0 and four at 1.5 —
+            // roughly a quarter of the viewport before any content. On their own
+            // full-width row they fit on one line at 1.0 and wrap deliberately
+            // above it. The headline below still gets the full measure, which is
+            // what U3 was protecting. // PT: as acções passam a ter a largura toda
+            // para fluir; antes partilhavam a linha da data e faziam três ou quatro
+            // linhas irregulares.
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
                 val selDate = LocalDate.parse(selectedDayKey)
                 Row(Modifier.padding(top = 3.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -289,21 +295,21 @@ fun HojeScreen(
                         )
                     }
                 }
-                Spacer(Modifier.width(14.dp))
-                @OptIn(ExperimentalLayoutApi::class)
-                FlowRow(
-                    modifier = Modifier.weight(1f),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.End),
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    // The eyebrow uppercases anyway, so the source strings are all
-                    // lowercase now (Rotinas was the odd one). // PT: minúsculas em
-                    // todas — o eyebrow trata das maiúsculas.
-                    HeaderChip(tr("dias anteriores") + " ↗") { onOpenHistory() }
-                    HeaderChip(tr("a semana") + " ↗") { showWeek = true }
-                    HeaderChip(tr("rotinas") + " ↗") { showRoutines = true }
-                    HeaderChip(tr("revisão") + " ↗") { showInsights = true }
-                }
+            }
+            Spacer(Modifier.height(10.dp))
+            @OptIn(ExperimentalLayoutApi::class)
+            FlowRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.End),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                // The eyebrow uppercases anyway, so the source strings are all
+                // lowercase now (Rotinas was the odd one). // PT: minúsculas em
+                // todas — o eyebrow trata das maiúsculas.
+                HeaderChip(tr("dias anteriores") + " ↗") { onOpenHistory() }
+                HeaderChip(tr("a semana") + " ↗") { showWeek = true }
+                HeaderChip(tr("rotinas") + " ↗") { showRoutines = true }
+                HeaderChip(tr("revisão") + " ↗") { showInsights = true }
             }
             if (isToday) {
                 Spacer(Modifier.height(8.dp))
@@ -1088,40 +1094,53 @@ private fun AddIntentionForm(onAdd: (String, Int?, Int?, String?) -> Unit) {
             Column(Modifier.fillMaxWidth()) {
                 Spacer(Modifier.height(12.dp))
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
-                    // One flow, not three rows: labels and pills are all direct
-                    // children so a big textScale wraps between them instead of
-                    // clipping a group that can't fit. // PT: um só fluxo — com
-                    // texto grande quebra de linha em vez de cortar.
+                    // F8 · nested flows, not one flat one.
+                    //
+                    // U3 made labels and pills flat siblings of a single FlowRow so
+                    // that a large textScale wraps instead of clipping, and that
+                    // property is worth keeping — but a flat flow can break
+                    // *anywhere*, and on the phone it broke between a label and the
+                    // pills it names: `PRIORIDADE [1][2][3] QUANDO` /
+                    // `[manhã][tarde][noite] MIN` / `[40]`, so every label read as
+                    // a suffix of the group above it.
+                    //
+                    // Each label-and-its-pills is now one child of the outer flow,
+                    // so a group that doesn't fit moves down whole. It can still
+                    // wrap inside itself when a group is wider than the entire
+                    // measure, which is the U3 property intact: it wraps, it never
+                    // clips. // PT: cada etiqueta e as suas pílulas são um só filho
+                    // do fluxo exterior — o grupo desce inteiro, nunca partido.
                     FlowRow(
                         modifier = Modifier.weight(1f),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
                         verticalArrangement = Arrangement.spacedBy(6.dp),
                     ) {
-                        // Everything on the line rides its vertical centre — the
-                        // minutes field is a few dp taller than a pill, and top
-                        // alignment would show it. // PT: tudo centrado na linha.
-                        val mid = Modifier.align(Alignment.CenterVertically)
-                        ComposerLabel(tr("prioridade"), mid)
-                        Pill("1", priority == 1, accent, mid) { priority = if (priority == 1) null else 1 }
-                        Pill("2", priority == 2, accent, mid) { priority = if (priority == 2) null else 2 }
-                        Pill("3", priority == 3, accent, mid) { priority = if (priority == 3) null else 3 }
-                        ComposerLabel(tr("quando"), mid)
-                        Pill(tr("manhã"), whenSel == "manha", accent, mid) { whenSel = if (whenSel == "manha") null else "manha" }
-                        Pill(tr("tarde"), whenSel == "tarde", accent, mid) { whenSel = if (whenSel == "tarde") null else "tarde" }
-                        Pill(tr("noite"), whenSel == "noite", accent, mid) { whenSel = if (whenSel == "noite") null else "noite" }
-                        ComposerLabel(tr("min"), mid)
-                        Box(Modifier.width(62.dp).align(Alignment.CenterVertically)) {
-                            BoxedField(
-                                value = target,
-                                onChange = { target = it.filter { c -> c.isDigit() }.take(3) },
-                                placeholder = "40",
-                                singleLine = true,
-                                fontFamily = MonoFamily,
-                                fontSize = 13.sp,
-                                keyboardType = KeyboardType.Number,
-                                imeAction = ImeAction.Done,
-                                keyboardActions = KeyboardActions(onDone = { commit() }),
-                            )
+                        ComposerGroup(tr("prioridade")) {
+                            val mid = Modifier.align(Alignment.CenterVertically)
+                            Pill("1", priority == 1, accent, mid) { priority = if (priority == 1) null else 1 }
+                            Pill("2", priority == 2, accent, mid) { priority = if (priority == 2) null else 2 }
+                            Pill("3", priority == 3, accent, mid) { priority = if (priority == 3) null else 3 }
+                        }
+                        ComposerGroup(tr("quando")) {
+                            val mid = Modifier.align(Alignment.CenterVertically)
+                            Pill(tr("manhã"), whenSel == "manha", accent, mid) { whenSel = if (whenSel == "manha") null else "manha" }
+                            Pill(tr("tarde"), whenSel == "tarde", accent, mid) { whenSel = if (whenSel == "tarde") null else "tarde" }
+                            Pill(tr("noite"), whenSel == "noite", accent, mid) { whenSel = if (whenSel == "noite") null else "noite" }
+                        }
+                        ComposerGroup(tr("min")) {
+                            Box(Modifier.width(62.dp).align(Alignment.CenterVertically)) {
+                                BoxedField(
+                                    value = target,
+                                    onChange = { target = it.filter { c -> c.isDigit() }.take(3) },
+                                    placeholder = "40",
+                                    singleLine = true,
+                                    fontFamily = MonoFamily,
+                                    fontSize = 13.sp,
+                                    keyboardType = KeyboardType.Number,
+                                    imeAction = ImeAction.Done,
+                                    keyboardActions = KeyboardActions(onDone = { commit() }),
+                                )
+                            }
                         }
                     }
                     Spacer(Modifier.width(10.dp))
@@ -1138,6 +1157,27 @@ private fun AddIntentionForm(onAdd: (String, Int?, Int?, String?) -> Unit) {
  *  the shared eyebrow (mono, uppercase, 10sp) rather than a fourth bespoke mono
  *  size, tinted ink4 so it stays quieter than the pills it names. // PT: as
  *  etiquetas dos grupos de pílulas, no eyebrow partilhado. */
+/**
+ * F8 · a label and the pills it names, as one child of the composer's flow. The
+ * whole point is that the outer flow can only break *between* groups; inside one,
+ * the label is glued to what it labels. // PT: a etiqueta e as suas pílulas como
+ * um só filho do fluxo — a quebra só pode acontecer entre grupos.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun ComposerGroup(label: String, content: @Composable FlowRowScope.() -> Unit) {
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        // Everything on the line rides its vertical centre — the minutes field is
+        // a few dp taller than a pill, and top alignment would show it.
+        // // PT: tudo centrado na linha.
+        ComposerLabel(label, Modifier.align(Alignment.CenterVertically))
+        content()
+    }
+}
+
 @Composable
 private fun ComposerLabel(label: String, modifier: Modifier = Modifier) {
     SectionEyebrow(

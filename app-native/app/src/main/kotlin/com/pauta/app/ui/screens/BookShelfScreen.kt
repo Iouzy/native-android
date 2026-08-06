@@ -112,17 +112,27 @@ fun BookShelfScreen(onOpenReader: (String) -> Unit = {}) {
                         color = colors.ink2,
                         description = tr("Nova nota"),
                     ) { showCapture = true }
-                    Text(
-                        text = "·",
-                        color = colors.ink4,
-                        style = PautaType.Meta,
-                        modifier = Modifier.padding(vertical = 6.dp),
-                    )
-                    HeaderAction(
-                        label = tr("Adicionar livro") + " +",
-                        color = colors.accent,
-                        description = tr("Adicionar livro"),
-                    ) { showAdd = true }
+                    // F8: the separator belongs to the action it precedes, not to
+                    // the flow. As three flat children it could end a line on its
+                    // own — at textScale 1.5 the header read "✎ Nota + ·" and then
+                    // "Adicionar livro +" underneath, with the separator dangling
+                    // after nothing. Bound to the action, it can only ever sit
+                    // between the two or lead the second line. // PT: o separador
+                    // anda com a acção que precede, para nunca ficar sozinho no fim
+                    // de uma linha.
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = "·",
+                            color = colors.ink4,
+                            style = PautaType.Meta,
+                            modifier = Modifier.padding(end = 6.dp),
+                        )
+                        HeaderAction(
+                            label = tr("Adicionar livro") + " +",
+                            color = colors.accent,
+                            description = tr("Adicionar livro"),
+                        ) { showAdd = true }
+                    }
                 }
             }
             Spacer(Modifier.height(20.dp))

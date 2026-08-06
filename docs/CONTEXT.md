@@ -54,7 +54,7 @@ this file → your task file. Nothing else needs opening unless a task names it.
 |---|---|---|---|
 | `docs/FIRST_RUN.md` | The edges: the permission never asked for, the empty screens, the front doors. Written from a device run, 2026-08-03 | N1…N8 | N1 **done**; N2…N8 pending |
 | `docs/BOOK_LIBRARY.md` | Book mode round three. Phase L-0 = promises the app already makes and does not keep | L1…L12 | L1, L2, L3 **done** — Phase L-0 closed; L4…L12 pending |
-| `docs/FIELD_FIXES.md` | Defects found by *using* the app. Ordered by what each costs the person using it | F1…F13 | F1…F7 **done** (F7 partial — its chrome half waits on L4); F8…F13 pending |
+| `docs/FIELD_FIXES.md` | Defects found by *using* the app. Ordered by what each costs the person using it | F1…F13 | F1…F7 **done** (F7 partial — its chrome half waits on L4); F8 **done**; F9…F13 pending |
 
 **Archived** (complete, in `docs/archive/`): `NATIVE_IMPROVEMENTS.md` (A1…T2),
 `BOOK_MODE.md` (K1…K9), `POLISH.md` (P1…P10), `BOOK_READER.md` (R1…R8),
