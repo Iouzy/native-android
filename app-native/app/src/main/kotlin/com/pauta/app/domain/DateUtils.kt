@@ -39,6 +39,24 @@ object DateUtils {
         return "%02d:%02d".format(t.hour, t.minute)
     }
 
+    /**
+     * F2 · [ms] moved to the wall-clock [clock] (`"HH:MM"`) on its own local day.
+     * Null when [clock] isn't a valid time, so a half-typed field can't silently
+     * move a session to midnight.
+     *
+     * The date comes from the timestamp being edited rather than from "today":
+     * correcting last Tuesday's session must correct last Tuesday.
+     * // PT: aplica uma hora a um instante, mantendo o dia desse instante.
+     */
+    fun withClock(ms: Long, clock: String): Long? {
+        val m = Regex("^(\\d{1,2}):(\\d{2})$").find(clock.trim()) ?: return null
+        val hour = m.groupValues[1].toIntOrNull() ?: return null
+        val minute = m.groupValues[2].toIntOrNull() ?: return null
+        if (hour !in 0..23 || minute !in 0..59) return null
+        val date = Instant.ofEpochMilli(ms).atZone(zone).toLocalDate()
+        return date.atTime(hour, minute).atZone(zone).toInstant().toEpochMilli()
+    }
+
     /** Epoch millis at local midnight (start) of a day key. */
     fun startOfDayMs(key: String): Long =
         LocalDate.parse(key).atStartOfDay(zone).toInstant().toEpochMilli()
