@@ -232,4 +232,24 @@ class BookMathTest {
         val wpm = BookMath.wordsPerMinute(spans, BookMath.WORDS_PER_PAGE.toFloat())!!
         assertEquals(pace * BookMath.WORDS_PER_PAGE / 60f, wpm, 0.001f)
     }
+
+    // ── L7 · genre as tags ────────────────────────────────────
+
+    @Test fun genreSplitsOnCommasWithOrWithoutSpaces() {
+        assertEquals(listOf("ficção", "ensaio"), BookMath.genreTags("ficção, ensaio"))
+        assertEquals(listOf("ficção", "ensaio"), BookMath.genreTags("ficção,ensaio"))
+        assertEquals(listOf("ficção", "ensaio"), BookMath.genreTags("  ficção ,  ensaio  "))
+    }
+
+    @Test fun aBookWithNoGenreHasNoTags() {
+        // The column defaults to "", and most books will keep it.
+        assertEquals(emptyList<String>(), BookMath.genreTags(""))
+        assertEquals(emptyList<String>(), BookMath.genreTags(" "))
+        assertEquals(emptyList<String>(), BookMath.genreTags(",,, "))
+    }
+
+    @Test fun oneGenreIsOneTag() {
+        assertEquals(listOf("romance"), BookMath.genreTags("romance"))
+        assertEquals(listOf("romance"), BookMath.genreTags("romance,"))
+    }
 }

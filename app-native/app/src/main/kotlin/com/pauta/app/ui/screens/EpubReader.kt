@@ -59,7 +59,10 @@ enum class ReaderTap { PREVIOUS, MIDDLE, NEXT }
  */
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
-fun EpubChapterView(
+// L5: internal, because it takes the module-internal `ReaderSettings`. It has
+// only ever been called from `ReaderScreen`, one file over.
+// // PT: interno — recebe um tipo interno e só é usado aqui ao lado.
+internal fun EpubChapterView(
     session: EpubSession,
     chapter: Int,
     // L5: the reader's own type and colour. Named `reader` and not `settings`

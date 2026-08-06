@@ -147,4 +147,24 @@ object BookMath {
         val unitsPerHour = pagesPerHour(spans, wordsPerUnit) ?: return null
         return unitsPerHour * wordsPerUnit / 60f
     }
+
+    /**
+     * L7 · `genre` as what it is documented to be: free text, comma-separated
+     * tags.
+     *
+     * The column was collected by the form, trimmed, stored and migrated across
+     * two Room versions — and **never read by anything**. A field the user fills
+     * in and the app never shows is a small dishonesty, and the fix costs one
+     * split: it is now rendered where the book is, and L8's filter reuses this
+     * rather than splitting the string a second time.
+     *
+     * Kept pure so the edge cases are testable rather than argued about:
+     * `"ficção, ensaio"`, `"ficção,ensaio"`, `" "` and `""` all behave.
+     * // PT: o género como etiquetas separadas por vírgulas — que é o que sempre
+     * foi documentado ser, e que nada lia.
+     */
+    fun genreTags(genre: String): List<String> =
+        genre.split(',')
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
 }
