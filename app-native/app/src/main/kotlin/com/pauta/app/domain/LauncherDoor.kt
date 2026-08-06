@@ -35,4 +35,45 @@ object LauncherDoor {
         MAIN_CLASS -> false
         else -> null
     }
+
+    /** `Intent.ACTION_MAIN`, spelled out so this file stays free of Android types
+     *  and testable on the JVM. // PT: a acção MAIN, sem importar Android. */
+    const val ACTION_MAIN = "android.intent.action.MAIN"
+
+    /**
+     * F6 · whether a launch should apply its door.
+     *
+     * R8 answered this with "only on a cold start", and on a device that turned out
+     * to mean *only* on a cold start: killing the app and tapping the book icon
+     * opened book mode, but tapping it while the app sat in recents left whatever
+     * mode was already showing. `onNewIntent` — the path a live app actually
+     * receives a launcher tap through — passed `coldStart = false` and dropped the
+     * door on purpose.
+     *
+     * The thing R8 was guarding against is real and is still guarded, just more
+     * precisely. Two conditions replace "cold start":
+     *
+     * - **[fromHistory]** — `FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY` marks a return
+     *   through the recents screen, which is not a statement about which icon you
+     *   want. Without this, swiping back into the app would flip the mode.
+     * - **[alreadyConsumed]** — the launch intent outlives the launch: it is still
+     *   `getIntent()` after a configuration change or a process restore, so a door
+     *   read twice is a door applied twice. Applying it once and marking it spent
+     *   is what makes re-reading safe.
+     *
+     * // PT: substitui o "só no arranque a frio" por duas condições exactas — não
+     * vir dos recentes, e ainda não ter sido usada.
+     */
+    fun opensADoor(
+        action: String?,
+        hasLauncherCategory: Boolean,
+        fromHistory: Boolean,
+        alreadyConsumed: Boolean,
+        className: String?,
+    ): Boolean =
+        action == ACTION_MAIN &&
+            hasLauncherCategory &&
+            !fromHistory &&
+            !alreadyConsumed &&
+            bookModeFor(className) != null
 }

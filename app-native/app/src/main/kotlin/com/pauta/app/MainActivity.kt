@@ -72,12 +72,19 @@ class MainActivity : FragmentActivity() {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
 
-        // Only the genuine first creation reads the launch intent. A later
+        // Only the genuine first creation reads the launch intent in full. A later
         // recreation (e.g. a per-app language change recreates us) restores its
         // state and must NOT re-fire the original shortcut/share. // PT: só a
-        // criação inicial lê o intent — a recriação (ex.: mudança de idioma) não
-        // pode repetir o atalho/partilha.
-        if (savedInstanceState == null) entry.value = parseEntry(intent, coldStart = true)
+        // criação inicial lê o intent todo — a recriação não repete atalho/partilha.
+        //
+        // F6: the door is the exception, and it has to be. When the process was
+        // killed but the task survived, tapping the book icon brings us back
+        // through `onCreate` *with* saved state — the one path R8's cold-start test
+        // called "not a cold start" and therefore ignored. It is safe to read here
+        // because the door guards on the intent itself (recents, and spent), not on
+        // how we were created. // PT: numa recriação só se lê a porta, que se
+        // protege pelo próprio intent e não pela forma como fomos criados.
+        entry.value = if (savedInstanceState == null) parseEntry(intent) else parseDoor(intent)
 
         setContent {
             val vm: AppViewModel = viewModel()
@@ -165,9 +172,9 @@ class MainActivity : FragmentActivity() {
     /** C4: map a launch/new intent to an [AppEntry] — the focus/quick-capture/tides
      *  shortcuts open a tab (the SHORTCUT_FOCUS one mirrors the QS tile), and an
      *  ACTION_SEND `text/plain` share becomes a candidate intention. R8 adds the
-     *  plain MAIN launch: on a cold start it says which of the two launcher icons
-     *  was tapped. Anything else is null. // PT: traduz o intent numa entrada. */
-    private fun parseEntry(intent: Intent?, coldStart: Boolean = false): AppEntry? = when (intent?.action) {
+     *  plain MAIN launch: it says which of the two launcher icons was tapped.
+     *  Anything else is null. // PT: traduz o intent numa entrada. */
+    private fun parseEntry(intent: Intent?): AppEntry? = when (intent?.action) {
         ACTION_SHORTCUT_FOCUS -> AppEntry.OpenTab(Tab.PAUTA)
         ACTION_SHORTCUT_NEW_INTENTION -> AppEntry.OpenTab(Tab.HOJE)
         ACTION_SHORTCUT_MARES -> AppEntry.OpenTab(Tab.MARES)
@@ -175,18 +182,45 @@ class MainActivity : FragmentActivity() {
             val text = intent.getCharSequenceExtra(Intent.EXTRA_TEXT)?.toString()?.trim()
             if (intent.type == "text/plain" && !text.isNullOrBlank()) AppEntry.ShareText(text) else null
         }
-        // R8: which door did we come through? Only a genuine launcher tap counts —
-        // MAIN + LAUNCHER — and only on a cold start, because the app's own
-        // component name is on every intent it ever receives back (a share sheet,
-        // the document picker) and re-reading it on resume would flip the mode
-        // under the user. // PT: só um toque real no ícone conta, e só no arranque
-        // a frio; ler o intent ao voltar trocaria o modo sozinho.
-        Intent.ACTION_MAIN -> {
-            val launcher = intent.hasCategory(Intent.CATEGORY_LAUNCHER)
-            val door = LauncherDoor.bookModeFor(intent.component?.className)
-            if (coldStart && launcher && door != null) AppEntry.OpenMode(door) else null
-        }
+        Intent.ACTION_MAIN -> parseDoor(intent)
         else -> null
+    }
+
+    /**
+     * F6 · which door did we come through?
+     *
+     * Only a genuine launcher tap counts — `MAIN` + `LAUNCHER` — and R8 added
+     * "and only on a cold start", which on a device meant the book icon worked
+     * only when the app was fully closed. `onNewIntent`, the path a live app
+     * actually receives a launcher tap through, dropped the door on purpose.
+     *
+     * The two things the cold-start test was standing in for are now checked
+     * directly, in [LauncherDoor.opensADoor]: a return through recents carries
+     * `FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY` and says nothing about which icon you
+     * want, and a launch intent outlives its launch — it is still `getIntent()`
+     * after a configuration change — so the door is marked spent the moment it is
+     * applied. Returning from the document picker or a share sheet never reaches
+     * here at all: those come back through a result, not a new intent.
+     *
+     * // PT: a porta só se abre num toque real no ícone — nem vinda dos recentes,
+     * nem duas vezes com o mesmo intent.
+     */
+    private fun parseDoor(intent: Intent?): AppEntry? {
+        if (intent == null) return null
+        val opens = LauncherDoor.opensADoor(
+            action = intent.action,
+            hasLauncherCategory = intent.hasCategory(Intent.CATEGORY_LAUNCHER),
+            fromHistory = (intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY) != 0,
+            alreadyConsumed = intent.getBooleanExtra(EXTRA_DOOR_SPENT, false),
+            className = intent.component?.className,
+        )
+        if (!opens) return null
+        val door = LauncherDoor.bookModeFor(intent.component?.className) ?: return null
+        // Spend it, on the instance the activity will hand back from getIntent().
+        // // PT: marca-a como usada, no intent que o sistema nos devolve.
+        intent.putExtra(EXTRA_DOOR_SPENT, true)
+        setIntent(intent)
+        return AppEntry.OpenMode(door)
     }
 
     private companion object {
@@ -195,6 +229,12 @@ class MainActivity : FragmentActivity() {
         const val ACTION_SHORTCUT_FOCUS = "com.pauta.app.SHORTCUT_FOCUS"
         const val ACTION_SHORTCUT_NEW_INTENTION = "com.pauta.app.SHORTCUT_NEW_INTENTION"
         const val ACTION_SHORTCUT_MARES = "com.pauta.app.SHORTCUT_MARES"
+
+        // F6: marks a launch intent whose door has already been applied. The
+        // intent outlives the launch — a configuration change re-reads the same
+        // one — so this is what stops one tap from opening the door twice.
+        // // PT: marca a porta já usada; o intent sobrevive à recriação.
+        const val EXTRA_DOOR_SPENT = "com.pauta.app.DOOR_SPENT"
     }
 }
 
