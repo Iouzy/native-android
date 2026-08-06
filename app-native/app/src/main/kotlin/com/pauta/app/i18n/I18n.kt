@@ -965,6 +965,20 @@ object I18n {
         "Ir" to "Go", // native-only
         "de {n}" to "of {n}", // native-only
         "Entre 1 e {n}." to "Between 1 and {n}.", // native-only
+
+        // L5 · the reader's own type and colour. "Noite" and "Papel" are new here
+        // as *reader themes*; the app's own theme names live elsewhere.
+        // // PT: as definições do leitor.
+        "Leitura" to "Reading", // native-only
+        // "Tamanho do texto" already exists above (the app-wide accessibility
+        // row) and is reused verbatim. // PT: já existe acima; reaproveita-se.
+        "Entrelinha" to "Line height", // native-only
+        "Margens" to "Margins", // native-only
+        "Tema de leitura" to "Reading theme", // native-only
+        "Papel" to "Paper", // native-only
+        "Sépia" to "Sepia", // native-only
+        "Noite" to "Night", // native-only
+        "Como a app" to "Match the app", // native-only
     )
 }
 

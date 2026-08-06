@@ -236,6 +236,17 @@ data class PrefsEntity(
     // so neither field is exported. // PT: modo livro — lente local sobre as tabs.
     val bookMode: Boolean = false,
     val bookAnnualGoal: Int = 0,        // 0 = no annual reading goal set
+    // native-only (L5): the reader's own type and colour, which until now came
+    // entirely from the app-wide `textScale` — so reading at night meant leaving
+    // the book, changing a preference that also resized the planner, and coming
+    // back. These are the *reader's* settings, not the book's: a per-book copy
+    // would be four columns on `books` and a question nobody asked.
+    // // PT: as definições do leitor (tamanho, entrelinha, margens, tema) — do
+    // leitor e não de cada livro.
+    val readerTextScale: Float = 1f,    // 0.8–1.8; multiplies the reader body only
+    val readerLineHeight: Float = 1.62f, // 1.3–2.0
+    val readerMargin: Int = 22,         // dp, 8–48
+    val readerTheme: String = "app",    // "app" | "paper" | "sepia" | "night"
 )
 
 /**

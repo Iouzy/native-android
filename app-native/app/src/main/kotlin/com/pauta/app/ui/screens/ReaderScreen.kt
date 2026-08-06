@@ -73,6 +73,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
+import com.pauta.app.ui.theme.ReaderThemes
 
 /** How long the chrome lingers before getting out of the way. */
 private const val ChromeLingerMs = 2_000L
@@ -248,6 +249,12 @@ fun ReaderScreen(bookId: String, onClose: () -> Unit) {
     val bottomInset = with(density) { bottomBarPx.toDp() }
 
     var showDetail by remember { mutableStateOf(false) }
+    // L5: the reader's own type and colour, applied live.
+    val prefs by vm.prefs.collectAsStateWithLifecycle()
+    val readerSettings = remember(
+        prefs.readerTextScale, prefs.readerLineHeight, prefs.readerMargin, prefs.readerTheme,
+    ) { ReaderSettings.of(prefs) }
+    var showReaderSettings by remember { mutableStateOf(false) }
 
     Box(
         Modifier
@@ -270,6 +277,7 @@ fun ReaderScreen(bookId: String, onClose: () -> Unit) {
                 state = state,
                 topInset = topInset,
                 bottomInset = bottomInset,
+                reader = readerSettings,
                 onTapMiddle = { chrome = !chrome },
             )
             kind == "epub" -> EpubReaderHost(
@@ -278,6 +286,7 @@ fun ReaderScreen(bookId: String, onClose: () -> Unit) {
                 state = state,
                 topInset = topInset,
                 bottomInset = bottomInset,
+                reader = readerSettings,
                 onTapMiddle = { chrome = !chrome },
                 onWordCount = { words -> vm.setWordCount(bookId, words) },
             )
@@ -294,6 +303,7 @@ fun ReaderScreen(bookId: String, onClose: () -> Unit) {
                 title = book.title,
                 onBack = onClose,
                 onContents = { state.wantContents = true }.takeIf { state.ready },
+                onReaderSettings = { showReaderSettings = true },
                 onDetails = { showDetail = true },
                 // Offered only while there is a session to act on: with neither a
                 // running nor a paused block for this book there is no clock to
@@ -322,6 +332,16 @@ fun ReaderScreen(bookId: String, onClose: () -> Unit) {
         }
     }
 
+    if (showReaderSettings) {
+        ReaderSettingsSheet(
+            settings = readerSettings,
+            onTextScale = { vm.setReaderTextScale(it) },
+            onLineHeight = { vm.setReaderLineHeight(it) },
+            onMargin = { vm.setReaderMargin(it) },
+            onTheme = { vm.setReaderTheme(it) },
+            onClose = { showReaderSettings = false },
+        )
+    }
     if (showDetail) {
         // No "Ler" from in here — you are already reading. // PT: sem "Ler" — já
         // se está a ler.
@@ -391,6 +411,7 @@ private fun PdfReaderHost(
     state: ReaderState,
     topInset: Dp,
     bottomInset: Dp,
+    reader: ReaderSettings,
     onTapMiddle: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -436,6 +457,7 @@ private fun PdfReaderHost(
             listState = listState,
             topInset = topInset,
             bottomInset = bottomInset,
+            surround = ReaderThemes.pair(reader.theme)?.first,
             onTapMiddle = onTapMiddle,
             onReaderDied = { state.failed = true },
             modifier = Modifier.fillMaxSize(),
@@ -477,6 +499,7 @@ private fun EpubReaderHost(
     state: ReaderState,
     topInset: Dp,
     bottomInset: Dp,
+    reader: ReaderSettings,
     onTapMiddle: () -> Unit,
     onWordCount: (Int) -> Unit,
 ) {
@@ -544,6 +567,20 @@ private fun EpubReaderHost(
         state.ready = true
     }
 
+    // L5: changing the type size re-lays the chapter out, so the same scroll
+    // fraction is a different place in it. The chapter reloads (the stylesheet is
+    // part of the document), and it has to land where the reader was — otherwise
+    // nudging the text size would throw away their place. Re-marking straight
+    // after keeps the bookmark and the percentage truthful.
+    // // PT: mudar o tamanho volta a compor o capítulo; recarrega-se para o mesmo
+    // sítio e volta-se a marcar, senão perde-se onde se ia.
+    LaunchedEffect(reader) {
+        if (state.ready) {
+            restoreScroll = scroll
+            mark(chapter, scroll)
+        }
+    }
+
     // Nothing is drawn until the bookmark has been read: composing the first
     // chapter before it would fetch chapter 0 only to throw it away. // PT: só
     // desenha depois do marcador — senão buscava o capítulo 0 para o deitar fora.
@@ -566,6 +603,7 @@ private fun EpubReaderHost(
         chapter = chapter,
         topInset = topInset,
         bottomInset = bottomInset,
+        reader = reader,
         restoreScroll = restoreScroll,
         onScroll = { value ->
             scroll = value
@@ -633,6 +671,7 @@ private fun ReaderTopBar(
     title: String,
     onBack: () -> Unit,
     onContents: (() -> Unit)?,
+    onReaderSettings: (() -> Unit)?,
     onDetails: () -> Unit,
     paused: Boolean,
     onTogglePause: (() -> Unit)?,
@@ -676,6 +715,17 @@ private fun ReaderTopBar(
                 modifier = Modifier
                     .clickableNoRipple(onContents)
                     .semantics { contentDescription = tr("Índice"); role = Role.Button },
+            )
+        }
+        if (onReaderSettings != null) {
+            Text(
+                text = "Aa",
+                color = colors.ink2,
+                fontFamily = SerifFamily,
+                fontSize = 15.sp,
+                modifier = Modifier
+                    .clickableNoRipple(onReaderSettings)
+                    .semantics { contentDescription = tr("Leitura"); role = Role.Button },
             )
         }
         if (onTogglePause != null) {
