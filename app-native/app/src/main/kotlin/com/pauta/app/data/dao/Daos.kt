@@ -284,6 +284,12 @@ interface BookNoteDao {
     @Query("SELECT * FROM book_notes WHERE bookId = :bookId ORDER BY createdAt DESC")
     fun observeForBook(bookId: String): Flow<List<BookNoteEntity>>
 
+    // F13: every note, newest first — the "Do teu caderno" section, which is the
+    // first home the notes have had outside a single book's detail sheet.
+    // // PT: todas as notas, para a secção "Do teu caderno".
+    @Query("SELECT * FROM book_notes ORDER BY createdAt DESC")
+    fun observeAll(): Flow<List<BookNoteEntity>>
+
     @Query("SELECT * FROM book_notes") suspend fun getAll(): List<BookNoteEntity>
     @Query("DELETE FROM book_notes") suspend fun clear()
 }

@@ -946,6 +946,15 @@ object I18n {
         // whatever the answer, so the time is the part that proves the tap was
         // taken. // PT: a hora é o que prova que o toque chegou.
         "Verificado às {h}" to "Checked at {h}", // native-only
+
+        // F13 · the reading tab stops contradicting itself and stops ending in
+        // tides. "A seguir" already exists (the shelf section) and is reused.
+        // // PT: a tab de leitura deixa de se contradizer e de acabar em marés.
+        "Ainda não há nada para desenhar." to "Nothing to plot yet.", // native-only
+        "Ritmo da estante" to "The shelf's rhythm", // native-only
+        "≈ {n} dias a {m} min/dia" to "≈ {n} days at {m} min/day", // native-only
+        "Do teu caderno" to "From your notebook", // native-only
+        "as tuas marés" to "your tides", // native-only
     )
 }
 
