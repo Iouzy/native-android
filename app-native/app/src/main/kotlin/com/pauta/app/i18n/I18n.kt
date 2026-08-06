@@ -955,6 +955,16 @@ object I18n {
         "≈ {n} dias a {m} min/dia" to "≈ {n} days at {m} min/day", // native-only
         "Do teu caderno" to "From your notebook", // native-only
         "as tuas marés" to "your tides", // native-only
+
+        // L4 · the contents, and the PDF's way to jump. The chapter names were
+        // already being parsed and dropped at the :reader boundary.
+        // // PT: o índice; os nomes dos capítulos já eram lidos e perdiam-se.
+        "Índice" to "Contents", // native-only
+        "Capítulo {n}" to "Chapter {n}", // native-only
+        "Ir para a página" to "Go to page", // native-only
+        "Ir" to "Go", // native-only
+        "de {n}" to "of {n}", // native-only
+        "Entre 1 e {n}." to "Between 1 and {n}.", // native-only
     )
 }
 
