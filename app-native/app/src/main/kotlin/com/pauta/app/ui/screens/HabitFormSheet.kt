@@ -38,6 +38,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.pauta.app.data.entity.HabitEntity
+import com.pauta.app.domain.TimeOfDay
 import com.pauta.app.i18n.tr
 import com.pauta.app.ui.PautaButton
 import com.pauta.app.ui.PautaButtonVariant
@@ -158,6 +159,9 @@ fun AddHabitSheet(onSubmit: (HabitDraft) -> Unit, onClose: () -> Unit) {
             FieldError(tr("Dá um nome à maré."))
         }
         Spacer(Modifier.height(SheetFieldGap))
+        // F12: the fast path over the field, not instead of it.
+        PeriodChips(time) { time = it }
+        Spacer(Modifier.height(SheetLabelGap))
         // F3: what follows this field is chips and a button, not another field, so
         // the keyboard's own key closes it instead of sitting there with nothing
         // to do. // PT: o que vem a seguir não é outro campo — a tecla fecha.
@@ -352,6 +356,8 @@ fun EditHabitSheet(
         Spacer(Modifier.height(SheetFieldGap))
         SheetEyebrow(tr("quando"))
         Spacer(Modifier.height(SheetLabelGap))
+        PeriodChips(time) { time = it }
+        Spacer(Modifier.height(SheetLabelGap))
         // F3: same reason as the add sheet — the next control is a picker.
         BoxedField(
             time, { time = it }, tr("ex.: manhã, antes de dormir"), singleLine = true,
@@ -458,6 +464,34 @@ fun EditHabitSheet(
 @Composable
 private fun ClockField(value: String, onChange: (String) -> Unit) {
     PautaTimeField(value = value, onChange = onChange, title = tr("hora certa"), optional = true)
+}
+
+/**
+ * F12 · the three periods, multi-select, over the free-text field.
+ *
+ * A tide's *when* is free text that most answers fill with one of three words,
+ * and typing "manhã" cost a keyboard — which, until F3, was also a trap. Two
+ * answers ("manhã e tarde", as one of the owner's own tides already reads) could
+ * only be written as prose the app could not use.
+ *
+ * The field stays. This adds a fast path; it does not take away the free one, and
+ * anything the chips don't cover survives a tap on them untouched. Nothing new is
+ * stored: the chips are a way of writing `HabitEntity.time`, which is `pauta.v4`
+ * data and must round-trip byte-for-byte.
+ *
+ * // PT: três períodos, multi-selecção, por cima do campo livre — que continua lá.
+ */
+@Composable
+private fun PeriodChips(time: String, onChange: (String) -> Unit) {
+    val colors = LocalPautaColors.current
+    val chosen = remember(time) { TimeOfDay.periodsIn(time) }
+    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        TimeOfDay.PERIODS.forEach { period ->
+            SelectPill(tr(period), period in chosen, colors.accent, large = true) {
+                onChange(TimeOfDay.toggle(time, period))
+            }
+        }
+    }
 }
 
 /** Digits-only boxed input ([max] = digit count, e.g. 2 → "31"). */
