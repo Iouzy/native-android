@@ -255,6 +255,12 @@ fun ReaderScreen(bookId: String, onClose: () -> Unit) {
         prefs.readerTextScale, prefs.readerLineHeight, prefs.readerMargin, prefs.readerTheme,
     ) { ReaderSettings.of(prefs) }
     var showReaderSettings by remember { mutableStateOf(false) }
+    // L6: capture without leaving the book. The sheet composes *over* the reader,
+    // so the reader stays composed, `onDispose` does not run and the reading
+    // session keeps going — which is the thing to get right here: a navigation
+    // destination would end the session every time you wrote a line down.
+    // // PT: a folha abre por cima do leitor; a sessão não é interrompida.
+    var showCapture by remember { mutableStateOf(false) }
 
     Box(
         Modifier
@@ -304,6 +310,7 @@ fun ReaderScreen(bookId: String, onClose: () -> Unit) {
                 onBack = onClose,
                 onContents = { state.wantContents = true }.takeIf { state.ready },
                 onReaderSettings = { showReaderSettings = true },
+                onCapture = { showCapture = true }.takeIf { state.ready },
                 onDetails = { showDetail = true },
                 // Offered only while there is a session to act on: with neither a
                 // running nor a paused block for this book there is no clock to
@@ -332,6 +339,16 @@ fun ReaderScreen(bookId: String, onClose: () -> Unit) {
         }
     }
 
+    if (showCapture) {
+        QuoteCaptureSheet(
+            onClose = { showCapture = false },
+            bookId = bookId,
+            // The reader's position, in the unit the book counts in — for an EPUB
+            // that is a percentage point, which is what `BookNoteEntity.page`
+            // means too (F1). // PT: a posição na unidade do livro.
+            atPage = state.unit.takeIf { it > 0 },
+        )
+    }
     if (showReaderSettings) {
         ReaderSettingsSheet(
             settings = readerSettings,
@@ -672,6 +689,7 @@ private fun ReaderTopBar(
     onBack: () -> Unit,
     onContents: (() -> Unit)?,
     onReaderSettings: (() -> Unit)?,
+    onCapture: (() -> Unit)?,
     onDetails: () -> Unit,
     paused: Boolean,
     onTogglePause: (() -> Unit)?,
@@ -726,6 +744,16 @@ private fun ReaderTopBar(
                 modifier = Modifier
                     .clickableNoRipple(onReaderSettings)
                     .semantics { contentDescription = tr("Leitura"); role = Role.Button },
+            )
+        }
+        if (onCapture != null) {
+            Text(
+                text = "✎",
+                color = colors.ink2,
+                fontSize = 17.sp,
+                modifier = Modifier
+                    .clickableNoRipple(onCapture)
+                    .semantics { contentDescription = tr("Nova nota"); role = Role.Button },
             )
         }
         if (onTogglePause != null) {
