@@ -208,9 +208,26 @@ fun BookDetailSheet(
                     .padding(vertical = 4.dp),
             )
         }
-        bookProgressFraction(book)?.let { fraction ->
+        val fraction = bookProgressFraction(book)
+        if (fraction != null) {
             Spacer(Modifier.height(6.dp))
             ProgressBar(fraction)
+        } else if (book.format != "audiobook" && book.filePath == null) {
+            // L12: a book with no length and no file gets no bar and no estimate,
+            // which is correct — there is nothing honest to draw. What it never
+            // did was say that the one thing that would fix it is a number the
+            // user can type. // PT: sem tamanho não há barra, e isso está certo; o
+            // que faltava era dizer o que a traria de volta.
+            Spacer(Modifier.height(6.dp))
+            Text(
+                text = tr("Diz quantas páginas tem e a barra aparece."),
+                color = colors.ink4,
+                fontFamily = SerifFamily,
+                fontStyle = FontStyle.Italic,
+                fontSize = 12.sp,
+                lineHeight = 17.sp,
+                modifier = Modifier.clickableNoRipple { showEdit = true },
+            )
         }
 
         // ── K-extra: pace + ETA · R6: reading speed ──
@@ -239,6 +256,16 @@ fun BookDetailSheet(
         // averaging it in is what produced "Ritmo: 9191 palavras/min" from
         // arithmetic that was entirely correct. // PT: descarta os intervalos que
         // implicam uma velocidade impossível.
+        // L12: the daily reading budget the estimate assumes, measured over the
+        // last four weeks where there is anything to measure and falling back to
+        // `etaDays`' own constant otherwise. Either way it is printed beside the
+        // estimate — an assumption that is invisible is an assumption presented as
+        // knowledge. // PT: o orçamento diário medido, e dito ao lado da estimativa.
+        val dailyMinutes = remember(bookBlocks, segsByBlock) {
+            val recent = bookBlocks.take(20).map { blockMs(it.id) }.filter { it > 0 }
+            if (recent.isEmpty()) 60f
+            else (recent.sum() / 60_000f / 28f).coerceAtLeast(5f)
+        }
         val perUnit = remember(book) { BookMath.wordsPerUnit(book) }
         val pace = remember(spans, perUnit) { BookMath.pagesPerHour(spans, perUnit) }
         // R6: anything with words says its pace in words per minute. An audiobook
@@ -273,11 +300,18 @@ fun BookDetailSheet(
                 book.totalPages > 0 -> book.totalPages - book.currentPage
                 else -> null
             }
-            val eta = remaining?.let { BookMath.etaDays(it, pace) }
+            // L12: `etaDays` assumes 60 minutes of reading a day, which is a
+            // reasonable constant and an **invisible** one — the estimate read as
+            // if it knew something it had assumed. Derived from the last four
+            // weeks where there is anything to derive from, and the assumption is
+            // printed either way. // PT: o pressuposto passa a ser medido onde há
+            // dados, e dito sempre.
+            val eta = remaining?.let { BookMath.etaDays(it, pace, dailyMinutes) }
             if (eta != null && eta > 0) {
                 Spacer(Modifier.height(2.dp))
                 Text(
-                    text = trf("Conclusão estimada: em ~{n} dias", "n" to eta),
+                    text = trf("Conclusão estimada: em ~{n} dias", "n" to eta) +
+                        " · " + trf("a {m} min/dia", "m" to dailyMinutes.roundToInt()),
                     color = colors.ink3,
                     style = PautaType.MetaSmall,
                 )
@@ -563,13 +597,20 @@ private fun ProgressEditor(book: BookEntity, onConfirm: (Int) -> Unit, onCancel:
     var value by remember { mutableStateOf(book.currentPage.takeIf { it > 0 }?.toString() ?: "") }
     val focus = rememberAutoFocusRequester()
     val colors = LocalPautaColors.current
+    val progressDigits = (bookProgressMax(book)?.toString()?.length ?: 6).coerceIn(1, 6)
     fun submit() = onConfirm(clampBookProgress(book, value.toIntOrNull() ?: book.currentPage))
 
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         Box(Modifier.width(110.dp)) {
             BoxedField(
                 value = value,
-                onChange = { raw -> value = raw.filter { it.isDigit() }.take(6) },
+                // L12: capped at the maximum's own digit count. It always
+                // clamped — typing 999999 against a percentage silently became
+                // 100 — and a field that swallows four digits and shows a
+                // different number is a field that lied about accepting them.
+                // // PT: o campo aceita só os dígitos que o máximo tem; antes
+                // engolia seis e devolvia outro número sem dizer nada.
+                onChange = { raw -> value = raw.filter { it.isDigit() }.take(progressDigits) },
                 placeholder = book.currentPage.toString(),
                 modifier = Modifier.focusRequester(focus),
                 singleLine = true,

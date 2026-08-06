@@ -95,7 +95,8 @@ class BookShelfTest {
         // The scale this task is named for. // PT: a escala que dá nome à tarefa.
         val many = (1..100).map { book("Livro $it", author = "Autor ${it % 7}") }
         assertEquals(1, BookShelf.search(many, "Livro 42").size)
-        assertEquals(15, BookShelf.search(many, "Autor 3").size)
+        // 3, 10, 17 … 94 — fourteen of them.
+        assertEquals(14, BookShelf.search(many, "Autor 3").size)
     }
 
     // ── sort ──────────────────────────────────────────────────

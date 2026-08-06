@@ -1014,6 +1014,13 @@ object I18n {
         "{n} dias seguidos" to "{n} days in a row", // native-only
         "{n} min esta semana" to "{n} min this week", // native-only
         "Sessão de leitura" to "Reading session", // native-only
+
+        // L12 · the review's leftovers. // PT: os restos da revisão.
+        "a {m} min/dia" to "at {m} min/day", // native-only
+        "Diz quantas páginas tem e a barra aparece." to
+            "Say how many pages it has and the bar appears.", // native-only
+        "Sem livros em curso — usa \"Adicionar livro +\" aqui em cima" to
+            "No books in progress — use \"Adicionar livro +\" above", // native-only
     )
 }
 

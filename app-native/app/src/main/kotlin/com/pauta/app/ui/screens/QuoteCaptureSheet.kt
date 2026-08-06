@@ -122,8 +122,12 @@ fun QuoteCaptureSheet(
         // // PT: com alvo, a nota tem sempre onde cair.
         if (targeted == null && reading.isEmpty()) {
             // No book being read: the capture has nowhere to land, so say so.
+            // L12: it used to say "adiciona um na Estante" while being reachable
+            // only *from* the Estante — directions to the room you are standing
+            // in. It names the action instead. // PT: apontava para a Estante
+            // estando já lá; agora nomeia a acção.
             Text(
-                text = tr("Sem livros em curso — adiciona um na Estante"),
+                text = tr("Sem livros em curso — usa \"Adicionar livro +\" aqui em cima"),
                 color = colors.ink3,
                 fontFamily = SerifFamily,
                 fontStyle = FontStyle.Italic,
