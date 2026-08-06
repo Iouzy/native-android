@@ -61,7 +61,7 @@ import com.pauta.app.data.entity.RoutineItemEntity
         BookEntity::class,
         BookNoteEntity::class,
     ],
-    version = 12,
+    version = 13,
     exportSchema = false,
 )
 @TypeConverters(Converters::class)
@@ -236,6 +236,19 @@ abstract class AppDatabase : RoomDatabase() {
         private val MIGRATION_11_12 = object : Migration(11, 12) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE prefs ADD COLUMN notifAskedAt INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
+        // L5: the reader's own type and colour. All four defaulted to what the
+        // reader already did, so an existing install reads exactly as it did
+        // before anyone opens the sheet. // PT: as definições do leitor, com os
+        // valores que ele já usava — nada muda até alguém as mexer.
+        private val MIGRATION_12_13 = object : Migration(12, 13) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE prefs ADD COLUMN readerTextScale REAL NOT NULL DEFAULT 1.0")
+                db.execSQL("ALTER TABLE prefs ADD COLUMN readerLineHeight REAL NOT NULL DEFAULT 1.62")
+                db.execSQL("ALTER TABLE prefs ADD COLUMN readerMargin INTEGER NOT NULL DEFAULT 22")
+                db.execSQL("ALTER TABLE prefs ADD COLUMN readerTheme TEXT NOT NULL DEFAULT 'app'")
             }
         }
 
@@ -418,6 +431,7 @@ abstract class AppDatabase : RoomDatabase() {
                         MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5,
                         MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9,
                         MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12,
+                        MIGRATION_12_13,
                     )
                     .addCallback(SEARCH_CALLBACK)
                     .build()

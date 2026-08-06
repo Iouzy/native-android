@@ -41,6 +41,44 @@ data class PautaColors(
     val isDark: Boolean,
 )
 
+/**
+ * L5 · the reader's own paper and ink.
+ *
+ * Defined here beside the other tokens rather than as literals in the CSS
+ * builder, because a colour that only exists inside a string is a colour nobody
+ * can find. `app` is not in this table: it means "follow `LocalPautaColors`",
+ * including book mode's sepia wash, and so has no fixed pair of its own.
+ *
+ * // PT: os três temas fixos do leitor, ao pé dos outros tokens — "app" não está
+ * aqui porque quer dizer "segue as cores da app".
+ */
+object ReaderThemes {
+    const val App = "app"
+    const val Paper = "paper"
+    const val Sepia = "sepia"
+    const val Night = "night"
+
+    val ALL = listOf(App, Paper, Sepia, Night)
+
+    /** The paper/ink pair for a fixed theme, or null for [App]. // PT: o par
+     *  papel/tinta; null quando o tema é o da app. */
+    fun pair(theme: String): Pair<Color, Color>? = when (theme) {
+        Paper -> Color(0xFFFBF8F2) to Color(0xFF1A1815)
+        Sepia -> Color(0xFFF3E9D6) to Color(0xFF3A2F22)
+        Night -> Color(0xFF14130F) to Color(0xFFCFC7B8)
+        else -> null
+    }
+
+    /** The rule/hairline colour that goes with a fixed theme's ink.
+     *  // PT: a cor das linhas que acompanha a tinta. */
+    fun rule(theme: String): Color? = when (theme) {
+        Paper -> Color(0xFFDDD6C8)
+        Sepia -> Color(0xFFD8C7A8)
+        Night -> Color(0xFF33302A)
+        else -> null
+    }
+}
+
 private val Accent = Color(0xFFB8533A)
 private val AccentSoft = Color(0xFFE8C3B5)
 private val AccentBg = Color(0xFFF4E2DA)

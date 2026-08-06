@@ -41,6 +41,7 @@ import com.pauta.app.service.MaresWidget
 import com.pauta.app.service.ReminderScheduler
 import com.pauta.app.service.WhatsNew
 import com.pauta.app.service.WhatsNewState
+import com.pauta.app.ui.theme.ReaderThemes
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -732,6 +733,17 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun setTimerPresets(value: String) = update { it.copy(timerPresets = value) }
     fun setParrot(value: Boolean) = update { it.copy(parrot = value) }
     fun setOnboardingSeen() = update { it.copy(onboardingSeen = true) }
+
+    // L5: the reader's own settings. Every value clamps **in the setter**, not in
+    // the CSS — a prefs row is data, and data that can be out of range is data
+    // something downstream has to keep re-checking. // PT: limita-se aqui, não no
+    // CSS: uma linha de preferências é dados.
+    fun setReaderTextScale(value: Float) = update { it.copy(readerTextScale = value.coerceIn(0.8f, 1.8f)) }
+    fun setReaderLineHeight(value: Float) = update { it.copy(readerLineHeight = value.coerceIn(1.3f, 2.0f)) }
+    fun setReaderMargin(value: Int) = update { it.copy(readerMargin = value.coerceIn(8, 48)) }
+    fun setReaderTheme(value: String) = update {
+        it.copy(readerTheme = if (value in ReaderThemes.ALL) value else ReaderThemes.App)
+    }
 
     fun setRemindersEnabled(value: Boolean) = update { it.copy(remindersEnabled = value) }
 
