@@ -421,6 +421,38 @@ class PautaRepository(private val db: AppDatabase) {
         focusSessionDao.update(s.copy(note = note.trim()))
     }
 
+    /**
+     * F2 · correct one session's span. The end never precedes the start, and an
+     * open (running) session keeps its null end rather than being closed by an
+     * edit — closing a live session is `concludeActive`'s job, not this one.
+     * // PT: corrigir o início e o fim de uma sessão; o fim nunca antes do início.
+     */
+    suspend fun setSessionTimes(rowId: Long, startedAt: Long, endedAt: Long?) {
+        val s = focusSessionDao.getAll().firstOrNull { it.rowId == rowId } ?: return
+        if (s.endedAt == null) return
+        val end = (endedAt ?: s.endedAt).coerceAtLeast(startedAt)
+        focusSessionDao.update(s.copy(startedAt = startedAt, endedAt = end))
+    }
+
+    /**
+     * F2 · remove one span. The block stays: a block whose spans are all gone is
+     * a block with no time in it, which is a thing the user can then delete on
+     * purpose — deleting it for them would take the reflection and the title with
+     * it. // PT: apaga uma sessão; o bloco fica, com as suas notas.
+     */
+    suspend fun deleteSession(rowId: Long) = focusSessionDao.deleteByRowId(rowId)
+
+    /**
+     * F2 · a reading session's own page span (R5's `pagesDelta`). Correcting the
+     * time without this leaves the pace exactly as wrong as it was, because
+     * `BookMath` reads the delta and not the clock. Null means "nobody counted",
+     * which stays distinct from 0. // PT: o delta de páginas de uma sessão de
+     * leitura; null = ninguém contou, que não é zero.
+     */
+    suspend fun setBlockPagesDelta(id: String, pagesDelta: Int?) {
+        focusBlockDao.getById(id)?.let { focusBlockDao.upsert(it.copy(pagesDelta = pagesDelta)) }
+    }
+
     suspend fun setBlockReflection(id: String, text: String) {
         focusBlockDao.getById(id)?.let { focusBlockDao.upsert(it.copy(reflection = text.trim())) }
     }
@@ -831,9 +863,26 @@ class PautaRepository(private val db: AppDatabase) {
 
     suspend fun updateBook(book: BookEntity) = bookDao.upsert(book)
 
-    /** Removes the book, its notes and — R2 — its attached file. // PT: apaga o
-     *  livro, as notas e o ficheiro anexado. */
+    /**
+     * Removes the book, its notes, its attached file (R2) and — F2 — its reading
+     * sessions.
+     *
+     * The sessions used to survive. A reading session is a `FocusBlockEntity` with
+     * `project = "book:<id>"`, the planner's flow filters those out, and book mode
+     * looks them up through the book — so once the book was gone they were
+     * reachable from nowhere and still counted in the Hábitos statistics. That is
+     * an orphan the user cannot see, cannot delete and cannot stop being measured
+     * by, which is precisely what GUARDRAILS §H forbids.
+     *
+     * Sessions go before blocks: the span rows are found through the block ids,
+     * so deleting the blocks first would leave nothing to find them by.
+     * // PT: apaga o livro, as notas, o ficheiro e as sessões de leitura — as
+     * sessões primeiro, senão perdem-se os ids por onde se encontram.
+     */
     suspend fun deleteBook(context: Context, id: String) {
+        val project = "book:$id"
+        focusBlockDao.getForProject(project).forEach { focusSessionDao.deleteForBlock(it.id) }
+        focusBlockDao.deleteForProject(project)
         bookDao.getById(id)?.let { BookFiles.delete(context, it) }
         bookNoteDao.run { getAll().filter { it.bookId == id }.forEach { deleteById(it.id) } }
         bookDao.deleteById(id)

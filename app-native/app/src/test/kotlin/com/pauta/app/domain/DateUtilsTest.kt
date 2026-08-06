@@ -1,6 +1,7 @@
 package com.pauta.app.domain
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 
 /** Pure-JVM tests for the date/cadence math. These run under
@@ -68,5 +69,40 @@ class DateUtilsTest {
         // dayKeyOf(startOfDayMs(k)) == k in the system zone, whatever it is.
         val k = "2024-06-15"
         assertEquals(k, DateUtils.dayKeyOf(DateUtils.startOfDayMs(k)))
+    }
+
+    // ── F2 · moving a session's clock ─────────────────────────
+
+    @Test fun withClockKeepsTheDayOfTheInstantItEdits() {
+        // Correcting last Tuesday's session must correct last Tuesday, not today.
+        // // PT: mantém o dia do instante que está a ser editado.
+        val base = DateUtils.startOfDayMs("2024-06-15") + 9 * 3_600_000L
+        val moved = DateUtils.withClock(base, "14:30")!!
+        assertEquals("2024-06-15", DateUtils.dayKeyOf(moved))
+        assertEquals("14:30", DateUtils.fmtClock(moved))
+    }
+
+    @Test fun withClockRoundTripsWhatFmtClockPrinted() {
+        val base = DateUtils.startOfDayMs("2024-11-02") + 7 * 3_600_000L + 23 * 60_000L
+        assertEquals(base, DateUtils.withClock(base, DateUtils.fmtClock(base)))
+    }
+
+    @Test fun withClockRefusesAnythingThatIsNotATime() {
+        // A half-typed field must not silently move a session to midnight.
+        // // PT: um campo a meio não pode mandar a sessão para a meia-noite.
+        val base = DateUtils.startOfDayMs("2024-06-15")
+        assertNull(DateUtils.withClock(base, ""))
+        assertNull(DateUtils.withClock(base, "9"))
+        assertNull(DateUtils.withClock(base, "9:5"))
+        assertNull(DateUtils.withClock(base, "24:00"))
+        assertNull(DateUtils.withClock(base, "12:60"))
+        assertNull(DateUtils.withClock(base, "manhã"))
+    }
+
+    @Test fun withClockAcceptsOneDigitHoursAndTrimsSpace() {
+        val base = DateUtils.startOfDayMs("2024-06-15")
+        assertEquals("07:05", DateUtils.fmtClock(DateUtils.withClock(base, "7:05")!!))
+        assertEquals("23:59", DateUtils.fmtClock(DateUtils.withClock(base, " 23:59 ")!!))
+        assertEquals("00:00", DateUtils.fmtClock(DateUtils.withClock(base, "0:00")!!))
     }
 }

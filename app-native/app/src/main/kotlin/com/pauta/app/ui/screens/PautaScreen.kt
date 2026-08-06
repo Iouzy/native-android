@@ -481,12 +481,15 @@ fun PautaScreen(bookMode: Boolean = false, onOpenReader: (String) -> Unit = {}) 
             block = blockById[b.id] ?: b,
             sessions = sessionsOf(b.id),
             now = now,
-            onSave = { title, project, targetMs, reflection, notes ->
-                vm.updateBlock(b.id, title, project, targetMs)
-                vm.setBlockReflection(b.id, reflection)
-                notes.forEach { (rowId, text) -> vm.setSessionNote(rowId, text) }
+            onSave = { edit ->
+                vm.updateBlock(b.id, edit.title, edit.project, edit.targetMs)
+                vm.setBlockReflection(b.id, edit.reflection)
+                edit.notes.forEach { (rowId, text) -> vm.setSessionNote(rowId, text) }
+                // F2: the spans whose clock moved. // PT: as sessões cuja hora mudou.
+                edit.times.forEach { vm.setSessionTimes(it.rowId, it.startedAt, it.endedAt) }
                 editFor = null
             },
+            onDeleteSession = { rowId -> vm.deleteSession(rowId) },
             onDelete = { vm.deleteBlock(b.id); editFor = null },
             onClose = { editFor = null },
         )

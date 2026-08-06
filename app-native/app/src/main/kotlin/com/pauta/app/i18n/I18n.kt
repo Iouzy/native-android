@@ -910,6 +910,17 @@ object I18n {
         // stays rather than being deleted.) // PT: os nomes das outras unidades.
         "Página" to "Page", // native-only
         "Minutos" to "Minutes", // native-only
+
+        // F2 · a session you can reach, correct and remove. "Início" already
+        // exists above (the web app's own key) and is reused; only "Fim" is new.
+        // // PT: editar e apagar uma sessão; "Início" já existe e reaproveita-se.
+        "Fim" to "End", // native-only
+        "Editar sessão" to "Edit session", // native-only
+        "Apagar sessão" to "Delete session", // native-only
+        "Apagar esta sessão? O bloco fica, sem este tempo." to
+            "Delete this session? The block stays, without this time.", // native-only
+        "O fim não pode ser antes do início." to "The end cannot precede the start.", // native-only
+        "por contar" to "not counted", // native-only
     )
 }
 

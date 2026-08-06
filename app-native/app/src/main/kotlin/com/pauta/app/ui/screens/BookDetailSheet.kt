@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.pauta.app.data.entity.BookEntity
+import com.pauta.app.data.entity.FocusBlockEntity
 import com.pauta.app.domain.BookMath
 import com.pauta.app.domain.DateUtils
 import com.pauta.app.domain.FocusMath
@@ -110,6 +111,8 @@ fun BookDetailSheet(
     val canRead = rememberCanRead(book)
     var editingProgress by remember { mutableStateOf(false) }
     var showEdit by remember { mutableStateOf(false) }
+    // F2: the reading session opened from this sheet's Sessões list.
+    var editBlock by remember { mutableStateOf<FocusBlockEntity?>(null) }
     var showFinish by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
     var confirmAbandon by remember { mutableStateOf(false) }
@@ -432,8 +435,17 @@ fun BookDetailSheet(
             EmptyState(tr("Nenhuma sessão ainda"))
         } else {
             bookBlocks.forEach { b ->
+                // F2: the entry point. A reading session was text here and text in
+                // the Sessão tab, filtered out of the planner on purpose, and
+                // therefore reachable from nowhere — twelve junk sessions from one
+                // evening's testing were permanent. Tapping opens the same sheet a
+                // planner block opens. // PT: a linha passa a abrir a folha de
+                // edição — sem isto, nada do resto desta tarefa é alcançável.
                 Row(
-                    Modifier.fillMaxWidth().padding(vertical = 3.dp),
+                    Modifier
+                        .fillMaxWidth()
+                        .clickableNoRipple { editBlock = b }
+                        .padding(vertical = 3.dp),
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     Text(
@@ -464,6 +476,25 @@ fun BookDetailSheet(
         Spacer(Modifier.height(6.dp))
     }
 
+    editBlock?.let { b ->
+        EditBlockSheet(
+            block = sessionBlocks.firstOrNull { it.id == b.id } ?: b,
+            sessions = segsByBlock[b.id].orEmpty(),
+            now = System.currentTimeMillis(),
+            book = book,
+            onSave = { edit ->
+                vm.updateBlock(b.id, edit.title, edit.project, edit.targetMs)
+                vm.setBlockReflection(b.id, edit.reflection)
+                edit.notes.forEach { (rowId, text) -> vm.setSessionNote(rowId, text) }
+                edit.times.forEach { vm.setSessionTimes(it.rowId, it.startedAt, it.endedAt) }
+                if (edit.pagesDeltaChanged) vm.setBlockPagesDelta(b.id, edit.pagesDelta)
+                editBlock = null
+            },
+            onDeleteSession = { rowId -> vm.deleteSession(rowId) },
+            onDelete = { vm.deleteBlock(b.id); editBlock = null },
+            onClose = { editBlock = null },
+        )
+    }
     if (showEdit) {
         BookFormSheet(book = book, onClose = { showEdit = false })
     }

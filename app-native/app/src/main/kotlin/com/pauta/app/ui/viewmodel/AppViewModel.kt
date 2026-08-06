@@ -235,6 +235,16 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun updateBlock(id: String, title: String, project: String?, targetMs: Long?) =
         viewModelScope.launch { repo.updateBlock(id, title, project, targetMs) }
     fun setSessionNote(rowId: Long, note: String) = viewModelScope.launch { repo.setSessionNote(rowId, note) }
+
+    // F2: thin delegates — a session's span, its removal, and a reading session's
+    // own page delta. // PT: delegações finas para editar e apagar uma sessão.
+    fun setSessionTimes(rowId: Long, startedAt: Long, endedAt: Long?) =
+        viewModelScope.launch { repo.setSessionTimes(rowId, startedAt, endedAt) }
+
+    fun deleteSession(rowId: Long) = viewModelScope.launch { repo.deleteSession(rowId) }
+
+    fun setBlockPagesDelta(id: String, pagesDelta: Int?) =
+        viewModelScope.launch { repo.setBlockPagesDelta(id, pagesDelta) }
     fun addManualBlock(title: String, startMs: Long, endMs: Long) =
         viewModelScope.launch { repo.addManualBlock(title, startMs, endMs) }
     fun setBlockReflection(id: String, text: String) = viewModelScope.launch { repo.setBlockReflection(id, text) }

@@ -115,6 +115,8 @@ fun BookSessionScreen(onOpenReader: (String) -> Unit = {}) {
     val motion = rememberMotionEnabled()
     val haptic = LocalHapticFeedback.current
     val askNotifications = rememberNotificationAsk(vm, prefs.notifAskedAt)
+    // F2: the reading session opened from the history list below.
+    var editBlock by remember { mutableStateOf<FocusBlockEntity?>(null) }
 
     // 1s clock tick driving the live timer (same as the planner's Pauta).
     var now by remember { mutableStateOf(System.currentTimeMillis()) }
@@ -314,8 +316,15 @@ fun BookSessionScreen(onOpenReader: (String) -> Unit = {}) {
                     )
                     Spacer(Modifier.height(6.dp))
                     blocks.forEach { b ->
+                        // F2: same entry point as the detail sheet's list — a
+                        // reading session has to be reachable from wherever it is
+                        // shown. // PT: a linha abre a folha de edição, como na
+                        // folha do livro.
                         Row(
-                            Modifier.fillMaxWidth().padding(vertical = 3.dp),
+                            Modifier
+                                .fillMaxWidth()
+                                .clickableNoRipple { editBlock = b }
+                                .padding(vertical = 3.dp),
                             horizontalArrangement = Arrangement.spacedBy(10.dp),
                         ) {
                             Text(
@@ -345,6 +354,29 @@ fun BookSessionScreen(onOpenReader: (String) -> Unit = {}) {
             selectedId = selectedBookId,
             onPick = { selectedBookId = it; showPicker = false },
             onClose = { showPicker = false },
+        )
+    }
+    editBlock?.let { b ->
+        // F2: the book gives the sheet its unit, so a session's page delta is
+        // asked for the way F1 established. // PT: o livro traz a unidade do delta.
+        val editBook = (reading + pausedBooks + tbr + done)
+            .firstOrNull { it.id == b.project?.removePrefix("book:") }
+        EditBlockSheet(
+            block = sessionBlocks.firstOrNull { it.id == b.id } ?: b,
+            sessions = segsByBlock[b.id].orEmpty(),
+            now = now,
+            book = editBook,
+            onSave = { edit ->
+                vm.updateBlock(b.id, edit.title, edit.project, edit.targetMs)
+                vm.setBlockReflection(b.id, edit.reflection)
+                edit.notes.forEach { (rowId, text) -> vm.setSessionNote(rowId, text) }
+                edit.times.forEach { vm.setSessionTimes(it.rowId, it.startedAt, it.endedAt) }
+                if (edit.pagesDeltaChanged) vm.setBlockPagesDelta(b.id, edit.pagesDelta)
+                editBlock = null
+            },
+            onDeleteSession = { rowId -> vm.deleteSession(rowId) },
+            onDelete = { vm.deleteBlock(b.id); editBlock = null },
+            onClose = { editBlock = null },
         )
     }
     concludeFor?.let { book ->
