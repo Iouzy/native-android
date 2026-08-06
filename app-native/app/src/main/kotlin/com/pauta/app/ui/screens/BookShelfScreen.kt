@@ -53,6 +53,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
 import com.pauta.app.domain.BookShelf
+import com.pauta.app.domain.DateUtils
 import com.pauta.app.domain.BookStatus
 import com.pauta.app.i18n.trf
 import com.pauta.app.ui.theme.MonoFamily
@@ -530,6 +531,20 @@ private fun BookDoneCard(book: BookEntity, onClick: () -> Unit) {
                 color = colors.accent,
                 fontSize = 12.sp,
                 letterSpacing = 1.sp,
+            )
+        }
+        // L12: "Lidos" is sorted by `finishedAt` and never showed it, so the
+        // shelf's own order was invisible. A quiet year is enough to read the
+        // shelf at a glance — a full date would be a receipt, and the exact day is
+        // in the detail sheet. // PT: o ano, para a prateleira se ler de relance;
+        // a data exacta está no detalhe.
+        book.finishedAt?.let { at ->
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = DateUtils.dayKeyOf(at).take(4),
+                color = colors.ink4,
+                style = PautaType.MetaSmall,
+                letterSpacing = 0.4.sp,
             )
         }
         // L3: "Lidos" holds both endings, and now that one of them is reachable
