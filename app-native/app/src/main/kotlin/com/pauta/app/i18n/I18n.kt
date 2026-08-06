@@ -1021,6 +1021,12 @@ object I18n {
             "Say how many pages it has and the bar appears.", // native-only
         "Sem livros em curso — usa \"Adicionar livro +\" aqui em cima" to
             "No books in progress — use \"Adicionar livro +\" above", // native-only
+
+        // N4 · the way back in, from onboarding's last page. // PT: a porta de
+        // volta, na última página do onboarding.
+        "Restaurar uma cópia" to "Restore a backup", // native-only
+        "Biblioteca" to "Library", // native-only
+        "Não foi possível ler esse ficheiro." to "That file could not be read.", // native-only
     )
 }
 

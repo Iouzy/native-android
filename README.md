@@ -59,6 +59,11 @@ tide a time. All local, all from the device.
 
 ## Install
 
+Coming back after a reinstall or a new phone? The last page of the welcome
+sequence offers **Restaurar uma cópia** (a `pauta.v4` export) and **Biblioteca**
+(a `pauta.books.v1` one) beside "start blank" — you do not have to start blank
+and go looking for the importer afterwards.
+
 Download `pauta-native-v<N>.apk` from the rolling
 [`latest-native`](../../releases/tag/latest-native) release and install it.
 The app checks that same release for updates and installs them in place —
