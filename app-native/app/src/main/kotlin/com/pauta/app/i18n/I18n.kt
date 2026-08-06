@@ -993,6 +993,11 @@ object I18n {
         "Recentes" to "Recent", // native-only
         "Classificação" to "Rating", // native-only
         "Nenhum livro encontrado" to "No books found", // native-only
+
+        // L9 · a reading session is not a focus block. "Leitura" already exists
+        // above (L5's reader settings sheet) and is reused as the channel name.
+        // // PT: a sessão de leitura fala como leitura; "Leitura" já existe.
+        "Terminar sessão" to "End session", // native-only
     )
 }
 

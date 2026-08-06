@@ -106,11 +106,11 @@ That reuse bought the timer, the history and the backup round-trip for free.
 - `AppViewModel.blocks` (the planner's flow) **excludes** `project LIKE 'book:%'`
   so the Pauta tab stays clean; `bookSessionBlocks` is the book-mode flow.
 
-> **Two consequences worth knowing before you touch this.** Reading sessions
-> inherit the *focus* notification, wording and all — `BOOK_LIBRARY.md` L9.
-> And because the planner's flow filters them out while `deleteBook` does not
-> cascade to them, a deleted book's sessions become unreachable and keep
-> counting — `FIELD_FIXES.md` F2.
+> **Both of the consequences this used to warn about are fixed.** Reading
+> sessions no longer inherit the *focus* notification — the service reads the
+> block's `project` and uses its own channel and wording (L9) — and `deleteBook`
+> cascades to the blocks and their spans, so a deleted book leaves no orphans
+> counting in the statistics (F2).
 
 ---
 

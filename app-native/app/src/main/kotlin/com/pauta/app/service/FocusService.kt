@@ -39,19 +39,25 @@ class FocusService : Service() {
         // ViewModel will re-issue the full state when the UI returns. // PT: reinício
         // sticky — notificação mínima e mantém o alarme de alvo intacto.
         if (intent == null) {
-            startForegroundCompat(buildNotification("", 0L, null, null, System.currentTimeMillis()))
+            startForegroundCompat(buildNotification("", 0L, null, null, System.currentTimeMillis(), false))
             return START_STICKY
         }
         val title = intent.getStringExtra(EXTRA_TITLE).orEmpty()
         val elapsed = intent.getLongExtra(EXTRA_ELAPSED_MS, 0L)
         val target = intent.getLongExtra(EXTRA_TARGET_MS, 0L).takeIf { it > 0L }
+        // L9: reading sessions reuse the focus-block machinery, which was the right
+        // call — it gave the timer, the history and this notification for free —
+        // but the notification came through unedited, so reading a novel raised a
+        // "Foco" notification on a channel called "Foco" offering "Concluir".
+        // // PT: a sessão de leitura herdou a notificação de foco por inteiro.
+        val reading = intent.getStringExtra(EXTRA_PROJECT)?.startsWith("book:") == true
         val now = System.currentTimeMillis()
         // The instant the soft target is reached — only when one is set and not
         // already passed. While the single session runs, focus time tracks the wall
         // clock, so now + remaining is the true ETA. // PT: instante do alvo (se
         // houver e ainda não passou).
         val targetAt = target?.let { now + (it - elapsed) }?.takeIf { it > now }
-        startForegroundCompat(buildNotification(title, elapsed, target, targetAt, now))
+        startForegroundCompat(buildNotification(title, elapsed, target, targetAt, now, reading))
         // A one-shot alarm fires the gentle "target reached" alert from the lock
         // screen even with the app backgrounded; cancelled when the block
         // pauses/concludes (the service is torn down → onDestroy). // PT: alarme
@@ -74,14 +80,15 @@ class FocusService : Service() {
         targetMs: Long?,
         targetAt: Long?,
         now: Long,
+        reading: Boolean,
     ): Notification {
-        ensureChannel()
+        ensureChannel(reading)
         val open = PendingIntent.getActivity(
             this, 0,
             Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
             pendingFlags(),
         )
-        val builder = NotificationCompat.Builder(this, CHANNEL_ID)
+        val builder = NotificationCompat.Builder(this, if (reading) CHANNEL_READING else CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_focus)
             .setContentTitle(title.ifBlank { "Pauta" })
             .setOngoing(true)
@@ -89,7 +96,11 @@ class FocusService : Service() {
             .setUsesChronometer(true)
             .setContentIntent(open)
             .addAction(0, tr("Pausar"), broadcast(FocusActionReceiver.ACTION_PAUSE))
-            .addAction(0, tr("Concluir"), broadcast(FocusActionReceiver.ACTION_CONCLUDE))
+            .addAction(
+                0,
+                if (reading) tr("Terminar sessão") else tr("Concluir"),
+                broadcast(FocusActionReceiver.ACTION_CONCLUDE),
+            )
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
         if (targetAt != null) {
             // Live count-DOWN to the target: the system renders it tick-by-tick with
@@ -119,14 +130,23 @@ class FocusService : Service() {
         PendingIntent.FLAG_UPDATE_CURRENT or
             (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0)
 
-    private fun ensureChannel() {
+    /**
+     * L9: a **second channel** is right here and a second *notification* would not
+     * be. Reading and focusing are different kinds of ongoing activity, and
+     * someone may well want to silence one and keep the other — which is exactly
+     * what a channel is for. // PT: um segundo canal justifica-se (são coisas
+     * diferentes e podem querer silenciar só uma); uma segunda notificação não.
+     */
+    private fun ensureChannel(reading: Boolean) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val mgr = getSystemService(NotificationManager::class.java)
             // Re-creating an existing channel just updates its name, so the
             // channel label follows the app language. // PT: recriar o canal só
             // atualiza o nome — acompanha a língua da app.
+            val id = if (reading) CHANNEL_READING else CHANNEL_ID
+            val name = if (reading) tr("Leitura") else tr("Foco")
             mgr.createNotificationChannel(
-                NotificationChannel(CHANNEL_ID, tr("Foco"), NotificationManager.IMPORTANCE_LOW).apply {
+                NotificationChannel(id, name, NotificationManager.IMPORTANCE_LOW).apply {
                     setShowBadge(false)
                 },
             )
@@ -151,21 +171,31 @@ class FocusService : Service() {
 
     companion object {
         private const val CHANNEL_ID = "pauta_focus"
+
+        // L9: reading's own channel, so it can be silenced without silencing the
+        // focus timer. One notification, two channels — the same discipline as
+        // one boolean and two lenses. // PT: canal próprio da leitura.
+        private const val CHANNEL_READING = "pauta_reading"
         private const val NOTIF_ID = 1001
         const val EXTRA_TITLE = "title"
         const val EXTRA_ELAPSED_MS = "elapsed"
         const val EXTRA_TARGET_MS = "target"
+
+        /** L9: the block's project, so the service can tell reading from focus.
+         *  // PT: o projecto do bloco, para distinguir leitura de foco. */
+        const val EXTRA_PROJECT = "project"
     }
 }
 
 /** Starts/stops [FocusService] from app code (no Context plumbing at call sites).
  *  [targetMs] is the running block's soft target, or null for none. */
 object FocusServiceController {
-    fun start(context: Context, title: String, elapsedMs: Long, targetMs: Long?) {
+    fun start(context: Context, title: String, elapsedMs: Long, targetMs: Long?, project: String? = null) {
         val intent = Intent(context, FocusService::class.java)
             .putExtra(FocusService.EXTRA_TITLE, title)
             .putExtra(FocusService.EXTRA_ELAPSED_MS, elapsedMs)
             .putExtra(FocusService.EXTRA_TARGET_MS, targetMs ?: 0L)
+            .putExtra(FocusService.EXTRA_PROJECT, project.orEmpty())
         context.startForegroundService(intent)
     }
 

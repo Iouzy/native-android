@@ -596,10 +596,14 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                         // down to it and the lock-screen "target reached" alert can
                         // arm (C2). // PT: passa o alvo do bloco para a contagem
                         // decrescente e o aviso de alvo atingido.
+                        // L9: the project too, so the service can tell a reading
+                        // session from a focus block and say so.
+                        // // PT: também o projecto, para a notificação saber o que é.
                         FocusServiceController.start(
                             ctx, block.title,
                             FocusMath.blockElapsedMs(segs, System.currentTimeMillis()),
                             block.targetMs,
+                            block.project,
                         )
                     }
                 }
