@@ -61,7 +61,7 @@ import com.pauta.app.data.entity.RoutineItemEntity
         BookEntity::class,
         BookNoteEntity::class,
     ],
-    version = 13,
+    version = 14,
     exportSchema = false,
 )
 @TypeConverters(Converters::class)
@@ -252,6 +252,16 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        // L10: the reading reminder — off for everyone until they turn it on, and
+        // silent in planner mode whatever it says. // PT: o lembrete de leitura,
+        // desligado por omissão e mudo fora do modo livro.
+        private val MIGRATION_13_14 = object : Migration(13, 14) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE prefs ADD COLUMN readingReminderEnabled INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE prefs ADD COLUMN readingReminderTime TEXT NOT NULL DEFAULT '21:00'")
+            }
+        }
+
         // E1: on a brand-new database Room has just created every entity table —
         // add the FTS index and its sync triggers (no data to backfill yet). The
         // upgrade path does the same in MIGRATION_5_6. // PT: numa BD nova, cria o
@@ -431,7 +441,7 @@ abstract class AppDatabase : RoomDatabase() {
                         MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5,
                         MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9,
                         MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12,
-                        MIGRATION_12_13,
+                        MIGRATION_12_13, MIGRATION_13_14,
                     )
                     .addCallback(SEARCH_CALLBACK)
                     .build()

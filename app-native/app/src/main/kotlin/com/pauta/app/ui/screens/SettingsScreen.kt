@@ -560,6 +560,34 @@ fun SettingsScreen(
             },
         ))
     }
+    // L10 · the reading reminder, book mode only. It has its own switch rather
+    // than riding the master toggle: someone can want a nudge to read without
+    // wanting a plan-your-day notification, and the two are different promises.
+    // It is blocked by the same OS refusal as the rest — a row offering an alarm
+    // the system will drop is the defect N1 exists to remove.
+    // // PT: o lembrete de leitura, só no modo livro e com interruptor próprio.
+    if (prefs.bookMode && !notifBlocked) {
+        focoRows.add(toggleRow(
+            label = tr("Lembrete de leitura"),
+            checked = prefs.readingReminderEnabled,
+            subtitle = tr("Um empurrão diário para abrir o livro."),
+            keywords = "leitura reading lembrete reminder livro book",
+            divider = prefs.readingReminderEnabled,
+            onChange = { on ->
+                vm.setReadingReminderEnabled(on)
+                if (on) askNotifications()
+            },
+        ))
+        if (prefs.readingReminderEnabled) {
+            focoRows.add(
+                timeRow(
+                    tr("Hora de ler"),
+                    prefs.readingReminderTime,
+                    "leitura reading hora time",
+                ) { vm.setReadingReminderTime(it) },
+            )
+        }
+    }
     if (prefs.remindersEnabled && !notifBlocked) {
         val reminderKeys = "notificações notifications lembretes reminders hora time"
         focoRows.add(timeRow(tr("Plano do dia"), prefs.plannerTime, reminderKeys) { vm.setPlannerTime(it) })

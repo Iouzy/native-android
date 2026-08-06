@@ -37,6 +37,20 @@ class ReminderReceiver : BroadcastReceiver() {
                     }
                 }
             }
+            // L10: same shape as the tides digest — the notification's text
+            // depends on the shelf, so it needs the repository and therefore a
+            // coroutine. // PT: o texto depende da estante, logo precisa do repo.
+            ReminderScheduler.Kind.READING -> {
+                val app = context.applicationContext as? PautaApplication ?: return
+                val pending = goAsync()
+                app.appScope.launch {
+                    try {
+                        ReminderNotifications.postReading(context, app.repository)
+                    } finally {
+                        pending.finish()
+                    }
+                }
+            }
         }
     }
 }

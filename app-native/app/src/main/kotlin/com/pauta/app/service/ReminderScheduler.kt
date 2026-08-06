@@ -29,6 +29,11 @@ object ReminderScheduler {
         PLANNER(103, "plannerTime"),
         HABITS(101, "habitsTime"),
         REFLECTION(102, "reflectionTime"),
+
+        // L10: a third caller, not a new system. The scheduling machinery is
+        // built, tested and boot-persistent; reading joins it.
+        // // PT: mais um utilizador da máquina que já existe.
+        READING(104, "readingTime"),
     }
 
     /** The persisted app language ("pt"/"en") — readable at process start,
@@ -36,13 +41,35 @@ object ReminderScheduler {
     fun savedLang(context: Context): String =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString("lang", "pt") ?: "pt"
 
-    /** Persist the reminder settings (called whenever prefs change). */
-    fun save(context: Context, enabled: Boolean, planner: String, habits: String, reflection: String, lang: String) {
+    /**
+     * Persist the reminder settings (called whenever prefs change).
+     *
+     * L10 adds [reading] and [bookMode]. The reading reminder has **two** gates —
+     * its own switch and the lens — because a planner user has not asked to be
+     * reminded to read, and a preference they cannot see should not be able to
+     * wake their phone. Kept in SharedPreferences with the rest so the alarm can
+     * re-arm itself and survive a reboot without Room.
+     * // PT: o lembrete de leitura tem dois interruptores — o seu e a lente.
+     */
+    fun save(
+        context: Context,
+        enabled: Boolean,
+        planner: String,
+        habits: String,
+        reflection: String,
+        lang: String,
+        reading: Boolean = false,
+        readingTime: String = "",
+        bookMode: Boolean = false,
+    ) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
             .putBoolean("enabled", enabled)
             .putString(Kind.PLANNER.timeKey, planner)
             .putString(Kind.HABITS.timeKey, habits)
             .putString(Kind.REFLECTION.timeKey, reflection)
+            .putString(Kind.READING.timeKey, readingTime)
+            .putBoolean("reading", reading)
+            .putBoolean("bookMode", bookMode)
             .putString("lang", lang)
             .apply()
     }
@@ -52,9 +79,18 @@ object ReminderScheduler {
         val sp = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val enabled = sp.getBoolean("enabled", false)
         val am = context.getSystemService(AlarmManager::class.java) ?: return
+        // L10: the reading reminder is gated on its own switch and the lens, not on
+        // the master reminders toggle — someone can want a nudge to read without
+        // wanting a plan-your-day notification. // PT: o lembrete de leitura tem os
+        // seus próprios interruptores.
+        val reading = sp.getBoolean("reading", false) && sp.getBoolean("bookMode", false)
         for (kind in Kind.entries) {
             am.cancel(pendingIntent(context, kind))
-            if (!enabled) continue
+            if (kind == Kind.READING) {
+                if (!reading) continue
+            } else if (!enabled) {
+                continue
+            }
             val hhmm = sp.getString(kind.timeKey, "") ?: ""
             if (!Regex("^\\d{1,2}:\\d{2}$").matches(hhmm)) continue
             val trigger = nextTrigger(hhmm) ?: continue
@@ -108,6 +144,11 @@ object ReminderScheduler {
             Kind.PLANNER -> if (en) "Plan your day" to "What matters today?" else "Planeie o seu dia" to "O que importa hoje?"
             Kind.HABITS -> if (en) "Your tides" to "You have tides to complete today." else "As suas marés" to "Tens marés por completar hoje."
             Kind.REFLECTION -> if (en) "Nightly reflection" to "What was worth it today?" else "Reflexão da noite" to "O que valeu hoje?"
+            // L10: the generic form. The receiver names the book instead when
+            // there is exactly one being read — naming one of four would be
+            // picking a favourite. // PT: a forma genérica; o receptor nomeia o
+            // livro quando há só um.
+            Kind.READING -> if (en) "Time to read" to "A few pages?" else "Hora de ler" to "Umas páginas?"
         }
     }
 }

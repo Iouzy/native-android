@@ -406,6 +406,7 @@ private fun BookListRow(book: BookEntity, status: String? = null, onClick: () ->
  * // PT: o campo de procura da estante, no mesmo tratamento discreto das
  * definições.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ShelfSearchRow(
     query: String,
