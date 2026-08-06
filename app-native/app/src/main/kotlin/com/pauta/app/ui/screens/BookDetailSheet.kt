@@ -220,13 +220,19 @@ fun BookDetailSheet(
                 BookMath.SessionSpan(((book.currentPage.toLong() * d) / total).toInt(), d)
             }
         }
-        val pace = remember(spans) { BookMath.pagesPerHour(spans) }
+        // F1: the ceiling. A span implying more than MAX_HUMAN_WPM was navigating,
+        // not reading — in an EPUB one tap moves several percentage points — and
+        // averaging it in is what produced "Ritmo: 9191 palavras/min" from
+        // arithmetic that was entirely correct. // PT: descarta os intervalos que
+        // implicam uma velocidade impossível.
+        val perUnit = remember(book) { BookMath.wordsPerUnit(book) }
+        val pace = remember(spans, perUnit) { BookMath.pagesPerHour(spans, perUnit) }
         // R6: anything with words says its pace in words per minute. An audiobook
         // keeps min/hora — its progress is already time, and there is no honest
         // word figure to fudge out of it. // PT: WPM para tudo o que tem palavras;
         // o audiolivro fica-se pelos min/hora.
-        val wpm = remember(spans, book) {
-            BookMath.wordsPerUnit(book)?.let { BookMath.wordsPerMinute(spans, it) }
+        val wpm = remember(spans, perUnit) {
+            perUnit?.let { BookMath.wordsPerMinute(spans, it) }
         }
         if (pace != null) {
             Spacer(Modifier.height(8.dp))
@@ -484,9 +490,8 @@ private fun RowScope.QuietAction(label: String, onClick: () -> Unit) {
 private fun ProgressEditor(book: BookEntity, onConfirm: (Int) -> Unit, onCancel: () -> Unit) {
     var value by remember { mutableStateOf(book.currentPage.takeIf { it > 0 }?.toString() ?: "") }
     val focus = rememberAutoFocusRequester()
-    val max = bookProgressMax(book)
-    fun clamp(n: Int) = if (max != null) n.coerceIn(0, max) else n
-    fun submit() = onConfirm(clamp(value.toIntOrNull() ?: book.currentPage))
+    val colors = LocalPautaColors.current
+    fun submit() = onConfirm(clampBookProgress(book, value.toIntOrNull() ?: book.currentPage))
 
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         Box(Modifier.width(110.dp)) {
@@ -502,6 +507,10 @@ private fun ProgressEditor(book: BookEntity, onConfirm: (Int) -> Unit, onCancel:
                 keyboardActions = KeyboardActions(onDone = { submit() }),
             )
         }
+        // F1: this editor always clamped correctly and never said what it was
+        // clamping to. The mark is the difference between "100 pages" and
+        // "finished". // PT: a marca diz a unidade; sem ela, 100 é ambíguo.
+        Text(bookProgressMark(book), color = colors.ink3, style = PautaType.Meta)
         PautaButton(tr("Guardar"), variant = PautaButtonVariant.Primary) { submit() }
         PautaButton(tr("Cancelar"), variant = PautaButtonVariant.Ghost) { onCancel() }
     }

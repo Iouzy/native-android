@@ -157,6 +157,73 @@ class BookMathTest {
         assertEquals(140f, wpm, 0.001f)
     }
 
+    // ── F1 · the human ceiling ────────────────────────────────
+
+    @Test fun impliedWpmIsNullWithoutTimeOrUnit() {
+        assertNull(BookMath.impliedWpm(SessionSpan(10, 0), 280f))
+        assertNull(BookMath.impliedWpm(SessionSpan(10, hour), 0f))
+        assertNull(BookMath.impliedWpm(SessionSpan(10, hour), -1f))
+    }
+
+    @Test fun impliedWpmIsWordsOverMinutes() {
+        // 30 pages × 280 words in 60 minutes = 140 words/min.
+        assertEquals(140f, BookMath.impliedWpm(SessionSpan(30, hour), 280f)!!, 0.01f)
+    }
+
+    @Test fun theEvidenceCase17To55PercentInThreeMinutes() {
+        // The figure this ceiling exists for. A 90 000-word EPUB counts 900 words
+        // per percentage point; 38 points in 3 minutes is ~34 000 words, and the
+        // app printed "Ritmo: 9191 palavras/min" — correct arithmetic on a
+        // chapter jump. // PT: o caso que motivou o tecto.
+        val perUnit = BookMath.wordsPerUnit(book(fileKind = "epub", wordCount = 90_000))!!
+        val jump = SessionSpan(38, 3 * 60_000L)
+        assertTrue(BookMath.impliedWpm(jump, perUnit)!! > BookMath.MAX_HUMAN_WPM)
+        assertTrue(BookMath.readingSpans(listOf(jump), perUnit).isEmpty())
+    }
+
+    @Test fun aFastButHumanSpanSurvivesTheCeiling() {
+        // 700 words/min is a trained skimmer, not a chapter jump: the ceiling must
+        // not censor it. One unit of one word, 700 units in a minute.
+        // // PT: 700 wpm é um leitor rápido, e passa.
+        val fast = SessionSpan(pagesDelta = 700, durationMs = 60_000L)
+        assertEquals(700f, BookMath.impliedWpm(fast, 1f)!!, 0.01f)
+        assertEquals(listOf(fast), BookMath.readingSpans(listOf(fast), 1f))
+        // And the boundary itself is inclusive.
+        val exactly = SessionSpan(pagesDelta = 1000, durationMs = 60_000L)
+        assertEquals(listOf(exactly), BookMath.readingSpans(listOf(exactly), 1f))
+        val over = SessionSpan(pagesDelta = 1001, durationMs = 60_000L)
+        assertTrue(BookMath.readingSpans(listOf(over), 1f).isEmpty())
+    }
+
+    @Test fun theCeilingKeepsTheTimeAndDropsTheWords() {
+        // Two honest hours and one impossible three-minute jump. The jump leaves
+        // the pace alone; the honest pair still produce one.
+        // // PT: o salto não entra no ritmo; as sessões honestas continuam a contar.
+        val perUnit = 840f
+        val honest = listOf(SessionSpan(12, hour), SessionSpan(8, hour))
+        val jump = SessionSpan(40, 3 * 60_000L)
+        val withJump = honest + jump
+        assertEquals(
+            BookMath.wordsPerMinute(honest, perUnit)!!,
+            BookMath.wordsPerMinute(withJump, perUnit)!!,
+            0.001f,
+        )
+    }
+
+    @Test fun withoutAUnitNothingIsJudged() {
+        // An audiobook has no words-per-unit, so no span can be called impossible
+        // and none is dropped. // PT: sem unidade não se julga; nada se descarta.
+        val spans = listOf(SessionSpan(500, 60_000L), SessionSpan(1, hour))
+        assertEquals(spans, BookMath.readingSpans(spans, null))
+        assertEquals(spans, BookMath.readingSpans(spans, 0f))
+    }
+
+    @Test fun paceWithoutAUnitIsUnchangedFromBeforeF1() {
+        // The default keeps the old arithmetic for callers with no book in hand.
+        val spans = listOf(SessionSpan(30, hour), SessionSpan(30, 3 * hour))
+        assertEquals(15f, BookMath.pagesPerHour(spans)!!, 0.001f)
+    }
+
     @Test fun wpmAgreesWithPagesPerHourOnTheSameSpans() {
         // The two figures are the same rate in different clothes; they must never
         // disagree about the same sessions.

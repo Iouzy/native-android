@@ -897,6 +897,19 @@ object I18n {
         "Abrir definições" to "Open settings", // native-only
         "Lembretes e o bloco em curso, mesmo com a app fechada." to
             "Reminders and the running block, even with the app closed.", // native-only
+
+        // F1 · every progress input asks in the unit the book counts in. "Página",
+        // "Minutos" and "Quantos minutos ouviste?" already exist above and are
+        // reused; only the percentage half is new. // PT: só falta a metade da
+        // percentagem — as outras chaves já existem.
+        "Em que percentagem ficaste?" to "What percentage are you at?", // native-only
+        "Percentagem" to "Percentage", // native-only
+        // The two nouns the same label needs for the other formats. ("Página
+        // (opcional)" above is now unused by the note sheet, which composes the
+        // noun with "opcional" instead so all three units read alike; the key
+        // stays rather than being deleted.) // PT: os nomes das outras unidades.
+        "Página" to "Page", // native-only
+        "Minutos" to "Minutes", // native-only
     )
 }
 
