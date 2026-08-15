@@ -10,8 +10,8 @@
 > shipped, a file completed, an order changed: it lands here too. A stale
 > CONTEXT is worse than none, because it is believed.
 
-**Last updated:** 2026-08-06 · **Room:** v14 · **Released:** `v1.443`
-(2026-08-02) · **Branch of record:** `main`
+**Last updated:** 2026-08-06 · **Room:** v14 · **Released:** `v1.454`
+(2026-08-05) · **Branch of record:** `main`
 
 ---
 
@@ -64,7 +64,11 @@ Log** — worth knowing before anyone reads the ticks as complete:
 
 - **F7** carried the publisher's page-break markers into the page but *not* into
   the chrome ("página 123 de 228"), which needs the page-list plumbed out of the
-  `:reader` process — the pass `L4` owns.
+  `:reader` process — the pass `L4` owns. **L4 shipped 18 minutes later in this
+  same PR and F7 was never revisited**, and it carried `chapterTitles` over the
+  wire, not the page list. So the blocker is gone and the work is not: this is
+  the one piece of #187 that is outstanding rather than decided, and it is the
+  obvious first entry of the next task file.
 - **F9** put the timer-preset toggle inside `DurationPicker`, which covers the
   two surfaces that use it, and deliberately left *Registar tempo* and the Hoje
   composer's target-minutes field alone. Reasons in the Log.
