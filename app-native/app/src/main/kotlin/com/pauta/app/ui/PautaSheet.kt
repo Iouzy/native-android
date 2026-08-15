@@ -45,15 +45,20 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -177,6 +182,48 @@ private fun Modifier.dismissImeOnBackgroundTap(clearFocus: () -> Unit): Modifier
     this.pointerInput(Unit) { detectTapGestures(onTap = { clearFocus() }) }
 
 /**
+ * S2 · A drag that starts in the sheet's **body** must not take the sheet with it.
+ *
+ * `ModalBottomSheet` links the body's scroll to the sheet's own drag through
+ * nested scroll: whatever the scrolling content leaves unconsumed is handed up to
+ * the sheet, which slides down — and with `skipPartiallyExpanded = true` the only
+ * anchor below Expanded is Hidden, so it settles *dismissed*. On a short form —
+ * `Nova maré` in the state it opens in — there is nothing to scroll, so the whole
+ * gesture is leftover from the first pixel and a gentle 290px pull anywhere in the
+ * body closes the sheet, taking whatever was typed with it. On an expanded one the
+ * body scrolls first and does the same the moment it reaches its top. Both were
+ * watched on the `pauta_pixel7` AVD (`docs/SHAKEDOWN.md` S1, PR #190).
+ *
+ * Swallowing that leftover cuts the link, and only the link. We take what the
+ * body's own scroll declined, so scrolling is untouched; and the drag handle sits
+ * *outside* this modifier, so the affordance the phone path documents as "this is
+ * how you close it" is still the one that closes it.
+ *
+ * // PT: um arrasto no corpo da folha deixa de a fechar. O que o scroll do corpo
+ * não consome era entregue à folha, que — sem paragem a meio — só tem "escondida"
+ * para onde ir, e leva com ela o que estava escrito. Engolimos essa sobra: o
+ * scroll não muda, e a pega (fora deste modificador) continua a fechar a folha.
+ */
+private object SheetBodyDragBoundary : NestedScrollConnection {
+    // Vertical only, and only what a finger produced: a programmatic scroll — the
+    // field `imePadding()` brings back into view when the keyboard opens — is left
+    // alone, exactly as Material's own connection leaves it. // PT: só o vertical,
+    // e só o que veio de um dedo; o scroll programático fica como está.
+    override fun onPostScroll(
+        consumed: Offset,
+        available: Offset,
+        source: NestedScrollSource,
+    ): Offset = if (source == NestedScrollSource.UserInput) Offset(0f, available.y) else Offset.Zero
+
+    // The throw at the end of the drag travels separately, so it needs the same
+    // treatment — otherwise a flick still reaches the sheet after the finger has
+    // gone. // PT: o impulso final viaja à parte; sem isto, um safanão ainda chega
+    // à folha depois de o dedo sair.
+    override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity =
+        Velocity(0f, available.y)
+}
+
+/**
  * P9: the one sheet entrance, 0 → 1 over [PautaMotion.Slow] on the house easing.
  * Material3 owns the bottom sheet's slide and exposes no spec to retune, so what
  * both faces *share* — and what makes them read as one gesture — is the content
@@ -221,7 +268,12 @@ private fun PautaBottomSheet(
 ) {
     val colors = LocalPautaColors.current
     // skipPartiallyExpanded: form sheets open fully — no half-height stop to
-    // fight through. // PT: abre logo em altura cheia, sem paragem a meio.
+    // fight through. S2: that also leaves Hidden as the only anchor a downward
+    // drag can settle on, which is why the body's drag had to stop reaching the
+    // sheet ([SheetBodyDragBoundary]); adding the half-way stop back would fix the
+    // dismissal by putting the fight-through in front of every form again.
+    // // PT: abre logo em altura cheia, sem paragem a meio — e por isso um arrasto
+    // para baixo só tinha "escondida" onde assentar; ver [SheetBodyDragBoundary].
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     // U1 · `currentValue`, not `targetValue`: the former flips when the expand
     // animation *finishes*, the latter the moment it is asked for — which is
@@ -260,6 +312,10 @@ private fun PautaBottomSheet(
                 // visible region (not behind the IME). // PT: encolhe a área de
                 // scroll para cima do teclado — o campo focado fica visível.
                 .imePadding()
+                // S2 · outside the scroll, so it is the scroll's nested-scroll
+                // parent and gets the leftover before Material's sheet connection
+                // does. // PT: fora do scroll, para apanhar a sobra antes da folha.
+                .nestedScroll(SheetBodyDragBoundary)
                 .verticalScroll(rememberScrollState())
                 .dismissImeOnBackgroundTap { focus.clearFocus() }
                 .padding(start = SheetGutter, end = SheetGutter, bottom = SheetActionGap),
