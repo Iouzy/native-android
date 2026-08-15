@@ -48,10 +48,16 @@ this file → your task file. Nothing else needs opening unless a task names it.
 
 ## 3 · The work, at a glance
 
-**Nothing is pending. Every task file is finished**, and all three finished on
-2026-08-06 in one PR (#187) — 30 tasks, one commit each. The count this section
-used to carry said "22 across two files, plus one new file", which was already
-wrong when it was written: the three files held **30**.
+**The active file is `docs/SHAKEDOWN.md` (S1…S5).** The three files before it all
+finished on 2026-08-06 in one PR (#187) — 30 tasks, one commit each. The count
+this section used to carry said "22 across two files, plus one new file", which
+was already wrong when it was written: the three files held **30**.
+
+`SHAKEDOWN.md` exists because #187 merged on 2026-08-15 and ordinary use
+contradicted it the same day: a sheet that dismisses when dragged, forms outside
+Hoje still losing what was typed, and no way to attach a block to a maré. **S1 is
+the device pass over everything #187 shipped**, and it comes first because it
+decides the shape of the rest.
 
 | File | Scope | Tasks | Finished |
 |---|---|---|---|
@@ -94,10 +100,15 @@ shipped — read them when you need to know *why*, never to know *what to do*.
 
 ### What to do next
 
-There is no task file to pick from. The next change starts by **writing one**
-(`docs/TASK_FILE_FORMAT.md`), and §4 below is the argument for what it should
-cover: thirty tasks shipped without an SDK in the environment, so CI compiled
-and unit-tested all of it and **no device has seen any of it**.
+**`docs/SHAKEDOWN.md`, first pending task, top to bottom.** That is S1: the
+device pass §4 below argues for. Thirty tasks shipped without an SDK in the
+environment, so CI compiled and unit-tested all of it and **no device has seen
+any of it** — and the first day of real use already found three things, which is
+the strongest possible argument for doing S1 before writing another line.
+
+One thing S1 must settle before anything else can be read: **which build the
+owner's phone is on**. Two of the three findings describe pre-F3 behaviour
+exactly, so on v454 they are the old build and on v521 they are live defects.
 
 ## 4 · What has actually been run
 
@@ -130,6 +141,8 @@ page-break markers. Everything with a surface is not.
 |---|---|---|---|
 | 2026-08-03 | `v1.443` | Pixel 7 AVD, Android 15, 1080×2400 @420dpi | The run that produced `FIRST_RUN.md`. Confirmed on screen: F1 (an EPUB receipt reading "33 págs em 4 min"), F5(b) (top bar over the chapter heading, bottom bar over the last line), F8 (composer labels and header chips), F11 (Pip over content, and over the *primary button* in landscape), F13 (the planner's tides under a reading tab), the shelf carousel. Found new: `POST_NOTIFICATIONS` never requested (`AppSettings: com.pauta.app importance=NONE` with `FocusService` running `isForeground=true` — the notification is built and dropped), the reader chrome's 2 s auto-hide re-arming on every tap, the month strips scrolling independently and unlabelled. **Dark theme and 1.5× text scale held up with no breakage.** A deliberately corrupt EPUB was refused cleanly. |
 | ~2026-08-01 | `v1.4xx` | owner's phone, real use | The run that produced `FIELD_FIXES.md`. Its evidence section records what was seen and the file:line each symptom traces to. |
+| 2026-08-15 | `v521` (post-merge) | owner's machine, **local build only — no app run** | The repo builds locally for the first time: `:app:compileDebugKotlin` and `:app:testDebugUnitTest` pass (**256 tests, 19 classes, 0 failures**, 8m 1s cold), `:app:assembleDebug` produces an APK. The released `pauta-native-v454.apk` installs on `pauta_pixel7` and reports `versionName=1.454`; that AVD still holds a **Room v11** database from 2026-08-03 (2 intentions, 2 blocks, 2 sessions, 2 habits, 1 book), which is the fixture S1 should upgrade. The Room 11→14 path was **reviewed, not run** — seven added `prefs` columns matched 1:1 against three migrations, all registered, no `fallbackToDestructiveMigration`, so a mismatch throws on open rather than dropping data. An emulator run was started and abandoned when the machine ran out of headroom. **No screen of #187 has been looked at.** |
+| 2026-08-15 | unconfirmed | owner's phone, real use | Three findings within a day of the merge, now `SHAKEDOWN.md`'s evidence section: `Nova maré` dismisses when dragged *upward*; `Novo bloco` and `Nova maré` still lose typed text on back while Hoje does not; no way to attach a block to a maré. **The build was not recorded**, and two of the three describe pre-F3 behaviour exactly — S1 settles it. |
 
 **Nothing has been run on:** a physical device with a small screen, a tablet, a
 foldable, API 26–30 (`minSdk` is 26; the emulator was 35), or with TalkBack
@@ -195,12 +208,17 @@ than guess.
 | ~~Are the two "start a block" affordances on the empty Pauta tab deliberate?~~ **Taken as duplication 2026-08-06 (#187):** asked, unanswered, shipped on the spec's own assumption. The chip moved below the list rather than being deleted, so if they *were* deliberate this reverses into a relabel and nothing was lost. | — | Duplication |
 | ~~*Metas de leitura* — self-set reading targets?~~ **Closed 2026-08-06 (#187):** asked, unanswered, and F13 shipped without them on the file's own argument — a target on an empty shelf is nagging, which `GUARDRAILS.md` §A forbids. Reversible: nothing was built that would have to be undone. | — | Not built |
 | ~~Does `genre` earn its keep, or go?~~ **Closed 2026-08-06 (#187):** kept. Dropping it meant a dead column plus a form that quietly stopped collecting what people had already filled in; keeping it cost one `split`. L8 consumes `BookMath.genreTags`. | — | Kept |
+| **Which build is the phone on?** Settings → Sobre. Two of the three 2026-08-15 findings describe pre-F3 behaviour exactly, so this decides whether they are the old build or live defects. | `SHAKEDOWN.md` S1, and S3 entirely | Unknown — do not assume |
+| **Does concluding a block tick its maré automatically, or only offer to?** Automatic is the point of the link; automatic is also how a paused-and-resumed block ticks a daily tide twice. | `SHAKEDOWN.md` S4 | None — S4 stops here |
+| **For a countable tide (`n/target`), how much does one block add** — one, or one per some duration? Decides whether `targetMs` matters to the link at all. | `SHAKEDOWN.md` S4 | None — S4 stops here |
+| **Does an abandoned block count?** F4's cycle rule means a wrong tick is one tap from zero, so the cost of "yes" is low. | `SHAKEDOWN.md` S4 | None — S4 stops here |
 
 ---
 
 ## Log (append one line per PR that changes the state of the work)
 
 <!-- YYYY-MM-DD · #PR · <what moved, and anything a later session would otherwise re-derive> -->
+2026-08-15 · — · #187 **merged by rebase**, not squash — 30 task commits are on `main` individually, so a task that turns out wrong is reverted alone; `CLAUDE.md` says `--squash` and that rule is right for a one-task PR, not for this one. Released as `pauta-native-v521.apk`. Two things a later session should not re-derive: the repo **builds locally on the owner's machine now** (the blocker was never the SDK, it was that both available JDKs are 25 and Gradle 8.9 rejects them — Temurin 21 is installed, see `SHAKEDOWN.md` Amendments), and the Room 11→14 path has been **reviewed and not run**, with the review's reasoning in that file's evidence section. `SHAKEDOWN.md` created the same day after real use contradicted three of #187's tasks; S1 is the device pass, and it must record the phone's build before anything else can be interpreted.
 2026-08-06 · #187 · **The remaining 30 tasks, all of them** — `FIRST_RUN` N1…N8, `FIELD_FIXES` F1…F13 and `BOOK_LIBRARY` L4…L12 — one commit each on one branch, in the order this file's §3 set (N1 first, then F, then L, then N2…N8). **The shape is the deviation worth recording:** `CLAUDE.md` §Workflow says one task, one PR, and this was 30 tasks in one PR. The owner was asked and did not answer; the reason is that the session had one assigned branch and 30 CI rounds would not have reached the end of the queue. Each task is still one commit with its own message, so the history reads task-by-task and any one of them can be reverted alone. Two blocked decisions were also asked and unanswered, and both were taken as the spec's own default and are cheap to reverse (§6). Room went **11 → 14** across three tasks, and N1 took the 11 → 12 slot `BOOK_LIBRARY` L5 had claimed — L5 moved to 12 → 13 and L10 to 13 → 14. All three task files are now in `docs/archive/`, so **there is no active task file**: §3 says what to do about that, and §4 says what a device pass would need to cover, which after a run with no SDK is nearly everything with a surface.
 2026-08-06 · #187 · N1 done — the notification floor. `ui/Permissions.kt` is the single owner of "may we notify, and have we asked?"; three call sites share it. One pref `notifAskedAt`, Room **11 → 12** — a slot `BOOK_LIBRARY.md` L5 had claimed, so **L5 moved to 12 → 13 and L10 to the next free one after it**; both task files were edited in this PR. Two things a later session should not re-derive: read `areNotificationsEnabled()`, not `checkSelfPermission`, because a user can silence the app without touching the permission and the Settings row has to say so; and the blocked row deliberately has no switch, because a switch that cannot move reads as broken. **Nothing was run** — no SDK here, so no compile and no tests locally, and the migration has never been executed (this repo has no instrumentation tests).
 2026-08-05 · #186 · L3 done — **Phase L-0 closed**. `domain/BookStatus` is now the single source of the five statuses and the shelf each maps to, asserted total in both directions by `BookStatusTest`; `setBookStatus` is the one door a book changes state through, owning `startedAt`/`finishedAt`/`position`. Two things a later session should not re-derive: shelf `position` is allocated as *max + 1*, never as the shelf's size, because a departure leaves a hole and `ORDER BY position` has no tiebreaker (`addBook` was fixed the same way); and the branch this shipped from was cut before the docs foundation existed, so it carried a wrong PR number and no `CONTEXT.md` edit — check both when a branch predates `dd4b6c9`.
