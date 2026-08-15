@@ -10,8 +10,9 @@
 > shipped, a file completed, an order changed: it lands here too. A stale
 > CONTEXT is worse than none, because it is believed.
 
-**Last updated:** 2026-08-06 · **Room:** v14 · **Released:** `v1.454`
-(2026-08-05) · **Branch of record:** `main`
+**Last updated:** 2026-08-15 · **Room:** v14 · **Released:** the rolling
+`latest-native` tag — always the newest `main` build · **Branch of record:**
+`main`
 
 ---
 
@@ -106,9 +107,18 @@ environment, so CI compiled and unit-tested all of it and **no device has seen
 any of it** — and the first day of real use already found three things, which is
 the strongest possible argument for doing S1 before writing another line.
 
-One thing S1 must settle before anything else can be read: **which build the
-owner's phone is on**. Two of the three findings describe pre-F3 behaviour
-exactly, so on v454 they are the old build and on v521 they are live defects.
+**S1 is `in-progress` (#189) and only its first item is done.** The one thing it
+had to settle before anything else could be read — **which build the phone is on**
+— came back **`v1.521`**, the #187 build. So the two findings that describe pre-F3
+behaviour are not the old build showing through: F3 shipped and the symptom
+survived it, and both are live defects. **S3 is real work, not a skip.**
+
+Items 2–5 of S1 — the Room 11 → 14 upgrade on a real prior database, N1's
+notification permission, F3/F8 in both lenses, and the rest of §4's list — are
+**still not reached**. #189 ran in a cloud container: an Android SDK installs
+there, but the host is a guest VM with no `/dev/kvm` and no `vmx`/`svm` flags, so
+no emulator can run. Those items need the owner's machine (SDK, the
+`pauta_pixel7` AVD with the v11 fixture, Temurin 21) or a runner exposing KVM.
 
 ## 4 · What has actually been run
 
@@ -142,7 +152,8 @@ page-break markers. Everything with a surface is not.
 | 2026-08-03 | `v1.443` | Pixel 7 AVD, Android 15, 1080×2400 @420dpi | The run that produced `FIRST_RUN.md`. Confirmed on screen: F1 (an EPUB receipt reading "33 págs em 4 min"), F5(b) (top bar over the chapter heading, bottom bar over the last line), F8 (composer labels and header chips), F11 (Pip over content, and over the *primary button* in landscape), F13 (the planner's tides under a reading tab), the shelf carousel. Found new: `POST_NOTIFICATIONS` never requested (`AppSettings: com.pauta.app importance=NONE` with `FocusService` running `isForeground=true` — the notification is built and dropped), the reader chrome's 2 s auto-hide re-arming on every tap, the month strips scrolling independently and unlabelled. **Dark theme and 1.5× text scale held up with no breakage.** A deliberately corrupt EPUB was refused cleanly. |
 | ~2026-08-01 | `v1.4xx` | owner's phone, real use | The run that produced `FIELD_FIXES.md`. Its evidence section records what was seen and the file:line each symptom traces to. |
 | 2026-08-15 | `v521` (post-merge) | owner's machine, **local build only — no app run** | The repo builds locally for the first time: `:app:compileDebugKotlin` and `:app:testDebugUnitTest` pass (**256 tests, 19 classes, 0 failures**, 8m 1s cold), `:app:assembleDebug` produces an APK. The released `pauta-native-v454.apk` installs on `pauta_pixel7` and reports `versionName=1.454`; that AVD still holds a **Room v11** database from 2026-08-03 (2 intentions, 2 blocks, 2 sessions, 2 habits, 1 book), which is the fixture S1 should upgrade. The Room 11→14 path was **reviewed, not run** — seven added `prefs` columns matched 1:1 against three migrations, all registered, no `fallbackToDestructiveMigration`, so a mismatch throws on open rather than dropping data. An emulator run was started and abandoned when the machine ran out of headroom. **No screen of #187 has been looked at.** |
-| 2026-08-15 | unconfirmed | owner's phone, real use | Three findings within a day of the merge, now `SHAKEDOWN.md`'s evidence section: `Nova maré` dismisses when dragged *upward*; `Novo bloco` and `Nova maré` still lose typed text on back while Hoje does not; no way to attach a block to a maré. **The build was not recorded**, and two of the three describe pre-F3 behaviour exactly — S1 settles it. |
+| 2026-08-15 | `v1.521` source | cloud container, **build only — no app run** | S1's session (#189). An Android SDK installs cleanly in the container (platform-tools, platform 35, build-tools 35) and `:app:testDebugUnitTest` passes there: **256 tests, 19 classes, 0 failures**, matching the owner's own local run exactly. **The emulator does not work and cannot be made to:** the `system-images;android-35;google_apis;x86_64` download fails through the proxy, and the host is a guest VM with no `/dev/kvm` and no `vmx`/`svm` CPU flags, so there would be no acceleration even with an image. A cloud session can therefore compile and unit-test this repo but can never do a device pass — which is the whole of S1 items 2–5. |
+| 2026-08-15 | `v1.521` | owner's phone, real use | Three findings within a day of the merge, now `SHAKEDOWN.md`'s evidence section: `Nova maré` dismisses when dragged *upward*; `Novo bloco` and `Nova maré` still lose typed text on back while Hoje does not; no way to attach a block to a maré. The build was not recorded at the time and **was confirmed as `v1.521` on 2026-08-15 (#189)** — the #187 build, so two of the three are not the old build showing through: F3 shipped and the symptom survived it. All three are live. |
 
 **Nothing has been run on:** a physical device with a small screen, a tablet, a
 foldable, API 26–30 (`minSdk` is 26; the emulator was 35), or with TalkBack
@@ -208,7 +219,7 @@ than guess.
 | ~~Are the two "start a block" affordances on the empty Pauta tab deliberate?~~ **Taken as duplication 2026-08-06 (#187):** asked, unanswered, shipped on the spec's own assumption. The chip moved below the list rather than being deleted, so if they *were* deliberate this reverses into a relabel and nothing was lost. | — | Duplication |
 | ~~*Metas de leitura* — self-set reading targets?~~ **Closed 2026-08-06 (#187):** asked, unanswered, and F13 shipped without them on the file's own argument — a target on an empty shelf is nagging, which `GUARDRAILS.md` §A forbids. Reversible: nothing was built that would have to be undone. | — | Not built |
 | ~~Does `genre` earn its keep, or go?~~ **Closed 2026-08-06 (#187):** kept. Dropping it meant a dead column plus a form that quietly stopped collecting what people had already filled in; keeping it cost one `split`. L8 consumes `BookMath.genreTags`. | — | Kept |
-| **Which build is the phone on?** Settings → Sobre. Two of the three 2026-08-15 findings describe pre-F3 behaviour exactly, so this decides whether they are the old build or live defects. | `SHAKEDOWN.md` S1, and S3 entirely | Unknown — do not assume |
+| ~~**Which build is the phone on?**~~ **Answered 2026-08-15 (#189): `v1.521`** — the owner read it from Settings → Sobre. That is the #187 build, so all three findings are live defects and none of them is the old build. `SHAKEDOWN.md` S3 loses its `skipped` branch and is real work. | — | `v1.521` |
 | **Does concluding a block tick its maré automatically, or only offer to?** Automatic is the point of the link; automatic is also how a paused-and-resumed block ticks a daily tide twice. | `SHAKEDOWN.md` S4 | None — S4 stops here |
 | **For a countable tide (`n/target`), how much does one block add** — one, or one per some duration? Decides whether `targetMs` matters to the link at all. | `SHAKEDOWN.md` S4 | None — S4 stops here |
 | **Does an abandoned block count?** F4's cycle rule means a wrong tick is one tap from zero, so the cost of "yes" is low. | `SHAKEDOWN.md` S4 | None — S4 stops here |
@@ -218,6 +229,7 @@ than guess.
 ## Log (append one line per PR that changes the state of the work)
 
 <!-- YYYY-MM-DD · #PR · <what moved, and anything a later session would otherwise re-derive> -->
+2026-08-15 · #189 · **S1 item 1: the phone is on `v1.521`.** §6's longest-standing open question is answered and two tasks move with it — F3 shipped and its symptom survived, so `SHAKEDOWN.md` S3 loses its `skipped (was the old build)` branch and is real work, and S2's drag-dismiss is a defect in current code rather than in an old build. S1 stays `in-progress`: items 2–5 need a device and none was reached. **The thing not to re-derive:** a cloud session can build and unit-test this repo (SDK installs fine, 256 tests pass there) but **cannot ever run the app** — no `/dev/kvm`, no `vmx`/`svm`, and the system-image download fails through the proxy. Device work belongs on the owner's machine, and §4 now carries a row saying so. Also folded in: the `Released:` line names the rolling tag instead of a build number, so it stops going stale on every merge.
 2026-08-15 · — · #187 **merged by rebase**, not squash — 30 task commits are on `main` individually, so a task that turns out wrong is reverted alone; `CLAUDE.md` says `--squash` and that rule is right for a one-task PR, not for this one. Released as `pauta-native-v521.apk`. Two things a later session should not re-derive: the repo **builds locally on the owner's machine now** (the blocker was never the SDK, it was that both available JDKs are 25 and Gradle 8.9 rejects them — Temurin 21 is installed, see `SHAKEDOWN.md` Amendments), and the Room 11→14 path has been **reviewed and not run**, with the review's reasoning in that file's evidence section. `SHAKEDOWN.md` created the same day after real use contradicted three of #187's tasks; S1 is the device pass, and it must record the phone's build before anything else can be interpreted.
 2026-08-06 · #187 · **The remaining 30 tasks, all of them** — `FIRST_RUN` N1…N8, `FIELD_FIXES` F1…F13 and `BOOK_LIBRARY` L4…L12 — one commit each on one branch, in the order this file's §3 set (N1 first, then F, then L, then N2…N8). **The shape is the deviation worth recording:** `CLAUDE.md` §Workflow says one task, one PR, and this was 30 tasks in one PR. The owner was asked and did not answer; the reason is that the session had one assigned branch and 30 CI rounds would not have reached the end of the queue. Each task is still one commit with its own message, so the history reads task-by-task and any one of them can be reverted alone. Two blocked decisions were also asked and unanswered, and both were taken as the spec's own default and are cheap to reverse (§6). Room went **11 → 14** across three tasks, and N1 took the 11 → 12 slot `BOOK_LIBRARY` L5 had claimed — L5 moved to 12 → 13 and L10 to 13 → 14. All three task files are now in `docs/archive/`, so **there is no active task file**: §3 says what to do about that, and §4 says what a device pass would need to cover, which after a run with no SDK is nearly everything with a surface.
 2026-08-06 · #187 · N1 done — the notification floor. `ui/Permissions.kt` is the single owner of "may we notify, and have we asked?"; three call sites share it. One pref `notifAskedAt`, Room **11 → 12** — a slot `BOOK_LIBRARY.md` L5 had claimed, so **L5 moved to 12 → 13 and L10 to the next free one after it**; both task files were edited in this PR. Two things a later session should not re-derive: read `areNotificationsEnabled()`, not `checkSelfPermission`, because a user can silence the app without touching the permission and the Settings row has to say so; and the blocked row deliberately has no switch, because a switch that cannot move reads as broken. **Nothing was run** — no SDK here, so no compile and no tests locally, and the migration has never been executed (this repo has no instrumentation tests).
