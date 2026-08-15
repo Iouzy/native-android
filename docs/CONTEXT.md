@@ -49,7 +49,8 @@ this file → your task file. Nothing else needs opening unless a task names it.
 
 ## 3 · The work, at a glance
 
-**The active file is `docs/SHAKEDOWN.md` (S1…S5).** The three files before it all
+**The active file is `docs/SHAKEDOWN.md` (S1…S6** — S6 was added by S1's own device
+pass, PR #190**).** The three files before it all
 finished on 2026-08-06 in one PR (#187) — 30 tasks, one commit each. The count
 this section used to carry said "22 across two files, plus one new file", which
 was already wrong when it was written: the three files held **30**.
@@ -101,24 +102,29 @@ shipped — read them when you need to know *why*, never to know *what to do*.
 
 ### What to do next
 
-**`docs/SHAKEDOWN.md`, first pending task, top to bottom.** That is S1: the
-device pass §4 below argues for. Thirty tasks shipped without an SDK in the
-environment, so CI compiled and unit-tested all of it and **no device has seen
-any of it** — and the first day of real use already found three things, which is
-the strongest possible argument for doing S1 before writing another line.
+**`docs/SHAKEDOWN.md`, first pending task, top to bottom.** That is now **S3** —
+the keyboard eating the form outside Hoje, confirmed live by S1 on a device.
 
-**S1 is `in-progress` (#189) and only its first item is done.** The one thing it
-had to settle before anything else could be read — **which build the phone is on**
-— came back **`v1.521`**, the #187 build. So the two findings that describe pre-F3
-behaviour are not the old build showing through: F3 shipped and the symptom
-survived it, and both are live defects. **S3 is real work, not a skip.**
+**S1 is done** (#189 read the phone's build, #190 did the device pass) and **S2 is
+done** (#191). What they settled, so it is not re-derived:
 
-Items 2–5 of S1 — the Room 11 → 14 upgrade on a real prior database, N1's
-notification permission, F3/F8 in both lenses, and the rest of §4's list — are
-**still not reached**. #189 ran in a cloud container: an Android SDK installs
-there, but the host is a guest VM with no `/dev/kvm` and no `vmx`/`svm` flags, so
-no emulator can run. Those items need the owner's machine (SDK, the
-`pauta_pixel7` AVD with the v11 fixture, Temurin 21) or a runner exposing KVM.
+- The phone is on **`v1.521`**, the #187 build, so every finding in `SHAKEDOWN.md`'s
+  evidence table is a live defect and none of them is an old build showing through.
+- The **Room 11 → 14 migration ran on the real v11 fixture and passed** — the
+  largest single risk in #187 is retired.
+- **S2's cause was the body↔sheet nested-scroll link**, not F3's tap handler
+  (which is exonerated) and not an upward drag. Fixed in #191 by cutting that
+  link; **the fix has been compiled and unit-tested and no device has pulled a
+  sheet since.**
+- S1 found one new defect, **S6** — the first focus block's notification never
+  reaches the shade. It is independent of S3 and it is the smallest task left.
+
+Still not reached on any device: **S1 item 5's remainder** — F5's reader insets,
+F11's full float-strip matrix, F2's session editing and delete cascade, F6's
+launcher door — plus every gesture in **S2's Accept**. A cloud container can
+compile and unit-test this repo but never run it (no `/dev/kvm`, no `vmx`/`svm`);
+device work needs the owner's machine (Temurin 21, the `pauta_pixel7` AVD) or a
+runner exposing KVM.
 
 ## 4 · What has actually been run
 
@@ -154,6 +160,7 @@ page-break markers. Everything with a surface is not.
 | 2026-08-15 | `v521` (post-merge) | owner's machine, **local build only — no app run** | The repo builds locally for the first time: `:app:compileDebugKotlin` and `:app:testDebugUnitTest` pass (**256 tests, 19 classes, 0 failures**, 8m 1s cold), `:app:assembleDebug` produces an APK. The released `pauta-native-v454.apk` installs on `pauta_pixel7` and reports `versionName=1.454`; that AVD still holds a **Room v11** database from 2026-08-03 (2 intentions, 2 blocks, 2 sessions, 2 habits, 1 book), which is the fixture S1 should upgrade. The Room 11→14 path was **reviewed, not run** — seven added `prefs` columns matched 1:1 against three migrations, all registered, no `fallbackToDestructiveMigration`, so a mismatch throws on open rather than dropping data. An emulator run was started and abandoned when the machine ran out of headroom. **No screen of #187 has been looked at.** |
 | 2026-08-15 | `v1.521` source | cloud container, **build only — no app run** | S1's session (#189). An Android SDK installs cleanly in the container (platform-tools, platform 35, build-tools 35) and `:app:testDebugUnitTest` passes there: **256 tests, 19 classes, 0 failures**, matching the owner's own local run exactly. **The emulator does not work and cannot be made to:** the `system-images;android-35;google_apis;x86_64` download fails through the proxy, and the host is a guest VM with no `/dev/kvm` and no `vmx`/`svm` CPU flags, so there would be no acceleration even with an image. A cloud session can therefore compile and unit-test this repo but can never do a device pass — which is the whole of S1 items 2–5. |
 | 2026-08-15 | `v1.521` | **`pauta_pixel7` AVD, Android 15, 1080×2400 — the first device pass over #187** | S1 items 2–4, on the owner's machine (WHPX acceleration; the cloud container's blocker was nested virtualisation, not the SDK). **The Room 11→14 upgrade ran on the real v11 fixture**: v454 installed, `user_version=11`, 2 intentions / 2 blocks / 2 sessions / 2 habits / 1 book / 1 habit_log / 1 prefs captured, then v521 installed **over** it. Result: `user_version=14`, every row intact, and a `.dump` diff whose *only* changes are the seven appended `prefs` values at their declared defaults (`0, 1.0, 1.62, 22, 'app', 0, '21:00'`) and the Room identity hash. No crash, all three tabs composed. **N1 (item 3):** the permission dialog appears exactly once, at the first focus block, and the block starts either way — but see the first-block notification defect below. Three `REMINDER_FIRE` alarms are scheduled at exactly the configured 08:00 / 09:00 / 21:30; `Testar notificação` renders; advancing the clock past 21:30 fired **Reflexão da noite** and **Planeie o seu dia** for real. The habits reminder is correctly silent with zero tides (`postHabits` returns early on an empty list). **F3 (item 4): half right.** The background tap *does* dismiss the IME and keep the sheet and its text. The **back press does not** — one back with the keyboard up in `Nova maré` killed keyboard, sheet and the typed word together, which is S3 reproduced exactly. **F8: verified at the largest text scale, first time ever seen** — `PRIORIDADE` keeps its pills, and `QUANDO` wraps *inside itself* ("noite" drops to its own line) instead of orphaning the label, which is precisely the property F8 claimed; the four header chips wrap 2×2 with no clipping, and one row in landscape. **F12 verified end-to-end**: the chips are multi-select, write "manhã, tarde" into the free-text field, and store that plain string in `habits.time` — no schema change, round-trip safe. |
+| 2026-08-15 | S2's branch | cloud container, **build only — no app run** | S2's session (#191). Same container shape as #189, and the same conclusion: the SDK installs (`platforms;android-35`, `build-tools;35.0.0`, JDK 21 already present), `:app:compileDebugKotlin` is clean apart from the pre-existing `EpubReader.kt:276` deprecation, and `:app:testDebugUnitTest` passes — **256 tests, 19 classes, 0 failures**, the third independent run to land on that exact number. **S2's fix is therefore compiled and never performed:** it is a gesture change, and every clause of its Accept (drag up, drag down on the handle, scroll a tall body, tap the background, at 1.0 and 1.5, portrait and landscape, in `Novo bloco` and a book-mode sheet) needs a finger. |
 | 2026-08-15 | `v1.521` | owner's phone, real use | Three findings within a day of the merge, now `SHAKEDOWN.md`'s evidence section: `Nova maré` dismisses when dragged *upward*; `Novo bloco` and `Nova maré` still lose typed text on back while Hoje does not; no way to attach a block to a maré. The build was not recorded at the time and **was confirmed as `v1.521` on 2026-08-15 (#189)** — the #187 build, so two of the three are not the old build showing through: F3 shipped and the symptom survived it. All three are live. |
 
 **Nothing has been run on:** a physical device with a small screen, a tablet, a
@@ -177,8 +184,11 @@ device pass.
    foreground before the user answers. That is `SHAKEDOWN.md` S6. The Settings
    "blocked" row and its link were **not** exercised.
 3. **Gestures (F3, N2)** — F3 **half-passed**: background tap keeps the sheet,
-   back press destroys it (S3, reproduced). The sheet's drag behaviour is
-   diagnosed in S2. **N2's reader chrome was not reached.**
+   back press destroys it (S3, reproduced). The sheet's drag behaviour was
+   diagnosed in S2 and **fixed in #191 without a device seeing the fix** — the
+   body's drag no longer reaches the sheet, which is four drags, two text scales
+   and two orientations owed on the next pass. **N2's reader chrome was not
+   reached.**
 4. **Layout at textScale (F8, F11, N5, N7)** — **F8 passed at the largest scale
    and in landscape** (first observation ever). F11's full matrix — six screens ×
    two lenses × both orientations — was **not** covered, nor N5/N7, nor whether
@@ -236,6 +246,7 @@ than guess.
 ## Log (append one line per PR that changes the state of the work)
 
 <!-- YYYY-MM-DD · #PR · <what moved, and anything a later session would otherwise re-derive> -->
+2026-08-15 · #191 · **S2 done — the sheet's body stopped dragging the sheet away.** `SHAKEDOWN.md` is now S1 ✓ S2 ✓, and the first pending task is **S3**. The mechanism, so nobody re-derives it: `ModalBottomSheet` moves on whatever the body's scroll leaves unconsumed, and `skipPartiallyExpanded = true` leaves Hidden as the only anchor below Expanded — so on a short form every pixel of a downward drag is leftover and the sheet dismisses, taking the typed text. One `NestedScrollConnection` outside the body's `verticalScroll` swallows that leftover; the drag handle is outside it and still dismisses. **The deviation to know about:** S2's spec indicated `confirmValueChange` refusing `Hidden` while the form is dirty, and that was not built — it is inert in the case the owner actually reported (he had typed nothing), it cannot tell a handle drag from a body drag, and in Material3 1.3 both the scrim tap and the back press route through `animateToDismiss` → `confirmValueChange`, so it would strand a half-typed form and eat the second back press S3 is about to promise. The reasoning is in that file's Log. **Nothing about #191 has been run on a device** — it is a gesture fix verified by a compiler, which is precisely the gap this whole file exists to keep visible; §4 carries the debt.
 2026-08-15 · #189 · **S1 item 1: the phone is on `v1.521`.** §6's longest-standing open question is answered and two tasks move with it — F3 shipped and its symptom survived, so `SHAKEDOWN.md` S3 loses its `skipped (was the old build)` branch and is real work, and S2's drag-dismiss is a defect in current code rather than in an old build. S1 stays `in-progress`: items 2–5 need a device and none was reached. **The thing not to re-derive:** a cloud session can build and unit-test this repo (SDK installs fine, 256 tests pass there) but **cannot ever run the app** — no `/dev/kvm`, no `vmx`/`svm`, and the system-image download fails through the proxy. Device work belongs on the owner's machine, and §4 now carries a row saying so. Also folded in: the `Released:` line names the rolling tag instead of a build number, so it stops going stale on every merge.
 2026-08-15 · — · #187 **merged by rebase**, not squash — 30 task commits are on `main` individually, so a task that turns out wrong is reverted alone; `CLAUDE.md` says `--squash` and that rule is right for a one-task PR, not for this one. Released as `pauta-native-v521.apk`. Two things a later session should not re-derive: the repo **builds locally on the owner's machine now** (the blocker was never the SDK, it was that both available JDKs are 25 and Gradle 8.9 rejects them — Temurin 21 is installed, see `SHAKEDOWN.md` Amendments), and the Room 11→14 path has been **reviewed and not run**, with the review's reasoning in that file's evidence section. `SHAKEDOWN.md` created the same day after real use contradicted three of #187's tasks; S1 is the device pass, and it must record the phone's build before anything else can be interpreted.
 2026-08-06 · #187 · **The remaining 30 tasks, all of them** — `FIRST_RUN` N1…N8, `FIELD_FIXES` F1…F13 and `BOOK_LIBRARY` L4…L12 — one commit each on one branch, in the order this file's §3 set (N1 first, then F, then L, then N2…N8). **The shape is the deviation worth recording:** `CLAUDE.md` §Workflow says one task, one PR, and this was 30 tasks in one PR. The owner was asked and did not answer; the reason is that the session had one assigned branch and 30 CI rounds would not have reached the end of the queue. Each task is still one commit with its own message, so the history reads task-by-task and any one of them can be reverted alone. Two blocked decisions were also asked and unanswered, and both were taken as the spec's own default and are cheap to reverse (§6). Room went **11 → 14** across three tasks, and N1 took the 11 → 12 slot `BOOK_LIBRARY` L5 had claimed — L5 moved to 12 → 13 and L10 to 13 → 14. All three task files are now in `docs/archive/`, so **there is no active task file**: §3 says what to do about that, and §4 says what a device pass would need to cover, which after a run with no SDK is nearly everything with a surface.
