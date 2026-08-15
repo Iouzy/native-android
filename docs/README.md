@@ -16,7 +16,7 @@ not need to open anything else unless a task names it.
 | 1 | [`../CLAUDE.md`](../CLAUDE.md) | The repo: stack, architecture, commands, workflow, conventions |
 | 2 | [`GUARDRAILS.md`](GUARDRAILS.md) | **Binding.** What you may and may not do — identity, both lenses, data and backup, dependencies, accessibility, i18n, **the reader's security model**, closed decisions, and the never-do list |
 | 3 | [`CONTEXT.md`](CONTEXT.md) | The state of the world: what shipped, what is active, what has actually been run on a device, and what is still an open question |
-| 4 | your task file | below — **there isn't one right now** |
+| 4 | [`SHAKEDOWN.md`](SHAKEDOWN.md) | **The active file** — S1…S5: confirming what #187 actually shipped, then the three things real use turned up |
 
 Two more, when you need them:
 
@@ -27,18 +27,18 @@ Two more, when you need them:
 
 ---
 
-## Active — none
+## Active — [`SHAKEDOWN.md`](SHAKEDOWN.md)
 
-**Every task file is finished.** `BOOK_LIBRARY.md` (L1…L12), `FIELD_FIXES.md`
-(F1…F13) and `FIRST_RUN.md` (N1…N8) all completed on **2026-08-06** and moved to
-[`archive/`](archive/README.md) in the PR that finished them.
+`BOOK_LIBRARY.md` (L1…L12), `FIELD_FIXES.md` (F1…F13) and `FIRST_RUN.md` (N1…N8)
+all completed on **2026-08-06** and moved to [`archive/`](archive/README.md).
+They shipped as one PR (#187) of thirty tasks that **no device ever ran**.
 
-So the next change to this app starts by **writing a task file**, not by picking
-a task. [`TASK_FILE_FORMAT.md`](TASK_FILE_FORMAT.md) is what to read first, and
-[`CONTEXT.md`](CONTEXT.md) §4 is what to read *before that*: it lists what has
-and has not been run on a device, and after a thirty-task run with no SDK
-available that list is the most important page in this directory. The honest
-first candidate for a new file is a **device pass over everything #187 shipped**.
+`SHAKEDOWN.md` is the file that follows from that. Within a day of #187 reaching
+`main`, ordinary use turned up three things: a sheet that closes when you drag
+it, forms outside Hoje that still lose what you typed, and a block that cannot be
+attached to a maré. **S1 is a device pass over everything #187 shipped** and it
+comes first, because it decides the shape of the rest — S3 may turn out to be
+`skipped` outright. S4 is blocked on three answers from the owner.
 
 ## Complete
 
