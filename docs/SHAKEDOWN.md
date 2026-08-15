@@ -25,7 +25,7 @@ Open every reply with the progress bullet, before any tool call:
 ```
 **Done:** S1 ✓
 **Now:** S2 — the sheet that closes when you pull it
-**Left:** S3…S5 (3)
+**Left:** S3, S4, S5, S6 (4)
 ```
 
 Source paths below are relative to
@@ -103,15 +103,16 @@ Amendments**: `:app:compileDebugKotlin` and `:app:testDebugUnitTest` both pass
 (**256 tests, 19 classes, 0 failures**), `:app:assembleDebug` produces an APK,
 and the released `pauta-native-v454.apk` installs and reports `versionName=1.454`.
 
-The Room 11→14 path was **reviewed, not run**: the entity diff is exactly seven
-added `prefs` columns and the three migrations add exactly those seven, matching
-on name, type affinity and `NOT NULL`; no other entity changed; all three are
-registered; there is no `fallbackToDestructiveMigration` anywhere, so a mismatch
-throws on open instead of dropping data. An emulator run was started and
-abandoned when the machine ran out of headroom.
+The Room 11→14 path was reviewed here and **has since been run** — see S1's
+progress notes and the Log. The review said: exactly seven added `prefs` columns,
+three migrations adding exactly those seven, matching on name, type affinity and
+`NOT NULL`; no other entity changed; all three registered; no
+`fallbackToDestructiveMigration` anywhere. The device run agreed with all of it.
 
-**Nothing in #187 has been executed on a device or emulator.** That remains true
-until S1 says otherwise.
+**S1 has now said otherwise (PR #190).** Parts of #187 have been executed on the
+`pauta_pixel7` AVD: the migration, N1's permission and reminders, F3, F8 and F12.
+**F5, F11's full matrix, F2 and F6 still have not**, and `CONTEXT.md` §4 keeps
+the standing list.
 
 ## Data model delta
 
@@ -142,7 +143,7 @@ lives in `docs/DATA_MODEL.md`.
 
 ---
 
-## S1 · What #187 actually shipped — Status: in-progress (PR #189)
+## S1 · What #187 actually shipped — Status: done (PR #190)
 
 **Depends on:** nothing. **Everything else in this file depends on it.**
 
@@ -189,9 +190,47 @@ not a silent edit inside this one.
   Nothing was observed on a screen, so nothing below item 1 is verified — the
   Room 11 → 14 upgrade in particular is still **reviewed, not run**.
 
-S1 stays open on items 2–5. They need either the owner's own machine (which has
-the SDK, the `pauta_pixel7` AVD carrying the v11 fixture, and Temurin 21) or a
-runner with nested virtualisation.
+**Progress — 2026-08-15, PR #190.** Items 2, 3 and 4 done on the owner's own
+machine; item 5 partly. The `pauta_pixel7` AVD boots with WHPX acceleration in
+about 20 seconds — the cloud container's blocker really was nested
+virtualisation and nothing else.
+
+- **Item 2 · done, and it passed.** The v11 fixture was captured first (2
+  intentions, 2 blocks, 2 sessions, 2 habits, 1 book, 1 habit_log, 1 prefs;
+  `user_version=11`), then `pauta-native-v521.apk` was installed **over** v454 —
+  in place, signature matched, no uninstall. After launch: `user_version=14`,
+  every row present and unchanged, no crash, all three tabs composed. A full
+  `.dump` diff before and after has **exactly two changes**: the seven appended
+  `prefs` values at their declared defaults, and the Room identity hash. The
+  largest risk in #187 is retired.
+- **Item 3 · done, and it found something.** The dialog appears exactly once, at
+  the first focus block, and the block starts whatever the answer — N1 works.
+  The three reminders schedule at exactly 08:00 / 09:00 / 21:30, `Testar
+  notificação` renders, and winding the clock past 21:30 fired **Reflexão da
+  noite** and **Planeie o seu dia** for real; the habits one is correctly silent
+  with zero tides. **But the first block's focus notification never reaches the
+  shade** — that is the new **S6**. Not exercised: the Settings "blocked" row.
+- **Item 4 · done.** **F3 is half right** — the background tap dismisses the IME
+  and keeps the sheet and the text, so F3's `dismissImeOnBackgroundTap` is doing
+  its job and is **not** the drag suspect S2 was told to rule out first. The back
+  press is the broken half, reproduced exactly: see S3. **F8 verified at the
+  largest text scale**, portrait and landscape — the first time it has been seen
+  at all. `PRIORIDADE` keeps its pills; `QUANDO` wraps *inside itself*, dropping
+  "noite" to its own line rather than orphaning the label, which is exactly the
+  property `ComposerGroup` was built for. The four header chips wrap 2×2 clean
+  in portrait, one row in landscape.
+- **Item 5 · one of five.** **F12 verified end-to-end**: the chips are
+  multi-select, they write "manhã, tarde" into the free-text field, and the
+  database stores that plain string in `habits.time` — no schema change, so the
+  `pauta.v4` round-trip is safe. **Not reached: F5's reader insets, F11's float
+  strip across the six-screen × two-lens × two-orientation matrix, F2's session
+  editing and its delete cascade, F6's launcher door.** Those four are what a
+  next device pass owes, and they are listed in `CONTEXT.md` §4.
+
+One false alarm, recorded so nobody re-derives it: the Hoje date label looks
+clipped in landscape at the largest text scale. It is not — `uiautomator`
+reports the same 28px height in both orientations. It is a small mono label and
+the screenshot was downscaled.
 
 **Never:** do not treat a fresh install as a migration test — a new database is
 created by Room from the entities and never runs a migration at all, which is
@@ -220,18 +259,33 @@ throws away whatever was typed on the way out. That is §A, twice.
 - possibly `ui/screens/HabitFormSheet.kt` — only if the tide form does something
   the other sheets do not
 
-**Rule out the new thing first.** Temporarily remove `dismissImeOnBackgroundTap`
-from both call sites and see whether the drag behaves. F3 added it to the same
-`Column` that owns `verticalScroll`, inside the sheet's drag/nested-scroll path.
-If that is the cause, the fix is to stop competing for the gesture — an
-`awaitPointerEventScope` that only claims an *unconsumed* tap, or moving the
-handler to a non-scrolling background layer behind the content — **not** deleting
-F3's behaviour, which is a real fix the owner asked for.
+**The diagnosis is done — S1 (PR #190) ran it on the `pauta_pixel7` AVD against
+v521. Do not repeat it, and do not start by suspecting F3.**
 
-If it reproduces without it, the cause is the sheet's own anchoring:
-`skipPartiallyExpanded = true` leaves Expanded and Hidden as the only states.
-Consider `confirmValueChange` refusing `Hidden` while the IME is up or while the
-form is dirty, so a stray drag cannot discard a half-written form.
+**`dismissImeOnBackgroundTap` is exonerated.** It was the file's prime suspect and
+it is innocent. Observed: a background tap inside the sheet dismisses the IME and
+keeps both the sheet and the typed text; the body scrolls normally when the
+content overflows; and an upward drag never dismisses — tried four ways (slow
+drag and fast flick, on the handle and in the body, with the keyboard up and
+down). The handler is not competing for the gesture. Leave it alone.
+
+**What actually dismisses the sheet is a drag *downward*, and the owner's word
+"up" is the one imprecise thing in his report.** Two observations pin it:
+
+- On the **short, unexpanded** `Nova maré` — the state the form opens in — a
+  gentle 290px downward drag starting anywhere in the body dismisses the sheet
+  and destroys the typed text. There is no scrollable content to absorb it, so
+  the drag reaches the sheet immediately.
+- With `+ mais opções` expanded so the body *does* scroll, the same drag deep in
+  the content merely scrolls, correctly. It only dismisses once the scroll
+  reaches its top and the drag keeps going.
+
+So the cause is the anchoring the task file already guessed at, and nothing else:
+`skipPartiallyExpanded = true` leaves Expanded and Hidden as the only states, so
+any drag the content does not absorb has nowhere to settle but dismissed. **The
+indicated fix is `confirmValueChange` refusing `Hidden` while the form is dirty**
+— that is the half of §A this bug actually violates, since the cost is not the
+sheet closing but the typed text dying with it.
 
 **Out of scope:** a general "unsaved changes?" confirmation across the app —
 that is a bigger decision than a gesture bug and belongs in its own task.
@@ -378,6 +432,64 @@ green.
 
 ---
 
+## S6 · The first focus block has no notification — Status: pending
+
+**Depends on:** nothing. Found by S1 (PR #190) on the `pauta_pixel7` AVD, v521.
+Do it whenever; it is a one-block-per-install defect, which is why nobody caught
+it, and the block it spoils is the very first one a new user runs.
+
+**Why:** N1's whole purpose was that the first focus block asks for
+`POST_NOTIFICATIONS` and the shade then has something in it. The asking works.
+The shade does not. On a clean install the first block starts, the dialog
+appears, the user taps **Allow** — and no notification ever shows for that block.
+Every block after it is fine.
+
+**What was observed, so it need not be re-derived:**
+
+- After Allow, `dumpsys package` reports `POST_NOTIFICATIONS: granted=true`, and
+  `dumpsys activity services` reports `isForeground=true foregroundId=1001
+  foregroundNoti=Notification(channel=pauta_focus …)`. The service is foreground
+  and holds a notification object.
+- `dumpsys notification` lists nothing for `com.pauta.app`, and the shade is
+  empty. The notification exists and was never displayed.
+- Concluding that block and starting a second one posts it correctly — the shade
+  then shows **"Escrever · 00:23"** with its live timer.
+
+**The cause, stated as a hypothesis because only the fix will prove it:** the
+block starts the service *before* the user answers, so `startForeground` runs
+while the permission is still denied and the post is dropped. Granting the
+permission afterwards does not retroactively display an already-posted
+notification — something has to re-post it.
+
+**Files to touch:**
+- `service/FocusService.kt` — the notification post
+- wherever N1's permission launcher lives (`ui/MainScaffold.kt` or the Pauta
+  screen's start path) — the callback that learns the answer
+
+**The shape:** on the permission result turning *granted*, re-post the focus
+notification if a block is running. One call, in the callback that already
+exists. Do **not** reorder the block start behind the dialog — N1's Log is
+explicit that the block must start whatever the user answers, and that behaviour
+is correct and verified.
+
+**Out of scope:** the Settings row that says "blocked" with a link to system
+settings — S1 never exercised it, so it is unverified, not broken. If it turns
+out to be wrong that is its own task.
+
+**Never:** do not ask for the permission earlier (at launch or in onboarding) to
+dodge this. N1 chose the first block deliberately, and that choice is verified
+working — the dialog appears exactly once, at the right moment.
+
+**Accept:** on a clean install, the **first** focus block's notification appears
+in the shade once Allow is tapped, with its timer, exactly as the second one
+already does; denying still starts the block and posts nothing; a second block
+still behaves; no duplicate notification when permission was already granted
+before the block started; no README edit; CI green. **Verified must name a clean
+install on a device or AVD** — this defect is invisible on any install that has
+already been granted the permission.
+
+---
+
 ## Leftovers — too small to be tasks
 
 - ~~**`CONTEXT.md`'s `Released:` line goes stale on every merge**, because it
@@ -404,25 +516,39 @@ green.
   commands work (8m 1s cold). The next PR touching `CLAUDE.md` should say this
   instead of "rely on CI" — a session that believes it cannot build locally will
   not try.
+- **The emulator works here too, and a session should try it** (added 2026-08-15,
+  S1/#190). `emulator -accel-check` reports WHPX installed and usable, and
+  `emulator -avd pauta_pixel7 -no-snapshot-load` is at `sys.boot_completed=1` in
+  about 20 seconds. Two practical notes for whoever automates this next: boot
+  **without** `-wipe-data`, because that AVD's database is the migration fixture
+  and wiping it is unrecoverable; and Git Bash rewrites `/sdcard/...` into a
+  Windows path, so `uiautomator dump` needs `MSYS_NO_PATHCONV=1` and a leading
+  `//`. `ReminderReceiver` is not exported, so `am broadcast` cannot fire a
+  reminder — set the device clock past the alarm instead.
 
 ---
 
 ## Order
 
 ```
-S1  ──────────────  first, and it reshapes everything below
+S1  ──────────────  done (#190) — it reshaped S2 and confirmed S3
  │
-S2  ──────────────  the gesture defect: both front doors are unusable
+S2  ──────────────  the gesture defect: diagnosed by S1, ready to build
  │
-S3  ──────────────  may be `skipped` outright, depending on S1
+S3  ──────────────  confirmed a live defect; build it
+ │
+S6  ──────────────  the first block's missing notification (found by S1)
  │
 S4  ──────────────  blocked on the owner's three answers
  │
 S5  ──────────────  the leftover, once the defects are gone
 ```
 
+S2, S3 and S6 are all independent of each other — any order works. S6 is the
+smallest.
+
 **Blocked on a decision:** S4, on the three questions in its table. S3's
-existence is conditional on S1.
+existence was conditional on S1 and is now settled: it is real.
 
 ---
 
@@ -434,4 +560,5 @@ ten minutes of real use; an entry that cannot say what was verified should say
 that instead.
 
 <!-- e.g. 2026-08-16 · S1 · #n · … · Verified: Pixel 7 AVD, Android 15 -->
+2026-08-15 · S1 (items 2–5) · #190 · **#187 finally met a screen, and it mostly holds.** The `pauta_pixel7` AVD boots with WHPX in ~20s on the owner's machine, so the cloud container's blocker really was nested virtualisation. **The migration passed on the real fixture** — v454 with `user_version=11` and its 2/2/2/2/1 rows, v521 installed *over* it, and afterwards `user_version=14` with a `.dump` diff containing exactly two changes: the seven declared `prefs` defaults and the Room identity hash. That was the biggest single risk in the merge and it is retired. **N1 works** (dialog once, at the first block, block starts either way; three reminders scheduled at the right times, two of them fired for real by winding the clock) **except that the first block's notification never reaches the shade** — the service goes foreground before the user answers, the post is dropped, and the second block is fine. That is the one new defect and it is now **S6**. **The thing a later session should not re-derive: `dismissImeOnBackgroundTap` is innocent.** This file named it the prime suspect for the drag; on a device the background tap works, the body scrolls, and an upward drag never dismisses in four different gestures. What dismisses is a *downward* drag on the short unexpanded form, where no scroll exists to absorb it — so S2's cause is `skipPartiallyExpanded` and its fix is `confirmValueChange`, and S2 has been rewritten to say so. F3's back press failed exactly as reported, confirming S3. F8 and F12 were verified at the largest text scale, the first time either has been looked at. Not reached and still owed: F5, F11's full matrix, F2, F6. · Verified: **`pauta_pixel7` AVD, Android 15, 1080×2400, build `v1.521` from the `latest-native` release** — installed over a genuine Room v11 database for the migration, then wiped to a clean install for N1. Every claim above was read off a screen, a `dumpsys` or the database; the one thing reasoned rather than watched is S6's *cause*, which is flagged as a hypothesis in that task.
 2026-08-15 · S1 (item 1 of 5) · #189 · **The phone is on `v1.521`** — the #187 build, read from Settings → Sobre. That closes the question `CONTEXT.md` §6 had carried longest and it decides two tasks: finding 2 is not the old build showing through, so **F3 shipped and the symptom survived it** and S3 loses its `skipped (was the old build)` branch entirely; finding 1's drag-dismiss is likewise a defect in current code, which is what S2 goes after. S1 is left `in-progress`, not `done`, because items 2–5 were **not reached**: the session ran in a cloud container, and while an Android SDK installs there fine, the host is a guest VM with no `/dev/kvm` and no `vmx`/`svm` flags, so no emulator can be accelerated and none was booted. The thing a later session should not re-derive: **the blocker is nested virtualisation, not the SDK and not permissions** — items 2–5 want the owner's machine or a runner that exposes KVM. Folded in while touching the file: `CONTEXT.md`'s `Released:` line now names the rolling `latest-native` tag instead of a build number, which is the Leftover it had been collecting staleness for. · Verified: **nothing on a device or emulator.** The build number is the owner's own reading of his phone; every other claim in this entry is about what was *not* run.

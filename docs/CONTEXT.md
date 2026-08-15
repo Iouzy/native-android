@@ -153,6 +153,7 @@ page-break markers. Everything with a surface is not.
 | ~2026-08-01 | `v1.4xx` | owner's phone, real use | The run that produced `FIELD_FIXES.md`. Its evidence section records what was seen and the file:line each symptom traces to. |
 | 2026-08-15 | `v521` (post-merge) | owner's machine, **local build only — no app run** | The repo builds locally for the first time: `:app:compileDebugKotlin` and `:app:testDebugUnitTest` pass (**256 tests, 19 classes, 0 failures**, 8m 1s cold), `:app:assembleDebug` produces an APK. The released `pauta-native-v454.apk` installs on `pauta_pixel7` and reports `versionName=1.454`; that AVD still holds a **Room v11** database from 2026-08-03 (2 intentions, 2 blocks, 2 sessions, 2 habits, 1 book), which is the fixture S1 should upgrade. The Room 11→14 path was **reviewed, not run** — seven added `prefs` columns matched 1:1 against three migrations, all registered, no `fallbackToDestructiveMigration`, so a mismatch throws on open rather than dropping data. An emulator run was started and abandoned when the machine ran out of headroom. **No screen of #187 has been looked at.** |
 | 2026-08-15 | `v1.521` source | cloud container, **build only — no app run** | S1's session (#189). An Android SDK installs cleanly in the container (platform-tools, platform 35, build-tools 35) and `:app:testDebugUnitTest` passes there: **256 tests, 19 classes, 0 failures**, matching the owner's own local run exactly. **The emulator does not work and cannot be made to:** the `system-images;android-35;google_apis;x86_64` download fails through the proxy, and the host is a guest VM with no `/dev/kvm` and no `vmx`/`svm` CPU flags, so there would be no acceleration even with an image. A cloud session can therefore compile and unit-test this repo but can never do a device pass — which is the whole of S1 items 2–5. |
+| 2026-08-15 | `v1.521` | **`pauta_pixel7` AVD, Android 15, 1080×2400 — the first device pass over #187** | S1 items 2–4, on the owner's machine (WHPX acceleration; the cloud container's blocker was nested virtualisation, not the SDK). **The Room 11→14 upgrade ran on the real v11 fixture**: v454 installed, `user_version=11`, 2 intentions / 2 blocks / 2 sessions / 2 habits / 1 book / 1 habit_log / 1 prefs captured, then v521 installed **over** it. Result: `user_version=14`, every row intact, and a `.dump` diff whose *only* changes are the seven appended `prefs` values at their declared defaults (`0, 1.0, 1.62, 22, 'app', 0, '21:00'`) and the Room identity hash. No crash, all three tabs composed. **N1 (item 3):** the permission dialog appears exactly once, at the first focus block, and the block starts either way — but see the first-block notification defect below. Three `REMINDER_FIRE` alarms are scheduled at exactly the configured 08:00 / 09:00 / 21:30; `Testar notificação` renders; advancing the clock past 21:30 fired **Reflexão da noite** and **Planeie o seu dia** for real. The habits reminder is correctly silent with zero tides (`postHabits` returns early on an empty list). **F3 (item 4): half right.** The background tap *does* dismiss the IME and keep the sheet and its text. The **back press does not** — one back with the keyboard up in `Nova maré` killed keyboard, sheet and the typed word together, which is S3 reproduced exactly. **F8: verified at the largest text scale, first time ever seen** — `PRIORIDADE` keeps its pills, and `QUANDO` wraps *inside itself* ("noite" drops to its own line) instead of orphaning the label, which is precisely the property F8 claimed; the four header chips wrap 2×2 with no clipping, and one row in landscape. **F12 verified end-to-end**: the chips are multi-select, write "manhã, tarde" into the free-text field, and store that plain string in `habits.time` — no schema change, round-trip safe. |
 | 2026-08-15 | `v1.521` | owner's phone, real use | Three findings within a day of the merge, now `SHAKEDOWN.md`'s evidence section: `Nova maré` dismisses when dragged *upward*; `Novo bloco` and `Nova maré` still lose typed text on back while Hoje does not; no way to attach a block to a maré. The build was not recorded at the time and **was confirmed as `v1.521` on 2026-08-15 (#189)** — the #187 build, so two of the three are not the old build showing through: F3 shipped and the symptom survived it. All three are live. |
 
 **Nothing has been run on:** a physical device with a small screen, a tablet, a
@@ -161,29 +162,35 @@ actually enabled. Say so rather than implying otherwise.
 
 ### What #187 needs a device for, in rough order of risk
 
-Nothing below has been executed. This is the list a device pass should work
-through, and the honest content of a next task file.
+Items 1–4 were worked through on 2026-08-15 (S1, PR #190) and are annotated
+below. Items 5–7 are still untouched, and are the honest content of the next
+device pass.
 
-1. **Two Room migrations, 11 → 12 → 13 → 14** (`notifAskedAt`; the reader's four
-   settings; the reading-reminder pair). Additive and following the eleven before
-   them, and **never run** — this repo has no instrumentation tests and a JVM
-   test cannot open a Room database. An upgrade from a real v11 install is the
-   first thing to try.
-2. **The notification permission (N1)** — the whole point is a system dialog at
-   the first focus block, a shade that then has something in it, and a Settings
-   row that says "blocked" with a working link.
-3. **Gestures (F3, N2)** — two-stage back with the keyboard up, the reader's
-   chrome staying put once summoned. CI cannot see either.
-4. **Layout at textScale 1.0 / 1.3 / 1.5 and in landscape (F8, F11, N5, N7)** —
-   including whether Pip's disappearance below a 480dp viewport reads as
-   deliberate or as a bug.
+1. ~~**Two Room migrations, 11 → 12 → 13 → 14**~~ — **run and passed** on the real
+   v11 fixture. See the AVD row above: `user_version` 11→14, every row intact,
+   only the seven declared `prefs` defaults added. This was the largest single
+   risk in #187 and it is now retired.
+2. **The notification permission (N1)** — **mostly passed, one new defect.** The
+   dialog appears once at the first focus block; the reminders are scheduled at
+   the right times and two of them fired for real. But the **first** block's
+   focus notification never reaches the shade, because the service goes
+   foreground before the user answers. That is `SHAKEDOWN.md` S6. The Settings
+   "blocked" row and its link were **not** exercised.
+3. **Gestures (F3, N2)** — F3 **half-passed**: background tap keeps the sheet,
+   back press destroys it (S3, reproduced). The sheet's drag behaviour is
+   diagnosed in S2. **N2's reader chrome was not reached.**
+4. **Layout at textScale (F8, F11, N5, N7)** — **F8 passed at the largest scale
+   and in landscape** (first observation ever). F11's full matrix — six screens ×
+   two lenses × both orientations — was **not** covered, nor N5/N7, nor whether
+   Pip's disappearance below 480dp reads as deliberate.
 5. **The reader (F5, F7, L4, L5)** — measured bar insets, the page-break
    separator, the contents sheet, and whether a type-size change really keeps
-   the reader's place.
+   the reader's place. **Not reached.**
 6. **The launcher door (F6)**, which is the one failure the spec says a unit test
-   cannot see, and whose fallback trampoline was deliberately not built.
+   cannot see, and whose fallback trampoline was deliberately not built. **Not
+   reached.**
 7. **The widget and the QS tile in book mode (L11)**, neither of which has been
-   placed.
+   placed. **Not reached.**
 
 **L3 has not been seen on a screen.** CI compiled it and `BookStatusTest` covers
 the status→shelf map, but the EM PAUSA section, the detail sheet's five-state
