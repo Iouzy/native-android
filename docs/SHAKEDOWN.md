@@ -67,8 +67,9 @@ must not break an export).
 ## What the owner saw — the evidence behind these tasks
 
 **Reported 2026-08-15, on the owner's own phone, in ordinary use. The build is
-not yet confirmed** — this is the first thing S1 settles, and it changes the
-reading of two of the three findings:
+`v1.521`** — confirmed by the owner from Settings → Sobre on 2026-08-15, after
+this file was written. That is the #187 build, so all three findings are live
+defects in the current app, not symptoms of an old one:
 
 | # | What he did | What happened |
 |---|---|---|
@@ -76,12 +77,12 @@ reading of two of the three findings:
 | 2 | Typed into `Novo bloco` (Pauta) and `Nova maré` (Marés), pressed back | The text is gone and the sheet leaves immediately. **Hoje does not do this** |
 | 3 | Tried to create a Pauta block attached to a maré | No such control exists |
 
-**Why the build matters.** Finding 2 describes **pre-F3 behaviour exactly**:
-Hoje's composer is an inline field in the screen body, not a sheet, so back never
-had a sheet to dismiss there, while `Novo bloco` and `Nova maré` are both
-`PautaSheet`s. If the phone is on **v454** this is simply the old build and F3
-fixes it on update. If the phone is on **v521**, F3 did not work and finding 2 is
-a live defect.
+**Why the build mattered, and how it came out.** Finding 2 describes **pre-F3
+behaviour exactly**: Hoje's composer is an inline field in the screen body, not a
+sheet, so back never had a sheet to dismiss there, while `Novo bloco` and `Nova
+maré` are both `PautaSheet`s. On **v454** that would have been the old build,
+fixed on update. **The phone is on v521: F3 shipped, the symptom survived it, and
+finding 2 is a live defect.** S3 is real work, not a skip.
 
 **The suspect for finding 1, and it is only a suspect.** The sheet is
 `rememberModalBottomSheetState(skipPartiallyExpanded = true)` — two anchors,
@@ -141,7 +142,7 @@ lives in `docs/DATA_MODEL.md`.
 
 ---
 
-## S1 · What #187 actually shipped — Status: pending
+## S1 · What #187 actually shipped — Status: in-progress (PR #189)
 
 **Depends on:** nothing. **Everything else in this file depends on it.**
 
@@ -174,6 +175,23 @@ not a silent edit inside this one.
    float strip across six screens × two lenses × **portrait and landscape**,
    F12's tide chips, F2's session editing and its delete cascade, F6's launcher
    door with an existing task, at textScale 1.0 **and 1.5**.
+
+**Progress — 2026-08-15, PR #189.** Item 1 only.
+
+- **Item 1 · done.** The phone reports **`v1.521`** (Settings → Sobre, read by the
+  owner). That is the #187 build, so the evidence table's three findings are all
+  live and S3 keeps its `skipped` branch closed. This was `CONTEXT.md` §6's
+  longest-standing open question and it is now answered there too.
+- **Items 2, 3, 4 and 5 · not reached.** No device was attached and no emulator
+  ran. The session was a cloud container with no Android SDK; installing one is
+  possible and was done, but the host is a guest VM with **no `/dev/kvm` and no
+  `vmx`/`svm` CPU flags**, so the emulator has no hardware acceleration to use.
+  Nothing was observed on a screen, so nothing below item 1 is verified — the
+  Room 11 → 14 upgrade in particular is still **reviewed, not run**.
+
+S1 stays open on items 2–5. They need either the owner's own machine (which has
+the SDK, the `pauta_pixel7` AVD carrying the v11 fixture, and Temurin 21) or a
+runner with nested virtualisation.
 
 **Never:** do not treat a fresh install as a migration test — a new database is
 created by Room from the entities and never runs a migration at all, which is
@@ -233,9 +251,9 @@ user-visible changed beyond the gesture, so no README edit; CI green.
 
 ## S3 · The keyboard still eats the form outside Hoje — Status: pending
 
-**Depends on:** S1. **If S1 finds the phone was on v454, mark this
-`skipped (was the old build; F3 fixes it)` with the evidence in the Log — do not
-invent work.**
+**Depends on:** S1. **Settled 2026-08-15 (PR #189): the phone is on `v1.521`, so
+F3 shipped and the symptom survived it. The `skipped (was the old build)` branch
+of this task is closed — S3 is a live defect and is to be built.**
 
 **Why:** the owner reports that Hoje keeps what he typed and the other two tabs
 do not. F3 was supposed to have made that true everywhere: `SheetImeBackHandler`
@@ -362,11 +380,10 @@ green.
 
 ## Leftovers — too small to be tasks
 
-- **`CONTEXT.md`'s `Released:` line goes stale on every merge**, because it names
-  a specific build against a rolling tag and is only updated per-PR. It said
-  `v1.443` when the release was `v454`; it now says `v1.454` and the release is
-  `v521`. Either reword it to name the tag rather than a number, or drop it. Fold
-  into the next PR touching `CONTEXT.md`.
+- ~~**`CONTEXT.md`'s `Released:` line goes stale on every merge**, because it
+  names a specific build against a rolling tag and is only updated per-PR.~~
+  **Done 2026-08-15 (PR #189):** it now names the rolling `latest-native` tag and
+  carries no number, so there is nothing left to go stale.
 - **`EpubReader.kt:276` uses a deprecated `val scale: Float`** — the only warning
   in an otherwise clean build. Fold into the next PR touching that file.
 - **The CI workflow pins deprecated actions** — `actions/setup-java@v4` warns it
@@ -417,3 +434,4 @@ ten minutes of real use; an entry that cannot say what was verified should say
 that instead.
 
 <!-- e.g. 2026-08-16 · S1 · #n · … · Verified: Pixel 7 AVD, Android 15 -->
+2026-08-15 · S1 (item 1 of 5) · #189 · **The phone is on `v1.521`** — the #187 build, read from Settings → Sobre. That closes the question `CONTEXT.md` §6 had carried longest and it decides two tasks: finding 2 is not the old build showing through, so **F3 shipped and the symptom survived it** and S3 loses its `skipped (was the old build)` branch entirely; finding 1's drag-dismiss is likewise a defect in current code, which is what S2 goes after. S1 is left `in-progress`, not `done`, because items 2–5 were **not reached**: the session ran in a cloud container, and while an Android SDK installs there fine, the host is a guest VM with no `/dev/kvm` and no `vmx`/`svm` flags, so no emulator can be accelerated and none was booted. The thing a later session should not re-derive: **the blocker is nested virtualisation, not the SDK and not permissions** — items 2–5 want the owner's machine or a runner that exposes KVM. Folded in while touching the file: `CONTEXT.md`'s `Released:` line now names the rolling `latest-native` tag instead of a build number, which is the Leftover it had been collecting staleness for. · Verified: **nothing on a device or emulator.** The build number is the owner's own reading of his phone; every other claim in this entry is about what was *not* run.
