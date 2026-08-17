@@ -298,6 +298,113 @@ class EpubTest {
         assertTrue(html, html.contains("class=\"${Epub.PAGEBREAK_CLASS}\""))
     }
 
+    // ── S5 · the pages the parser remembers ───────────────────
+
+    @Test fun `a marker is remembered with the words that came before it`() {
+        val scan = Epub.scanChapter(
+            """<p>uma duas tres</p><span epub:type="pagebreak" title="12"/><p>quatro cinco</p>""",
+        )
+        assertEquals(listOf("12"), scan.marks.map { it.label })
+        assertEquals(listOf(3), scan.marks.map { it.wordsBefore })
+    }
+
+    @Test fun `the words a chapter counts are the same with markers as without`() {
+        // The progress line of every stored book is weighted by this number, so
+        // S5 may not move it. // PT: a contagem não pode mudar.
+        val plain = "<p>uma duas tres</p><p>quatro cinco</p>"
+        val marked = """<p>uma duas tres</p><span epub:type="pagebreak" title="12"/><p>quatro cinco</p>"""
+        assertEquals(5, Epub.countWords(plain))
+        assertEquals(5, Epub.countWords(marked))
+        assertEquals(Epub.countWords(plain), Epub.scanChapter(marked).words)
+    }
+
+    @Test fun `an unlabelled marker takes its number from its own text`() {
+        val scan = Epub.scanChapter("""<p>uma</p><span epub:type="pagebreak">88</span><p>duas</p>""")
+        assertEquals(listOf("88"), scan.marks.map { it.label })
+    }
+
+    @Test fun `a marker whose text is not a page number names no page`() {
+        // Same gate the attributes go through: a value that isn't a page number is
+        // not a page number. // PT: o texto passa pelo mesmo crivo.
+        val scan = Epub.scanChapter("""<span epub:type="pagebreak">capítulo seguinte</span>""")
+        assertTrue(scan.marks.toString(), scan.marks.isEmpty())
+    }
+
+    @Test fun `roman front matter is remembered as the book printed it`() {
+        val scan = Epub.scanChapter("""<span epub:type="pagebreak" title="xiv"/>""")
+        assertEquals(listOf("xiv"), scan.marks.map { it.label })
+    }
+
+    @Test fun `a book with no markers remembers no pages`() {
+        assertTrue(Epub.parse(book()).pages.isEmpty())
+    }
+
+    @Test fun `the markers of a whole book carry their chapter`() {
+        val zip = zipOf {
+            entry("META-INF/container.xml", container)
+            entry("OEBPS/content.opf", opf())
+            entry(
+                "OEBPS/Text/ch1.xhtml",
+                """<html><body><p>uma duas</p><span epub:type="pagebreak" title="1"/>
+                   <p>tres</p></body></html>""",
+            )
+            entry(
+                "OEBPS/Text/ch2.xhtml",
+                """<html><body><span epub:type="pagebreak" title="2"/><p>quatro</p>
+                   <span role="doc-pagebreak" aria-label="3"/></body></html>""",
+            )
+        }
+        val pages = Epub.parse(zip).pages
+        assertEquals(listOf("1", "2", "3"), pages.map { it.label })
+        assertEquals(listOf(0, 1, 1), pages.map { it.chapter })
+    }
+
+    @Test fun `the page you are on is the last marker you passed`() {
+        val pages = listOf(
+            EpubPage("10", chapter = 0, wordsBefore = 0),
+            EpubPage("11", chapter = 0, wordsBefore = 50),
+            EpubPage("12", chapter = 1, wordsBefore = 0),
+        )
+        val words = listOf(100, 100)
+        assertEquals(0, Epub.pageIndexAt(pages, words, 0, 0f))
+        assertEquals(0, Epub.pageIndexAt(pages, words, 0, 0.4f))
+        assertEquals(1, Epub.pageIndexAt(pages, words, 0, 0.5f))
+        assertEquals(1, Epub.pageIndexAt(pages, words, 0, 1f))
+        assertEquals(2, Epub.pageIndexAt(pages, words, 1, 0f))
+        assertEquals(2, Epub.pageIndexAt(pages, words, 1, 1f))
+    }
+
+    @Test fun `front matter before the first marker is on no page at all`() {
+        // A book whose numbering starts in chapter 2 says nothing before it,
+        // rather than claiming page 1. // PT: antes do primeiro marcador, nada.
+        val pages = listOf(EpubPage("1", chapter = 1, wordsBefore = 0))
+        assertNull(Epub.pageIndexAt(pages, listOf(100, 100), 0, 0.9f))
+        assertNull(Epub.pageIndexAt(emptyList(), listOf(100), 0, 0.5f))
+    }
+
+    @Test fun `a chapter with no words puts its markers at its start`() {
+        // No division by zero, and the marker is still reachable. // PT: sem
+        // palavras, o marcador fica no início.
+        val pages = listOf(EpubPage("7", chapter = 0, wordsBefore = 4))
+        assertEquals(0, Epub.pageIndexAt(pages, listOf(0), 0, 0f))
+    }
+
+    @Test fun `the printed length is the arabic run, not the roman one`() {
+        val pages = listOf(
+            EpubPage("xii", chapter = 0, wordsBefore = 0),
+            EpubPage("9", chapter = 1, wordsBefore = 0),
+            EpubPage("228", chapter = 2, wordsBefore = 0),
+        )
+        assertEquals(228, Epub.lastPrintedPage(pages))
+        assertNull(Epub.lastPrintedPage(listOf(EpubPage("iv", 0, 0))))
+        assertNull(Epub.lastPrintedPage(emptyList()))
+    }
+
+    @Test fun `a marker that never closes still names its page`() {
+        val scan = Epub.scanChapter("""<p>uma</p><span epub:type="pagebreak">31""")
+        assertEquals(listOf("31"), scan.marks.map { it.label })
+    }
+
     @Test fun `a base element cannot redirect what relative urls mean`() {
         val html = Epub.sanitize("""<base href="https://evil.example/"><p>texto</p>""")
         assertFalse(html, html.contains("base", ignoreCase = true))

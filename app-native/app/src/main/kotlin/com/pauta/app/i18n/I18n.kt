@@ -966,6 +966,13 @@ object I18n {
         "de {n}" to "of {n}", // native-only
         "Entre 1 e {n}." to "Between 1 and {n}.", // native-only
 
+        // S5 · the print edition's page, said in the reader's chrome. No "≈": the
+        // number is the publisher's own, off a marker in the book, unlike the
+        // estimate the shelf shows from a length the owner typed in.
+        // // PT: a página impressa, sem "≈" — o número é do editor.
+        "página {n} de {total}" to "page {n} of {total}", // native-only
+        "página {n}" to "page {n}", // native-only
+
         // L5 · the reader's own type and colour. "Noite" and "Papel" are new here
         // as *reader themes*; the app's own theme names live elsewhere.
         // // PT: as definições do leitor.

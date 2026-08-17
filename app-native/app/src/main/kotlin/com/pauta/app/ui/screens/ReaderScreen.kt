@@ -435,16 +435,42 @@ private class ReaderState {
     var wantContents by mutableStateOf(false)
 }
 
-/** The one line the EPUB chrome shows: how far through the book, and which
- *  chapter of how many — a percentage alone tells you nothing about where to stop.
- *  // PT: a percentagem e o capítulo; só a percentagem não diz onde parar. */
-private fun chapterLabel(percent: Int, chapter: Int, chapters: Int, title: String? = null): String {
+/**
+ * The one line the EPUB chrome shows: how far through the book, which printed
+ * page you are on where the book says so, and which chapter of how many — a
+ * percentage alone tells you nothing about where to stop.
+ *
+ * S5 · [page] is the **publisher's own** number, read off a marker in the book,
+ * so it carries no `≈`. That is the whole distinction this line is making: the
+ * estimate elsewhere in the app (`bookProgressLabel`'s "≈ p. 123 de 228") is a
+ * percentage of a length the owner typed in and says so; this is the number
+ * printed on the paper page. A book that carries no markers simply has no page
+ * clause and reads exactly as it did before.
+ * // PT: a percentagem, a página impressa (quando o livro a traz, e por isso sem
+ * "≈") e o capítulo.
+ */
+private fun chapterLabel(
+    percent: Int,
+    chapter: Int,
+    chapters: Int,
+    title: String? = null,
+    page: String? = null,
+    pages: Int? = null,
+): String {
     val where = if (title != null) {
         trf("Capítulo {n}", "n" to chapter + 1) + " · " + title
     } else {
         trf("Capítulo {n} de {total}", "n" to chapter + 1, "total" to chapters)
     }
-    return "$percent% · $where"
+    // Without an arabic run to end on — a book numbered i, ii, iii throughout —
+    // the page is named alone rather than given a total that would have to be
+    // invented. // PT: sem total impresso, diz-se só a página.
+    val printed = when {
+        page == null -> null
+        pages != null -> trf("página {n} de {total}", "n" to page, "total" to pages)
+        else -> trf("página {n}", "n" to page)
+    }
+    return listOfNotNull("$percent%", printed, where).joinToString(" · ")
 }
 
 /**
@@ -592,7 +618,19 @@ private fun EpubReaderHost(
         // the parser read it and the process boundary dropped it, which is why
         // this line could only ever count. // PT: o nome do capítulo, que já era
         // lido e se perdia.
-        state.label = chapterLabel(percent, atChapter, book0.chapterCount, book0.titleOf(atChapter))
+        // S5: the printed page, where the book carries the markers F7 taught the
+        // sanitiser to draw. The reader has no pagination engine and JavaScript is
+        // off by design, so the page is not measured — it is the last marker the
+        // scroll has passed, located by the words before it. // PT: a página vem
+        // do último marcador já passado, contado em palavras.
+        state.label = chapterLabel(
+            percent = percent,
+            chapter = atChapter,
+            chapters = book0.chapterCount,
+            title = book0.titleOf(atChapter),
+            page = book0.pageLabelAt(atChapter, atScroll),
+            pages = book0.printedPages,
+        )
         state.fraction = percent / 100f
     }
 

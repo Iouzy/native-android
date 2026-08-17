@@ -12,6 +12,8 @@ import android.os.Looper
 import android.os.Message
 import android.os.Messenger
 import android.os.ParcelFileDescriptor
+import com.pauta.app.domain.Epub
+import com.pauta.app.domain.EpubPage
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -185,8 +187,26 @@ data class EpubInfo(
     // and [EpubSession.open] refuses it. // PT: o nome do capítulo; vazio quando o
     // OPF não diz nada.
     val chapterTitles: List<String> = emptyList(),
+    // S5: the print edition's pages, in reading order, where the book carries the
+    // markers. Empty for a book that carries none — which is most of them — and
+    // the reader goes on showing a percentage. // PT: as páginas da edição
+    // impressa, quando o livro as traz; vazio é o caso normal.
+    val pages: List<EpubPage> = emptyList(),
 ) {
     val chapterCount: Int get() = chapterWords.size
+
+    /**
+     * S5 · the publisher's own number for the page the reader is on, or null when
+     * this book names none (or the reader is still before the first marker). The
+     * label is the book's text — "123", "xii" — and never a number this app
+     * derived, which is why the chrome may drop the `≈` when it has one.
+     * // PT: o número que o editor imprimiu, ou nada. */
+    fun pageLabelAt(chapter: Int, scroll: Float): String? =
+        Epub.pageIndexAt(pages, chapterWords, chapter, scroll)?.let { pages[it].label }
+
+    /** S5 · the last page the print edition numbers, or null when the markers
+     *  carry no arabic number to end on. // PT: a última página numerada. */
+    val printedPages: Int? get() = Epub.lastPrintedPage(pages)
 
     /** L4 · the name to show for chapter [index], or null when the book gave none
      *  and the caller should fall back to its number. Untrusted text from the
@@ -247,10 +267,33 @@ class EpubSession(context: Context) {
         val titles = reply.data?.getStringArray(DocumentParseService.KEY_TITLES)
         if (hrefs.size != words.size) return null
         if (titles != null && titles.size != words.size) return null
+        // S5: the page markers follow L4's rule, one level down. They are optional
+        // on the wire — an older reply simply has none — but where any of the three
+        // arrives all three must, and at the same length, because a reply whose
+        // parallel lists disagree is corrupt and not a book without pages. A marker
+        // pointing at a chapter that isn't in the spine is a different thing: that
+        // is one bad row in a good reply, so it is dropped and the book opens.
+        // // PT: as três listas ou vêm todas e certas, ou a resposta está
+        // corrompida; um marcador para um capítulo inexistente é só descartado.
+        val labels = reply.data?.getStringArray(DocumentParseService.KEY_PAGE_LABELS)
+        val chapters = reply.data?.getIntArray(DocumentParseService.KEY_PAGE_CHAPTERS)
+        val offsets = reply.data?.getIntArray(DocumentParseService.KEY_PAGE_WORDS)
+        val pages = when {
+            labels == null && chapters == null && offsets == null -> emptyList()
+            labels == null || chapters == null || offsets == null -> return null
+            labels.size != chapters.size || labels.size != offsets.size -> return null
+            else -> labels.indices.mapNotNull { i ->
+                val chapter = chapters[i]
+                val label = labels[i]?.trim().orEmpty()
+                if (label.isEmpty() || chapter !in words.indices) null
+                else EpubPage(label = label, chapter = chapter, wordsBefore = offsets[i].coerceAtLeast(0))
+            }
+        }
         EpubInfo(
             chapterWords = words.toList(),
             chapterHrefs = hrefs.map { it.orEmpty() },
             chapterTitles = titles?.map { it.orEmpty() } ?: List(words.size) { "" },
+            pages = pages,
         )
     }
 

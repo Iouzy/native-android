@@ -93,7 +93,9 @@ two start affordances (taken as duplication).
 `N1` → `F1…F13` → `L4…L12` → `N2…N8`, which is `CONTEXT`'s own precedence with
 one exception worth recording: **F7 declares a dependency on L4 and ran before
 it**, because the file order put it there and the two halves turned out to be
-separable. That is why F7 is partial.
+separable. That is why F7 is marked partial in its archived file — **its leftover
+shipped as `SHAKEDOWN.md` S5 (#194)** and the archive's status line was left as
+the record of what was true then.
 
 **Archived earlier** (complete, in `docs/archive/`): `NATIVE_IMPROVEMENTS.md`
 (A1…T2), `BOOK_MODE.md` (K1…K9), `POLISH.md` (P1…P10), `BOOK_READER.md` (R1…R8),
@@ -102,15 +104,17 @@ shipped — read them when you need to know *why*, never to know *what to do*.
 
 ### What to do next
 
-**`docs/SHAKEDOWN.md`, first pending task, top to bottom.** That is now **S5** —
-F7's leftover, "página N de M" in the reader chrome. It is the last unblocked
-task in the file: **S4 is blocked** on the owner's three answers (§6).
+**`docs/SHAKEDOWN.md` has nothing buildable left.** S5 shipped (#194) and every
+other task in it is done, so the file's only remaining entry is **S4 — a block
+that feeds a maré — and it is blocked** on the owner's three answers (§6). Ask
+them; do not pick an answer and build on it. When they arrive, S4 is a small task
+with its spec already written.
 
 **Every defect in `SHAKEDOWN.md` is fixed and none of the fixes has been
 run.** S1 is done (#189 read the phone's build, #190 did the device pass), S2
-(#191), S3 (#192) and S6 (#193) followed, and the last three were built in cloud
-containers that can compile this repo but never launch it. What they settled, so
-it is not re-derived:
+(#191), S3 (#192), S6 (#193) and S5 (#194) followed, and the last four were built
+in cloud containers that can compile this repo but never launch it. What they
+settled, so it is not re-derived:
 
 - The phone is on **`v1.521`**, the #187 build, so every finding in `SHAKEDOWN.md`'s
   evidence table is a live defect and none of them is an old build showing through.
@@ -126,6 +130,15 @@ it is not re-derived:
   consulted. #192 registers one rung above it while the keyboard is up. F3's
   assertion still holds where it was reasoned — API ≤ 32 and the wide-screen
   centred `Dialog` — which is why it read as correct. **Compiled, not pressed.**
+- **S5 closed F7's leftover: the reader names the printed page.** The markers were
+  always parsed and their *positions* were what the `:reader` boundary dropped —
+  the parser now keeps each marker's word offset and sends it across beside the
+  chapter titles. The page is not measured and cannot be: JavaScript is off in the
+  reader by design, so there is no DOM to ask, and the position is computed in
+  Kotlin from the scroll fraction the WebView already reports. The chrome shows the
+  publisher's own number with **no `≈`**; the shelf's "≈ p. 123 de 228" estimate is
+  a different figure from a length the owner typed in and is deliberately unchanged.
+  **Compiled and unit-tested; no book has been opened.**
 - S1 found one new defect, **S6** — the first focus block's notification never
   reaches the shade, because the service goes foreground before the permission
   dialog is answered and a granted permission does not redisplay a dropped
@@ -135,8 +148,9 @@ it is not re-derived:
 Still not reached on any device: **S1 item 5's remainder** — F5's reader insets,
 F11's full float-strip matrix, F2's session editing and delete cascade, F6's
 launcher door — plus every gesture in **S2's Accept**, every back press in
-**S3's**, and **S6's clean install**, which is the only state its defect is
-visible in. A cloud container can
+**S3's**, **S6's clean install**, which is the only state its defect is visible
+in, and **S5's page numbers in a real book with real markers**, where the
+word-offset approximation either tracks the printed page or visibly lags it. A cloud container can
 compile and unit-test this repo but never run it (no `/dev/kvm`, no `vmx`/`svm`);
 device work needs the owner's machine (Temurin 21, the `pauta_pixel7` AVD) or a
 runner exposing KVM.
@@ -165,6 +179,12 @@ pure work is genuinely covered — `BookMath`'s speed ceiling, `ReaderMath`'s pe
 guard, `HabitCalculator`'s tide ceiling, `TimeOfDay`, `BookShelf`, `LauncherDoor`,
 `ReadingStats`, `DateUtils.withClock`, the EPUB sanitiser's dead links and
 page-break markers. Everything with a surface is not.
+
+**The suite is 271 tests, 19 classes as of #194** (S5 added 15). A cloud container
+*can* run it: the Android SDK installs through the proxy
+(`cmdline-tools`, `platforms;android-35`, `build-tools;35.0.0`, JDK 21) and both
+`:app:compileDebugKotlin` and `:app:testDebugUnitTest` pass there. What it can
+never do is *launch* the app — no `/dev/kvm`, no `vmx`/`svm`.
 
 ### On a device or emulator
 
@@ -269,6 +289,7 @@ than guess.
 ## Log (append one line per PR that changes the state of the work)
 
 <!-- YYYY-MM-DD · #PR · <what moved, and anything a later session would otherwise re-derive> -->
+2026-08-17 · #194 · **S5 done — the reader says the printed page, and `SHAKEDOWN.md` is out of buildable work.** Every task in that file has shipped except **S4**, which is blocked on the owner's three answers (§6) and cannot be started without them; S5 was taken out of turn for exactly that reason. **What S5 changed:** F7 taught the sanitiser to *draw* the print edition's page markers; the parser has always known where they are and the `:reader` boundary dropped that, so the chrome could only ever show a percentage. `Epub.scanChapter` now returns the word count and the markers from one pass, three parallel arrays cross the binder beside L4's titles, and `Epub.pageIndexAt` names the **last marker passed** from the chapter and scroll fraction the reader already reports. **The thing not to re-derive: the page cannot be measured.** JavaScript is off in the reader by design (§3 of its Security model), so there is no DOM to ask which marker is on screen and no channel to answer on — the position is arithmetic in Kotlin over word offsets, which is an approximation of pixels by prose, monotone and never ahead of the reader. **The `≈` distinction is deliberate and both halves are correct:** the chrome's number is the publisher's own and carries none; `bookProgressLabel`'s "≈ p. 123 de 228" in the shelf and detail sheet is a percentage of a length the owner typed in, says so, and was left exactly as it was. **Also settled:** a cloud container can install the Android SDK through the proxy and run the full gate — **271 tests, 19 classes, 0 failures** here — which is worth knowing before the next session assumes CI is its only option. It still cannot launch the app, and **no book has been opened with this change in it**; §4 carries that beside S2's drags, S3's back presses and S6's clean install.
 2026-08-17 · #193 · **S6 done — the first block's notification is posted again once the permission lands.** `SHAKEDOWN.md` is now S1 ✓ S2 ✓ S3 ✓ S6 ✓, and the first pending task is **S5**; S4 stays blocked on the owner's three answers, so S5 is the only thing left to build. **The mechanism:** N1 asks at the first focus block and starts the block whatever the answer, so on a clean install the service goes foreground and posts into a denied permission; the system drops it, and granting afterwards does not redisplay a dropped notification. The `RequestPermission` callback — empty since N1 — now calls `AppViewModel.repostFocusNotification()`, which re-issues the same `FocusServiceController.start` for the active block. Same notification id, so it replaces rather than duplicates. The collector that already did this work was extracted to `syncFocusNotification(block, sessions)` so both callers share one body; its behaviour is unchanged. **What a later session should not assume:** S6's cause is still a *hypothesis* — the fix is right either way, but nobody has watched the shade fill. **This is the last of the three defects, and all three shipped from cloud containers that cannot run the app** — S2's drags, S3's back presses and S6's clean install are one device pass, and §4 lists them together.
 2026-08-17 · #192 · **S3 done — the first back press with the keyboard up is ours again.** `SHAKEDOWN.md` is now S1 ✓ S2 ✓ S3 ✓, and the first pending task is **S6**; S4 is still blocked on the owner's three answers, so S6 → S5 is everything buildable without him. **The mechanism, so nobody re-derives it:** from API 33 up, `ModalBottomSheet` registers its dismiss on the *platform* `OnBackInvokedDispatcher` at `PRIORITY_OVERLAY`, and every AndroidX `BackHandler` — including F3's `SheetImeBackHandler` — reaches that dispatcher at `PRIORITY_DEFAULT`, which the platform calls second. Material dismissed the sheet before the IME handler was consulted, which is why the symptom survived F3 on a build that genuinely contained F3. The fix registers our own callback one priority above Material's, and only while `isImeVisible` — so with the keyboard down nothing of ours is registered and the sheet's own back, scrim, drag and predictive-back peel are all untouched. **F3's comment was not wrong everywhere**: on API ≤ 32 and in the wide-screen centred `Dialog` the whole chain is AndroidX and last-registered wins, which is exactly what F3 assumed and tested nothing on. **Nothing about #192 has been run on a device** — the cause is read off the library sources, the fix is compiled, and every clause of S3's Accept is a gesture; §4 carries that debt beside S2's.
 2026-08-15 · #191 · **S2 done — the sheet's body stopped dragging the sheet away.** `SHAKEDOWN.md` is now S1 ✓ S2 ✓, and the first pending task is **S3**. The mechanism, so nobody re-derives it: `ModalBottomSheet` moves on whatever the body's scroll leaves unconsumed, and `skipPartiallyExpanded = true` leaves Hidden as the only anchor below Expanded — so on a short form every pixel of a downward drag is leftover and the sheet dismisses, taking the typed text. One `NestedScrollConnection` outside the body's `verticalScroll` swallows that leftover; the drag handle is outside it and still dismisses. **The deviation to know about:** S2's spec indicated `confirmValueChange` refusing `Hidden` while the form is dirty, and that was not built — it is inert in the case the owner actually reported (he had typed nothing), it cannot tell a handle drag from a body drag, and in Material3 1.3 both the scrim tap and the back press route through `animateToDismiss` → `confirmValueChange`, so it would strand a half-typed form and eat the second back press S3 is about to promise. The reasoning is in that file's Log. **Nothing about #191 has been run on a device** — it is a gesture fix verified by a compiler, which is precisely the gap this whole file exists to keep visible; §4 carries the debt.
