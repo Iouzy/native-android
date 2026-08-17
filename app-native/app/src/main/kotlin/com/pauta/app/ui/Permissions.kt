@@ -103,7 +103,19 @@ fun rememberNotificationAsk(vm: AppViewModel, notifAskedAt: Long): () -> Unit {
     val context = LocalContext.current
     val launcher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
-    ) {}
+    ) { granted ->
+        // S6 · the answer arrives *after* the thing it was asked for has already
+        // happened. Starting a block does not wait for the dialog (N1's choice, and
+        // the right one), so the focus service has already gone foreground and had
+        // its notification dropped by the denied permission. Nothing redisplays a
+        // dropped notification, so the first block a new user ever runs was the one
+        // block with an empty shade. Post it again — a no-op when no block is
+        // running, which is every other caller of this ask (a reminder, a tide).
+        // // PT: a resposta chega depois do que foi pedido: o bloco já arrancou e o
+        // aviso já foi deitado fora. Voltar a publicá-lo; sem bloco a correr, não
+        // faz nada.
+        if (granted) vm.repostFocusNotification()
+    }
     return remember(notifAskedAt, context, vm) {
         {
             if (notifAskedAt == 0L) {
