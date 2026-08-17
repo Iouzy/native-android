@@ -1,6 +1,10 @@
 package com.pauta.app.ui
 
+import android.os.Build
+import android.window.OnBackInvokedCallback
+import android.window.OnBackInvokedDispatcher
 import androidx.activity.compose.BackHandler
+import androidx.annotation.RequiresApi
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.snap
 import androidx.compose.foundation.background
@@ -30,6 +34,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.ProvidableCompositionLocal
 import androidx.compose.runtime.State
@@ -37,6 +42,7 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.withFrameNanos
@@ -56,6 +62,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.Velocity
@@ -146,28 +153,88 @@ fun PautaSheet(title: String, onClose: () -> Unit, content: @Composable ColumnSc
  * `docs/archive/UX_FIXES.md` U1 fixed the keyboard *arriving* mid-animation.
  * Nobody fixed it leaving.
  *
- * Two details this depends on. The handler is registered **inside** the sheet's
- * own composition, so it sits above Material's sheet-level back handling on the
- * dispatcher and wins while enabled — and it is enabled *only* while the IME is
- * actually visible, so it never eats a back press that should close the sheet.
- * And the visibility comes from [isImeVisible], not from focus: a field can hold
- * focus with the keyboard down, and the two states are not the same.
+ * The visibility comes from [isImeVisible], not from focus: a field can hold
+ * focus with the keyboard down, and the two states are not the same. Enabled
+ * only while the keyboard is up, this never eats a back press that should close
+ * the sheet.
+ *
+ * **S3 · which dispatcher hears the press first is the whole of this.** F3
+ * registered a plain [BackHandler] and asserted that composing it inside the
+ * sheet body put it above Material's own back handling. That is true on API ≤ 32
+ * and inside the centred [Dialog] — both route through the AndroidX
+ * `OnBackPressedDispatcher`, which invokes the *last* registered enabled callback
+ * first, and this one registers after the dialog's. It is false on API 33+ for
+ * the bottom sheet: `ModalBottomSheetDialogLayout.onAttachedToWindow` registers
+ * its dismiss straight with the **platform** dispatcher at
+ * `PRIORITY_OVERLAY`, while everything AndroidX sits at `PRIORITY_DEFAULT`, and
+ * the platform calls the highest priority first. Material won every time, the
+ * sheet went, and the typed text went with it — exactly the defect F3 shipped to
+ * fix (`docs/SHAKEDOWN.md` S3, reproduced on the `pauta_pixel7` AVD in PR #190).
+ * So on 33+ we register on that same dispatcher, one rung above Material.
  *
  * // PT: com o teclado aberto, "voltar" fecha o teclado e guarda o formulário; a
  * segunda vez fecha a folha. Só está activo enquanto o teclado está mesmo
- * visível, para nunca comer um "voltar" que devia fechar a folha.
+ * visível. O que faltava (S3): a partir do Android 13 a folha do Material regista
+ * o seu "fechar" directamente no despachante do sistema, com prioridade acima de
+ * tudo o que é AndroidX — por isso ganhava sempre. Aqui registamos um degrau
+ * acima dela.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun SheetImeBackHandler() {
     val keyboard = LocalSoftwareKeyboardController.current
     val focus = LocalFocusManager.current
-    BackHandler(enabled = WindowInsets.isImeVisible) {
+    val putKeyboardAway: () -> Unit = {
         // Clear the focus as well as hiding: a field that keeps focus keeps
         // asking for the IME, and the keyboard comes straight back.
         // // PT: tirar o foco também, senão o teclado volta sozinho.
         focus.clearFocus()
         keyboard?.hide()
+    }
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        ImeBackAboveTheSheet(enabled = WindowInsets.isImeVisible, onBack = putKeyboardAway)
+    } else {
+        BackHandler(enabled = WindowInsets.isImeVisible, onBack = putKeyboardAway)
+    }
+}
+
+/**
+ * S3 · the API 33+ half: the first back press, taken from the platform's own
+ * dispatcher one priority above the sheet's.
+ *
+ * Registered **only** while [enabled] — the keyboard is up — so the moment it
+ * goes down the callback leaves the dispatcher and the very next press is
+ * Material's again: the second back closes the sheet, and the predictive-back
+ * gesture still peels it, because with the keyboard down nothing of ours is
+ * registered at all. Nothing here is a new dependency; `android.window` is the
+ * framework.
+ *
+ * // PT: a metade para Android 13+ — apanha o primeiro "voltar" no despachante do
+ * sistema, um grau acima da folha, e só enquanto o teclado está aberto. Com o
+ * teclado fechado não há nada nosso registado: o segundo "voltar" fecha a folha e
+ * o gesto preditivo continua a descolá-la.
+ */
+@RequiresApi(Build.VERSION_CODES.TIRAMISU)
+@Composable
+private fun ImeBackAboveTheSheet(enabled: Boolean, onBack: () -> Unit) {
+    val view = LocalView.current
+    // The callback outlives a recomposition, so it must not capture a stale
+    // lambda. // PT: o callback sobrevive às recomposições; não pode guardar uma
+    // lambda velha.
+    val latest by rememberUpdatedState(onBack)
+    DisposableEffect(view, enabled) {
+        if (!enabled) return@DisposableEffect onDispose { }
+        // `PRIORITY_OVERLAY + 1`: the sheet registers *at* OVERLAY
+        // (`ModalBottomSheet.android.kt`), and higher is called first. The
+        // dispatcher is the dialog window's own, the same one the sheet used.
+        // // PT: um acima da prioridade da folha, no mesmo despachante.
+        val dispatcher = view.findOnBackInvokedDispatcher()
+        val callback = OnBackInvokedCallback { latest() }
+        dispatcher?.registerOnBackInvokedCallback(
+            OnBackInvokedDispatcher.PRIORITY_OVERLAY + 1,
+            callback,
+        )
+        onDispose { dispatcher?.unregisterOnBackInvokedCallback(callback) }
     }
 }
 
