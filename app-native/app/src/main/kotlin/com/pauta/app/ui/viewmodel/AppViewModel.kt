@@ -584,29 +584,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         // conforme há ou não um bloco activo.
         viewModelScope.launch {
             combine(repo.activeBlock(), repo.allSessions()) { b, sessions -> b to sessions }
-                .collect { (block, sessions) ->
-                    val ctx = getApplication<Application>()
-                    if (block == null) {
-                        FocusServiceController.stop(ctx)
-                    } else {
-                        val segs = sessions
-                            .filter { it.blockId == block.id }
-                            .map { FocusMath.FocusSeg(it.startedAt, it.endedAt) }
-                        // Pass the block's soft target so the notification counts
-                        // down to it and the lock-screen "target reached" alert can
-                        // arm (C2). // PT: passa o alvo do bloco para a contagem
-                        // decrescente e o aviso de alvo atingido.
-                        // L9: the project too, so the service can tell a reading
-                        // session from a focus block and say so.
-                        // // PT: também o projecto, para a notificação saber o que é.
-                        FocusServiceController.start(
-                            ctx, block.title,
-                            FocusMath.blockElapsedMs(segs, System.currentTimeMillis()),
-                            block.targetMs,
-                            block.project,
-                        )
-                    }
-                }
+                .collect { (block, sessions) -> syncFocusNotification(block, sessions) }
         }
         // Keep the Glance Marés widget in sync: nudge a re-render whenever the
         // tides or the day change (it reads the repo itself, so this just tells it
@@ -617,6 +595,58 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             combine(todayKey, repo.habits(), habitMarks) { _, _, _ -> Unit }
                 .collect { MaresWidget.refresh(getApplication<Application>()) }
         }
+    }
+
+    /**
+     * The foreground timer notification for [block], or none at all when no block
+     * is running. One place, because two callers need it: the lifecycle collector
+     * above, and S6's re-post below. // PT: a notificação do bloco a correr — num
+     * só sítio, porque dois sítios precisam dela.
+     */
+    private fun syncFocusNotification(block: FocusBlockEntity?, sessions: List<FocusSessionEntity>) {
+        val ctx = getApplication<Application>()
+        if (block == null) {
+            FocusServiceController.stop(ctx)
+            return
+        }
+        val segs = sessions
+            .filter { it.blockId == block.id }
+            .map { FocusMath.FocusSeg(it.startedAt, it.endedAt) }
+        // Pass the block's soft target so the notification counts down to it and
+        // the lock-screen "target reached" alert can arm (C2). // PT: passa o alvo
+        // do bloco para a contagem decrescente e o aviso de alvo atingido.
+        // L9: the project too, so the service can tell a reading session from a
+        // focus block and say so. // PT: também o projecto, para a notificação
+        // saber o que é.
+        FocusServiceController.start(
+            ctx, block.title,
+            FocusMath.blockElapsedMs(segs, System.currentTimeMillis()),
+            block.targetMs,
+            block.project,
+        )
+    }
+
+    /**
+     * S6 · post the running block's notification again, now that we are allowed to.
+     *
+     * N1 asks for `POST_NOTIFICATIONS` at the first focus block and — deliberately —
+     * starts the block whatever the answer. So on a clean install the order is:
+     * block starts, the service goes foreground, the notification is posted into a
+     * denied permission and the system drops it, *then* the user taps Allow. The
+     * grant does not redisplay what was already dropped, so the very first block a
+     * new user runs had no notification at all while every block after it did
+     * (`docs/SHAKEDOWN.md` S6, watched on the `pauta_pixel7` AVD in PR #190).
+     * Re-issuing the same start is enough: same id, so it replaces rather than
+     * duplicates when there was nothing to fix.
+     *
+     * // PT: volta a publicar a notificação do bloco em curso depois de a permissão
+     * ser concedida. O primeiro bloco começa antes da resposta, o sistema deita
+     * fora o aviso, e conceder a permissão não o traz de volta — só voltar a
+     * publicá-lo. Mesmo id: substitui, não duplica.
+     */
+    fun repostFocusNotification() = viewModelScope.launch {
+        val block = repo.activeBlock().first() ?: return@launch
+        syncFocusNotification(block, repo.allSessions().first())
     }
 
     /** Bring the offered carry-over items into today. */
