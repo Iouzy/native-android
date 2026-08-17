@@ -8,8 +8,28 @@ import java.util.zip.ZipFile
  *  estimate — it is what weights the progress line. */
 data class EpubChapter(val href: String, val title: String, val words: Int)
 
-/** A parsed book: what the OPF says it is, and its spine in order. */
-data class EpubBook(val title: String, val author: String, val chapters: List<EpubChapter>)
+/**
+ * S5 · one page of the **print edition**, as the book itself declares it: the
+ * number the publisher printed, the spine chapter it falls in, and how many words
+ * into that chapter it starts.
+ *
+ * The offset is what lets the reader name a page without a pagination engine. An
+ * EPUB reflows, so there is no page to measure; but a marker sits at a fixed
+ * point in the text, and the reader always knows how far down a chapter it is.
+ * Words are the same currency the progress line is already weighted in.
+ * // PT: uma página da edição impressa — o número que o editor imprimiu, o
+ * capítulo, e as palavras antes dela.
+ */
+data class EpubPage(val label: String, val chapter: Int, val wordsBefore: Int)
+
+/** A parsed book: what the OPF says it is, its spine in order, and (S5) the print
+ *  edition's pages where the book carries them. */
+data class EpubBook(
+    val title: String,
+    val author: String,
+    val chapters: List<EpubChapter>,
+    val pages: List<EpubPage> = emptyList(),
+)
 
 /**
  * native-only (R4): everything about an EPUB that can be decided without Android
@@ -66,6 +86,11 @@ object Epub {
     /** A spine longer than this is not a book. */
     private const val MAX_SPINE = 2_000
 
+    /** S5 · more page markers than this is not a print edition either. The list
+     *  crosses a binder transaction, so it is bounded before it is sent rather
+     *  than after. // PT: limite dos marcadores — a lista atravessa o binder. */
+    private const val MAX_PAGES = 10_000
+
     // ── the archive ───────────────────────────────────────────
 
     /**
@@ -82,19 +107,29 @@ object Epub {
         val base = opfPath.substringBeforeLast('/', "")
 
         val chapters = ArrayList<EpubChapter>()
+        val pages = ArrayList<EpubPage>()
         for (idref in doc.spine) {
             if (chapters.size >= MAX_SPINE) break
             val item = doc.manifest[idref] ?: continue
             if (!isChapter(item)) continue
             val href = resolve(base, item.href) ?: continue
             val entry = zip.getEntry(href) ?: continue
-            val words = runCatching {
-                countWords(readText(zip, entry.name))
-            }.getOrDefault(0)
-            chapters += EpubChapter(href = href, title = item.title.ifBlank { "" }, words = words)
+            // S5: one pass gives both — the words that weight the progress line and
+            // the print edition's page markers that sit among them. The markers are
+            // free here and would cost a second read of every chapter anywhere else.
+            // // PT: uma passagem só: as palavras e os marcadores de página.
+            val scanned = runCatching {
+                scanChapter(readText(zip, entry.name))
+            }.getOrDefault(ChapterScan(0, emptyList()))
+            val index = chapters.size
+            for (mark in scanned.marks) {
+                if (pages.size >= MAX_PAGES) break
+                pages += EpubPage(label = mark.label, chapter = index, wordsBefore = mark.wordsBefore)
+            }
+            chapters += EpubChapter(href = href, title = item.title.ifBlank { "" }, words = scanned.words)
         }
         if (chapters.isEmpty()) throw FormatException("spine has no readable chapters")
-        return EpubBook(title = doc.title, author = doc.author, chapters = chapters)
+        return EpubBook(title = doc.title, author = doc.author, chapters = chapters, pages = pages)
     }
 
     /**
@@ -130,21 +165,169 @@ object Epub {
      * book. Markup is stripped first, so a chapter is not credited for its tags.
      * // PT: as palavras do texto, sem a marcação.
      */
-    fun countWords(html: String): Int {
+    fun countWords(html: String): Int = scanChapter(html).words
+
+    /** S5 · what one chapter turned out to hold: its word count, and the print
+     *  edition's page markers in the order they appear, each with the words that
+     *  came before it. // PT: as palavras do capítulo e os marcadores de página. */
+    data class ChapterScan(val words: Int, val marks: List<Mark>)
+
+    /** One marker inside one chapter, before it knows which chapter that is.
+     *  // PT: um marcador, ainda sem saber o capítulo. */
+    data class Mark(val label: String, val wordsBefore: Int)
+
+    /**
+     * S5 · [countWords] and F7's page markers in a single pass over a chapter.
+     *
+     * The word count is the one that was always here — same rule, same characters,
+     * same result — because it weights the progress line of every book already
+     * stored, and a chapter that suddenly counted differently would move every
+     * bookmark in the shelf. The markers ride along: F7 taught the *sanitiser* to
+     * draw them in the page, and this teaches the *parser* to remember where they
+     * are, which is the half the chrome needs to say a page number out loud.
+     *
+     * A marker names its page in its attributes or in its own text; both are
+     * validated as a page number rather than trusted, exactly as [pageBreakLabel]
+     * does, because both come out of an untrusted book.
+     * // PT: numa só passagem — as palavras (regra inalterada) e os marcadores,
+     * com o número validado, venha ele dos atributos ou do texto.
+     */
+    fun scanChapter(html: String): ChapterScan {
         var count = 0
         var inWord = false
-        forEachText(html) { text ->
-            for (ch in text) {
-                if (ch.isLetterOrDigit()) {
-                    if (!inWord) { count++; inWord = true }
-                } else if (!ch.isLetter() && ch != '\'' && ch != '’' && ch != '-') {
-                    inWord = false
-                }
-            }
-            inWord = false
+        val marks = ArrayList<Mark>()
+
+        // A marker whose attributes said nothing is held open until its closing
+        // tag, because then — and only then — its own text is the number. // PT:
+        // um marcador sem número nos atributos fica aberto até fechar.
+        var openTag: String? = null
+        var openDepth = 0
+        var openWords = 0
+        val openText = StringBuilder()
+
+        fun closeMark() {
+            val label = pageNumberish(openText.toString().trim())
+            if (label != null && marks.size < MAX_PAGES) marks += Mark(label, openWords)
+            openTag = null
+            openDepth = 0
+            openText.setLength(0)
         }
-        return count
+
+        var dropping = 0
+        var droppingTag = ""
+        scan(html, object : Sink {
+            override fun text(s: String) {
+                if (dropping > 0) return
+                val decoded = decode(s)
+                // Only ever as much as a page number could be — the rest is prose
+                // that happens to follow an unlabelled marker. // PT: só o que
+                // pode ser um número.
+                if (openTag != null && openText.length < 32) openText.append(decoded)
+                for (ch in decoded) {
+                    if (ch.isLetterOrDigit()) {
+                        if (!inWord) { count++; inWord = true }
+                    } else if (!ch.isLetter() && ch != '\'' && ch != '’' && ch != '-') {
+                        inWord = false
+                    }
+                }
+                inWord = false
+            }
+
+            override fun tag(name: String, attrs: List<Pair<String, String>>, closing: Boolean, selfClosing: Boolean) {
+                val tag = name.substringAfter(':').lowercase()
+                if (dropping > 0) {
+                    if (tag == droppingTag) {
+                        if (closing) dropping-- else if (!selfClosing) dropping++
+                    }
+                    return
+                }
+                if (tag in STRIPPED && !closing && !selfClosing) {
+                    dropping = 1
+                    droppingTag = tag
+                    return
+                }
+                val open = openTag
+                if (open != null) {
+                    // Inside an open marker nothing else is looked for: what is
+                    // wanted is the moment it closes. // PT: dentro do marcador só
+                    // interessa quando fecha.
+                    if (tag == open) {
+                        if (closing) {
+                            openDepth--
+                            if (openDepth <= 0) closeMark()
+                        } else if (!selfClosing) {
+                            openDepth++
+                        }
+                    }
+                    return
+                }
+                if (closing || !isPageBreak(attrs)) return
+                val label = pageBreakLabel(attrs)
+                if (label != null) {
+                    if (marks.size < MAX_PAGES) marks += Mark(label, count)
+                    return
+                }
+                // An empty marker with nothing in its attributes names no page, so
+                // there is nothing to remember. // PT: vazio e sem atributos — não
+                // diz nada.
+                if (selfClosing || tag in VOID) return
+                openTag = tag
+                openDepth = 1
+                openWords = count
+                openText.setLength(0)
+            }
+        })
+        // A book that ends inside its own marker still gets to name that page.
+        // // PT: um livro que acaba dentro do marcador ainda conta.
+        if (openTag != null) closeMark()
+        return ChapterScan(count, marks)
     }
+
+    /**
+     * S5 · which of [pages] the reader is looking at — the last marker at or
+     * before ([chapter], [scroll]) — or null when they are before the first one,
+     * which is the front matter of a book whose numbering starts later.
+     *
+     * A marker's place in its chapter is its word offset over the chapter's words,
+     * compared against how far down the chapter the reader has scrolled. That is
+     * an approximation of two different things (words are not pixels; a chapter's
+     * images and headings take height that carries no words) and it is deliberately
+     * the *last marker passed* rather than the nearest — a reader who has scrolled
+     * past page 123 is on page 123 until 124 arrives, which is how a paper book
+     * behaves and never shows a number that has not been reached.
+     *
+     * [pages] is in reading order, so the walk stops rather than scanning a whole
+     * book on every scroll event. // PT: o último marcador já passado; a lista vem
+     * por ordem, logo pára assim que passa.
+     */
+    fun pageIndexAt(pages: List<EpubPage>, words: List<Int>, chapter: Int, scroll: Float): Int? {
+        if (pages.isEmpty()) return null
+        val within = scroll.coerceIn(0f, 1f)
+        var found: Int? = null
+        for (i in pages.indices) {
+            val page = pages[i]
+            if (page.chapter > chapter) break
+            if (page.chapter < chapter) {
+                found = i
+                continue
+            }
+            val total = words.getOrNull(page.chapter) ?: 0
+            val at = if (total <= 0) 0f else (page.wordsBefore.toFloat() / total).coerceIn(0f, 1f)
+            if (at <= within) found = i else break
+        }
+        return found
+    }
+
+    /**
+     * S5 · the last page the print edition numbers — the largest arabic number
+     * among the markers. Roman front matter is deliberately excluded: "página 12
+     * de xxiv" is not a sentence, and a book's page count is the arabic run.
+     * Null when no marker carries an arabic number at all, in which case the
+     * chrome names the page without a total rather than inventing one.
+     * // PT: a última página numerada; os romanos da abertura não contam.
+     */
+    fun lastPrintedPage(pages: List<EpubPage>): Int? =
+        pages.mapNotNull { it.label.toIntOrNull() }.maxOrNull()
 
     // ── the sanitiser ─────────────────────────────────────────
 
@@ -251,18 +434,25 @@ object Epub {
         fun attr(want: String): String? = attrs.firstOrNull {
             it.first.substringAfter(':').lowercase() == want
         }?.second?.trim()?.takeIf { it.isNotEmpty() }
-        // Validated against what a page number can actually be, rather than
-        // filtered down to it: filtering "&lt;script&gt;" would leave "lci", which
-        // is a plausible-looking roman numeral and a lie. A value that isn't a page
-        // number is not a page number. // PT: valida-se em vez de se limpar — um
-        // valor que não é um número de página não vira um.
-        fun pageish(v: String?): String? = v?.takeIf {
-            it.length <= 12 &&
-                (it.matches(ARABIC_PAGE) || it.matches(ROMAN_PAGE))
-        }
-        return pageish(attr("title"))
-            ?: pageish(attr("aria-label"))
-            ?: pageish(attr("id")?.let { id -> ARABIC_RUN.find(id)?.value })
+        return pageNumberish(attr("title"))
+            ?: pageNumberish(attr("aria-label"))
+            ?: pageNumberish(attr("id")?.let { id -> ARABIC_RUN.find(id)?.value })
+    }
+
+    /**
+     * A candidate page number, or null. Validated against what a page number can
+     * actually be, rather than filtered down to it: filtering "&lt;script&gt;"
+     * would leave "lci", which is a plausible-looking roman numeral and a lie. A
+     * value that isn't a page number is not a page number.
+     *
+     * S5 pulled this out of [pageBreakLabel] so the *text* of an unlabelled marker
+     * goes through the same gate the attributes do — both come out of the same
+     * untrusted book, and the label now travels back across the binder and into
+     * the chrome as well as into the page. // PT: valida-se em vez de se limpar; o
+     * texto do marcador passa pelo mesmo crivo que os atributos.
+     */
+    private fun pageNumberish(v: String?): String? = v?.takeIf {
+        it.length <= 12 && (it.matches(ARABIC_PAGE) || it.matches(ROMAN_PAGE))
     }
 
     private val ARABIC_PAGE = Regex("^\\d{1,6}$")
@@ -811,33 +1001,6 @@ object Epub {
             i = j
         }
         flush()
-    }
-
-    /** Every run of text outside a tag, with `script`/`style` contents skipped —
-     *  used by [countWords], which must not count a stylesheet as prose.
-     *  // PT: o texto fora das etiquetas, sem o conteúdo de script/style. */
-    private fun forEachText(html: String, onText: (String) -> Unit) {
-        var dropping = 0
-        var droppingTag = ""
-        scan(html, object : Sink {
-            override fun text(s: String) {
-                if (dropping == 0) onText(decode(s))
-            }
-
-            override fun tag(name: String, attrs: List<Pair<String, String>>, closing: Boolean, selfClosing: Boolean) {
-                val tag = name.substringAfter(':').lowercase()
-                if (dropping > 0) {
-                    if (tag == droppingTag) {
-                        if (closing) dropping-- else if (!selfClosing) dropping++
-                    }
-                    return
-                }
-                if (tag in STRIPPED && !closing && !selfClosing) {
-                    dropping = 1
-                    droppingTag = tag
-                }
-            }
-        })
     }
 
     // ── entities ──────────────────────────────────────────────

@@ -16,7 +16,6 @@ import androidx.core.os.BundleCompat
 import com.pauta.app.data.BookFiles
 import com.pauta.app.domain.Epub
 import com.pauta.app.domain.EpubBook
-import com.pauta.app.domain.EpubChapter
 import com.pauta.app.domain.ReaderMath
 import java.io.BufferedOutputStream
 import java.io.DataOutputStream
@@ -86,7 +85,10 @@ class DocumentParseService : Service() {
         /** R4 · open (and keep open) the EPUB at `data[KEY_PATH]` → reply `arg1` =
          *  chapter count (or [FAILED]), `data[KEY_WORDS]` = each chapter's word
          *  count, `data[KEY_HREFS]` its entry name and (L4) `data[KEY_TITLES]` its
-         *  name from the OPF, all three in spine order and the same length. */
+         *  name from the OPF, all three in spine order and the same length —
+         *  plus (S5) the print edition's pages in
+         *  `data[KEY_PAGE_LABELS]`/`[KEY_PAGE_CHAPTERS]`/`[KEY_PAGE_WORDS]`, three
+         *  more parallel arrays of their own length. */
         const val MSG_EPUB_OPEN = 5
 
         /** R4 · sanitised HTML for chapter `data[KEY_PAGE]`, written as UTF-8 into
@@ -110,6 +112,18 @@ class DocumentParseService : Service() {
         // "Capítulo 7 · As Cidades e os Mortos". // PT: os nomes dos capítulos,
         // que já eram lidos e se perdiam aqui.
         const val KEY_TITLES = "titles"
+
+        // S5: the print edition's page markers. F7 taught the sanitiser to draw
+        // them inside the page; the parser has always known *where* they are and
+        // this boundary dropped that, which is why the chrome could only estimate
+        // "≈ p. 123 de 228" from a length the owner typed in. Three parallel
+        // arrays, following L4's precedent exactly: the publisher's own label, the
+        // spine chapter it falls in, and the words before it in that chapter.
+        // // PT: os marcadores de página — o número, o capítulo e as palavras
+        // antes; três listas paralelas, como os títulos.
+        const val KEY_PAGE_LABELS = "pageLabels"
+        const val KEY_PAGE_CHAPTERS = "pageChapters"
+        const val KEY_PAGE_WORDS = "pageWords"
 
         /** Reply value for "this file would not open" — the caller fails closed. */
         const val FAILED = -1
@@ -181,15 +195,22 @@ class DocumentParseService : Service() {
             )
             MSG_PDF_CLOSE -> closeDocument()
             MSG_EPUB_OPEN -> {
-                val spine = openEpub(data?.getString(KEY_PATH))
+                val parsed = openEpub(data?.getString(KEY_PATH))
                 reply(
                     msg,
-                    spine?.size ?: FAILED,
-                    extras = spine?.let {
+                    parsed?.chapters?.size ?: FAILED,
+                    extras = parsed?.let { epub ->
                         Bundle().apply {
-                            putIntArray(KEY_WORDS, it.map { c -> c.words }.toIntArray())
-                            putStringArray(KEY_HREFS, it.map { c -> c.href }.toTypedArray())
-                            putStringArray(KEY_TITLES, it.map { c -> c.title }.toTypedArray())
+                            putIntArray(KEY_WORDS, epub.chapters.map { c -> c.words }.toIntArray())
+                            putStringArray(KEY_HREFS, epub.chapters.map { c -> c.href }.toTypedArray())
+                            putStringArray(KEY_TITLES, epub.chapters.map { c -> c.title }.toTypedArray())
+                            // S5: written unconditionally, so a book with no
+                            // markers arrives as three empty arrays rather than as
+                            // an older reply the other side has to guess about.
+                            // // PT: sempre escritas — vazias é uma resposta.
+                            putStringArray(KEY_PAGE_LABELS, epub.pages.map { p -> p.label }.toTypedArray())
+                            putIntArray(KEY_PAGE_CHAPTERS, epub.pages.map { p -> p.chapter }.toIntArray())
+                            putIntArray(KEY_PAGE_WORDS, epub.pages.map { p -> p.wordsBefore }.toIntArray())
                         }
                     },
                 )
@@ -322,16 +343,17 @@ class DocumentParseService : Service() {
     // ── R4 · EPUB ─────────────────────────────────────────────
 
     /**
-     * Opens the EPUB at [path] and parses its spine, returning its chapters in
-     * reading order — the whole answer the reader needs to lay a book out and
-     * weight its progress line. Null when the file is not ours, not a book, or
-     * malformed; the caller shows one sentence and doesn't retry.
-     * // PT: abre o EPUB e devolve os capítulos, por ordem.
+     * Opens the EPUB at [path] and parses it — its chapters in reading order and
+     * (S5) the print edition's pages among them, which is the whole answer the
+     * reader needs to lay a book out, weight its progress line and name the page
+     * it is on. Null when the file is not ours, not a book, or malformed; the
+     * caller shows one sentence and doesn't retry.
+     * // PT: abre o EPUB e devolve o livro — capítulos por ordem e as páginas.
      */
-    private fun openEpub(path: String?): List<EpubChapter>? {
+    private fun openEpub(path: String?): EpubBook? {
         val file = verified(path) ?: return null
         if (openEpubPath == file.absolutePath) {
-            book?.let { return it.chapters }
+            book?.let { return it }
         }
         closeArchive()
         return runCatching {
@@ -345,7 +367,7 @@ class DocumentParseService : Service() {
             archive = zip
             book = parsed
             openEpubPath = file.absolutePath
-            parsed.chapters
+            parsed
         }.getOrElse {
             // A malformed book, a stack overflow from something pathological, a
             // heap this process couldn't find: all the same answer. // PT: qualquer

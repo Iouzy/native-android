@@ -1,5 +1,6 @@
 package com.pauta.app.service
 
+import com.pauta.app.domain.EpubPage
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -44,5 +45,40 @@ class EpubInfoTest {
 
     @Test fun aNameIsTrimmedBeforeItIsShown() {
         assertEquals("Prefácio", info(listOf("  Prefácio  ")).titleOf(0))
+    }
+
+    // ── S5 · the print edition's pages, once they are across ──
+
+    private fun paged(pages: List<EpubPage>) = EpubInfo(
+        chapterWords = listOf(100, 100),
+        chapterHrefs = listOf("ch0.xhtml", "ch1.xhtml"),
+        chapterTitles = listOf("", ""),
+        pages = pages,
+    )
+
+    @Test fun theReaderIsToldThePageItHasReached() {
+        val info = paged(
+            listOf(
+                EpubPage("122", chapter = 0, wordsBefore = 0),
+                EpubPage("123", chapter = 0, wordsBefore = 60),
+            ),
+        )
+        assertEquals("122", info.pageLabelAt(0, 0.1f))
+        assertEquals("123", info.pageLabelAt(0, 0.7f))
+    }
+
+    @Test fun aBookThatCarriesNoMarkersNamesNoPage() {
+        // The overwhelmingly common case, and the one the chrome must keep reading
+        // exactly as it did. // PT: o caso normal — sem marcadores.
+        val none = EpubInfo(chapterWords = listOf(10, 20), chapterHrefs = listOf("a", "b"))
+        assertNull(none.pageLabelAt(0, 0.5f))
+        assertNull(none.printedPages)
+    }
+
+    @Test fun thePrintedLengthEndsOnTheLastArabicNumber() {
+        assertEquals(
+            228,
+            paged(listOf(EpubPage("xii", 0, 0), EpubPage("228", 1, 0))).printedPages,
+        )
     }
 }
