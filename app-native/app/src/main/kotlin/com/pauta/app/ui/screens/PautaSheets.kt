@@ -86,6 +86,10 @@ import com.pauta.app.ui.theme.rememberMotionEnabled
 @Composable
 fun StartSheet(
     intentions: List<IntentionEntity>,
+    // S4: today's still-open tides — an hour of reading is both a block and a
+    // tide, and until now it had to be logged twice. // PT: as marés de hoje por
+    // fazer; um bloco pode alimentar uma delas.
+    tides: List<TideToday>,
     projects: List<String>,
     recentBlocks: List<FocusBlockEntity>,
     hasActive: Boolean,
@@ -96,12 +100,13 @@ fun StartSheet(
     presets: List<Int>,
     presetSet: String? = null,
     onPresetSet: ((String) -> Unit)? = null,
-    onStart: (title: String, linkedToId: String?, project: String?, targetMin: Int?) -> Unit,
+    onStart: (title: String, linkedToId: String?, project: String?, targetMin: Int?, habitId: String?) -> Unit,
     onClose: () -> Unit,
 ) {
     val colors = LocalPautaColors.current
     var title by remember { mutableStateOf("") }
     var selectedIntention by remember { mutableStateOf<String?>(null) }
+    var selectedTide by remember { mutableStateOf<String?>(null) }
     var project by remember { mutableStateOf("") }
     var targetMin by remember { mutableStateOf(0) } // 0 = no target
     var triedSubmit by remember { mutableStateOf(false) }
@@ -112,7 +117,7 @@ fun StartSheet(
     fun submit() {
         if (!durationOk) return
         if (title.isBlank()) { triedSubmit = true; return }
-        onStart(title.trim(), selectedIntention, project.trim().ifEmpty { null }, targetMin.takeIf { it > 0 })
+        onStart(title.trim(), selectedIntention, project.trim().ifEmpty { null }, targetMin.takeIf { it > 0 }, selectedTide)
     }
 
     PautaSheet(title = tr("Novo bloco"), onClose = onClose) {
@@ -200,6 +205,58 @@ fun StartSheet(
             }
         }
 
+        // S4 · the maré this block feeds. Optional and independent of the intention
+        // above — a block can answer both, one, or neither — so tapping a chosen
+        // tide again unpicks it. An empty title takes the tide's name, because a
+        // block still needs one and "Ler" is what the tide is called.
+        // // PT: a maré que o bloco alimenta; tocar outra vez desmarca.
+        if (tides.isNotEmpty()) {
+            Spacer(Modifier.height(SheetFieldGap))
+            SheetEyebrow(tr("…ou alimenta uma maré"))
+            Spacer(Modifier.height(SheetLabelGap))
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                tides.forEach { t ->
+                    val sel = selectedTide == t.habit.id
+                    val col = tideColor(t, colors.accent)
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(PautaRadius.Field))
+                            .background(if (sel) col.copy(alpha = 0.08f) else Color.Transparent)
+                            .border(1.dp, if (sel) col else colors.rule, RoundedCornerShape(PautaRadius.Field))
+                            .clickableNoRipple {
+                                if (sel) {
+                                    selectedTide = null
+                                } else {
+                                    selectedTide = t.habit.id
+                                    if (title.isBlank()) title = t.habit.name
+                                }
+                            }
+                            .padding(horizontal = 14.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Box(
+                            Modifier
+                                .size(16.dp)
+                                .clip(CircleShape)
+                                .background(if (sel) col else Color.Transparent)
+                                .border(1.5.dp, if (sel) col else colors.ink3, CircleShape),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            if (sel) Icon(PautaIcons.Check, contentDescription = null, tint = colors.paper, modifier = Modifier.size(9.dp))
+                        }
+                        Spacer(Modifier.width(12.dp))
+                        Text(t.habit.name, color = colors.ink, fontSize = 15.sp, modifier = Modifier.weight(1f))
+                        // A countable tide says where it stands, so picking it is a
+                        // decision with the tally in view. // PT: a contagem à vista.
+                        if (t.isCount) {
+                            Text("${t.count}/${t.target}", color = colors.ink3, style = PautaType.MetaSmall)
+                        }
+                    }
+                }
+            }
+        }
+
         if (recentBlocks.isNotEmpty()) {
             Spacer(Modifier.height(SheetFieldGap))
             SheetEyebrow(tr("retomar de antes"))
@@ -274,6 +331,14 @@ fun StartSheet(
     }
 }
 
+/** A tide's own colour, falling back to the app accent — the parse both sheets
+ *  that draw a tide need. // PT: a cor da maré, com recuo para o acento. */
+internal fun tideColor(t: TideToday, fallback: Color): Color =
+    t.habit.color
+        ?.takeIf { it.isNotBlank() }
+        ?.let { runCatching { Color(android.graphics.Color.parseColor(it)) }.getOrNull() }
+        ?: fallback
+
 // ─── PAUSE SHEET ──────────────────────────────────────────
 /** Optimistic: the block is ALREADY paused when this opens (no seconds lost
  *  while typing). Cancel/× = mis-click → [onResume]; Confirmar saves the note. */
@@ -328,6 +393,13 @@ fun ConcludeSheet(
     var tideIds by remember { mutableStateOf(listOf<String>()) }
     val planned = block.targetMs ?: 0L
     val deltaMs = totalMs - planned
+    // S4 · the tide this block was started to feed is ticked by the repository,
+    // whichever way the block is concluded — so it is shown here as a statement,
+    // not a choice, and is kept out of the chips below to avoid asking for
+    // something that has already been decided. // PT: a maré ligada é marcada de
+    // qualquer forma; aqui só se diz, não se pergunta.
+    val fedTide = todayTides.firstOrNull { it.habit.id == block.habitId }
+    val choosableTides = todayTides.filter { it.habit.id != block.habitId }
 
     PautaSheet(title = tr("Concluir bloco"), onClose = onCancel) {
         SectionEyebrow(trf("✓ {d} em foco", "d" to FocusMath.fmtDuration(totalMs)), color = colors.accent)
@@ -400,19 +472,44 @@ fun ConcludeSheet(
             }
         }
 
+        if (fedTide != null) {
+            val col = tideColor(fedTide, colors.accent)
+            Spacer(Modifier.height(SheetFieldGap))
+            SheetEyebrow(tr("Concluir marca a maré"))
+            Spacer(Modifier.height(SheetLabelGap))
+            Row(
+                Modifier
+                    .clip(RoundedCornerShape(999.dp))
+                    .background(col.copy(alpha = 0.08f))
+                    .border(1.dp, col, RoundedCornerShape(999.dp))
+                    .padding(horizontal = 12.dp, vertical = 7.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(7.dp),
+            ) {
+                Box(
+                    Modifier.size(15.dp).clip(CircleShape).background(col),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(PautaIcons.Check, contentDescription = null, tint = colors.paper, modifier = Modifier.size(9.dp))
+                }
+                Text(
+                    text = if (fedTide.isCount) "${fedTide.habit.name} · ${fedTide.count + 1}/${fedTide.target}" else fedTide.habit.name,
+                    color = col,
+                    fontSize = 13.sp,
+                )
+            }
+        }
+
         // Mark a today's tide as done — a focus block often IS a tide (reading,
         // studying, exercising), so closing the loop here avoids logging twice.
-        if (todayTides.isNotEmpty()) {
+        if (choosableTides.isNotEmpty()) {
             Spacer(Modifier.height(SheetFieldGap))
             SheetEyebrow(tr("Marés de hoje"))
             Spacer(Modifier.height(SheetLabelGap))
             ChipFlow {
-                todayTides.forEach { t ->
+                choosableTides.forEach { t ->
                     val on = t.habit.id in tideIds
-                    val col = t.habit.color
-                        ?.takeIf { it.isNotBlank() }
-                        ?.let { runCatching { Color(android.graphics.Color.parseColor(it)) }.getOrNull() }
-                        ?: colors.accent
+                    val col = tideColor(t, colors.accent)
                     Row(
                         Modifier
                             .clip(RoundedCornerShape(999.dp))

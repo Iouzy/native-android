@@ -25,9 +25,12 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      # Action majors kept current: v4 of checkout/setup-java/upload-artifact
+      # were being forced onto a newer Node by the runner and warned they would
+      # stop being updated. // PT: acções actualizadas antes de partirem.
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "17"
@@ -51,11 +54,21 @@ jobs:
       - name: Stage APK
         run: cp app-native/app/build/outputs/apk/debug/app-debug.apk "pauta-native-v${{ github.run_number }}.apk"
 
+      # A convenience copy for branch builds; the gate is the unit tests and the
+      # APK assembling, both of which are already done by here. So a storage
+      # quota — which is an account-wide limit and nothing to do with the code —
+      # must not fail the job: on main it would kill the release publish below,
+      # which is the only artifact that matters. Retention is short for the same
+      # reason: a per-run APK kept for the default 90 days is what fills the
+      # quota in the first place. // PT: cópia de conveniência; se o
+      # armazenamento encher, o build não pode falhar por isso.
       - name: Upload APK artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
+        continue-on-error: true
         with:
           name: pauta-native-apk
           path: pauta-native-v${{ github.run_number }}.apk
+          retention-days: 7
 
       # main only: prune the rolling release's old APK assets (incl. leftovers
       # from the earlier discarded scaffold) so it keeps a single current APK and

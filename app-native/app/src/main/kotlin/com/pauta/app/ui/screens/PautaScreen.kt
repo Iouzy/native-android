@@ -224,7 +224,13 @@ fun PautaScreen(bookMode: Boolean = false, onOpenReader: (String) -> Unit = {}) 
         concludeFor = a to true
         haptic.tick(prefs)
     }
-    fun startBlock(title: String, linkedToId: String?, project: String? = null, targetMin: Int? = null) {
+    fun startBlock(
+        title: String,
+        linkedToId: String?,
+        project: String? = null,
+        targetMin: Int? = null,
+        habitId: String? = null,
+    ) {
         // N1: the honest moment to ask. The app is about to promise an ongoing
         // notification for this block, and until v1.444 it made that promise on a
         // clean Android 13+ install without ever having asked — the service ran
@@ -232,7 +238,7 @@ fun PautaScreen(bookMode: Boolean = false, onOpenReader: (String) -> Unit = {}) 
         // design; a denial changes nothing about the timer. // PT: pede-se aqui,
         // no momento em que a app promete o aviso do bloco. Recusar não pára nada.
         askNotifications()
-        vm.startBlock(title, linkedToId, project, targetMin)
+        vm.startBlock(title, linkedToId, project, targetMin, habitId)
         haptic.tick(prefs)
     }
     // P10: the timeline's one-shot entrance. // PT: a entrada da linha do tempo.
@@ -450,6 +456,9 @@ fun PautaScreen(bookMode: Boolean = false, onOpenReader: (String) -> Unit = {}) 
     if (showStart) {
         StartSheet(
             intentions = intentions,
+            // S4: the same open tides the conclude sheet offers, now at the start
+            // of the block. // PT: as mesmas marés por fazer, agora ao início.
+            tides = pendingTides,
             projects = projects,
             recentBlocks = recentBlocks,
             hasActive = active != null,
@@ -460,8 +469,8 @@ fun PautaScreen(bookMode: Boolean = false, onOpenReader: (String) -> Unit = {}) 
             // preferência das definições.
             presetSet = prefs.timerPresets ?: TimerPresets.Pomodoro,
             onPresetSet = { vm.setTimerPresets(it) },
-            onStart = { title, linkedToId, project, targetMin ->
-                startBlock(title, linkedToId, project, targetMin)
+            onStart = { title, linkedToId, project, targetMin, habitId ->
+                startBlock(title, linkedToId, project, targetMin, habitId)
                 showStart = false
             },
             onClose = { showStart = false },

@@ -65,6 +65,13 @@ data class FocusBlockEntity(
     // pauta.v4 shape, so it isn't exported. // PT: as páginas de uma sessão de
     // leitura medidas pelo leitor; null = ninguém contou.
     val pagesDelta: Int? = null,
+    // native-only (S4): the maré this block feeds. Concluding the block ticks
+    // that tide once — the join the app was missing, where an hour of reading is
+    // both a block and a tide. May dangle exactly as [linkedToId] does (a tide
+    // deleted under a block is not an error). Not part of the pauta.v4 shape, so
+    // it isn't exported and a web round-trip drops it.
+    // // PT: a maré que este bloco alimenta; concluir marca-a uma vez.
+    val habitId: String? = null,
 )
 
 /** blocks[].sessions[] — one start/stop span; pause/resume creates a new row. */

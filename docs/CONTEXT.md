@@ -10,7 +10,7 @@
 > shipped, a file completed, an order changed: it lands here too. A stale
 > CONTEXT is worse than none, because it is believed.
 
-**Last updated:** 2026-08-17 · **Room:** v14 · **Released:** the rolling
+**Last updated:** 2026-08-19 · **Room:** v15 · **Released:** the rolling
 `latest-native` tag — always the newest `main` build · **Branch of record:**
 `main`
 
@@ -49,20 +49,22 @@ this file → your task file. Nothing else needs opening unless a task names it.
 
 ## 3 · The work, at a glance
 
-**The active file is `docs/SHAKEDOWN.md` (S1…S6** — S6 was added by S1's own device
-pass, PR #190**).** The three files before it all
-finished on 2026-08-06 in one PR (#187) — 30 tasks, one commit each. The count
-this section used to carry said "22 across two files, plus one new file", which
-was already wrong when it was written: the three files held **30**.
+**There is no active file.** `docs/archive/SHAKEDOWN.md` (S1…S6 — S6 was added by
+S1's own device pass, PR #190) finished on **2026-08-19** with S4, and moved to
+the archive with the rest. The three files before it all finished on 2026-08-06
+in one PR (#187) — 30 tasks, one commit each. The count this section used to
+carry said "22 across two files, plus one new file", which was already wrong when
+it was written: the three files held **30**.
 
-`SHAKEDOWN.md` exists because #187 merged on 2026-08-15 and ordinary use
+`SHAKEDOWN.md` existed because #187 merged on 2026-08-15 and ordinary use
 contradicted it the same day: a sheet that dismisses when dragged, forms outside
-Hoje still losing what was typed, and no way to attach a block to a maré. **S1 is
-the device pass over everything #187 shipped**, and it comes first because it
-decides the shape of the rest.
+Hoje still losing what was typed, and no way to attach a block to a maré. All
+three are now fixed, plus F7's leftover page numbers and a defect S1 found on the
+device (the first block's notification).
 
 | File | Scope | Tasks | Finished |
 |---|---|---|---|
+| `docs/archive/SHAKEDOWN.md` | The shakedown of #187: the device pass, the three defects real use turned up, F7's leftover, the block↔maré link | S1…S6 | 2026-08-19 · #195 (S1 #189/#190, S2 #191, S3 #192, S6 #193, S5 #194) |
 | `docs/archive/FIRST_RUN.md` | The edges: the permission never asked for, the empty screens, the front doors | N1…N8 | 2026-08-06 · #187 |
 | `docs/archive/BOOK_LIBRARY.md` | Book mode round three: the promises L-0 found unkept, the reader a reader expects, the shelf at scale | L1…L12 | 2026-08-06 · #187 (L1, L2 in #181/#182; L3 in #186) |
 | `docs/archive/FIELD_FIXES.md` | Defects found by *using* the app, ordered by what each costs the person using it | F1…F13 | 2026-08-06 · #187 |
@@ -104,17 +106,16 @@ shipped — read them when you need to know *why*, never to know *what to do*.
 
 ### What to do next
 
-**`docs/SHAKEDOWN.md` has nothing buildable left.** S5 shipped (#194) and every
-other task in it is done, so the file's only remaining entry is **S4 — a block
-that feeds a maré — and it is blocked** on the owner's three answers (§6). Ask
-them; do not pick an answer and build on it. When they arrive, S4 is a small task
-with its spec already written.
+**There is no pending task anywhere.** `SHAKEDOWN.md` closed with S4 (#195), so
+the next change starts by **writing a task file** (`docs/TASK_FILE_FORMAT.md`).
+The obvious candidate is written for you: **a device pass** — §4's list is long
+and every item on it is a merged, released change nobody has looked at.
 
 **Every defect in `SHAKEDOWN.md` is fixed and none of the fixes has been
 run.** S1 is done (#189 read the phone's build, #190 did the device pass), S2
-(#191), S3 (#192), S6 (#193) and S5 (#194) followed, and the last four were built
-in cloud containers that can compile this repo but never launch it. What they
-settled, so it is not re-derived:
+(#191), S3 (#192), S6 (#193), S5 (#194) and S4 (#195) followed, and the last five
+were built in cloud containers that can compile this repo but never launch it.
+What they settled, so it is not re-derived:
 
 - The phone is on **`v1.521`**, the #187 build, so every finding in `SHAKEDOWN.md`'s
   evidence table is a live defect and none of them is an old build showing through.
@@ -139,6 +140,19 @@ settled, so it is not re-derived:
   publisher's own number with **no `≈`**; the shelf's "≈ p. 123 de 228" estimate is
   a different figure from a length the owner typed in and is deliberately unchanged.
   **Compiled and unit-tested; no book has been opened.**
+- **S4 built the block↔maré link, and its three questions were answered rather
+  than guessed.** The owner chose: concluding ticks the tide **automatically**, a
+  countable tide gains **one** per block whatever it lasted, and a **discarded**
+  block ticks nothing. The rule that follows and should not be re-litigated is
+  that a block **marks, never toggles** — routing it through the Marés tap would
+  let the second block of the day undo the first, and `cycleCount` would send a
+  countable at `target + 1` back to zero. `HabitCalculator.feedFromBlock` holds
+  that as pure arithmetic; `PautaRepository.feedLinkedTide` is its only caller,
+  and it lives in the repository because four different places conclude a block.
+  `habitId` is native-only: **a `pauta.v4` round-trip keeps the block and drops
+  the link**, which is the trade the frozen format forces. **Compiled and
+  unit-tested; no block has been started, concluded, or seen to move a tide, and
+  the 14 → 15 migration has not run on a real database.**
 - S1 found one new defect, **S6** — the first focus block's notification never
   reaches the shade, because the service goes foreground before the permission
   dialog is answered and a granted permission does not redisplay a dropped
@@ -149,11 +163,14 @@ Still not reached on any device: **S1 item 5's remainder** — F5's reader inset
 F11's full float-strip matrix, F2's session editing and delete cascade, F6's
 launcher door — plus every gesture in **S2's Accept**, every back press in
 **S3's**, **S6's clean install**, which is the only state its defect is visible
-in, and **S5's page numbers in a real book with real markers**, where the
-word-offset approximation either tracks the printed page or visibly lags it. A cloud container can
-compile and unit-test this repo but never run it (no `/dev/kvm`, no `vmx`/`svm`);
-device work needs the owner's machine (Temurin 21, the `pauta_pixel7` AVD) or a
-runner exposing KVM.
+in, **S5's page numbers in a real book with real markers**, where the
+word-offset approximation either tracks the printed page or visibly lags it, and
+now **S4's whole loop**: the new tide list in `Novo bloco`, the tick landing on
+the Marés grid, the conclude sheet's locked chip, and the **Room 14 → 15
+migration on a real database** (the 11 → 14 path was run in #190; this one has
+not been). A cloud container can compile and unit-test this repo but never run it
+(no `/dev/kvm`, no `vmx`/`svm`); device work needs the owner's machine
+(Temurin 21, the `pauta_pixel7` AVD) or a runner exposing KVM.
 
 ## 4 · What has actually been run
 
@@ -180,7 +197,7 @@ guard, `HabitCalculator`'s tide ceiling, `TimeOfDay`, `BookShelf`, `LauncherDoor
 `ReadingStats`, `DateUtils.withClock`, the EPUB sanitiser's dead links and
 page-break markers. Everything with a surface is not.
 
-**The suite is 271 tests, 19 classes as of #194** (S5 added 15). A cloud container
+**The suite is 277 tests, 19 classes as of #195** (S5 added 15, S4 six). A cloud container
 *can* run it: the Android SDK installs through the proxy
 (`cmdline-tools`, `platforms;android-35`, `build-tools;35.0.0`, JDK 21) and both
 `:app:compileDebugKotlin` and `:app:testDebugUnitTest` pass there. What it can
@@ -198,6 +215,7 @@ never do is *launch* the app — no `/dev/kvm`, no `vmx`/`svm`.
 | 2026-08-15 | S2's branch | cloud container, **build only — no app run** | S2's session (#191). Same container shape as #189, and the same conclusion: the SDK installs (`platforms;android-35`, `build-tools;35.0.0`, JDK 21 already present), `:app:compileDebugKotlin` is clean apart from the pre-existing `EpubReader.kt:276` deprecation, and `:app:testDebugUnitTest` passes — **256 tests, 19 classes, 0 failures**, the third independent run to land on that exact number. **S2's fix is therefore compiled and never performed:** it is a gesture change, and every clause of its Accept (drag up, drag down on the handle, scroll a tall body, tap the background, at 1.0 and 1.5, portrait and landscape, in `Novo bloco` and a book-mode sheet) needs a finger. |
 | 2026-08-17 | S6's branch | cloud container, **build only — no app run** | S6's session (#193). Same container, same numbers: compile clean apart from the `EpubReader.kt:276` deprecation, **256 tests, 19 classes, 0 failures**. S6 is the one task in the file whose Accept names its own test environment — *a clean install on a device or AVD* — because the defect cannot be seen on an install that already holds `POST_NOTIFICATIONS`. Neither the defect nor the fix has been observed here, and the task's stated cause remains a hypothesis. |
 | 2026-08-17 | S3's branch | cloud container, **build only — no app run** | S3's session (#192). Fourth run of the same shape and the same numbers: SDK installs, `:app:compileDebugKotlin` clean apart from the `EpubReader.kt:276` deprecation, `:app:testDebugUnitTest` **256 tests, 19 classes, 0 failures**. What is *new* about this session's evidence is where the diagnosis came from: the back-press ordering was read off the published sources of material3 1.3.0 (`ModalBottomSheetDialogLayout` registers at `PRIORITY_OVERLAY` on API 33+), activity 1.9.2 (`OnBackPressedDispatcher` hooks the platform at `PRIORITY_DEFAULT`) and compose-ui 1.7.3 (the centred `Dialog` registers nothing on the platform dispatcher). That is stronger than reasoning about a comment, and it is still not a thumb on a phone — **S3's Accept is entirely gestures and none of them has been performed.** |
+| 2026-08-19 | S4's branch | cloud container, **build only — no app run** | S4's session (#195). Fifth run of the same shape, and the first to also assemble: SDK installed through the proxy, `:app:testDebugUnitTest` **277 tests, 19 classes, 0 failures**, `:app:compileDebugKotlin` clean **and warning-free** (the `EpubReader.kt:276` deprecation was suppressed with its reasoning in this PR), `:app:assembleDebug` produces the APK. Nothing else: no block started, no tide ticked, and the **Room 14 → 15 migration has not run on any database** — it is one nullable `ALTER TABLE`, and that is an argument for it being right, not evidence that it is. |
 | 2026-08-15 | `v1.521` | owner's phone, real use | Three findings within a day of the merge, now `SHAKEDOWN.md`'s evidence section: `Nova maré` dismisses when dragged *upward*; `Novo bloco` and `Nova maré` still lose typed text on back while Hoje does not; no way to attach a block to a maré. The build was not recorded at the time and **was confirmed as `v1.521` on 2026-08-15 (#189)** — the #187 build, so two of the three are not the old build showing through: F3 shipped and the symptom survived it. All three are live. |
 
 **Nothing has been run on:** a physical device with a small screen, a tablet, a
@@ -258,9 +276,10 @@ Things a session might otherwise trip over.
   `main` from before 2026-08-03, and described `FIELD_FIXES.md` as `F1…F16` when
   it holds F1…F13. Both fixed in the PR that created this file. If you see
   either again, a merge went wrong.
-- **Two task files are open at once**, which is unusual here and deliberate:
-  they were written the same week from different angles — one from a code
-  review, one from use. `docs/README.md` explains the precedence.
+- **No task file is open at all** (since 2026-08-19). There have been periods
+  with two open at once, written the same week from different angles; if that
+  happens again, `docs/README.md` carries the precedence and the Room-version
+  rule below is what it costs to get wrong.
 - **Room version collisions are real.** v9 was claimed by `UX_FIXES` U2 while
   `BOOK_READER` R2 was in flight. Claim the number in the task file before
   writing code. See `docs/DATA_MODEL.md`.
@@ -280,15 +299,16 @@ than guess.
 | ~~*Metas de leitura* — self-set reading targets?~~ **Closed 2026-08-06 (#187):** asked, unanswered, and F13 shipped without them on the file's own argument — a target on an empty shelf is nagging, which `GUARDRAILS.md` §A forbids. Reversible: nothing was built that would have to be undone. | — | Not built |
 | ~~Does `genre` earn its keep, or go?~~ **Closed 2026-08-06 (#187):** kept. Dropping it meant a dead column plus a form that quietly stopped collecting what people had already filled in; keeping it cost one `split`. L8 consumes `BookMath.genreTags`. | — | Kept |
 | ~~**Which build is the phone on?**~~ **Answered 2026-08-15 (#189): `v1.521`** — the owner read it from Settings → Sobre. That is the #187 build, so all three findings are live defects and none of them is the old build. `SHAKEDOWN.md` S3 loses its `skipped` branch and is real work. | — | `v1.521` |
-| **Does concluding a block tick its maré automatically, or only offer to?** Automatic is the point of the link; automatic is also how a paused-and-resumed block ticks a daily tide twice. | `SHAKEDOWN.md` S4 | None — S4 stops here |
-| **For a countable tide (`n/target`), how much does one block add** — one, or one per some duration? Decides whether `targetMs` matters to the link at all. | `SHAKEDOWN.md` S4 | None — S4 stops here |
-| **Does an abandoned block count?** F4's cycle rule means a wrong tick is one tap from zero, so the cost of "yes" is low. | `SHAKEDOWN.md` S4 | None — S4 stops here |
+| ~~**Does concluding a block tick its maré automatically, or only offer to?**~~ **Answered 2026-08-19 (#195): automatically**, no prompt. The double-tick worry is answered by marking rather than toggling — a tide already done today is left alone. | — | Automatic |
+| ~~**For a countable tide (`n/target`), how much does one block add?**~~ **Answered 2026-08-19 (#195): one**, whatever the block lasted. `targetMs` never enters the link. | — | One per block |
+| ~~**Does an abandoned block count?**~~ **Answered 2026-08-19 (#195): no.** Discarding deletes the block, so nothing is kept and nothing ticks; only `Concluir` reaches the tide. | — | No |
 
 ---
 
 ## Log (append one line per PR that changes the state of the work)
 
 <!-- YYYY-MM-DD · #PR · <what moved, and anything a later session would otherwise re-derive> -->
+2026-08-19 · #195 · **S4 done — `SHAKEDOWN.md` is finished and archived, and there is no active task file.** The owner answered its three blocked questions (§6, all three struck through now) and the task was built literally to those answers: concluding a linked block ticks its tide **automatically**, a countable tide gains **one** per block whatever it lasted, and a **discarded** block ticks nothing. **The rule not to re-derive: a block marks, it never toggles.** The Marés tap is a toggle by design, so putting a block through it would let the second block of the day undo the first, and on a countable tide `cycleCount` sends `target + 1` back to zero — clearing a day nobody asked to clear. `HabitCalculator.feedFromBlock` is that decision as pure arithmetic and is unit-tested; `PautaRepository.feedLinkedTide` is its only caller and lives in the **repository** because four places conclude a block (the sheet, the notification action, the goal-reached prompt, the reader). Discarding passes through none of them, which is the owner's third answer for free. **Room 14 → 15**, one nullable `ALTER TABLE focus_blocks ADD COLUMN habitId TEXT`; `DATA_MODEL.md` carries the column and the version. `habitId` is **native-only and in neither export** — `pauta.v4` is frozen, `pauta.books.v1` carries reading sessions only — so a web round-trip keeps the block and drops the link, pinned by a test. **Two leftovers and one amendment went with it:** the `EpubReader.kt:276` deprecation is suppressed with its reasoning (the replacement reports *changes*, and the reader has zoom off, so the value is constant and needed at measure time) making the Kotlin build warning-free; the CI workflow's `checkout`/`setup-java`/`upload-artifact` moved v4 → v5 — and the run that proved it failed on `Failed to CreateArtifact: Artifact storage quota has been hit`, an account-wide limit that killed a job whose tests had passed and whose APK had assembled, so the upload step is now `continue-on-error: true` with `retention-days: 7` (on `main` that failure would have taken the release publish with it); and `CLAUDE.md` §Commands no longer says "rely on CI" — it says how to build on the owner's machine (Temurin 21) *and* in a cloud container (SDK through the proxy), because a session that believes it cannot build will not try. **What a later session should do first: a device pass.** Five of `SHAKEDOWN`'s six tasks were compiled, merged and released without a device seeing them, S4 included — and the 14 → 15 migration has not run on any real database. §4 is the list, and it is now the obvious content of the next task file.
 2026-08-17 · #194 · **S5 done — the reader says the printed page, and `SHAKEDOWN.md` is out of buildable work.** Every task in that file has shipped except **S4**, which is blocked on the owner's three answers (§6) and cannot be started without them; S5 was taken out of turn for exactly that reason. **What S5 changed:** F7 taught the sanitiser to *draw* the print edition's page markers; the parser has always known where they are and the `:reader` boundary dropped that, so the chrome could only ever show a percentage. `Epub.scanChapter` now returns the word count and the markers from one pass, three parallel arrays cross the binder beside L4's titles, and `Epub.pageIndexAt` names the **last marker passed** from the chapter and scroll fraction the reader already reports. **The thing not to re-derive: the page cannot be measured.** JavaScript is off in the reader by design (§3 of its Security model), so there is no DOM to ask which marker is on screen and no channel to answer on — the position is arithmetic in Kotlin over word offsets, which is an approximation of pixels by prose, monotone and never ahead of the reader. **The `≈` distinction is deliberate and both halves are correct:** the chrome's number is the publisher's own and carries none; `bookProgressLabel`'s "≈ p. 123 de 228" in the shelf and detail sheet is a percentage of a length the owner typed in, says so, and was left exactly as it was. **Also settled:** a cloud container can install the Android SDK through the proxy and run the full gate — **271 tests, 19 classes, 0 failures** here — which is worth knowing before the next session assumes CI is its only option. It still cannot launch the app, and **no book has been opened with this change in it**; §4 carries that beside S2's drags, S3's back presses and S6's clean install.
 2026-08-17 · #193 · **S6 done — the first block's notification is posted again once the permission lands.** `SHAKEDOWN.md` is now S1 ✓ S2 ✓ S3 ✓ S6 ✓, and the first pending task is **S5**; S4 stays blocked on the owner's three answers, so S5 is the only thing left to build. **The mechanism:** N1 asks at the first focus block and starts the block whatever the answer, so on a clean install the service goes foreground and posts into a denied permission; the system drops it, and granting afterwards does not redisplay a dropped notification. The `RequestPermission` callback — empty since N1 — now calls `AppViewModel.repostFocusNotification()`, which re-issues the same `FocusServiceController.start` for the active block. Same notification id, so it replaces rather than duplicates. The collector that already did this work was extracted to `syncFocusNotification(block, sessions)` so both callers share one body; its behaviour is unchanged. **What a later session should not assume:** S6's cause is still a *hypothesis* — the fix is right either way, but nobody has watched the shade fill. **This is the last of the three defects, and all three shipped from cloud containers that cannot run the app** — S2's drags, S3's back presses and S6's clean install are one device pass, and §4 lists them together.
 2026-08-17 · #192 · **S3 done — the first back press with the keyboard up is ours again.** `SHAKEDOWN.md` is now S1 ✓ S2 ✓ S3 ✓, and the first pending task is **S6**; S4 is still blocked on the owner's three answers, so S6 → S5 is everything buildable without him. **The mechanism, so nobody re-derives it:** from API 33 up, `ModalBottomSheet` registers its dismiss on the *platform* `OnBackInvokedDispatcher` at `PRIORITY_OVERLAY`, and every AndroidX `BackHandler` — including F3's `SheetImeBackHandler` — reaches that dispatcher at `PRIORITY_DEFAULT`, which the platform calls second. Material dismissed the sheet before the IME handler was consulted, which is why the symptom survived F3 on a build that genuinely contained F3. The fix registers our own callback one priority above Material's, and only while `isImeVisible` — so with the keyboard down nothing of ours is registered and the sheet's own back, scrim, drag and predictive-back peel are all untouched. **F3's comment was not wrong everywhere**: on API ≤ 32 and in the wide-screen centred `Dialog` the whole chain is AndroidX and last-registered wins, which is exactly what F3 assumed and tested nothing on. **Nothing about #192 has been run on a device** — the cause is read off the library sources, the fix is compiled, and every clause of S3's Accept is a gesture; §4 carries that debt beside S2's.

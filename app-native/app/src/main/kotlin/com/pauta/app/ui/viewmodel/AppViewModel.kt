@@ -216,8 +216,15 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val allSessions: StateFlow<List<FocusSessionEntity>> =
         repo.allSessions().stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
-    fun startBlock(title: String, linkedToId: String? = null, project: String? = null, targetMin: Int? = null) =
-        viewModelScope.launch { repo.startBlock(title, linkedToId, project, targetMin) }
+    // S4: [habitId] is the maré this block feeds — concluding it ticks that tide
+    // once, in the repository. // PT: a maré que o bloco alimenta.
+    fun startBlock(
+        title: String,
+        linkedToId: String? = null,
+        project: String? = null,
+        targetMin: Int? = null,
+        habitId: String? = null,
+    ) = viewModelScope.launch { repo.startBlock(title, linkedToId, project, targetMin, habitId) }
 
     fun pauseActive(note: String = "") = viewModelScope.launch { repo.pauseActive(note) }
     fun setLastSessionNote(blockId: String, note: String) =

@@ -16,7 +16,7 @@ not need to open anything else unless a task names it.
 | 1 | [`../CLAUDE.md`](../CLAUDE.md) | The repo: stack, architecture, commands, workflow, conventions |
 | 2 | [`GUARDRAILS.md`](GUARDRAILS.md) | **Binding.** What you may and may not do — identity, both lenses, data and backup, dependencies, accessibility, i18n, **the reader's security model**, closed decisions, and the never-do list |
 | 3 | [`CONTEXT.md`](CONTEXT.md) | The state of the world: what shipped, what is active, what has actually been run on a device, and what is still an open question |
-| 4 | [`SHAKEDOWN.md`](SHAKEDOWN.md) | **The active file** — S1…S5: confirming what #187 actually shipped, then the three things real use turned up |
+| 4 | — | **There is no active task file.** [`TASK_FILE_FORMAT.md`](TASK_FILE_FORMAT.md) is what to read before writing the next one |
 
 Two more, when you need them:
 
@@ -27,22 +27,24 @@ Two more, when you need them:
 
 ---
 
-## Active — [`SHAKEDOWN.md`](SHAKEDOWN.md)
+## Active — none
 
-`BOOK_LIBRARY.md` (L1…L12), `FIELD_FIXES.md` (F1…F13) and `FIRST_RUN.md` (N1…N8)
-all completed on **2026-08-06** and moved to [`archive/`](archive/README.md).
-They shipped as one PR (#187) of thirty tasks that **no device ever ran**.
+`SHAKEDOWN.md` (S1…S6) finished on **2026-08-19** and moved to
+[`archive/`](archive/README.md). It was the file that followed #187 — thirty
+tasks in one PR that **no device ever ran** — and it did the device pass, fixed
+the three defects ten minutes of real use turned up, and built the block↔maré
+link the owner reached for and did not find.
 
-`SHAKEDOWN.md` is the file that follows from that. Within a day of #187 reaching
-`main`, ordinary use turned up three things: a sheet that closes when you drag
-it, forms outside Hoje that still lose what you typed, and a block that cannot be
-attached to a maré. **S1 is a device pass over everything #187 shipped** and it
-comes first, because it decides the shape of the rest — S3 may turn out to be
-`skipped` outright. S4 is blocked on three answers from the owner.
+So **"do the next pending task" has no answer right now**: the next change starts
+by writing a task file ([`TASK_FILE_FORMAT.md`](TASK_FILE_FORMAT.md)), and
+[`CONTEXT.md`](CONTEXT.md) §3 and §4 are what to read first. §4 is the honest
+one: five of `SHAKEDOWN`'s six tasks were compiled and merged **without a device
+seeing any of them**, and it lists exactly what a device pass would have to
+cover.
 
 ## Complete
 
-The five finished task files live in [`archive/`](archive/README.md), with an
+The nine finished task files live in [`archive/`](archive/README.md), with an
 index explaining what each built and what moved out of it. **Their Logs are the
 record of why the app is the way it is** — read them for reasoning, never for
 instructions, and never follow their guardrails or data-model sections

@@ -359,4 +359,37 @@ object HabitCalculator {
         requested > target -> 0
         else -> requested.coerceAtLeast(0)
     }
+
+    /** S4 · what concluding a linked block does to the tide it feeds. */
+    enum class TideFeed {
+        /** Nothing to add — the tide is already done (or already at its target). */
+        NONE,
+
+        /** Mark the day done (a binary tide). */
+        MARK,
+
+        /** Add exactly one to the day's tally (a countable tide). */
+        COUNT,
+    }
+
+    /**
+     * S4 · a concluded block **marks, never toggles**. The Marés gesture is a
+     * toggle by design — tapping a done tide undoes it — and running a block
+     * through that gesture would mean a second block of the same work *undid* the
+     * first. So a tide already done today is left alone, and a countable one
+     * gains one per block regardless of how long the block lasted: the block's
+     * `targetMs` is a Pomodoro target, not a dose, and reading it as a multiplier
+     * would make a 90-minute block add three where a 25-minute one adds one.
+     *
+     * The count case stops at the target rather than cycling, because [cycleCount]
+     * sends `target + 1` back to zero — right for a thumb correcting itself, wrong
+     * for a block that never asked to clear the day. // PT: concluir marca, nunca
+     * alterna; uma maré contável ganha exactamente um e pára na meta.
+     */
+    fun feedFromBlock(target: Int?, cadence: String, count: Int, doneToday: Boolean): TideFeed = when {
+        doneToday -> TideFeed.NONE
+        target == null || target <= 0 || cadence != "daily" -> TideFeed.MARK
+        count >= target -> TideFeed.NONE
+        else -> TideFeed.COUNT
+    }
 }

@@ -270,8 +270,20 @@ private class LoadState {
     var downAt: Long = 0L
 }
 
-/** The scrollable height, in pixels: what the document measures, less the window
- *  showing it. Zero when a chapter fits on one screen. */
+/**
+ * The scrollable height, in pixels: what the document measures, less the window
+ * showing it. Zero when a chapter fits on one screen.
+ *
+ * `WebView.scale` is deprecated in favour of `WebViewClient.onScaleChanged`,
+ * which reports *changes* — and this needs the value at the moment it measures,
+ * before any change has been reported. The reader turns zoom off outright
+ * (`setSupportZoom(false)`, no zoom controls), so the scale is fixed for the life
+ * of the view and the callback would fire once, at load, with the number this
+ * already reads. The suppression is the accurate description of that.
+ * // PT: `scale` está obsoleto, mas a alternativa só avisa de *mudanças* e o
+ * leitor não tem zoom — o valor é constante e é preciso aqui, ao medir.
+ */
+@Suppress("DEPRECATION")
 private fun WebView.maxScroll(): Int {
     val content = (contentHeight * scale).toInt()
     return (content - height).coerceAtLeast(0)
