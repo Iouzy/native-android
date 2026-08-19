@@ -515,7 +515,17 @@ already been granted the permission.
 - ~~**The CI workflow pins deprecated actions**~~ **Done 2026-08-19 (PR #195):**
   `actions/checkout`, `actions/setup-java` and `actions/upload-artifact` moved
   v4 → v5. `android-actions/setup-android@v3` and `softprops/action-gh-release@v2`
-  are current majors and were left alone.
+  are current majors and were left alone. **Two things the bump did not do, worth
+  not re-deriving:** the Node-20 warning survives it — `upload-artifact@v5` and
+  `setup-android@v3` still ship Node 20 bundles and the runner forces them onto
+  24, which is the runner's problem and not a pin we can fix here. And the run
+  that proved the bump also failed, on **`Failed to CreateArtifact: Artifact
+  storage quota has been hit`** — an account-wide limit, unrelated to the code,
+  which killed a job whose tests had passed and whose APK had assembled. On
+  `main` that would have taken the release publish with it, so the upload step is
+  now `continue-on-error: true` with `retention-days: 7`: the gate is the tests
+  and the APK, and a per-run APK kept for the default 90 days is what fills the
+  quota.
 
 ## Amendments to other files
 
