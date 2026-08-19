@@ -344,6 +344,7 @@ class PautaRepository(private val db: AppDatabase) {
         linkedToId: String? = null,
         project: String? = null,
         targetMin: Int? = null,
+        habitId: String? = null,
     ): String? {
         val t = title.trim()
         if (t.isEmpty()) return null
@@ -360,6 +361,7 @@ class PautaRepository(private val db: AppDatabase) {
                 status = "active",
                 reflection = "",
                 createdAt = now,
+                habitId = habitId,
             ),
         )
         focusSessionDao.insert(FocusSessionEntity(blockId = id, startedAt = now, endedAt = null, position = 0))
@@ -393,13 +395,16 @@ class PautaRepository(private val db: AppDatabase) {
         focusBlockDao.upsert(b.copy(status = "active"))
     }
 
-    /** Conclude the running block; optionally tick its linked intention done. */
+    /** Conclude the running block; optionally tick its linked intention done.
+     *  S4: a block that feeds a maré ticks it here, not at the call site — the
+     *  notification action and the reader conclude blocks too. */
     suspend fun concludeActive(reflection: String, markIntentionDone: Boolean = false) {
         val now = System.currentTimeMillis()
         val active = focusBlockDao.getAll().firstOrNull { it.status == "active" } ?: return
         endOpenSession(active.id, now)
         focusBlockDao.upsert(active.copy(status = "done", reflection = reflection.trim()))
         if (markIntentionDone) markLinkedDone(active.linkedToId)
+        feedLinkedTide(active.habitId)
     }
 
     /** Conclude a paused (non-active) block. */
@@ -407,11 +412,42 @@ class PautaRepository(private val db: AppDatabase) {
         val b = focusBlockDao.getById(blockId) ?: return
         focusBlockDao.upsert(b.copy(status = "done", reflection = reflection.trim()))
         if (markIntentionDone) markLinkedDone(b.linkedToId)
+        feedLinkedTide(b.habitId)
     }
 
     private suspend fun markLinkedDone(intentionId: String?) {
         if (intentionId == null) return
         intentionDao.getById(intentionId)?.let { intentionDao.update(it.copy(done = true)) }
+    }
+
+    /**
+     * S4 · the tick a concluded block gives the maré it feeds — the whole of the
+     * link's behaviour, in the one place every conclude passes through (the
+     * sheet, the notification's *Concluir*, the reader's session, the goal-reached
+     * prompt). Discarding a block never reaches here, which is the answer to "does
+     * an abandoned block count": it does not, because nothing of it is kept.
+     *
+     * A dangling [habitId] — the tide was deleted under the block — is silence,
+     * matching how [markLinkedDone] treats a deleted intention. So is a tide that
+     * isn't due today: [toggleHabitDay] and [setHabitCount] both refuse a day the
+     * cadence doesn't own, so a weekly tide concluded off its anchor stays
+     * untouched instead of being marked on the wrong day.
+     * // PT: o toque que um bloco concluído dá à maré que alimenta; um bloco
+     * descartado não passa por aqui, e uma maré apagada ou fora do dia é silêncio.
+     */
+    private suspend fun feedLinkedTide(habitId: String?) {
+        val id = habitId ?: return
+        val h = habitDao.getById(id) ?: return
+        val day = DateUtils.todayKey()
+        val stored = habitMarkDao.getAllCounts()
+            .firstOrNull { it.habitId == id && it.dayKey == day }?.count ?: 0
+        val done = habitMarkDao.getAllLogs().any { it.habitId == id && it.dayKey == day }
+        when (HabitCalculator.feedFromBlock(h.target, h.cadence, HabitCalculator.shownCount(stored, h.target), done)) {
+            HabitCalculator.TideFeed.NONE -> Unit
+            // Not already logged, so the toggle can only mark — never unmark.
+            HabitCalculator.TideFeed.MARK -> toggleHabitDay(id, day, day)
+            HabitCalculator.TideFeed.COUNT -> setHabitCount(id, day, HabitCalculator.shownCount(stored, h.target) + 1, day)
+        }
     }
 
     suspend fun setBlockTitle(id: String, title: String) {

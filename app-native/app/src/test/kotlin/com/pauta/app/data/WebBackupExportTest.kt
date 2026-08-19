@@ -12,6 +12,7 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 
 class WebBackupExportTest {
@@ -81,5 +82,32 @@ class WebBackupExportTest {
         val block = data["blocks"]!!.jsonArray[0].jsonObject
         assertEquals("book:bk_1", block["project"]!!.jsonPrimitive.content)
         assertEquals("b_r1", WebBackup.import(WebBackup.export(snap)).blocks[0].id)
+    }
+
+    /**
+     * S4: the tide a block feeds is native-only and stays out of `pauta.v4` —
+     * the format belongs to the retired web app and a field it never knew is a
+     * field it would drop on the next round-trip anyway. The block itself
+     * survives; only its link does not, which is the trade the task took
+     * deliberately. // PT: a ligação à maré não entra no v4; o bloco entra.
+     */
+    @Test fun theTideALinkedBlockFeedsIsNotExported() {
+        val linked = FocusBlockEntity(
+            id = "b_t1", title = "Ler", status = "done", createdAt = 6_000L, habitId = "h1",
+        )
+        val snap = sampleSnapshot().copy(blocks = listOf(linked))
+        val exported = WebBackup.export(snap)
+        val payload = { s: WebBackup.Snapshot ->
+            WebBackup.json.parseToJsonElement(WebBackup.export(s)).jsonObject["data"]!!.toString()
+        }
+        assertNull(
+            WebBackup.json.parseToJsonElement(exported).jsonObject["data"]!!
+                .jsonObject["blocks"]!!.jsonArray[0].jsonObject["habitId"],
+        )
+        // And the payload is the one an unlinked block produces, key for key. (The
+        // envelope around it carries an export timestamp, so only `data` can be
+        // compared.) // PT: o conteúdo é igual ao de um bloco sem maré.
+        assertEquals(payload(snap.copy(blocks = listOf(linked.copy(habitId = null)))), payload(snap))
+        assertNull(WebBackup.import(exported).blocks[0].habitId)
     }
 }

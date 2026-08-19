@@ -45,19 +45,19 @@ Two more when a task needs them: **`docs/DATA_MODEL.md`** (every table, column
 and migration; the current Room version) and **`docs/TASK_FILE_FORMAT.md`**
 (read before writing a *new* task file). `docs/README.md` indexes everything.
 
-**There is no active task file.** All three finished on 2026-08-06 (PR #187) —
-`FIRST_RUN.md` (N1…N8), `BOOK_LIBRARY.md` (L1…L12) and `FIELD_FIXES.md`
-(F1…F13) — and moved to `docs/archive/` with the rest. So "do the next pending
-task" has no answer right now: the next change starts by **writing a task file**
+**There is no active task file.** `SHAKEDOWN.md` (S1…S6) finished on 2026-08-19
+and moved to `docs/archive/` with the rest. So "do the next pending task" has no
+answer right now: the next change starts by **writing a task file**
 (`docs/TASK_FILE_FORMAT.md`), and `docs/CONTEXT.md` §3 and §4 are what to read
-first. §4 in particular ends with a seven-item list of what a device pass over
-#187 would have to cover, because that run had no Android SDK — CI compiled and
-unit-tested all thirty tasks and **no device saw any of them**.
+first. §4 is the one that matters — it lists what a device pass still owes, and
+the debt is large: #187 shipped thirty tasks with no Android SDK at all, and five
+of `SHAKEDOWN`'s six tasks were compiled, merged and released **without a device
+seeing any of them**.
 
 **Every task file lives in `docs/archive/`** — `NATIVE_IMPROVEMENTS.md`
 (A1…T2), `BOOK_MODE.md` (K1…K9), `POLISH.md` (P1…P10), `BOOK_READER.md`
 (R1…R8), `UX_FIXES.md` (U1…U7), `BOOK_LIBRARY.md` (L1…L12), `FIELD_FIXES.md`
-(F1…F13), `FIRST_RUN.md` (N1…N8). Their **Logs are the record of why the app is
+(F1…F13), `FIRST_RUN.md` (N1…N8), `SHAKEDOWN.md` (S1…S6). Their **Logs are the record of why the app is
 the way it is**; read them for reasoning, never for instructions, and never
 follow their guardrails or data-model sections — those were consolidated into
 `GUARDRAILS.md` and `DATA_MODEL.md`.
@@ -104,9 +104,23 @@ cd app-native
 ./gradlew :app:assembleDebug         # debug APK, signed with repo-root debug.keystore
 ```
 
-Requires JDK 17 + the Android SDK (`compileSdk 35`). If the SDK isn't available
-locally (common in this environment — Gradle errors with "SDK location not
-found"), skip the local build and rely on CI to compile/test.
+Requires JDK 17–21 + the Android SDK (`compileSdk 35`). **Try to build before
+concluding you cannot** — "rely on CI" was true of neither machine that has
+tried since:
+
+- **The owner's machine builds the lot.** The blocker was never the SDK (it is
+  installed, with the `pauta_pixel7` AVD): Gradle 8.9 and AGP 8.5.2 reject the
+  JDK 25 both Android Studio's JBR and the standalone Temurin provide, failing
+  with a bare `* What went wrong: 25.0.2`. Point `JAVA_HOME` at the installed
+  **Temurin 21** (`C:\Program Files\Eclipse Adoptium\jdk-21.0.12.8-hotspot`) and
+  `ANDROID_HOME` at `%LOCALAPPDATA%\Android\Sdk`, and the commands above work
+  (8m 1s cold). The emulator works too — boot it **without** `-wipe-data`, whose
+  database is the migration fixture.
+- **A cloud container runs the whole gate.** The SDK installs through the proxy
+  (`cmdline-tools`, `platforms;android-35`, `build-tools;35.0.0`, JDK 21) in a
+  few minutes, and compile, unit tests and `assembleDebug` all pass there. What
+  it can *never* do is launch the app — no `/dev/kvm`, no `vmx`/`svm`, so no
+  emulator can be accelerated. **Device work is the owner's machine or nothing.**
 
 ## CI / releases
 

@@ -21,6 +21,11 @@ second launcher icon opens straight into book mode.
 | **2** | **Pauta** — focus blocks with a start/pause/resume/conclude timer | **Sessão** — reading sessions on the same timer |
 | **3** | **Marés** — habits with daily/weekly/monthly cadence and tide levels | **Hábitos** — the reading rhythm: annual goal, days read, charts, books finished, the shelf's pace, your notebook |
 
+**A block can feed a tide.** Starting a focus block offers today's open marés
+beside today's intentions: pick one and concluding the block marks that tide —
+once, whatever the block lasted, and however you conclude it. An hour of reading
+is both a block and a tide, and it is now logged once instead of twice.
+
 ## Reading
 
 Attach a **PDF** or **EPUB** to a book and read it in the app.

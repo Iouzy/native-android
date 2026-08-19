@@ -1,16 +1,16 @@
 # `docs/archive/` — the task files that finished
 
-Eight task files, every task shipped. They are kept because their **Logs** are
+Nine task files, every task shipped. They are kept because their **Logs** are
 the only record of *why* the app is the way it is — what was decided, what was
 rejected, and what was actually verified. Nothing else in the repository carries
 that.
 
 **These files are history, not instructions.**
 
-- **Do not work from them.** There is **no active task file right now** — the
-  last three finished together on 2026-08-06 (PR #187). `docs/README.md` says
-  what to do about that, and `docs/TASK_FILE_FORMAT.md` is what to read before
-  writing a new one.
+- **Do not work from them.** There is **no active task file right now** —
+  `SHAKEDOWN.md` finished on 2026-08-19 (S4, PR #195), and the three before it on
+  2026-08-06 (PR #187). `docs/README.md` says what to do about that, and
+  `docs/TASK_FILE_FORMAT.md` is what to read before writing a new one.
 - **Do not follow their Global guardrails sections.** Those were consolidated
   into `docs/GUARDRAILS.md`, which is now the binding copy. Where the two
   disagree, `GUARDRAILS.md` wins.
@@ -30,6 +30,7 @@ that.
 | `BOOK_LIBRARY.md` | Book mode round three: the promises L-0 found unkept (the wipe, the backup, the five statuses), then the reader a reader expects (contents, type and colour, capture from the book), then the shelf at scale | L1…L12 | Aug 2026 |
 | `FIELD_FIXES.md` | Defects found by **using** the app rather than reading a spec — the unit collision that sent a book to 100%, sessions that could not be deleted, the keyboard that ate a half-typed tide, counts with no ceiling, the launcher door | F1…F13 | Aug 2026 |
 | `FIRST_RUN.md` | The app's **edges**: the notification permission never requested, the empty screens that were signs rather than doors, the front doors themselves | N1…N8 | Aug 2026 |
+| `SHAKEDOWN.md` | The shakedown of #187: a device pass over thirty tasks nobody had run, the three defects ten minutes of real use turned up (a sheet that dismissed on a drag, a back press that ate a form, a first notification that never arrived), F7's leftover page numbers, and the block↔maré link the owner reached for and did not find | S1…S6 | Aug 2026 |
 
 ## What moved out of them, and where it went
 
@@ -41,7 +42,14 @@ that.
 | `BOOK_READER.md` § Data model additions | `docs/DATA_MODEL.md` | Same reason. |
 | Scattered "decided, don't re-open" notes | `docs/GUARDRAILS.md` §J | They were re-proposed because they were hard to find. |
 
-**A note on the last three.** `BOOK_LIBRARY`, `FIELD_FIXES` and `FIRST_RUN` were
+**A note on `SHAKEDOWN.md`.** It is the only file here written from *use* rather
+than from a spec or a code review, and it is the reason the "what has actually
+been run" section of `CONTEXT.md` exists in the shape it does. Read S1's Log
+before assuming a green suite means a working app. Its own last four tasks are
+themselves compiled and unrun — that is stated in each of their `Verified:`
+clauses and it is not an oversight.
+
+**A note on the three before it.** `BOOK_LIBRARY`, `FIELD_FIXES` and `FIRST_RUN` were
 open at the same time and finished in **one PR** rather than thirty — the reason
 is in that PR's description and in `CONTEXT.md`'s Log. Their Logs are per-task
 as usual, and each says plainly what was *not* verified, which for that run is

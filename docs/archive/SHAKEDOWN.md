@@ -350,7 +350,7 @@ README edit; CI green.
 
 ---
 
-## S4 · A block that feeds a maré — Status: pending · **blocked on a decision**
+## S4 · A block that feeds a maré — Status: done (PR #195)
 
 **Depends on:** S1, S2 (do not add a control to a sheet whose gestures are
 broken).
@@ -365,13 +365,13 @@ because there is nothing to tick. The name "Tide-rise focus card"
 
 **This is a feature, not a defect.** Nothing dropped it; it was never specified.
 
-**Blocked on the owner, and the task stops here until he answers:**
+**Answered by the owner on 2026-08-19, and built exactly this way:**
 
-| Question | Why it changes the build |
+| Question | His answer |
 |---|---|
-| Does concluding a block **tick the tide automatically**, or only offer to? | Automatic is the point of the link; automatic is also how a paused-and-resumed block ticks a daily tide twice |
-| For a **countable** tide (`n/target`), how much does one block add — one, or one per some duration? | Decides whether `targetMs` matters at all |
-| Does an **abandoned** block count? | F4's cycle rule means a wrong tick is one tap from zero, so the cost of "yes" is low |
+| Does concluding a block **tick the tide automatically**, or only offer to? | **Automatically.** No prompt — it is the point of the link. The double-tick worry is avoided by *marking* rather than toggling, so a tide already done today is left alone |
+| For a **countable** tide (`n/target`), how much does one block add — one, or one per some duration? | **One**, whatever the block lasted. `targetMs` never enters the link |
+| Does an **abandoned** block count? | **No.** Discarding deletes the block; nothing is kept, so nothing ticks |
 
 **Files to touch:**
 - `data/entity/Entities.kt` — `FocusBlockEntity.habitId: String? = null`
@@ -506,11 +506,16 @@ already been granted the permission.
   names a specific build against a rolling tag and is only updated per-PR.~~
   **Done 2026-08-15 (PR #189):** it now names the rolling `latest-native` tag and
   carries no number, so there is nothing left to go stale.
-- **`EpubReader.kt:276` uses a deprecated `val scale: Float`** — the only warning
-  in an otherwise clean build. Fold into the next PR touching that file.
-- **The CI workflow pins deprecated actions** — `actions/setup-java@v4` warns it
-  will receive no more updates, and five actions are being forced onto Node 24.
-  Not urgent, but it will break rather than warn eventually.
+- ~~**`EpubReader.kt:276` uses a deprecated `val scale: Float`**~~ **Done
+  2026-08-19 (PR #195):** the replacement the deprecation points at
+  (`WebViewClient.onScaleChanged`) reports *changes*, and `maxScroll()` needs the
+  value at the moment it measures — but the reader turns zoom off outright, so
+  the scale is constant and the suppression is the accurate description of that,
+  not a silencing. `:app:compileDebugKotlin` is now warning-free.
+- ~~**The CI workflow pins deprecated actions**~~ **Done 2026-08-19 (PR #195):**
+  `actions/checkout`, `actions/setup-java` and `actions/upload-artifact` moved
+  v4 → v5. `android-actions/setup-android@v3` and `softprops/action-gh-release@v2`
+  are current majors and were left alone.
 
 ## Amendments to other files
 
@@ -525,7 +530,9 @@ already been granted the permission.
   to it and `ANDROID_HOME` to `%LOCALAPPDATA%\Android\Sdk` makes the documented
   commands work (8m 1s cold). The next PR touching `CLAUDE.md` should say this
   instead of "rely on CI" — a session that believes it cannot build locally will
-  not try.
+  not try. **Done 2026-08-19 (PR #195):** `CLAUDE.md` §Commands now carries both
+  halves — the owner's JDK 21 path, and the fact that a cloud container installs
+  the SDK through the proxy and runs the whole gate.
 - **The emulator works here too, and a session should try it** (added 2026-08-15,
   S1/#190). `emulator -accel-check` reports WHPX installed and usable, and
   `emulator -avd pauta_pixel7 -no-snapshot-load` is at `sys.boot_completed=1` in
@@ -551,21 +558,21 @@ S6  ──────────────  done (#193) — the hypothesis w
  │
 S5  ──────────────  done (#194) — F7's leftover is closed; no book has been opened
  │
-S4  ──────────────  blocked on the owner's three answers
+S4  ──────────────  done (#195) — the owner answered; built, and unrun
 ```
 
 S2, S3, S6 and S5 are all independent of each other — any order works, and S5 was
-taken out of turn because S4 sits above it and cannot move. **All four have
-shipped, so the only thing left in this file is S4**, and it needs the owner's
-three answers before a line of it can be written.
+taken out of turn because S4 sat above it and could not move. **Every task in
+this file has shipped**, so the file is closed and lives in `docs/archive/`.
 
-**Blocked on a decision:** S4, on the three questions in its table — now the
-*only* thing this file is waiting for. S3's existence was conditional on S1 and
-is settled: it was real, and it is fixed.
+S3's existence was conditional on S1 and is settled: it was real, and it is
+fixed. S4 was blocked on three decisions and stayed blocked until the owner
+answered all three on 2026-08-19; nothing was guessed.
 
 **Every fix in this file after S1 is unverified on a device** — S2's drags, S3's
-back presses and S6's clean install are all gestures, and this file's own third
-guardrail is what they owe. `CONTEXT.md` §4 is the list.
+back presses, S6's clean install and now S4's whole loop are gestures and a
+database, and this file's own third guardrail is what they owe. `CONTEXT.md` §4
+is the list.
 
 ---
 
@@ -577,6 +584,7 @@ ten minutes of real use; an entry that cannot say what was verified should say
 that instead.
 
 <!-- e.g. 2026-08-16 · S1 · #n · … · Verified: Pixel 7 AVD, Android 15 -->
+2026-08-19 · S4 · #195 · **The link exists at both ends of the block now, and the tick lives in one place.** `FocusBlockEntity.habitId` (Room 14 → 15, one nullable `ALTER TABLE`) is the whole schema of it; `Novo bloco` lists today's open marés under `…ou alimenta uma maré`, right below the intentions, and picking one is optional, unpicks on a second tap and fills an empty title with the tide's name. **The owner's three answers, built literally:** concluding ticks the tide *automatically*, a countable tide gains *one* per block whatever it lasted, and a *discarded* block ticks nothing. **The one rule worth not re-deriving: a block marks, it never toggles.** The Marés gesture is a toggle by design — tapping a done tide undoes it — so routing a block through `toggleHabitDay` would mean the second block of the same work *undid* the first, and on a countable tide `cycleCount` would send `target + 1` back to zero, clearing a day the user never asked to clear. `HabitCalculator.feedFromBlock` is that decision as pure arithmetic (already-done → nothing, countable-below-target → +1, at-target → nothing, anything else → mark) and it is unit-tested; `PautaRepository.feedLinkedTide` is the only caller. **It sits in the repository, not at the call site, because there are four call sites**: the conclude sheet, the notification's *Concluir*, the goal-reached prompt and the reader's session. Discarding a block does not pass through any of them, which is exactly the owner's third answer. A deleted tide, or a weekly tide concluded off its anchor day, is silence — `toggleHabitDay` and `setHabitCount` already refuse a day the cadence does not own, and a dangling `habitId` is treated the way `linkedToId` has always treated a deleted intention. **In the conclude sheet the fed tide is a statement, not a chip.** The sheet already offered today's tides as multi-select chips (that predates S4); the linked one is now lifted out of that row under `Concluir marca a maré`, shown ticked and not clickable, because it is going to be marked whichever way the block is concluded and offering a choice that does not exist would be a lie. A countable tide shows where it will land (`3/5`). **Not exported, deliberately:** `pauta.v4` is frozen, so the column is native-only and a web round-trip keeps the block and drops the link; `pauta.books.v1` carries reading sessions only and never sees a planner block. A test pins the payload as identical to an unlinked block's. **Out of scope and still out:** starting a block *from* the Marés tab. · Verified: **compiled and unit-tested on a real SDK in this container — and nobody has started a block, concluded one, or watched a tide move.** `:app:testDebugUnitTest` is **277 tests, 19 classes, 0 failures** (six new: five over `feedFromBlock`, one over the v4 payload), `:app:compileDebugKotlin` is clean *and now warning-free* — the `EpubReader.kt:276` deprecation in Leftovers went with this PR — and `:app:assembleDebug` produces the APK. What no test reaches: the sheet's new list at 1.5× text scale, the tick actually landing on the Marés grid, and the migration running on a real v14 database. `CONTEXT.md` §4 carries that beside S2's drags, S3's back presses and S6's clean install.
 2026-08-17 · S5 · #194 · **The publisher's page numbers were already being read; nothing was remembering where they were.** F7 taught the *sanitiser* to draw a marker in the page; S5 teaches the *parser* to keep its position, and puts that across the `:reader` boundary the way L4 put the chapter names. `Epub.scanChapter` replaces `countWords` as the one pass `parse` makes over each chapter and returns both — the same word count (the rule is untouched, character for character, because every stored bookmark's percentage is weighted by it) plus the markers, each with the words that preceded it. Three parallel arrays cross the binder — `KEY_PAGE_LABELS`, `KEY_PAGE_CHAPTERS`, `KEY_PAGE_WORDS` — and `EpubSession.open` refuses a reply where one is present and another is not, or where the lengths disagree, exactly as it refuses a mismatched title list; a marker naming a chapter outside the spine is a different thing and is dropped on its own, so that book still opens. **The deviation worth reading: `EpubReader.kt` was not touched, and the task file expected it to be.** It named "reporting the current marker as the view scrolls", which reads as asking the page for its markers — but §3 of the reader's Security model has JavaScript **off**, so there is no DOM to query and no channel to answer on, and adding one would be the second `:reader` channel this task explicitly forbids. The position is instead computed in Kotlin from what the reader already reports: `Epub.pageIndexAt` takes the chapter and the scroll fraction the WebView's own `setOnScrollChangeListener` has always sent up, and returns the **last marker passed** — a reader who is past page 123 is on 123 until 124 arrives, which is how paper behaves and never names a page not yet reached. A marker's place inside its chapter is its word offset over the chapter's words, so it is an approximation of pixels by prose; it is honest about direction and monotone, which is what a page number has to be. **Where the number comes from and why it needs no `≈`:** the label is the publisher's own string, arabic or roman, validated by the same `pageNumberish` gate F7 applied to attributes — pulled out of `pageBreakLabel` so an unlabelled marker's own *text* passes through it too, now that the text travels back across the binder and into the chrome instead of only into a CSS `::after`. The total is `lastPrintedPage`, the largest **arabic** label in the book: roman front matter would make "página 12 de xxiv", and a book numbered in roman throughout gets `página xii` with no total rather than an invented one. **What was deliberately left alone:** `bookProgressLabel`'s "≈ p. 123 de 228" in the shelf and the detail sheet. It is a percentage of a length the owner typed in, it says so, and it has no access to a parsed book — S5's Accept asks for the real page **in the chrome**, and that is where it is. Also untouched: the `EpubReader.kt:276` deprecation in Leftovers, which is owed to the next PR that actually edits that file. · Verified: **compiled and unit-tested, on a real SDK, in this container — but no book has been opened and no chapter scrolled.** The Android SDK installs through the proxy here (`platforms;android-35`, `build-tools;35.0.0`, JDK 21): `:app:compileDebugKotlin` is clean apart from the pre-existing `EpubReader.kt:276` deprecation, and `:app:testDebugUnitTest` is **271 tests, 19 classes, 0 failures** — 15 new, twelve in `EpubTest` over the scan, the offsets, the last-marker-passed rule and the arabic total, three in `EpubInfoTest` over the shape the list arrives in. The word count is pinned by a test asserting a chapter counts the same with markers as without. What no test can reach is the thing that matters: **a real book, with real markers, at a real text size**, where the word-offset approximation either tracks the printed page or visibly lags it. `CONTEXT.md` §4 carries that alongside S2's drags and S3's back presses.
 2026-08-17 · S6 · #193 · **The permission arrives after the notification it was for, so the notification is issued again.** Built exactly the shape the task specified — one call in the launcher callback that already existed — with the one piece of plumbing it needed: `AppViewModel`'s block→service collector was an inline lambda, so its body is now `syncFocusNotification(block, sessions)` and the new `repostFocusNotification()` calls the same function with the current active block. Nothing about the collector's behaviour changed; it is the identical code with a name. In `ui/Permissions.kt` the `RequestPermission` callback, empty since N1, now does `if (granted) vm.repostFocusNotification()`. Re-issuing `FocusServiceController.start` is the whole re-post: same `NOTIF_ID`, so an already-visible notification is replaced rather than duplicated, which is the Accept's "no duplicate when permission was already granted". **What was deliberately not touched:** the order — N1 starts the block whatever the answer, and S1 verified that on a device, so the dialog still does not gate the timer. **What this ships without proof:** S6's cause is a hypothesis (the post is dropped because the service goes foreground before the answer) and only a clean install can confirm the fix; the re-post is correct behaviour either way, but "the shade now has it" is unwitnessed. One race left in the open, too small to design around and worth naming: the re-post reads the active block, so a user who taps **Allow** faster than Room can write the block would still get nothing — the dialog's own animation is longer than that write, which is why it is left alone. · Verified: **compiled and unit-tested only — no device, no clean install, nothing in a shade.** Cloud container: `:app:compileDebugKotlin` clean apart from the pre-existing `EpubReader.kt:276` deprecation, `:app:testDebugUnitTest` **256 tests, 19 classes, 0 failures**. S6's Accept names a clean install on a device or AVD in bold and this session had neither; the defect is invisible on any install that already holds the permission, so a re-install is the only way to see it.
 2026-08-17 · S3 · #192 · **F3's handler was never wrong about what to do, only about who hears the back press first — and the answer is in the libraries' own source, not in a guess.** The task named two suspects and it is the second: on API 33+ `ModalBottomSheetDialogLayout.onAttachedToWindow` registers its dismiss straight with the **platform** `OnBackInvokedDispatcher` at `PRIORITY_OVERLAY` (`ModalBottomSheet.android.kt`, material3 1.3.0), while every AndroidX `BackHandler` reaches that dispatcher through `OnBackPressedDispatcher` at `PRIORITY_DEFAULT` (activity 1.9.2), and the platform calls the higher priority first. So Material dismissed the sheet before `SheetImeBackHandler` was consulted at all, and the typed text died with it — on every device from Android 13 up, which is the owner's phone and the AVD both. `WindowInsets.isImeVisible`, the first suspect, is innocent: it was never reached. **Why F3's assertion looked right:** it *is* right in the two places it was reasoned about — API ≤ 32, and the wide-screen centred `Dialog`, which registers nothing on the platform dispatcher (compose-ui 1.7.3) — and both invoke the last-registered enabled callback first, which is F3's. The phone path on a modern phone is the one case it does not hold, and that is the only path the owner uses. **The fix is one rung, not a rewrite:** while the keyboard is up, register our own `OnBackInvokedCallback` on the *same* dispatcher at `PRIORITY_OVERLAY + 1`; below API 33 keep the `BackHandler`, which already wins there. It is registered only while `isImeVisible`, so with the keyboard down nothing of ours exists and Material's dismiss — including its predictive-back peel on API 34+ — is untouched, which is what the second back press and the peel clause of the Accept both rest on. Deliberately **not** done: `shouldDismissOnBackPress = false` plus a hand-rolled back stage, which would have meant re-implementing the peel; and a `confirmValueChange` gate, which the scrim tap and the drag handle also route through, so it would have changed two gestures S2 had just settled. No new dependency — `android.window` is the framework (§D). The half of the fix that *has* been seen on a device is the action itself: `focus.clearFocus()` + `keyboard?.hide()` is exactly what F3's background tap does, and S1 watched that keep the sheet and the text. · Verified: **compiled and unit-tested only — no device, nobody has pressed back.** Cloud container again: the SDK installs (`platforms;android-35`, `build-tools;35.0.0`, JDK 21), `:app:compileDebugKotlin` is clean apart from the pre-existing `EpubReader.kt:276` deprecation, and `:app:testDebugUnitTest` passes — **256 tests, 19 classes, 0 failures**, the fourth run to land on that number. The dispatcher-priority claim is read off the material3, activity and compose-ui sources, which is stronger than reasoning but is still not a thumb: **every clause of S3's Accept needs one**, and `CONTEXT.md` §4 carries that debt next to S2's.

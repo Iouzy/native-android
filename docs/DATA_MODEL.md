@@ -12,8 +12,8 @@
 Source paths are relative to
 `app-native/app/src/main/kotlin/com/pauta/app/`.
 
-**Room is at version 14** (`data/AppDatabase.kt`), with migrations 1→2
-through 13→14 registered. The next migration a task writes is **14 → 15**.
+**Room is at version 15** (`data/AppDatabase.kt`), with migrations 1→2
+through 14→15 registered. The next migration a task writes is **15 → 16**.
 
 ---
 
@@ -96,6 +96,24 @@ All `// native-only`. Every value in the reader group clamps **in the
 setter**, not at the point of use — a prefs row is data, and data that can be out
 of range is data something downstream has to keep re-checking.
 
+### `FocusBlockEntity` (table: `focus_blocks`) — the native-only columns
+
+The block itself is `pauta.v4`'s shape unchanged (`id`, `title`, `linkedToId`,
+`project`, `targetMs`, `status`, `reflection`, `createdAt`). Two columns are
+native additions and are in **neither** export — `pauta.v4` because the format is
+frozen, `pauta.books.v1` because it carries reading sessions only:
+
+| Column | Type | Default | Notes |
+|---|---|---|---|
+| `pagesDelta` | Int? | `null` | the reader's own measured span; `null` = nobody counted, which is not `0` — R5 |
+| `habitId` | String? | `null` | the maré this block feeds; concluding it ticks that tide once — S4 |
+
+`habitId` may dangle exactly as `linkedToId` does: deleting a tide does not
+touch the blocks that pointed at it, and `PautaRepository.feedLinkedTide` reads
+a missing tide as silence. **It is lost on a `pauta.v4` round-trip** — the block
+survives the export, its link does not. That trade is S4's, taken so the frozen
+format stays frozen.
+
 ### Reading sessions — no new tables
 
 A reading session **is** a `FocusBlockEntity` with `project = "book:<bookId>"`.
@@ -148,7 +166,8 @@ The security rules that govern how a file gets there are section G of
 | 11 → 12 | `notifAskedAt` | `FIRST_RUN` N1 |
 | 12 → 13 | `readerTextScale`, `readerLineHeight`, `readerMargin`, `readerTheme` | `BOOK_LIBRARY` L5 |
 | 13 → 14 | `readingReminderEnabled`, `readingReminderTime` | `BOOK_LIBRARY` L10 |
-| **14 → 15** | **next free** | — |
+| 14 → 15 | `habitId` on `focus_blocks` | `SHAKEDOWN` S4 |
+| **15 → 16** | **next free** | — |
 
 **Never rewrite a shipped migration.** If a shipped one was wrong, the fix is a
 new migration that repairs the data, plus a Log line saying what it repairs.
@@ -163,6 +182,7 @@ cost a rebase.
 ## Log (append when the model changes)
 
 <!-- YYYY-MM-DD · <what changed> · #PR · <why, and what it replaced> -->
+2026-08-19 · `habitId` on `focus_blocks`, Room 14 → 15 · #195 · S4. The join between the Pauta and Marés tabs: a block can name the tide it feeds, and concluding it ticks that tide once. Nullable because every block that already exists feeds no tide, and native-only because `pauta.v4` is frozen — the column is in neither export, so a web round-trip keeps the block and drops the link.
 2026-08-06 · the reading reminder on `prefs`, Room 13 → 14 · #187 · L10. Two gates, not one: its own switch and `bookMode`, and the lens is a key of the reschedule flow so turning it off cancels the alarm rather than hiding the switch.
 2026-08-06 · the reader's four settings on `prefs`, Room 12 → 13 · #187 · L5. All four default to what the reader already did, so an existing install reads exactly as before until someone opens the sheet. `readerTextScale` **replaces** the density font scale for a book's body; the app-wide `textScale` still governs the reader's chrome.
 2026-08-06 · `notifAskedAt` on `prefs`, Room 11 → 12 · #187 · N1 needed one bit of state — have we ever asked for `POST_NOTIFICATIONS`? — because Android shows that dialog once and a second request is silent. Stored as a timestamp rather than a Boolean so a later task can tell *when*, at no cost. **This took the 11 → 12 slot `BOOK_LIBRARY.md` L5 had claimed**; L5 moves to 12 → 13 and L10 to the next free one after it.

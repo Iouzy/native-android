@@ -61,7 +61,7 @@ import com.pauta.app.data.entity.RoutineItemEntity
         BookEntity::class,
         BookNoteEntity::class,
     ],
-    version = 14,
+    version = 15,
     exportSchema = false,
 )
 @TypeConverters(Converters::class)
@@ -262,6 +262,17 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        // S4: the maré a focus block feeds. Nullable because an existing block —
+        // and every planner block that is only a block — belongs to no tide; the
+        // column is native-only and never leaves in a pauta.v4 export. // PT: a
+        // maré que um bloco alimenta; NULL = nenhuma, que é o caso de todos os
+        // blocos que já existem.
+        private val MIGRATION_14_15 = object : Migration(14, 15) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE focus_blocks ADD COLUMN habitId TEXT")
+            }
+        }
+
         // E1: on a brand-new database Room has just created every entity table —
         // add the FTS index and its sync triggers (no data to backfill yet). The
         // upgrade path does the same in MIGRATION_5_6. // PT: numa BD nova, cria o
@@ -441,7 +452,7 @@ abstract class AppDatabase : RoomDatabase() {
                         MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5,
                         MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9,
                         MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12,
-                        MIGRATION_12_13, MIGRATION_13_14,
+                        MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15,
                     )
                     .addCallback(SEARCH_CALLBACK)
                     .build()

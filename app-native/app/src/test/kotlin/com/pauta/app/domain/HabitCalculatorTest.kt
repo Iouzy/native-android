@@ -1,5 +1,6 @@
 package com.pauta.app.domain
 
+import com.pauta.app.domain.HabitCalculator.TideFeed
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -164,5 +165,40 @@ class HabitCalculatorTest {
         assertEquals(7, HabitCalculator.cycleCount(7, 0))
         assertEquals(0, HabitCalculator.shownCount(-3, null))
         assertEquals(0, HabitCalculator.cycleCount(-3, 4))
+    }
+
+    // ── S4 · the tick a concluded block gives its tide ──────
+
+    @Test fun aBlockMarksABinaryTide() {
+        assertEquals(TideFeed.MARK, HabitCalculator.feedFromBlock(null, "daily", 0, doneToday = false))
+        assertEquals(TideFeed.MARK, HabitCalculator.feedFromBlock(null, "weekly", 0, doneToday = false))
+    }
+
+    @Test fun aBlockNeverUndoesATideThatIsAlreadyDone() {
+        // The Marés tap is a toggle; running a block through it would mean the
+        // second block of the day undid the first. // PT: o segundo bloco não
+        // desmarca o primeiro.
+        assertEquals(TideFeed.NONE, HabitCalculator.feedFromBlock(null, "daily", 0, doneToday = true))
+        assertEquals(TideFeed.NONE, HabitCalculator.feedFromBlock(3, "daily", 1, doneToday = true))
+    }
+
+    @Test fun aBlockAddsExactlyOneToACountableTide() {
+        assertEquals(TideFeed.COUNT, HabitCalculator.feedFromBlock(3, "daily", 0, doneToday = false))
+        assertEquals(TideFeed.COUNT, HabitCalculator.feedFromBlock(3, "daily", 2, doneToday = false))
+    }
+
+    @Test fun aCountableTideAtItsTargetStopsRatherThanCycling() {
+        // cycleCount sends target + 1 back to zero — right for a thumb correcting
+        // itself, wrong for a block that never asked to clear the day.
+        // // PT: a contagem pára na meta em vez de voltar a zero.
+        assertEquals(TideFeed.NONE, HabitCalculator.feedFromBlock(3, "daily", 3, doneToday = false))
+        assertEquals(TideFeed.NONE, HabitCalculator.feedFromBlock(3, "daily", 9, doneToday = false))
+    }
+
+    @Test fun aCountableTargetOnANonDailyCadenceIsMarked() {
+        // `isCount` is target-and-daily everywhere else (computeTodayTides), and
+        // this must agree with it. // PT: contável é meta + diária, como no resto.
+        assertEquals(TideFeed.MARK, HabitCalculator.feedFromBlock(3, "weekly", 0, doneToday = false))
+        assertEquals(TideFeed.MARK, HabitCalculator.feedFromBlock(0, "daily", 0, doneToday = false))
     }
 }

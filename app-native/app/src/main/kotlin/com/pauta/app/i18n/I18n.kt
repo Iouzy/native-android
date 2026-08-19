@@ -191,6 +191,9 @@ object I18n {
         "\"{t}\" será automaticamente pausado." to "\"{t}\" will be automatically paused.",
         "ex.: escrever capítulo 3" to "e.g.: write chapter 3",
         "ou continue com…" to "or continue with…",
+        // native-only (S4): the block↔maré link, at both ends of the block.
+        "…ou alimenta uma maré" to "…or feed a tide",
+        "Concluir marca a maré" to "Finishing ticks the tide",
         "retomar de antes" to "resume from before",
         "projecto (opcional)" to "project (optional)",
         "ex.: Livro, Cliente X, Casa" to "e.g.: Book, Client X, House",
