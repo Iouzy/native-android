@@ -16,7 +16,7 @@ not need to open anything else unless a task names it.
 | 1 | [`../CLAUDE.md`](../CLAUDE.md) | The repo: stack, architecture, commands, workflow, conventions |
 | 2 | [`GUARDRAILS.md`](GUARDRAILS.md) | **Binding.** What you may and may not do — identity, both lenses, data and backup, dependencies, accessibility, i18n, **the reader's security model**, closed decisions, and the never-do list |
 | 3 | [`CONTEXT.md`](CONTEXT.md) | The state of the world: what shipped, what is active, what has actually been run on a device, and what is still an open question |
-| 4 | — | **There is no active task file.** [`TASK_FILE_FORMAT.md`](TASK_FILE_FORMAT.md) is what to read before writing the next one |
+| 4 | [`TIDE_GOALS.md`](TIDE_GOALS.md) | **The active file** — M1…M3: a mínimo that closes the tide and a meta above it, the surplus said out loud, and a door to the numbers |
 
 Two more, when you need them:
 
@@ -27,7 +27,7 @@ Two more, when you need them:
 
 ---
 
-## Active — none
+## Active — [`TIDE_GOALS.md`](TIDE_GOALS.md)
 
 `SHAKEDOWN.md` (S1…S6) finished on **2026-08-19** and moved to
 [`archive/`](archive/README.md). It was the file that followed #187 — thirty
@@ -35,12 +35,18 @@ tasks in one PR that **no device ever ran** — and it did the device pass, fixe
 the three defects ten minutes of real use turned up, and built the block↔maré
 link the owner reached for and did not find.
 
-So **"do the next pending task" has no answer right now**: the next change starts
-by writing a task file ([`TASK_FILE_FORMAT.md`](TASK_FILE_FORMAT.md)), and
-[`CONTEXT.md`](CONTEXT.md) §3 and §4 are what to read first. §4 is the honest
-one: five of `SHAKEDOWN`'s six tasks were compiled and merged **without a device
-seeing any of them**, and it lists exactly what a device pass would have to
-cover.
+`TIDE_GOALS.md` is the file that follows it, written from a conversation rather
+than a defect. A countable maré's single number is both its ceiling and what
+marks the day done, so aiming for five litres of water and drinking three reads
+as 60%, a half-filled cell and a broken streak — ambition punished. M1 splits it
+into a **mínimo** that closes the tide and an optional **meta** above it, M2 says
+the surplus out loud as one global figure, and M3 gives the numbers a door that
+isn't inside Settings.
+
+**Still owed, and larger than the active file:** five of `SHAKEDOWN`'s six tasks
+were compiled and merged **without a device seeing any of them**.
+[`CONTEXT.md`](CONTEXT.md) §4 lists exactly what a device pass would have to
+cover, and it does not get shorter on its own.
 
 ## Complete
 

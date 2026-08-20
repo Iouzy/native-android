@@ -10,7 +10,7 @@
 > shipped, a file completed, an order changed: it lands here too. A stale
 > CONTEXT is worse than none, because it is believed.
 
-**Last updated:** 2026-08-19 · **Room:** v15 · **Released:** the rolling
+**Last updated:** 2026-08-20 · **Room:** v15 · **Released:** the rolling
 `latest-native` tag — always the newest `main` build · **Branch of record:**
 `main`
 
@@ -49,9 +49,11 @@ this file → your task file. Nothing else needs opening unless a task names it.
 
 ## 3 · The work, at a glance
 
-**There is no active file.** `docs/archive/SHAKEDOWN.md` (S1…S6 — S6 was added by
-S1's own device pass, PR #190) finished on **2026-08-19** with S4, and moved to
-the archive with the rest. The three files before it all finished on 2026-08-06
+**The active file is `docs/TIDE_GOALS.md` (M1…M3)**, created 2026-08-20 from a
+conversation with the owner rather than from a defect or a review — the shape of
+it is in §3's "What to do next" below. `docs/archive/SHAKEDOWN.md` (S1…S6 — S6
+was added by S1's own device pass, PR #190) finished on **2026-08-19** with S4,
+and moved to the archive with the rest. The three files before it all finished on 2026-08-06
 in one PR (#187) — 30 tasks, one commit each. The count this section used to
 carry said "22 across two files, plus one new file", which was already wrong when
 it was written: the three files held **30**.
@@ -106,10 +108,22 @@ shipped — read them when you need to know *why*, never to know *what to do*.
 
 ### What to do next
 
-**There is no pending task anywhere.** `SHAKEDOWN.md` closed with S4 (#195), so
-the next change starts by **writing a task file** (`docs/TASK_FILE_FORMAT.md`).
-The obvious candidate is written for you: **a device pass** — §4's list is long
-and every item on it is a merged, released change nobody has looked at.
+**`docs/TIDE_GOALS.md` M1 is the first pending task**, and nothing in that file is
+blocked. It exists because a countable maré's `target` does two jobs at once —
+it is the tap ceiling *and* the threshold that writes the log — so someone
+aiming for 5 litres of water and drinking 3 is shown 60%, a half-filled PARTIAL
+cell and a broken streak. M1 splits it: `target` stays as the **mínimo** that
+closes the day, a new nullable `stretch` is the **meta** above it, and the tap
+ceiling moves to the meta so F4's tap-past-to-clear gesture survives unchanged.
+M2 adds one global surplus figure to the reviews (magnitude headline, frequency
+second line, each day's ratio floored at 1.0 so a missed day never subtracts).
+M3 puts a chart icon beside the gear, drops Hoje's `revisão ↗` chip, and hides
+the icon in book mode.
+
+**The larger debt is still §4, and it is not what the active file addresses.**
+Every task in `SHAKEDOWN.md` after S1 was merged and released without a device
+seeing it. A device pass is the change with the most value per hour available
+right now; `TIDE_GOALS.md` is what the owner asked for next.
 
 **Every defect in `SHAKEDOWN.md` is fixed and none of the fixes has been
 run.** S1 is done (#189 read the phone's build, #190 did the device pass), S2
@@ -308,6 +322,7 @@ than guess.
 ## Log (append one line per PR that changes the state of the work)
 
 <!-- YYYY-MM-DD · #PR · <what moved, and anything a later session would otherwise re-derive> -->
+2026-08-20 · #196 · **`docs/TIDE_GOALS.md` created (M1…M3) — the first task file written from a conversation rather than from a defect, a device or a review.** The problem it names: `HabitEntity.target` does two jobs at once — F4's tap ceiling *and* the threshold `setHabitCount` writes the log at — so the number that expresses ambition is the same number that decides whether the day counts. Aim for 5 litres, drink 3, and the app answers with 60%, a half-filled PARTIAL cell and a broken streak. The rational response is to set every target as low as possible, which is the opposite of what a goal is for. **M1 splits it and existing data does not move:** `target` keeps its name and becomes explicitly the *mínimo*, a nullable `stretch` (Room **15 → 16**, claimed in the file) is the *meta*, and the log is still written at `target` — so a tide with no meta behaves exactly as it does today. **The two questions that were open in the conversation answer each other:** moving the tap ceiling from the mínimo to `stretch ?: target` means the tap climbs to the meta and the tap after that clears, which is F4's gesture unchanged, and that is also the answer to "can you exceed the meta" (no — raise the meta). Unbounded counting lost because it leaves the correction gesture nothing to hang on, and F4 exists precisely because an uncorrectable count is permanently wrong. **M2 is one global figure** — magnitude as the headline, frequency underneath, per-day ratios averaged rather than two sums divided (litres would otherwise drown out sets), **each day floored at 1.0 so a missed day never subtracts**, and a period at exactly the minimum says "cumpriste todos os mínimos" rather than `+0%`. §A forbids gamification and a surplus number is one hop from a score, so the file makes it a rule: a sentence of fact, no badge, no surplus streak. **M3 was trimmed by a guardrail during writing, and this is the part not to re-derive:** the plan was to move Settings' two Análise rows out to the new stats door, and §J forbids it — *no Settings row is ever deleted*. So the rows stay (they are searchable directory entries), Hoje's `revisão ↗` chip is dropped instead (the owner's call, consistent with §J's ruling on the Pauta tab's two start affordances), and the icon is hidden in book mode because that lens already has reading statistics as its whole third tab. Also checked and recorded: this is **not** §J's *Metas de leitura*, which refused adding a target to a surface that had none — this makes an existing target less punishing. **Nothing was built.** The file is a spec; M1 is pending and unblocked.
 2026-08-19 · #195 · **S4 done — `SHAKEDOWN.md` is finished and archived, and there is no active task file.** The owner answered its three blocked questions (§6, all three struck through now) and the task was built literally to those answers: concluding a linked block ticks its tide **automatically**, a countable tide gains **one** per block whatever it lasted, and a **discarded** block ticks nothing. **The rule not to re-derive: a block marks, it never toggles.** The Marés tap is a toggle by design, so putting a block through it would let the second block of the day undo the first, and on a countable tide `cycleCount` sends `target + 1` back to zero — clearing a day nobody asked to clear. `HabitCalculator.feedFromBlock` is that decision as pure arithmetic and is unit-tested; `PautaRepository.feedLinkedTide` is its only caller and lives in the **repository** because four places conclude a block (the sheet, the notification action, the goal-reached prompt, the reader). Discarding passes through none of them, which is the owner's third answer for free. **Room 14 → 15**, one nullable `ALTER TABLE focus_blocks ADD COLUMN habitId TEXT`; `DATA_MODEL.md` carries the column and the version. `habitId` is **native-only and in neither export** — `pauta.v4` is frozen, `pauta.books.v1` carries reading sessions only — so a web round-trip keeps the block and drops the link, pinned by a test. **Two leftovers and one amendment went with it:** the `EpubReader.kt:276` deprecation is suppressed with its reasoning (the replacement reports *changes*, and the reader has zoom off, so the value is constant and needed at measure time) making the Kotlin build warning-free; the CI workflow's `checkout`/`setup-java`/`upload-artifact` moved v4 → v5 — and the run that proved it failed on `Failed to CreateArtifact: Artifact storage quota has been hit`, an account-wide limit that killed a job whose tests had passed and whose APK had assembled, so the upload step is now `continue-on-error: true` with `retention-days: 7` (on `main` that failure would have taken the release publish with it); and `CLAUDE.md` §Commands no longer says "rely on CI" — it says how to build on the owner's machine (Temurin 21) *and* in a cloud container (SDK through the proxy), because a session that believes it cannot build will not try. **What a later session should do first: a device pass.** Five of `SHAKEDOWN`'s six tasks were compiled, merged and released without a device seeing them, S4 included — and the 14 → 15 migration has not run on any real database. §4 is the list, and it is now the obvious content of the next task file.
 2026-08-17 · #194 · **S5 done — the reader says the printed page, and `SHAKEDOWN.md` is out of buildable work.** Every task in that file has shipped except **S4**, which is blocked on the owner's three answers (§6) and cannot be started without them; S5 was taken out of turn for exactly that reason. **What S5 changed:** F7 taught the sanitiser to *draw* the print edition's page markers; the parser has always known where they are and the `:reader` boundary dropped that, so the chrome could only ever show a percentage. `Epub.scanChapter` now returns the word count and the markers from one pass, three parallel arrays cross the binder beside L4's titles, and `Epub.pageIndexAt` names the **last marker passed** from the chapter and scroll fraction the reader already reports. **The thing not to re-derive: the page cannot be measured.** JavaScript is off in the reader by design (§3 of its Security model), so there is no DOM to ask which marker is on screen and no channel to answer on — the position is arithmetic in Kotlin over word offsets, which is an approximation of pixels by prose, monotone and never ahead of the reader. **The `≈` distinction is deliberate and both halves are correct:** the chrome's number is the publisher's own and carries none; `bookProgressLabel`'s "≈ p. 123 de 228" in the shelf and detail sheet is a percentage of a length the owner typed in, says so, and was left exactly as it was. **Also settled:** a cloud container can install the Android SDK through the proxy and run the full gate — **271 tests, 19 classes, 0 failures** here — which is worth knowing before the next session assumes CI is its only option. It still cannot launch the app, and **no book has been opened with this change in it**; §4 carries that beside S2's drags, S3's back presses and S6's clean install.
 2026-08-17 · #193 · **S6 done — the first block's notification is posted again once the permission lands.** `SHAKEDOWN.md` is now S1 ✓ S2 ✓ S3 ✓ S6 ✓, and the first pending task is **S5**; S4 stays blocked on the owner's three answers, so S5 is the only thing left to build. **The mechanism:** N1 asks at the first focus block and starts the block whatever the answer, so on a clean install the service goes foreground and posts into a denied permission; the system drops it, and granting afterwards does not redisplay a dropped notification. The `RequestPermission` callback — empty since N1 — now calls `AppViewModel.repostFocusNotification()`, which re-issues the same `FocusServiceController.start` for the active block. Same notification id, so it replaces rather than duplicates. The collector that already did this work was extracted to `syncFocusNotification(block, sessions)` so both callers share one body; its behaviour is unchanged. **What a later session should not assume:** S6's cause is still a *hypothesis* — the fix is right either way, but nobody has watched the shade fill. **This is the last of the three defects, and all three shipped from cloud containers that cannot run the app** — S2's drags, S3's back presses and S6's clean install are one device pass, and §4 lists them together.
