@@ -45,14 +45,17 @@ Two more when a task needs them: **`docs/DATA_MODEL.md`** (every table, column
 and migration; the current Room version) and **`docs/TASK_FILE_FORMAT.md`**
 (read before writing a *new* task file). `docs/README.md` indexes everything.
 
-**There is no active task file.** `SHAKEDOWN.md` (S1…S6) finished on 2026-08-19
-and moved to `docs/archive/` with the rest. So "do the next pending task" has no
-answer right now: the next change starts by **writing a task file**
-(`docs/TASK_FILE_FORMAT.md`), and `docs/CONTEXT.md` §3 and §4 are what to read
-first. §4 is the one that matters — it lists what a device pass still owes, and
-the debt is large: #187 shipped thirty tasks with no Android SDK at all, and five
-of `SHAKEDOWN`'s six tasks were compiled, merged and released **without a device
-seeing any of them**.
+**The active file is `docs/TIDE_GOALS.md` (M1…M3)** — a countable maré's single
+number is both its ceiling and what marks the day done, so aiming high punishes
+you; M1 splits it into a mínimo and an optional meta, M2 says the surplus out
+loud, M3 gives the numbers a door outside Settings. `SHAKEDOWN.md` (S1…S6)
+finished on 2026-08-19 and moved to `docs/archive/` with the rest.
+
+**`docs/CONTEXT.md` §4 is still the thing to read first**, and it outweighs the
+active file: it lists what a device pass owes, and the debt is large — #187
+shipped thirty tasks with no Android SDK at all, and five of `SHAKEDOWN`'s six
+tasks were compiled, merged and released **without a device seeing any of
+them**.
 
 **Every task file lives in `docs/archive/`** — `NATIVE_IMPROVEMENTS.md`
 (A1…T2), `BOOK_MODE.md` (K1…K9), `POLISH.md` (P1…P10), `BOOK_READER.md`
